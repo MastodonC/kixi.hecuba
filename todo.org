@@ -1,0 +1,8 @@
+
+* TODO Afternoon
+** DONE Web front end - returning json - 1 hour
+   CLOCK: [2014-01-02 Thu 14:35]--[2014-01-02 Thu 14:45] =>  0:10
+** DONE dommy - formats the json - 1.5 hours
+   CLOCK: [2014-01-02 Thu 14:55]--[2014-01-02 Thu 16:08] =>  1:13
+** DONE pseudo-AMON gateway api - 1 hour?
+** TODO friend - 1.5 hours
