@@ -9,8 +9,8 @@
    )
   )
 
-(.log js/console "Hello!!!!")
-(dommy/append! (sel1 :#content) (node [:p "Hello Bruce!!!!"]))
+(.log js/console "Hello")
+(dommy/append! (sel1 :#content) (node [:p "Hello Bruce"]))
 
 (defn handler [response]
   (dommy/append! (sel1 :#content) (node [:div

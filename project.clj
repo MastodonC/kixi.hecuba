@@ -20,7 +20,7 @@
   :plugins [[lein-cljsbuild "1.0.1"]]
 
   ;; This isn't great, but until Malcolm gets the Jig cljs stuff working again
-  :resource-paths ["resources" "target"]
+  :resource-paths ["resources"]
 
   :source-paths ["src" "src-cljs" "/home/malcolm/src/jig/extensions/cljs-builder/src"]
 
