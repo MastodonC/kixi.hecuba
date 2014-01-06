@@ -7,16 +7,22 @@
                  [liberator "0.10.0"]
                  [com.cemerick/friend "0.2.0"]
 
-                 ;; [jig/cljs "0.7.0"]
-                 ;; [org.clojure/clojurescript "0.0-2030"] ; remove me
+
                  [prismatic/dommy "0.1.1"]
                  [cljs-ajax "0.2.3"]
+
+                 ;; Transitive: Because we depend directly on jig/extensions/cljs-builder, remove me when we don't
+                 [org.clojure/clojurescript "0.0-2138"]
+                 ;;[org.clojure/clojurescript "0.0-2030"]
+
                  ]
 
   :plugins [[lein-cljsbuild "1.0.1"]]
 
   ;; This isn't great, but until Malcolm gets the Jig cljs stuff working again
   :resource-paths ["resources" "target"]
+
+  :source-paths ["src" "src-cljs" "/home/malcolm/src/jig/extensions/cljs-builder/src"]
 
   :cljsbuild {
               :builds [{

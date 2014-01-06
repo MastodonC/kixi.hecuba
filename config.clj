@@ -8,13 +8,14 @@
 ;;   :jig.web/context "/services"
    }
 
-  #_:hecuba/cljs-builder
-  #_{:jig/component jig.cljs-builder/Builder
+  :hecuba/cljs-builder
+  {:jig/component jig.cljs-builder/Builder
    :jig/project "../hecuba/project.clj"
    :output-dir "../hecuba/target/js"
-   :output-to "../hecuba/target/js/main.js"
-   :source-map "../hecuba/target/js/main.js.map"
-   :optimizations :none
+   :output-to "../hecuba/target/js/cljsbuild-main.js"
+   :source-map "../hecuba/target/js/cljsbuild-main.js.map"
+   :optimizations :whitespace
+   :pretty-print true
    }
 
   #_:hecuba/cljs-server
@@ -28,7 +29,7 @@
    :jig/project "../hecuba/project.clj"
    :jig/dependencies [:hecuba/website #_:hecuba/cljs-server]
    ;; Optionally, route systems can be mounted on a sub-context
-   :jig.web/context "/services"
+   ;;:jig.web/context "/services"
    }
 
   :hecuba/webserver

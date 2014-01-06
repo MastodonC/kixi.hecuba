@@ -9,6 +9,9 @@
    [cemerick.friend :as friend]
    [cemerick.friend.workflows :as workflows]
    [cemerick.friend.credentials :as creds]
+   [ring.middleware.content-type :refer (wrap-content-type)]
+   [ring.middleware.file-info :refer (wrap-file-info)]
+   [ring.util.response :refer (file-response url-response)]
    )
   (:import (jig Lifecycle)))
 
@@ -34,10 +37,25 @@
                          {::uuid uuid})))
   :handle-created (fn [ctx] (::uuid ctx)))
 
+;;(io/resource "js/cljsbuild-main.js")
+
+(defrecord MyResources [options]
+  bidi.bidi.Matched
+  (resolve-handler [this m]
+    (println "M is" (keys m))
+    (println "remainder is" (:remainder m))
+    (assoc (dissoc m :remainder)
+      :handler (if-let [res (io/resource (str (:prefix options) (:remainder m)))]
+                 (-> (fn [req] (url-response res))
+                     (wrap-file-info (:mime-types options))
+                     (wrap-content-type options))
+                 {:status 404})))
+  (unresolve-handler [this m] nil))
+
 (defn make-routes [system]
   ["/"
    [["api" houses]
-    ["js/" (->Resources {:prefix ""})]
+    ["js/" (->MyResources {:prefix "js/"})]
     ["name" (wrap-params (name-resource system))]
     ["index.html" (fn [req]
                     {:status 200 :body (slurp (io/resource "index.html"))})]]])

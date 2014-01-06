@@ -9,7 +9,7 @@
    )
   )
 
-(.log js/console "Hello!!!")
+(.log js/console "Hello!!!!")
 (dommy/append! (sel1 :#content) (node [:p "Hello Bruce!!!!"]))
 
 (defn handler [response]
@@ -19,4 +19,4 @@
   (.log js/console (str response))
 )
 
-(GET "/services/api" {:handler handler})
+(GET "/api" {:handler handler})
