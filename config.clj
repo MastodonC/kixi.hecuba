@@ -14,7 +14,7 @@
    :output-dir "../kixi.hecuba/target/js"
    :output-to "../kixi.hecuba/target/js/main.js"
    :source-map "../kixi.hecuba/target/js/main.js.map"
-   ;; :optimizations :whitespace
+   :optimizations :none
    ;; :pretty-print true
    }
 
