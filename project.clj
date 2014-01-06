@@ -22,7 +22,7 @@
   ;; This isn't great, but until Malcolm gets the Jig cljs stuff working again
   :resource-paths ["resources"]
 
-  :source-paths ["src" "src-cljs" "/home/malcolm/src/jig/extensions/cljs-builder/src"]
+  :source-paths ["src" "src-cljs" "/Users/neale/workspace/jig/extensions/cljs-builder/src"]
 
   :cljsbuild {
               :builds [{

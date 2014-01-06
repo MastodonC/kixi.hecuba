@@ -2,7 +2,7 @@
  {
   :hecuba/website
   {:jig/component kixi.hecuba.web/Website
-   :jig/project "../hecuba/project.clj"
+   :jig/project "../kixi.hecuba/project.clj"
    :jig/dependencies []
    :name "Bruce!!"
 ;;   :jig.web/context "/services"
@@ -10,13 +10,12 @@
 
   :hecuba/cljs-builder
   {:jig/component jig.cljs-builder/Builder
-   :jig/project "../hecuba/project.clj"
-   :output-dir "../hecuba/target/js"
-   :output-to "../hecuba/target/js/main.js"
-   :source-map "../hecuba/target/js/main.js.map"
-   :optimizations :none
-;;   :optimizations :whitespace
-;;   :pretty-print
+   :jig/project "../kixi.hecuba/project.clj"
+   :output-dir "../kixi.hecuba/target/js"
+   :output-to "../kixi.hecuba/target/js/main.js"
+   :source-map "../kixi.hecuba/target/js/main.js.map"
+   ;; :optimizations :whitespace
+   ;; :pretty-print true
    }
 
   :hecuba/cljs-server
@@ -27,7 +26,7 @@
 
   :hecuba/routing
   {:jig/component jig.bidi/Router
-   :jig/project "../hecuba/project.clj"
+   :jig/project "../kixi.hecuba/project.clj"
    :jig/dependencies [:hecuba/website :hecuba/cljs-server]
    ;; Optionally, route systems can be mounted on a sub-context
    ;;:jig.web/context "/services"
@@ -35,7 +34,7 @@
 
   :hecuba/webserver
   {:jig/component jig.http-kit/Server
-   :jig/project "../hecuba/project.clj"
+   :jig/project "../kixi.hecuba/project.clj"
    :jig/dependencies [:hecuba/routing]
    :port 8000}
 
