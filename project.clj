@@ -1,3 +1,5 @@
+(def jig-version "2.0.0-RC2")
+
 (defproject hecuba "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
@@ -11,7 +13,9 @@
                  [prismatic/dommy "0.1.1"]
                  [cljs-ajax "0.2.3"]
 
-                 [jig/cljs-builder "2.0.1-SNAPSHOT"]]
+                 [jig/cljs-builder ~jig-version]
+                 [jig/http-kit ~jig-version]
+                 [jig/bidi ~jig-version]]
 
   :source-paths ["src" "src-cljs"]
 
