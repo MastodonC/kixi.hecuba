@@ -14,23 +14,23 @@
   :handle-ok {:uuid "599269be-0d47-4be6-986d-20da7129ece4"
               :postcode "NN15 6SF"})
 
-(defresource name-resource [system]
+(defresource name-resource [names]
   :allowed-methods #{:get :post}
-  :available-media-types ["application/json"]
-  :handle-ok (fn [ctx] (-> system :names deref))
+  :available-media-types ["application/json" "application/edn"]
+  :handle-ok (fn [ctx] @names)
   :post! (fn [ctx] (let [uuid (str (java.util.UUID/randomUUID))]
-                     (do (swap! (-> system :names) assoc uuid (-> ctx :request :form-params))
+                     (do (swap! names assoc uuid (-> ctx :request :form-params))
                          {::uuid uuid})))
   :handle-created (fn [ctx] (::uuid ctx)))
 
 (defn index [req]
   {:status 200 :body (slurp (io/resource "index.html"))})
 
-(defn make-routes [system]
+(defn make-routes [names]
   ["/"
    [["" (->Redirect 307 index)]
     ["api" houses]
-    ["name" (wrap-params (name-resource system))]
+    ["name" (wrap-params (name-resource names))]
     ["index.html" index ]]])
 
 (deftype Website [config]
@@ -38,5 +38,5 @@
   (init [_ system]
     (assoc system :names (atom {})))
   (start [_ system]
-    (add-bidi-routes system config (make-routes system)))
+    (add-bidi-routes system config (make-routes (:names system))))
   (stop [_ system] system))
