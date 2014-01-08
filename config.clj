@@ -10,6 +10,14 @@
    :jig/project "../kixi.hecuba/project.clj"
    }
 
+  :hecuba/kafka
+  {:jig/component kixi.hecuba.kafka/Kafka
+   :jig/project "../kixi.hecuba/project.clj"
+   :jig/dependencies []
+   :producer "localhost:9092"
+   :consumer "localhost:2181"
+  }
+  
   :hecuba/website
   {:jig/component kixi.hecuba.web/Website
    :jig/project "../kixi.hecuba/project.clj"

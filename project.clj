@@ -16,7 +16,9 @@
                  [jig/async ~jig-version]
                  [jig/cljs-builder ~jig-version]
                  [jig/http-kit ~jig-version]
-                 [jig/bidi ~jig-version]]
+                 [jig/bidi ~jig-version]
+
+                 [clj-kafka "0.1.2-0.8"]]
 
   :source-paths ["src" "src-cljs"]
 
