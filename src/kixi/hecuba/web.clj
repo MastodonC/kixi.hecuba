@@ -1,6 +1,7 @@
 (ns kixi.hecuba.web
   (:require
    jig
+   [jig.util :refer (get-dependencies)]
    [jig.bidi :refer (add-bidi-routes)]
    [bidi.bidi :refer (match-route path-for ->Resources ->Redirect ->Alternates)]
    [ring.middleware.params :refer (wrap-params)]
@@ -8,59 +9,63 @@
    [clojure.tools.logging :refer :all]
    [clojure.edn :as edn]
    [liberator.core :refer (resource defresource)]
+   [kixi.hecuba.model :refer (add-project! get-project list-projects)]
    )
   (:import (jig Lifecycle)))
 
-(defn add-project [r id m]
-  (infof "Adding project: %s" id)
-  (alter r assoc id m))
+;;(def base-media-types ["text/html" "application/json" "application/edn"])
+(def base-media-types ["application/json"])
 
-(defresource houses
-  :available-media-types ["application/json"]
-  :handle-ok {:uuid "599269be-0d47-4be6-986d-20da7129ece4"
-              :postcode "NN15 6SF"})
+(defresource projects-resource [store project-resource]
+  :allowed-methods #{:get}
+  :available-media-types base-media-types
+  :exists? (fn [{{{id :id} :route-params body :body routes :jig.bidi/routes} :request :as ctx}]
+             {::projects
+              (map (fn [m] (assoc m :href (path-for routes project-resource :id (:id m)))) (list-projects store))})
+  :handle-ok (fn [{projects ::projects {mt :media-type} :representation :as ctx}]
+               (case mt
+                 "text/html" projects ; do something here to render the href as a link
+                 projects)))
 
-(defresource project-resource [projects]
-  :allowed-methods #{:put}
-  :available-media-types ["application/edn"]
-  :exists false
+(defresource project-resource [store]
+  :allowed-methods #{:get :put}
+  :available-media-types base-media-types
+  :exists? (fn [{{{id :id} :route-params body :body routes :jig.bidi/routes} :request :as ctx}]
+             (if-let [p (get-project store id)] {::project p} false))
+  :handle-ok (fn [ctx] (::project ctx))
   :put! (fn [{{{id :id} :route-params body :body} :request}]
           (let [details (io! (edn/read (java.io.PushbackReader. (io/reader body))))]
-            (dosync
-             (add-project projects id details)))))
-
-(defresource name-resource [names]
-  :allowed-methods #{:get :post}
-  :available-media-types ["application/json" "application/edn"]
-  :handle-ok (fn [ctx] @names)
-  :post! (fn [ctx] (let [uuid (str (java.util.UUID/randomUUID))]
-                     (do (swap! names assoc uuid (-> ctx :request :form-params))
-                         {::uuid uuid})))
-  :handle-created (fn [ctx] (::uuid ctx)))
+            (add-project! store id details))))
 
 (defn index [req]
   {:status 200 :body (slurp (io/resource "hecuba/index.html"))})
 
-(defn make-routes [names]
-  ["/"
-   [["" (->Redirect 307 index)]
-    ["overview.html" index]
+(defn make-routes [store]
+  (let [project (project-resource store)
+        projects (projects-resource store project)]
+    ["/"
+     [["" (->Redirect 307 index)]
+      ["overview.html" index]
 
-    ["api" houses]
-    ["name" (wrap-params (name-resource names))]
+      ["projects/" projects]
+      ["projects" (->Redirect 307 projects)]
+      [["projects/" :id] project]
 
-    [["projects/" :id] (project-resource (ref {}))]
+      ;; Static resources
+      [(->Alternates ["stylesheets/" "images/" "javascripts/"])
+       (->Resources {:prefix "hecuba/"})]
 
-    ;; Static resources
-    [(->Alternates ["stylesheets/" "images/" "javascripts/"])
-     (->Resources {:prefix "hecuba/"})]
+      ]]))
 
-    ]])
+(defn lookup-store [system config]
+  (or
+   (some (comp :kixi.hecuba.model/store system) (:jig/dependencies config))
+   (throw (ex-info "No store found in system" {:dependencies (:jig/dependencies config)
+                                                :searched-in (map system (:jig/dependencies config))}))))
 
 (deftype Website [config]
   Lifecycle
-  (init [_ system]
-    (assoc system :names (atom {})))
+  (init [_ system] system)
   (start [_ system]
-    (add-bidi-routes system config (make-routes (:names system))))
+    (add-bidi-routes system config (make-routes (lookup-store system config))))
   (stop [_ system] system))

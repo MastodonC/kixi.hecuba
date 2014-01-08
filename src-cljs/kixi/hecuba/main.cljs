@@ -5,24 +5,22 @@
    [ajax.core :refer (GET POST)]
    )
   (:require-macros
-   [dommy.macros :refer [node sel sel1]]
-   )
-  )
-
+   [dommy.macros :refer [node sel sel1]]))
 
 (defn handler [response]
-  (dommy/append! (sel1 :#content)
-         (node [:div
-                [:p "Postcode: " (get response "postcode")]
-                [:p "UUID: " (get response "uuid")]]))
-  (.log js/console (str response))
-)
+  (let [tbody
+        (node [:tbody
+               (for [row (js->clj response)]
+                 [:tr [:td {:colspan 5} (str row)]])])]
+    (dommy/replace! (sel1 [:#projects :table :tbody]) tbody)))
 
 (defn table [cols]
   [:table.full
-   [:tr
-    (for [colname cols]
-      [:th colname])]])
+   [:thead
+    [:tr
+     (for [colname cols]
+       [:th colname])]]
+   [:tbody]])
 
 (defn main []
   (dommy/prepend! (sel1 :#content)
@@ -48,8 +46,7 @@
             [:p
              [:a.view-all {:href "/projects"} "View all »"]
              [:a {:href "/projects/new"} "Add a new project"]]]
-           ])))
-
-;;(GET "/api" {:handler handler})
+           ]))
+  (GET "/projects/" {:handler handler}))
 
 (set! (.-onload js/window) main)

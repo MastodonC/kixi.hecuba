@@ -1,9 +1,14 @@
 {:jig/components
  {
+  :hecuba/store
+  {:jig/component kixi.hecuba.dev/RefBasedStoreComponent
+   :jig/project "../kixi.hecuba/project.clj"
+   }
+
   :hecuba/website
   {:jig/component kixi.hecuba.web/Website
    :jig/project "../kixi.hecuba/project.clj"
-   :jig/dependencies []
+   :jig/dependencies [ :hecuba/store]
    :name "Bruce!!"
 ;;   :jig.web/context "/services"
    }
