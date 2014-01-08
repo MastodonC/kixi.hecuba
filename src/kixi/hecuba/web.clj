@@ -29,7 +29,7 @@
 (defn make-routes [names]
   ["/"
    [["" (->Redirect 307 index)]
-    ["index.html" index]
+    ["overview.html" index]
 
     ["api" houses]
     ["name" (wrap-params (name-resource names))]
