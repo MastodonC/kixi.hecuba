@@ -1,8 +1,11 @@
-
-* TODO Afternoon
-** DONE Web front end - returning json - 1 hour
-   CLOCK: [2014-01-02 Thu 14:35]--[2014-01-02 Thu 14:45] =>  0:10
-** DONE dommy - formats the json - 1.5 hours
-   CLOCK: [2014-01-02 Thu 14:55]--[2014-01-02 Thu 16:08] =>  1:13
-** DONE pseudo-AMON gateway api - 1 hour?
-** TODO friend - 1.5 hours
+* TODO Data
+** DONE Add http-kit client component
+   CLOCK: [2014-01-08 Wed 14:39]--[2014-01-08 Wed 15:03] =>  0:24
+- [X] Define the component
+- [X] Wire into the config
+- [X] Check project.clj dependency is correct
+- [X] Do the client PUT of some data
+- [X] Verify that 404 is received
+** DONE Liberator resource to handle the client PUTS
+** TODO defprotocol to add the project to a ref
+** TODO Display list of projects

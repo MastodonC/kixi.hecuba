@@ -38,4 +38,9 @@
    :jig/dependencies [:hecuba/routing]
    :port 8000}
 
+  :hecuba.dev/example-data-loader
+  {:jig/component kixi.hecuba.dev/ExampleDataLoader
+   :jig/project "../kixi.hecuba/project.clj"
+   :jig/dependencies [:hecuba/webserver]}
+
 }}
