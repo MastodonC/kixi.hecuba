@@ -2,7 +2,7 @@
   (:require
    jig
    [jig.bidi :refer (add-bidi-routes)]
-   [bidi.bidi :refer (match-route path-for ->Resources ->Redirect)]
+   [bidi.bidi :refer (match-route path-for ->Resources ->Redirect ->Alternates)]
    [ring.middleware.params :refer (wrap-params)]
    [clojure.java.io :as io]
    [liberator.core :refer (resource defresource)]
@@ -24,14 +24,21 @@
   :handle-created (fn [ctx] (::uuid ctx)))
 
 (defn index [req]
-  {:status 200 :body (slurp (io/resource "index.html"))})
+  {:status 200 :body (slurp (io/resource "hecuba/index.html"))})
 
 (defn make-routes [names]
   ["/"
    [["" (->Redirect 307 index)]
+    ["index.html" index]
+
     ["api" houses]
     ["name" (wrap-params (name-resource names))]
-    ["index.html" index ]]])
+
+    ;; Static resources
+    [(->Alternates ["stylesheets/" "images/" "javascripts/"])
+     (->Resources {:prefix "hecuba/"})]
+
+    ]])
 
 (deftype Website [config]
   Lifecycle
