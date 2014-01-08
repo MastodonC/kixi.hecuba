@@ -7,14 +7,6 @@
    [clj-kafka.consumer.zk :as consumer])
   (:import (jig Lifecycle)))
 
-(def producer-config {"metadata.broker.list" ""
-                      "serializer.class" "kafka.serializer.DefaultEncoder"
-                      "Partitioner.Class" "kafka.producer.DefaultPartitioner"})
-(def consumer-config {"zookeeper.connect" ""
-                      "group.id" "clj-kafka.consumer"
-                      "auto.offset.reset" "smallest"
-                      "auto.commit.enable" "true"})
-
 (defn string-value
   [m]
   (String. (:value m)))
@@ -24,22 +16,26 @@
  (producer/message "test" (.getBytes str)))
 
 (defn send-msg 
-  [message]
+  [message producer-config]
   (let [p (producer/producer producer-config)]
     (producer/send-message p (create-msg message))))
 
 (defn receive
-  []
+  [consumer-config]
   (kcore/with-resource [c (consumer/consumer consumer-config)]
     consumer/shutdown
     (doall (take 10 (consumer/messages c ["test"])))))
+
+;; TODO jig console throws "java.lang.String cannot be cast to clojure.lang.Named" when displaying config
+(defn create-kafka-connections
+  [system config]
+  (update-in system [(:jig/id config) ::config]
+             merge {:producer-config (:producer config)} {:consumer-config (:consumer config)}))
 
 (deftype Kafka [config]
   Lifecycle
   (init [_ system]
     (assoc system :producer (atom {}) :consumer (atom {})))
   (start [_ system]
-    (println "Starting Kafka Session")
-    (assoc producer-config "metadata.broker.list" (:producer config))
-    (assoc consumer-config  "zookeeper.connect" (:consumer config)))
+    (create-kafka-connections system config))
   (stop [_ system] system))
