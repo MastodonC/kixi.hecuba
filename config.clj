@@ -3,6 +3,7 @@
   :hecuba/refstore
   {:jig/component kixi.hecuba.dev/RefStore
    :jig/project "../kixi.hecuba/project.clj"
+   :doc "An in-memory store for testing, this binds Commander and Querier in the system at :querier and :commander respectively"
    }
 
   :hecuba/kafka
@@ -22,7 +23,8 @@
   {:jig/component kixi.hecuba.web/Website
    :jig/project "../kixi.hecuba/project.clj"
    :jig/dependencies [:hecuba/refstore]
-   }
+   :doc "This depends on types that satisfy Commander and Querier being
+   bound in the system at :querier and :commander respectively" }
 
   :hecuba/cljs-builder
   {:jig/component jig.cljs-builder/Builder
