@@ -1,7 +1,7 @@
 (ns kixi.hecuba.web
   (:require
    jig
-   [jig.util :refer (get-dependencies)]
+   [jig.util :refer (get-dependencies satisfying-dependency)]
    [jig.bidi :refer (add-bidi-routes)]
    [bidi.bidi :refer (match-route path-for ->Resources ->Redirect ->Alternates)]
    [ring.middleware.params :refer (wrap-params)]
@@ -67,5 +67,6 @@
   Lifecycle
   (init [_ system] system)
   (start [_ system]
+    (println "My channel is " (satisfying-dependency system config 'jig.async/Channel))
     (add-bidi-routes system config (make-routes (lookup-store system config))))
   (stop [_ system] system))

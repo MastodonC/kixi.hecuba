@@ -1,4 +1,4 @@
-(def jig-version "2.0.0-RC2")
+(def jig-version "2.0.0-RC5-SNAPSHOT")
 
 (defproject hecuba "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
@@ -13,6 +13,7 @@
                  [prismatic/dommy "0.1.1"]
                  [cljs-ajax "0.2.3"]
 
+                 [jig/async ~jig-version]
                  [jig/cljs-builder ~jig-version]
                  [jig/http-kit ~jig-version]
                  [jig/bidi ~jig-version]]

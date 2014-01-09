@@ -5,10 +5,15 @@
    :jig/project "../kixi.hecuba/project.clj"
    }
 
+  :hecuba/channel
+  {:jig/component jig.async/Channel
+   :jig/project "../kixi.hecuba/project.clj"
+   }
+
   :hecuba/website
   {:jig/component kixi.hecuba.web/Website
    :jig/project "../kixi.hecuba/project.clj"
-   :jig/dependencies [ :hecuba/store]
+   :jig/dependencies [:hecuba/store :hecuba/channel]
    :name "Bruce!!"
 ;;   :jig.web/context "/services"
    }
