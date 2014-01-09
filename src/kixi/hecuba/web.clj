@@ -24,7 +24,7 @@
                  {::uuid uuid}))
            ;; Send to kafka
            (println (str "Reading " @reading))
-           (kafka/send-msg (str @reading) producer-config)
+           (kafka/send-msg (str @reading) "readings" producer-config)
            ;; Return the offset
            )
   :handle-created (fn [ctx] (::uuid ctx)))

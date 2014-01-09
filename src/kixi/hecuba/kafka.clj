@@ -12,13 +12,13 @@
   (String. (:value m)))
 
 (defn create-msg
- [str]
- (producer/message "test" (.getBytes str)))
+ [msg topic]
+ (producer/message topic (.getBytes (str msg))))
 
 (defn send-msg 
-  [message producer-config]
+  [message topic producer-config]
   (let [p (producer/producer producer-config)]
-    (producer/send-message p (create-msg message))))
+    (producer/send-message p (create-msg message topic))))
 
 (defn receive
   [consumer-config]
