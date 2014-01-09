@@ -1,11 +1,14 @@
 (ns kixi.hecuba.kafka
   (:require
    jig
+
    [clj-kafka.producer    :as producer]
    [clj-kafka.zk          :as zk]
    [clj-kafka.core        :as kcore]
    [clj-kafka.consumer.zk :as consumer])
-  (:import (jig Lifecycle)))
+  (:import
+   (jig Lifecycle)
+   (kixi.hecuba.protocols Commander)))
 
 (defn string-value
   [m]
@@ -15,7 +18,7 @@
  [msg topic]
  (producer/message topic (.getBytes (str msg))))
 
-(defn send-msg 
+(defn send-msg
   [message topic producer-config]
   (let [p (producer/producer producer-config)]
     (producer/send-message p (create-msg message topic))))
@@ -30,8 +33,15 @@
 (defn create-kafka-connections
   [system config]
   (update-in system [(:jig/id config) ::producer-config] conj (:producer config))
- 
+
   ;(update-in system [(:jig/id config) ::config] merge {:producer-config (:producer config)} {:consumer-config (:consumer config)} )
+  )
+
+(deftype KafkaCommander [producer-config]
+  Commander
+  (upsert! [_ payload]
+    (send-msg payload)
+    )
   )
 
 (deftype Kafka [config]

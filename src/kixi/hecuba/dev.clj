@@ -3,12 +3,12 @@
 (ns kixi.hecuba.dev
   (:require
    jig
-   kixi.hecuba.model
+   kixi.hecuba.protocols
    [clojure.tools.logging :refer :all]
    [org.httpkit.client :refer (request) :rename {request http-request}])
   (:import
    (jig Lifecycle)
-   (kixi.hecuba.model Store)))
+   (kixi.hecuba.protocols Commander Querier)))
 
 (defn put-resource [uri-prefix data]
   (http-request
@@ -44,20 +44,23 @@
     system)
   (stop [_ system] system))
 
-(defrecord RefBasedStore [r]
-  Store
-  (add-project! [_ id details]
-    (infof "Adding project: %s" id)
-    (dosync (alter r assoc id details)))
-  (list-projects [_]
-    (for [[k v] (seq (deref r))] (assoc v :id k)))
-  (get-project [_ id] (get @r id)))
+(deftype RefCommander [r]
+  Commander
+  (upsert! [_ payload]
+    (infof "upserting... %s" payload)
+    (dosync (alter r assoc (:id payload) payload))))
 
-(deftype RefBasedStoreComponent [config]
+(defrecord RefQuerier [r]
+  Querier
+  (item [_ id] (get @r id))
+  (items [_] (vals @r)))
+
+(deftype RefStore [config]
   Lifecycle
   (init [_ system]
-    (assoc-in system
-              [(:jig/id config) :kixi.hecuba.model/store]
-              (->RefBasedStore (ref {}))))
+    (let [r (ref {})]
+      (-> system
+       (assoc :commander (->RefCommander r))
+       (assoc :querier (->RefQuerier r)))))
   (start [_ system] system)
   (stop [_ system] system))

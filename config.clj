@@ -1,12 +1,7 @@
 {:jig/components
  {
-  :hecuba/store
-  {:jig/component kixi.hecuba.dev/RefBasedStoreComponent
-   :jig/project "../kixi.hecuba/project.clj"
-   }
-
-  :hecuba/channel
-  {:jig/component jig.async/Channel
+  :hecuba/refstore
+  {:jig/component kixi.hecuba.dev/RefStore
    :jig/project "../kixi.hecuba/project.clj"
    }
 
@@ -16,19 +11,17 @@
    :jig/dependencies []
    :producer  {"metadata.broker.list" "localhost:9092"
                "serializer.class" "kafka.serializer.DefaultEncoder"
-               "Partitioner.Class" "kafka.producer.DefaultPartitioner"} 
+               "Partitioner.Class" "kafka.producer.DefaultPartitioner"}
    :consumer  {"zookeeper.connect"  "localhost:2181"
                "group.id" "clj-kafka.consumer"
                "auto.offset.reset" "smallest"
-               "auto.commit.enable" "true"} 
+               "auto.commit.enable" "true"}
    }
 
   :hecuba/website
   {:jig/component kixi.hecuba.web/Website
    :jig/project "../kixi.hecuba/project.clj"
-   :jig/dependencies [:hecuba/store :hecuba/channel :hecuba/kafka]
-   :name "Bruce!!"
-   ;;   :jig.web/context "/services"
+   :jig/dependencies [:hecuba/refstore]
    }
 
   :hecuba/cljs-builder
