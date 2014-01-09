@@ -14,6 +14,8 @@
    )
   (:import (jig Lifecycle)))
 
+(def base-media-types ["application/json"])
+
 (defresource reading-resource [reading producer-config]
   :allowed-methods #{:post :get}
   :available-media-types ["application/json"]
@@ -60,6 +62,9 @@
      [["" (->Redirect 307 index)]
       ["overview.html" index]
 
+      ["name" (wrap-params (name-resource names))]
+      ["reading" (wrap-params (reading-resource names producer-config))]
+
       ["projects/" projects]
       ["projects" (->Redirect 307 projects)]
       [["projects/" :id] project]
@@ -75,14 +80,6 @@
    (some (comp :kixi.hecuba.model/store system) (:jig/dependencies config))
    (throw (ex-info "No store found in system" {:dependencies (:jig/dependencies config)
                                                 :searched-in (map system (:jig/dependencies config))}))))
-
-(defn make-routes [names producer-config]
-  ["/"
-   [["" (->Redirect 307 index)]
-    ["api" houses]
-    ["name" (wrap-params (name-resource names))]
-    ["reading" (wrap-params (reading-resource names producer-config))]
-    ["index.html" index ]]])
 
 (deftype Website [config]
   Lifecycle
