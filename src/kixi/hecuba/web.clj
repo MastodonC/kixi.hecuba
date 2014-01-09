@@ -55,14 +55,14 @@
 (defn index [req]
   {:status 200 :body (slurp (io/resource "hecuba/index.html"))})
 
-(defn make-routes [store]
+(defn make-routes [names producer-config store]
   (let [project (project-resource store)
         projects (projects-resource store project)]
     ["/"
      [["" (->Redirect 307 index)]
       ["overview.html" index]
 
-      ["name" (wrap-params (name-resource names))]
+      ;;["name" (wrap-params (name-resource names))]
       ["reading" (wrap-params (reading-resource names producer-config))]
 
       ["projects/" projects]
@@ -86,7 +86,7 @@
   (init [_ system] system)
   (start [_ system]
     (println "My channel is " (satisfying-dependency system config 'jig.async/Channel))
-    (add-bidi-routes system config (make-routes (:names system) 
-                                                (first (:kixi.hecuba.kafka/producer-config (:hecuba/kafka system))) 
+    (add-bidi-routes system config (make-routes (:names system)
+                                                (first (:kixi.hecuba.kafka/producer-config (:hecuba/kafka system)))
                                                 (lookup-store system config))))
   (stop [_ system] system))
