@@ -14,10 +14,10 @@
   {:jig/component kixi.hecuba.kafka/Kafka
    :jig/project "../kixi.hecuba/project.clj"
    :jig/dependencies []
-   :producer  {"metadata.broker.list" "localhost:2181"
+   :producer  {"metadata.broker.list" "localhost:9092"
                "serializer.class" "kafka.serializer.DefaultEncoder"
                "Partitioner.Class" "kafka.producer.DefaultPartitioner"} 
-   :consumer  {"zookeeper.connect"  "localhost:9092"
+   :consumer  {"zookeeper.connect"  "localhost:2181"
                "group.id" "clj-kafka.consumer"
                "auto.offset.reset" "smallest"
                "auto.commit.enable" "true"} 
@@ -26,7 +26,7 @@
   :hecuba/website
   {:jig/component kixi.hecuba.web/Website
    :jig/project "../kixi.hecuba/project.clj"
-   :jig/dependencies [:hecuba/store :hecuba/channel]
+   :jig/dependencies [:hecuba/store :hecuba/channel :hecuba/kafka]
    :name "Bruce!!"
    ;;   :jig.web/context "/services"
    }
@@ -61,13 +61,9 @@
    :jig/dependencies [:hecuba/routing]
    :port 8000}
 
-<<<<<<< HEAD
   :hecuba.dev/example-data-loader
   {:jig/component kixi.hecuba.dev/ExampleDataLoader
    :jig/project "../kixi.hecuba/project.clj"
    :jig/dependencies [:hecuba/webserver]}
 
 }}
-=======
-  }}
->>>>>>> Fix passing system through kafka component.

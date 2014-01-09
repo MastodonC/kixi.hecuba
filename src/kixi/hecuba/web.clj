@@ -9,12 +9,25 @@
    [clojure.tools.logging :refer :all]
    [clojure.edn :as edn]
    [liberator.core :refer (resource defresource)]
+   [kixi.hecuba.kafka :as kafka]
    [kixi.hecuba.model :refer (add-project! get-project list-projects)]
    )
   (:import (jig Lifecycle)))
 
-;;(def base-media-types ["text/html" "application/json" "application/edn"])
-(def base-media-types ["application/json"])
+(defresource reading-resource [reading producer-config]
+  :allowed-methods #{:post :get}
+  :available-media-types ["application/json"]
+  :handle-ok (fn [ctx] @reading)
+  :post! (fn [ctx]
+           (let [uuid (str (java.util.UUID/randomUUID))]
+             (do (swap! reading assoc uuid (-> ctx :request :form-params))
+                 {::uuid uuid}))
+           ;; Send to kafka
+           (println (str "Reading " @reading))
+           (kafka/send-msg (str @reading) producer-config)
+           ;; Return the offset
+           )
+  :handle-created (fn [ctx] (::uuid ctx)))
 
 (defresource projects-resource [store project-resource]
   :allowed-methods #{:get}
@@ -63,10 +76,20 @@
    (throw (ex-info "No store found in system" {:dependencies (:jig/dependencies config)
                                                 :searched-in (map system (:jig/dependencies config))}))))
 
+(defn make-routes [names producer-config]
+  ["/"
+   [["" (->Redirect 307 index)]
+    ["api" houses]
+    ["name" (wrap-params (name-resource names))]
+    ["reading" (wrap-params (reading-resource names producer-config))]
+    ["index.html" index ]]])
+
 (deftype Website [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]
     (println "My channel is " (satisfying-dependency system config 'jig.async/Channel))
-    (add-bidi-routes system config (make-routes (lookup-store system config))))
+    (add-bidi-routes system config (make-routes (:names system) 
+                                                (first (:kixi.hecuba.kafka/producer-config (:hecuba/kafka system))) 
+                                                (lookup-store system config))))
   (stop [_ system] system))
