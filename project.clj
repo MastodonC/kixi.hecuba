@@ -13,6 +13,7 @@
                  [prismatic/dommy "0.1.1"]
                  [cljs-ajax "0.2.3"]
 
+                 [jig ~jig-version]
                  [jig/async ~jig-version]
                  [jig/cljs-builder ~jig-version]
                  [jig/http-kit ~jig-version]
