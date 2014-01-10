@@ -8,8 +8,9 @@
    [kixi.hecuba.hash :refer (sha1)]))
 
 (def base-media-types ["text/html" "application/json" "application/edn"])
-(defn readings [req]
-  {:status 200 :body (slurp (io/resource "reading.html"))})
+
+(defn devices [req]
+  {:status 200 :body (slurp (io/resource "device.html"))})
 
 (defresource device-resource [producer-config]
   :allowed-methods #{:post}
@@ -18,7 +19,7 @@
            (let [payload (io! (edn/read (java.io.PushbackReader. (io/reader body))))
                  id (sha1 (str payload))]
            (kafka/send-msg (str {(keyword id) payload}) "readings" producer-config)))
-  :post-redirect? (fn [ctx] {:location (format "/readings/new/confirm")}))
+  :post-redirect? (fn [ctx] {:location (format "/devices/new/confirm")}))
 
 (defresource device-confirmation []
   :allowed-methods #{:get}
@@ -27,7 +28,7 @@
 
 (defn create-routes [producer-config]
   [""
-   [["readings" {"/reading" (->Redirect 307 readings)
-                 "/new" { "" readings
+   [["devices" {"/device" (->Redirect 307 devices)
+                 "/new" { "" devices
                           "/post" (device-resource producer-config)
                           "/confirm" (device-confirmation)}}]]])
