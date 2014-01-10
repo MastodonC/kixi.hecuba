@@ -9,6 +9,7 @@
    [clojure.tools.logging :refer :all]
    [clojure.edn :as edn]
    [liberator.core :refer (resource defresource)]
+   [kixi.hecuba.hash :refer (sha1)]
    [kixi.hecuba.kafka :as kafka]
    [kixi.hecuba.protocols :refer (upsert! item items)]
    )
@@ -38,8 +39,9 @@
                  "text/html" projects ; do something here to render the href as a link
                  projects))
   :post! (fn [{{body :body} :request}]
-          (let [payload (io! (edn/read (java.io.PushbackReader. (io/reader body))))]
-            (upsert! commander payload))))
+           (let [payload (io! (edn/read (java.io.PushbackReader. (io/reader body))))]
+             (upsert! commander payload))))
+
 (defresource project-resource [querier]
   :allowed-methods #{:get}
   :available-media-types base-media-types
@@ -67,7 +69,7 @@
     
       ["projects/" projects]
       ["projects" (->Redirect 307 projects)]
-      [["projects/" :id] project]
+      [["project/" :id] project]
 
       ;; Static resources
       [(->Alternates ["stylesheets/" "images/" "javascripts/"])

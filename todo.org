@@ -7,8 +7,8 @@
 - [X] Do the client PUT of some data
 - [X] Verify that 404 is received
 ** DONE Liberator resource to handle the client PUTS
-** TODO defprotocol to add the project to a ref
-** TODO Display list of projects
+** DONE defprotocol to add the project to a ref
+** DONE Display list of projects
 
 * TODO Use Accept header in cljs-ajax
 

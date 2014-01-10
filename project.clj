@@ -23,6 +23,6 @@
 
   :source-paths ["src" "src-cljs"]
 
-  :main kixi.hecuba :aot [kixi.hecuba]
+  :profiles {:uberjar {:main kixi.hecuba :aot [kixi.hecuba]}}
 
   )
