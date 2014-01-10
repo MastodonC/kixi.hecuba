@@ -47,6 +47,6 @@
              [:a.view-all {:href "/projects"} "View all »"]
              [:a {:href "/projects/new"} "Add a new project"]]]
            ]))
-  (GET "/projects/" {:handler handler}))
+  (GET "/projects/" {:handler handler :headers {"Accept" "application/json"}}))
 
 (set! (.-onload js/window) main)
