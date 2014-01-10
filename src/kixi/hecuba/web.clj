@@ -20,13 +20,11 @@
 (defresource reading-resource [producer-config]
   :allowed-methods #{:post}
   :available-media-types base-media-types
-  :handle-ok (fn [ctx] (::reading ctx))
   :post! (fn [ctx]
            (let [uuid (str (java.util.UUID/randomUUID))
                  reading (-> ctx :request :form-params)]
            (kafka/send-msg (str {(keyword uuid) reading}) "readings" producer-config)))
- ; :post-redirect? (fn [ctx] {:location (->Redirect 307 readings)})
-  :handle-created (fn [ctx] (::uuid ctx)))
+  :post-redirect? (fn [ctx] {:location (format "/readings/reading")}))
 
 (defresource projects-resource [querier commander project-resource]
   :allowed-methods #{:get :post}
