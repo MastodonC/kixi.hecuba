@@ -23,4 +23,6 @@
 
   :source-paths ["src" "src-cljs"]
 
+  :main kixi.hecuba :aot [kixi.hecuba]
+
   )
