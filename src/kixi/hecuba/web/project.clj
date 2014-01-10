@@ -14,7 +14,7 @@
   :available-media-types base-media-types
   :exists? (fn [{{{id :id} :route-params body :body routes :jig.bidi/routes} :request :as ctx}]
              {::projects
-              (map (fn [m]  m #_(assoc m :href (path-for routes project-resource :id (:id m)))) (items querier))})
+              (map (fn [m] m #_(assoc m :href (path-for routes project-resource :id (:id m)))) (items querier))})
   :handle-ok (fn [{projects ::projects {mt :media-type} :representation :as ctx}]
                (case mt
                  "text/html" projects ; do something here to render the href as a link

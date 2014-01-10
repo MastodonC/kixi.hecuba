@@ -4,6 +4,7 @@
   (:require
    jig
    kixi.hecuba.protocols
+   [kixi.hecuba.hash :refer (sha1)]
    [clojure.tools.logging :refer :all]
    [org.httpkit.client :refer (request) :rename {request http-request}])
   (:import
@@ -50,7 +51,7 @@
   Commander
   (upsert! [_ payload]
     (infof "upserting... %s" payload)
-    (let [id (str (java.util.UUID/randomUUID))]
+    (let [id (sha1 (:name payload))]
       (dosync (alter r assoc id (assoc payload :id id))))))
 
 (defrecord RefQuerier [r]
