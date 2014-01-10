@@ -1,4 +1,4 @@
-(def jig-version "2.0.0-RC6-SNAPSHOT")
+(def jig-version "2.0.0-RC6")
 
 (defproject hecuba "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
