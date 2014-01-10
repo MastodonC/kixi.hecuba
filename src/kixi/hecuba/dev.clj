@@ -40,7 +40,7 @@
      (map (partial post-resource "http://localhost:8000/projects/")) ; PUT them over HTTP
      (map deref) doall ; wait for all promises to be delivered (all responses to arrive)
      #_(every? #(= (:status %) 201))  ; check each returns a status of 201
-     println)                          ; fail otherwise!
+     assert)                          ; fail otherwise!
     system)
   (stop [_ system] system))
 
