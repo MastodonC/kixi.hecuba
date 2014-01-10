@@ -2,10 +2,10 @@
   (:require
    [liberator.core :refer (defresource)]
    [kixi.hecuba.protocols :refer (upsert! item items)]
-   [bidi.bidi :refer (->Redirect)]
+   [bidi.bidi :refer (->Redirect path-for)]
+   [hiccup.core :refer (html)]
    [clojure.edn :as edn]
-   [clojure.java.io :as io]
-   ))
+   [clojure.java.io :as io]))
 
 (def base-media-types ["text/html" "application/json" "application/edn"])
 
@@ -14,10 +14,11 @@
   :available-media-types base-media-types
   :exists? (fn [{{{id :id} :route-params body :body routes :jig.bidi/routes} :request :as ctx}]
              {::projects
-              (map (fn [m] m #_(assoc m :href (path-for routes project-resource :id (:id m)))) (items querier))})
+              (map (fn [m] (assoc m :href (path-for routes project-resource :id (:id m)))) (items querier))})
   :handle-ok (fn [{projects ::projects {mt :media-type} :representation :as ctx}]
                (case mt
-                 "text/html" projects ; do something here to render the href as a link
+                 "text/html"
+                 (html [:table (for [p projects] [:tr [:td [:a {:href (:href p)} (:name p)]]])])
                  projects))
   :post! (fn [{{body :body} :request}]
            (let [payload (io! (edn/read (java.io.PushbackReader. (io/reader body))))]
@@ -28,9 +29,7 @@
   :available-media-types base-media-types
   :exists? (fn [{{{id :id} :route-params body :body routes :jig.bidi/routes} :request :as ctx}]
              (if-let [p (item querier id)] {::project p} false))
-  :handle-ok (fn [ctx] (::project ctx))
-  )
-
+  :handle-ok (fn [ctx] (::project ctx)))
 
 (defn create-routes [querier commander]
   (let [project (project-resource querier)
