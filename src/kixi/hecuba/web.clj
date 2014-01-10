@@ -67,7 +67,7 @@
 
       ["projects/" projects]
       ["projects" (->Redirect 307 projects)]
-      [["projects/" :id] project]
+      [["project/" :id] project]
 
       ;; Static resources
       [(->Alternates ["stylesheets/" "images/" "javascripts/"])
