@@ -22,7 +22,7 @@
   :hecuba/website
   {:jig/component kixi.hecuba.web/Website
    :jig/project "../kixi.hecuba/project.clj"
-   :jig/dependencies [:hecuba/refstore]
+   :jig/dependencies [:hecuba/refstore :hecuba/kafka]
    :doc "This depends on types that satisfy Commander and Querier being
    bound in the system at :querier and :commander respectively" }
 

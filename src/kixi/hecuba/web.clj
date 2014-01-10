@@ -16,19 +16,15 @@
 
 (def base-media-types ["application/json"])
 
-(defresource reading-resource [reading producer-config]
-  :allowed-methods #{:post :get}
-  :available-media-types ["application/json"]
-  :handle-ok (fn [ctx] @reading)
+(defresource reading-resource [producer-config]
+  :allowed-methods #{:post}
+  :available-media-types base-media-types
+  :handle-ok (fn [ctx] (::reading ctx))
   :post! (fn [ctx]
-           (let [uuid (str (java.util.UUID/randomUUID))]
-             (do (swap! reading assoc uuid (-> ctx :request :form-params))
-                 {::uuid uuid}))
-           ;; Send to kafka
-           (println (str "Reading " @reading))
-           (kafka/send-msg (str @reading) "readings" producer-config)
-           ;; Return the offset
-           )
+           (let [uuid (str (java.util.UUID/randomUUID))
+                 reading (-> ctx :request :form-params)]
+           (kafka/send-msg (str {(keyword uuid) reading}) "readings" producer-config)))
+ ; :post-redirect? (fn [ctx] {:location (->Redirect 307 readings)})
   :handle-created (fn [ctx] (::uuid ctx)))
 
 (defresource projects-resource [querier commander project-resource]
@@ -55,16 +51,20 @@
 (defn index [req]
   {:status 200 :body (slurp (io/resource "hecuba/index.html"))})
 
-(defn make-routes [names producer-config querier commander]
+(defn readings [req]
+  {:status 200 :body (slurp (io/resource "reading.html"))})
+
+(defn make-routes [producer-config querier commander]
   (let [project (project-resource querier)
         projects (projects-resource querier commander project)]
     ["/"
      [["" (->Redirect 307 index)]
       ["overview.html" index]
 
-      ;;["name" (wrap-params (name-resource names))]
-      ["reading" (wrap-params (reading-resource names producer-config))]
-
+      ["readings" {"/reading" (->Redirect 307 readings)
+                   "/new" { "" readings
+                           "/post" (wrap-params (reading-resource producer-config))}}]
+    
       ["projects/" projects]
       ["projects" (->Redirect 307 projects)]
       [["projects/" :id] project]
@@ -80,8 +80,7 @@
   (init [_ system] system)
   (start [_ system]
     (add-bidi-routes system config
-                     (make-routes (:names system)
-                                  (first (:kixi.hecuba.kafka/producer-config (:hecuba/kafka system)))
+                     (make-routes (first (:kixi.hecuba.kafka/producer-config (:hecuba/kafka system)))
                                   (:querier system)
                                   (:commander system))))
   (stop [_ system] system))
