@@ -17,11 +17,18 @@
 (defn index [req]
   {:status 200 :body (slurp (io/resource "hecuba/index.html"))})
 
+(defn chart [req]
+  {:status 200 :body (slurp (io/resource "hecuba/chart.html"))})
+
+(defn readings [req]
+  {:status 200 :body (slurp (io/resource "reading.html"))})
+
 (defn make-routes [producer-config querier commander]
   ["/"
    [["" (->Redirect 307 index)]
     ["overview.html" index]
-    
+    ["chart.html" chart]
+
     (kixi.hecuba.web.device/create-routes producer-config)
     (kixi.hecuba.web.project/create-routes querier commander)
 
