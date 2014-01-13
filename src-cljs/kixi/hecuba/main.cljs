@@ -7,12 +7,35 @@
   (:require-macros
    [dommy.macros :refer [node sel sel1]]))
 
-(defn handler [response]
-  (let [tbody
-        (node [:tbody
-               (for [row (js->clj response)]
-                 [:tr [:td {:colspan 5} (str row)]])])]
-    (dommy/replace! (sel1 [:#projects :table :tbody]) tbody)))
+(def project-table
+  {:headings {:programme "Programme"
+              :name "Project"
+              :project-code "Project code"
+              :last-edit "Last edit"
+              :leaders "Leaders"
+              :properties "Properties"}})
+
+(defn make-handler [table-def]
+  (fn [response]
+    (let [table
+          (node
+           [:table.full
+            [:thead
+             [:tr
+              (for [h (vals (:headings table-def))]
+                (do
+                  (.log js/console "h is " h)
+                  [:th h]))]]
+            [:tbody
+             (for [row (js->clj response)]
+               (do
+                 (.log js/console "processing row: " row)
+                 [:tr
+                  (for [[k _] (:headings table-def)]
+                    [:td (str (get row (name k)))]
+                    )
+                  ]))]])]
+      (dommy/replace! (sel1 [:#projects :table]) table))))
 
 (defn table [cols]
   [:table.full
@@ -47,6 +70,6 @@
              [:a.view-all {:href "/projects"} "View all »"]
              [:a {:href "/projects/new"} "Add a new project"]]]
            ]))
-  (GET "/projects/" {:handler handler}))
+  (GET "/projects/" {:handler (make-handler project-table) :headers {"Accept" "application/json"}}))
 
 (set! (.-onload js/window) main)
