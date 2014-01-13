@@ -20,6 +20,9 @@
 (defn chart [req]
   {:status 200 :body (slurp (io/resource "hecuba/chart.html"))})
 
+(defn counters [req]
+  {:status 200 :body (slurp (io/resource "hecuba/counters.html"))})
+
 (defn readings [req]
   {:status 200 :body (slurp (io/resource "reading.html"))})
 
@@ -28,6 +31,7 @@
    [["" (->Redirect 307 index)]
     ["overview.html" index]
     ["chart.html" chart]
+    ["counters.html" counters]
 
     (kixi.hecuba.web.device/create-routes producer-config)
     (kixi.hecuba.web.project/create-routes querier commander)
