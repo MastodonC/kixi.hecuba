@@ -10,8 +10,10 @@
                  [liberator "0.10.0"]
                  ;; [com.cemerick/friend "0.2.0"]
 
+                 ;; ClojureScript dependencies
                  [prismatic/dommy "0.1.1"]
                  [cljs-ajax "0.2.3"]
+                 [om "0.1.5"]
 
                  [jig ~jig-version]
                  [jig/async ~jig-version]
