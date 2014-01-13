@@ -26,19 +26,75 @@
     </div>
     
     <h2>Devices</h2>
-    <form method="post" action="new/post">
-      <h4>Add new device</h4>
-      <b>Device</b></br>
-      Property uuid* <input type="text" name="propertyId"/></br>
-      Project ID <input type="text" name="projectID"/></br>
-      Description <input type="text" name="description"/></br>
-      Location <input type="text" name="location"/></br></br>
+    <FORM METHOD="POST" ACTION="new/post">
+      <h3>Add new device</h3>     
+      <TABLE BORDER="0">
+        <TR>
+          <TD><h4>Device</h4></TD>
+        </TR>
+        <TR>
+          <TD>Property uuid*</TD>
+          <TD><INPUT TYPE="TEXT" NAME="propertyId" SIZE="30"></TD>
+        </TR>
+        <TR>
+          <TD>Project ID</TD>
+          <TD><INPUT TYPE="TEXT" NAME="projectID" SIZE="30"></TD>
+        </TR>
+        <TR>
+          <TD>Description</TD>
+          <TD><INPUT TYPE="TEXT" NAME="description" SIZE="30"></TD>
+        </TR>
+        <TR>
+          <TD>Location</TD>
+          <TD><INPUT TYPE="TEXT" NAME="location" SIZE="30"></TD>
+        </TR>
+        <TR>
+          <TD><h4>Reading</h4></TD>
+        </TR>     
+        <TR>
+          <TD>Reading type and unit*</TD>
+          <TD><INPUT TYPE="TEXT" NAME="readingType" SIZE="30"></TD>
+        </TR>
+        <TR>
+          <TD>Sample interval (seconds)</TD>
+          <TD><INPUT TYPE="TEXT" NAME="interval" SIZE="30"></TD>
+        </TR>
+        <TR>
+          <TD>Accuracy (percent)</TD>
+          <TD><INPUT TYPE="TEXT" NAME="accuracy" SIZE="30"></TD>
+        </TR>
+        <TR>
+          <TD>Period</TD>
+          <TD><INPUT TYPE="TEXT" NAME="period" SIZE="30"></TD>
+        </TR>
+        <TR>
+          <TD>Sensor range min*</TD>
+          <TD><INPUT TYPE="TEXT" NAME="sensorRangeMin" SIZE="30"></TD>
+        </TR>
+        <TR>
+          <TD>Sensor range max*</TD>
+          <TD><INPUT TYPE="TEXT" NAME="sensorRangeMax*" SIZE="30"></TD>
+        </TR>
+        <TR>
+          <TD>Correction</TD>
+          <TD><INPUT TYPE="TEXT" NAME="correction" SIZE="30"></TD>
+        </TR>
+        <TR>
+          <TD>Corrected unit</TD>
+          <TD><INPUT TYPE="TEXT" NAME="correctedUnit" SIZE="30"></TD>
+        </TR>
+        <TR>
+          <TD>Correction factor</TD>
+          <TD><INPUT TYPE="TEXT" NAME="correctionFactor" SIZE="30"></TD>
+        </TR>
+        <TR>
+          <TD>Correction factor breakdown</TD>
+          <TD><INPUT TYPE="TEXT" NAME="correctionFactorBreakdown" SIZE="30"></TD>
+        </TR>
+      </TABLE>
       
-      <b>Reading</b></br>
-      
-      
-      <input type="submit"/>
-    </form>
+<P><INPUT TYPE="SUBMIT" VALUE="Submit"></P>
+</FORM>
 
     <!-- No optimizations? Then we need goog base -->
     <script src="js/goog/base.js" type="text/javascript"></script>

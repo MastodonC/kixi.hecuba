@@ -19,7 +19,9 @@
            (let [payload (io! (edn/read (java.io.PushbackReader. (io/reader body))))
                  id (sha1 (str payload))]
            (kafka/send-msg (str {(keyword id) payload}) "readings" producer-config)))
-  :post-redirect? (fn [ctx] {:location (format "/devices/new/confirm")}))
+ :post-redirect? (fn [ctx] {:location (format "/devices/new/confirm")})
+ ;:post-redirect? (fn [{{ body :body routes :jig/bidi/routes} :request :as ctx}] (println "Request: " (:jig.bidi/routes (:request ctx))))
+  )
 
 (defresource device-confirmation []
   :allowed-methods #{:get}
