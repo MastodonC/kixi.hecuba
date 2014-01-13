@@ -7,19 +7,27 @@
 
 (mrhyde/bootstrap)
 
-(def width 450)
-(def height 350)
+(defn create-svg
+  [div width height]
+  (.newSvg dimple div width height))
 
-(def svg (-> dimple (.newSvg "#chart" width height)))
+(defn dimple-chart 
+  [div width height data]
+  (let [Chart (.-chart dimple)
+        svg   (create-svg div width height)]
+    (Chart. svg (clj->js data))))
+
+(defn init-bar-chart
+  [div width height data x-axis-title y-axis-title]
+ ; (.log js/console "Height: " height)
+  (let [chart (dimple-chart div width height data)]
+    (.addCategoryAxis chart "x" x-axis-title)
+    (.addMeasureAxis chart "y" y-axis-title)
+    (.addSeries chart nil js/dimple.plot.bar)
+    (.draw chart)))
 
 (def data  [{"Word" "Hello" "Awesomeness" 2000}
             {"Word" "World" "Awesomeness" 3000}])
 
-(let [Chart        (.-chart dimple)
-      dimple-chart (Chart. svg (clj->js data))]
+(init-bar-chart "#chart" 450 350 data "Word" "Awesomeness")
 
-  (.log js/console "Chart: " dimple-chart)
-  (.addCategoryAxis dimple-chart "x" "Word")
-  (.addMeasureAxis dimple-chart "y" "Awesomeness")
-  (.addSeries dimple-chart nil js/dimple.plot.bar)
-  (.draw dimple-chart))
