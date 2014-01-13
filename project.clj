@@ -14,6 +14,7 @@
                  [prismatic/dommy "0.1.1"]
                  [cljs-ajax "0.2.3"]
                  [om "0.1.5"]
+                 [net.drib/mrhyde "0.5.2"]
 
                  [jig ~jig-version]
                  [jig/async ~jig-version]

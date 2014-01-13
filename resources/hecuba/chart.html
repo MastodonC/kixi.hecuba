@@ -4,22 +4,27 @@
 <title>
 Embed charting
 </title>
+ <style>
+    #chart {
+            width: 600px;
+            height: 600px;
+            margin: 0px 20px;
+      }
+  </style>
 </head>
 
 <body>
-<h1>Charting with Om and React</h1>
+<h1>Charting with dimple.js</h1>
 
-<div id="foo">
-</div>
-
+<div id="chart"></div>
 
 <!-- No optimizations? Then we need goog base -->
-<script src="http://fb.me/react-0.8.0.js"></script>
+<script type="text/javascript" src="https://rawgithub.com/dribnet/ArrayLike.js/master/ArrayLikeIsArray.js"></script>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="http://dimplejs.org/dist/dimple.v1.1.2.min.js"></script>
 <script src="js/goog/base.js" type="text/javascript"></script>
 <script src="js/main.js"></script>
 <script type="text/javascript">goog.require("kixi.hecuba.web.chart");</script>
-
-
 
 </body>
 </html>

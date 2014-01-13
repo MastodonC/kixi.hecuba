@@ -20,6 +20,9 @@
 (defn chart [req]
   {:status 200 :body (slurp (io/resource "hecuba/chart.html"))})
 
+(defn maps [req]
+  {:status 200 :body (slurp (io/resource "hecuba/map.html"))})
+
 (defn counters [req]
   {:status 200 :body (slurp (io/resource "hecuba/counters.html"))})
 
@@ -32,6 +35,7 @@
     ["overview.html" index]
     ["chart.html" chart]
     ["counters.html" counters]
+    ["map.html" maps]
 
     (kixi.hecuba.web.device/create-routes producer-config)
     (kixi.hecuba.web.project/create-routes querier commander)
