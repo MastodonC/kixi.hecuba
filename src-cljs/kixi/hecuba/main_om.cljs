@@ -6,15 +6,18 @@
    [cljs.core.async :refer [<! chan put! sliding-buffer]]
    [ajax.core :refer (GET POST)]))
 
+;; Deprecated, just left in to show how to pass through a core.async
+;; channel and when to put stuff on it - from Om counters example
 (defn menuitem [data owner ch]
   (om/component
       (dom/li nil
-           (dom/a #js {:onClick (fn [e]
-                                  ;;(.log js/console "Name is :- " (:name (om/read data om/value)))
-                                  ;;(.log js/console "Path is :- " (.-path data))
-                                  (put! ch (:name (om/read data om/value))))}
+           (dom/a
+                #js {:onClick
+                     (fn [_] (put! ch (:name (om/read data om/value))))}
                 (:label data)))))
 
+;; Deprecated, just let in to show how and when to run a go block in a
+;; component, and how to pass in the channel into sub-components
 (defn menu [app owner]
   (let [in (chan (sliding-buffer 1))]
     (reify
@@ -65,9 +68,7 @@
                {:name "documentation" :label "Documentation"}
                {:name "api_users" :label "API users"}]})
 
-(def projects (atom {:projects [{:name "Ealing Heating" :leaders "Donnie"}
-                                {:name "Bow Housing" :leaders "Paul"}
-                                {:name "Archway Insulation" :leaders "Dave"}]}))
+(def projects (atom {:projects []}))
 
 ;; Attach projects to a table component at hecuba-projects
 (om/root projects table (.getElementById js/document "hecuba-projects"))
