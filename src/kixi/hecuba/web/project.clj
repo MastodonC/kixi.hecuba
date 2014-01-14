@@ -24,6 +24,7 @@
                           [:tr
                            [:td [:a {:href (:href p)} (:name p)]]
                            [:td (:project-code p)]])])
+                 "application/edn" (pr-str (vec projects))
                  projects))
   :post! (fn [{{body :body} :request}]
            (let [payload (io! (edn/read (java.io.PushbackReader. (io/reader body))))]

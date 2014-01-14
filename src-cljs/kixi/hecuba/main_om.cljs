@@ -35,8 +35,8 @@
 (defn table-row [data owner]
   (om/component
       (dom/tr #js {:onClick (fn [e] (.log js/console "ooh!"))}
-           (dom/td nil (get data "name"))
-           (dom/td nil (apply str (interpose ", " (get data "leaders")))))))
+           (dom/td nil (:name data))
+           (dom/td nil (apply str (interpose ", " (:leaders data)))))))
 
 (defn table [data owner]
   (reify
@@ -78,7 +78,7 @@
                               #_(swap! projects update-in [:projects] conj {:name "Late arriving project" :leaders "Jerry"})
                               (swap! projects assoc-in [:projects] response)
                               )
-                   :headers {"Accept" "application/json"}})
+                   :headers {"Accept" "application/edn"}})
 
 ;;(om/root app-model menu (.getElementById js/document "hecuba-menu"))
 

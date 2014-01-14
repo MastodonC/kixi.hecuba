@@ -18,8 +18,10 @@
 
 * QUESTION Deployments?
 
+
 * DONE Remove Tablesorter from tables
 * DONE 'Projects' table should be rendered by React
 * DONE Project rows should be individual components
 * DONE Project data should come in from AJAX
-* TODO Clicking on a project should get
+* TODO Clicking on a project should get project details from Liberator
+* DONE Get real EDN
