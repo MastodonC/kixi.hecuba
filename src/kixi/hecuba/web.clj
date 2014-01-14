@@ -17,6 +17,9 @@
 (defn index [req]
   {:status 200 :body (slurp (io/resource "hecuba/index.html"))})
 
+(defn index-om [req]
+  {:status 200 :body (slurp (io/resource "hecuba/index-om.html"))})
+
 (defn chart [req]
   {:status 200 :body (slurp (io/resource "hecuba/chart.html"))})
 
@@ -33,6 +36,7 @@
   ["/"
    [["" (->Redirect 307 index)]
     ["overview.html" index]
+    ["overview-om.html" index-om]
     ["chart.html" chart]
     ["counters.html" counters]
     ["map.html" maps]
@@ -42,7 +46,8 @@
 
     ;; Static resources
     [(->Alternates ["stylesheets/" "images/" "javascripts/"])
-     (->Resources {:prefix "hecuba/"})]]])
+     (->Resources {:prefix "hecuba/"
+                   :mime-types {"map" "text/javascript"}})]]])
 
 (deftype Website [config]
   Lifecycle
