@@ -15,12 +15,6 @@
 
 (def base-media-types ["application/json"])
 
-(defn index [req]
-  {:status 200 :body (slurp (io/resource "sb-admin/index.html"))})
-
-(defn index-om [req]
-  {:status 200 :body (slurp (io/resource "hecuba/index-om.html"))})
-
 (defn chart [req]
   {:status 200 :body (slurp (io/resource "hecuba/chart.html"))})
 
@@ -35,9 +29,7 @@
 
 (defn make-routes [producer-config querier commander]
   ["/"
-   [["" (->Redirect 307 index)]
-    ["overview.html" index]
-    ["overview-om.html" index-om]
+   [;;["" (->Redirect 307 index)]
     ["chart.html" chart]
     ["counters.html" counters]
     ["map.html" maps]
@@ -51,8 +43,7 @@
 
     ;; Static resources
     #_[(->Alternates ["stylesheets/" "images/" "javascripts/"])
-       (->Resources {:prefix "hecuba/"
-                   :mime-types {"map" "text/javascript"}})]]])
+       (->Resources {:prefix "hecuba/"})]]])
 
 (deftype Website [config]
   Lifecycle

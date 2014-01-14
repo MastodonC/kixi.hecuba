@@ -3,8 +3,8 @@
   (:require
    [om.core :as om :include-macros true]
    [om.dom :as dom :include-macros true]
-   [cljs.core.async :refer [<! chan put! sliding-buffer]])
-  )
+   [cljs.core.async :refer [<! chan put! sliding-buffer]]
+   [ajax.core :refer (GET POST)]))
 
 (defn menuitem [data owner ch]
   (om/component
@@ -32,6 +32,27 @@
                  ;; the map below
                  {:key :name :opts in}))))))
 
+(defn table-row [data owner]
+  (om/component
+      (dom/tr #js {:onClick (fn [e] (.log js/console "ooh!"))}
+           (dom/td nil (get data "name"))
+           (dom/td nil (apply str (interpose ", " (get data "leaders")))))))
+
+(defn table [data owner]
+  (reify
+    om/IRender
+    (render [_]
+      (dom/div #js {:className "table-responsive"}
+           (dom/table #js {:className "table table-bordered table-hover table-striped"}
+                (dom/thead nil
+                     (dom/tr nil
+                          (dom/th nil "Name")
+                          (dom/th nil "Leaders")))
+                (dom/tbody nil
+                     (om/build-all table-row
+                         (:projects data)
+                         {:key :name})))))))
+
 (def app-model
   {:active "dashboard"
    :menuitems [{:name "dashboard" :label "Dashboard" :href ""}
@@ -42,10 +63,26 @@
                {:name "properties" :label "Properties"}
                {:name "about" :label "About"}
                {:name "documentation" :label "Documentation"}
-               {:name "api_users" :label "API users"}]})
+               {:name "api_users" :label "API users"}]
+
+   })
+
+(def projects (atom {:projects [{:name "Ealing Heating" :leaders "Donnie"}
+                                {:name "Bow Housing" :leaders "Paul"}
+                                {:name "Archway Insulation" :leaders "Dave"}]}))
 
 (.log js/console "Starting Hecuba Om")
 
-(om/root app-model menu (.getElementById js/document "hecuba-menu"))
+(GET "/projects/" {:handler (fn [response]
+                              (.log js/console "Hecuba data is in: " (str response))
+                              #_(swap! projects update-in [:projects] conj {:name "Late arriving project" :leaders "Jerry"})
+                              (swap! projects assoc-in [:projects] response)
+                              )
+                   :headers {"Accept" "application/json"}})
+
+;;(om/root app-model menu (.getElementById js/document "hecuba-menu"))
+
+(let [ch (chan (sliding-buffer 1))]
+  (om/root projects table (.getElementById js/document "hecuba-projects")))
 
 (.log js/console "Starting Hecuba Om... Done")
