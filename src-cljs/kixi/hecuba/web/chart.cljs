@@ -1,7 +1,9 @@
 (ns kixi.hecuba.web.chart
   (:require
    [mrhyde.core :as mrhyde]
-   ))
+   [dommy.core :as dommy])
+  (:use-macros
+   [dommy.macros :only [node sel sel1]]))
 
 (def dimple (this-as ct (aget ct "dimple")))
 
@@ -29,5 +31,12 @@
 (def data  [{"Word" "Hello" "Awesomeness" 2000}
             {"Word" "World" "Awesomeness" 3000}])
 
-(init-bar-chart "#chart" 450 350 data "Word" "Awesomeness")
+(defn reload-chart [e]
+ (.log js/console e)
+ (.log js/console (dommy/value (sel1 :#devices)))
+ (dommy/append! (sel1 :#chart) (init-bar-chart "#chart" 450 350 data "Word" "Awesomeness"))
+ )
 
+(dommy/append! (sel1 :#title) (node [:h3 "Metering data"]))
+(dommy/listen! (sel1 :#submit) :click reload-chart)
+;(init-bar-chart "#chart" 450 350 data "Word" "Awesomeness")
