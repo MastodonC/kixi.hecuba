@@ -25,3 +25,5 @@
 * DONE Project data should come in from AJAX
 * TODO Clicking on a project should get project details from Liberator
 * DONE Get real EDN
+
+* TODO Generify table component

@@ -63,26 +63,15 @@
                {:name "properties" :label "Properties"}
                {:name "about" :label "About"}
                {:name "documentation" :label "Documentation"}
-               {:name "api_users" :label "API users"}]
-
-   })
+               {:name "api_users" :label "API users"}]})
 
 (def projects (atom {:projects [{:name "Ealing Heating" :leaders "Donnie"}
                                 {:name "Bow Housing" :leaders "Paul"}
                                 {:name "Archway Insulation" :leaders "Dave"}]}))
 
-(.log js/console "Starting Hecuba Om")
+;; Attach projects to a table component at hecuba-projects
+(om/root projects table (.getElementById js/document "hecuba-projects"))
 
-(GET "/projects/" {:handler (fn [response]
-                              (.log js/console "Hecuba data is in: " (str response))
-                              #_(swap! projects update-in [:projects] conj {:name "Late arriving project" :leaders "Jerry"})
-                              (swap! projects assoc-in [:projects] response)
-                              )
+;; Get the real project data
+(GET "/projects/" {:handler #(swap! projects assoc-in [:projects] %)
                    :headers {"Accept" "application/edn"}})
-
-;;(om/root app-model menu (.getElementById js/document "hecuba-menu"))
-
-(let [ch (chan (sliding-buffer 1))]
-  (om/root projects table (.getElementById js/document "hecuba-projects")))
-
-(.log js/console "Starting Hecuba Om... Done")
