@@ -15,7 +15,7 @@
 (def base-media-types ["application/json"])
 
 (defn index [req]
-  {:status 200 :body (slurp (io/resource "hecuba/index.html"))})
+  {:status 200 :body (slurp (io/resource "sb-admin/index.html"))})
 
 (defn index-om [req]
   {:status 200 :body (slurp (io/resource "hecuba/index-om.html"))})
@@ -34,7 +34,7 @@
 
 (defn make-routes [producer-config querier commander]
   ["/"
-   [["" (->Redirect 307 index-om)]
+   [["" (->Redirect 307 index)]
     ["overview.html" index]
     ["overview-om.html" index-om]
     ["chart.html" chart]
@@ -44,9 +44,11 @@
     (kixi.hecuba.web.device/create-routes producer-config)
     (kixi.hecuba.web.project/create-routes querier commander)
 
+    ["" (->Resources {:prefix "sb-admin/"})]
+
     ;; Static resources
-    [(->Alternates ["stylesheets/" "images/" "javascripts/"])
-     (->Resources {:prefix "hecuba/"
+    #_[(->Alternates ["stylesheets/" "images/" "javascripts/"])
+       (->Resources {:prefix "hecuba/"
                    :mime-types {"map" "text/javascript"}})]]])
 
 (deftype Website [config]
