@@ -11,16 +11,16 @@
   (om/component
       (dom/li nil
            (dom/a #js {:onClick (fn [e]
-                                  (.dir js/console data)
-                                  (.log js/console "Name is :- " (:name (om/read data om/value)))
+                                  ;;(.log js/console "Name is :- " (:name (om/read data om/value)))
+                                  ;;(.log js/console "Path is :- " (.-path data))
                                   (put! ch (:name (om/read data om/value))))}
                 (:label data)))))
 
 (defn menu [app owner]
-  (let [ch (chan (sliding-buffer 1))]
+  (let [in (chan (sliding-buffer 1))]
     (reify
       om/IWillMount
-      (will-mount [_] (go (while true (let [n (<! ch)] (.log js/console "Got an event!" n)))))
+      (will-mount [_] (go (while true (let [n (<! in)] (.log js/console "Got an event!" n)))))
       om/IRender
       (render [_]
         (dom/ul #js {:className "nav"}
@@ -31,7 +31,7 @@
                  ;; unique "key" prop. Check the render method of
                  ;; undefined.'. This is the purpose of the :key entry in
                  ;; the map below
-                 {:key :name :opts ch}))))))
+                 {:key :name :opts in}))))))
 
 (def app-model
   {:active "dashboard"

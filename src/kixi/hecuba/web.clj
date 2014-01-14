@@ -34,7 +34,7 @@
 
 (defn make-routes [producer-config querier commander]
   ["/"
-   [["" (->Redirect 307 index)]
+   [["" (->Redirect 307 index-om)]
     ["overview.html" index]
     ["overview-om.html" index-om]
     ["chart.html" chart]
