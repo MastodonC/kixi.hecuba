@@ -3,7 +3,6 @@
   (:require
    [om.core :as om :include-macros true]
    [om.dom :as dom :include-macros true]
-   [sablono.core :as html :refer (html) :include-macros true]
    [cljs.core.async :refer [<! chan put! sliding-buffer]])
   )
 
@@ -23,7 +22,7 @@
       (will-mount [_] (go (while true (let [n (<! in)] (.log js/console "Got an event!" n)))))
       om/IRender
       (render [_]
-        (dom/ul #js {:className "nav"}
+        (dom/ul #js {:className "dropdown-menu"}
              #_(.log js/console "Active: " (:active app))
              (om/build-all menuitem
                  (:menuitems app)
@@ -45,4 +44,8 @@
                {:name "documentation" :label "Documentation"}
                {:name "api_users" :label "API users"}]})
 
-(om/root app-model menu (.getElementById js/document "menu"))
+(.log js/console "Starting Hecuba Om")
+
+(om/root app-model menu (.getElementById js/document "hecuba-menu"))
+
+(.log js/console "Starting Hecuba Om... Done")

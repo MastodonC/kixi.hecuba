@@ -39,13 +39,13 @@
   :hecuba/cljs-server
   {:jig/component jig.bidi/ClojureScriptRouter
    :jig/dependencies [:hecuba/cljs-builder]
-   :jig.web/context "/js/"
+   :jig.web/context "/hecuba-js/"
    }
 
   :hecuba/routing
   {:jig/component jig.bidi/Router
    :jig/project "../kixi.hecuba/project.clj"
-   :jig/dependencies [:hecuba/website :hecuba/cljs-server]
+   :jig/dependencies [:hecuba/cljs-server :hecuba/website]
    ;; Optionally, route systems can be mounted on a sub-context
    ;;:jig.web/context "/services"
    }

@@ -44,6 +44,7 @@
     (kixi.hecuba.web.device/create-routes producer-config)
     (kixi.hecuba.web.project/create-routes querier commander)
 
+    ["hecuba-js/react.js" (->Resources {:prefix "sb-admin/"})]
     ["" (->Resources {:prefix "sb-admin/"})]
 
     ;; Static resources
