@@ -34,10 +34,18 @@
 (defn readings [req]
   {:status 200 :body (slurp (io/resource "reading.html"))})
 
-(defn create-handlers [commander querier]
-  (let [project (item-resource querier)]
-    {:project project
-     :projects (items-resource :project querier commander project)}))
+(defn create-handler-pairs
+  "Pairs are of form [:home-key :object-key], like [:mice :mouse]. The
+  singular form (:mouse) is used to form the where clause in the
+  resource."
+  [commander querier pairs]
+  (->>
+   (for [[plural singular] pairs]
+           (let [detail (item-resource querier)]
+             {singular detail
+              plural (items-resource singular querier commander detail)}))
+   ;; Merge all the pairs together to form a single handler map
+   (apply merge)))
 
 (defn make-routes [producer-config querier commander handlers]
   ["/"
@@ -57,6 +65,13 @@
     ["projects/" (:projects handlers)]
     ["projects" (->Redirect 307 (:projects handlers))]
 
+    ;; Properties, with an 'X' suffix to avoid conflicting with Anna's
+    ;; work until we integrate this.
+    ;; Eventually these routes can be generated from the keyword pairs.
+    [["propertyX/" :id] (:property handlers)]
+    ["propertiesX/" (:properties handlers)]
+    ["propertiesX" (->Redirect 307 (:properties handlers))]
+
     ["hecuba-js/react.js" (->Resources {:prefix "sb-admin/"})]
     ["" (->Resources {:prefix "sb-admin/"})]
 
@@ -70,7 +85,9 @@
   (start [_ system]
     (let [commander (:commander system)
           querier (:querier system)
-          handlers (create-handlers commander querier)]
+          handlers (create-handler-pairs commander querier
+                                         [[:projects :project]
+                                          [:properties :property]])]
       (-> system
           (add-bidi-routes
            config

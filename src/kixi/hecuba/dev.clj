@@ -29,35 +29,49 @@
 (defn get-handlers [system]
   (-> system :handlers))
 
+(defn put-items [system typ items]
+  (->>
+   ;; We could get this sequence from somewhere else
+   items
+
+   ;; PUT them over HTTP
+   (map (partial post-resource
+                 (format "http://localhost:%d%s"
+                         (get-port system)
+                         (path-for (get-routes system) (typ (get-handlers system))))))
+   ;; wait for all promises to be delivered (all responses to arrive)
+   (map deref) doall
+   ;; check each returns a status of 201
+   (every? #(= (:status %) 201))
+   ;; fail otherwise!
+   assert))
+
 (deftype ExampleDataLoader [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]
-    (->>
-     ;; We could get this sequence from somewhere else
-     [{:hecuba/name "Eco-retrofit Ealing"
-       :project-code "IRR"
-       :leaders ["/users/1" "/users/2"]}
+    (put-items system
+               :projects
+               [{:hecuba/name "Eco-retrofit Ealing"
+                 :project-code "IRR"
+                 :leaders ["/users/1" "/users/2"]}
 
-      {:hecuba/name "Eco-retrofit Bolton"
-       :project-code "IRR"
-       :leaders ["/users/1" "/users/2"]}
+                {:hecuba/name "Eco-retrofit Bolton"
+                 :project-code "IRR"
+                 :leaders ["/users/1" "/users/2"]}
 
-      {:hecuba/name "The Glasgow House"
-       :project-code "IRR"
-       :leaders ["/users/3"]}]
+                {:hecuba/name "The Glasgow House"
+                 :project-code "IRR"
+                 :leaders ["/users/3"]}])
 
-     ;; PUT them over HTTP
-     (map (partial post-resource
-                   (format "http://localhost:%d%s"
-                           (get-port system)
-                           (path-for (get-routes system) (:projects (get-handlers system))))))
-     ;; wait for all promises to be delivered (all responses to arrive)
-     (map deref) doall
-     ;; check each returns a status of 201
-     (every? #(= (:status %) 201))
-     ;; fail otherwise!
-     assert)
+    (put-items system
+               :properties
+               [{:hecuba/name "Falling Water"
+                 :address "1491 Mill Run Rd, Mill Run, PA"}
+                {:hecuba/name "Buckingham Palace"
+                 :address "London SW1A 1AA, United Kingdom"}
+                {:hecuba/name "The ODI"
+                 :address "3rd Floor, 65 Clifton Street, London EC2A 4JE"}])
     system)
   (stop [_ system] system))
 
