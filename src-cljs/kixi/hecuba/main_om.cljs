@@ -3,18 +3,21 @@
   (:require
    [om.core :as om :include-macros true]
    [om.dom :as dom :include-macros true]
-   [cljs.core.async :refer [<! chan put! sliding-buffer]])
-  )
+   [cljs.core.async :refer [<! chan put! sliding-buffer]]
+   [ajax.core :refer (GET POST)]))
 
+;; Deprecated, just left in to show how to pass through a core.async
+;; channel and when to put stuff on it - from Om counters example
 (defn menuitem [data owner ch]
   (om/component
       (dom/li nil
-           (dom/a #js {:onClick (fn [e]
-                                  ;;(.log js/console "Name is :- " (:name (om/read data om/value)))
-                                  ;;(.log js/console "Path is :- " (.-path data))
-                                  (put! ch (:name (om/read data om/value))))}
+           (dom/a
+                #js {:onClick
+                     (fn [_] (put! ch (:name (om/read data om/value))))}
                 (:label data)))))
 
+;; Deprecated, just let in to show how and when to run a go block in a
+;; component, and how to pass in the channel into sub-components
 (defn menu [app owner]
   (let [in (chan (sliding-buffer 1))]
     (reify
@@ -32,6 +35,27 @@
                  ;; the map below
                  {:key :name :opts in}))))))
 
+(defn table-row [data owner]
+  (om/component
+      (dom/tr #js {:onClick (fn [e] (.log js/console "ooh!"))}
+           (dom/td nil (:name data))
+           (dom/td nil (apply str (interpose ", " (:leaders data)))))))
+
+(defn table [data owner]
+  (reify
+    om/IRender
+    (render [_]
+      (dom/div #js {:className "table-responsive"}
+           (dom/table #js {:className "table table-bordered table-hover table-striped"}
+                (dom/thead nil
+                     (dom/tr nil
+                          (dom/th nil "Name")
+                          (dom/th nil "Leaders")))
+                (dom/tbody nil
+                     (om/build-all table-row
+                         (:projects data)
+                         {:key :name})))))))
+
 (def app-model
   {:active "dashboard"
    :menuitems [{:name "dashboard" :label "Dashboard" :href ""}
@@ -44,8 +68,11 @@
                {:name "documentation" :label "Documentation"}
                {:name "api_users" :label "API users"}]})
 
-(.log js/console "Starting Hecuba Om")
+(def projects (atom {:projects []}))
 
-(om/root app-model menu (.getElementById js/document "hecuba-menu"))
+;; Attach projects to a table component at hecuba-projects
+(om/root projects table (.getElementById js/document "hecuba-projects"))
 
-(.log js/console "Starting Hecuba Om... Done")
+;; Get the real project data
+(GET "/projects/" {:handler #(swap! projects assoc-in [:projects] %)
+                   :headers {"Accept" "application/edn"}})
