@@ -38,9 +38,7 @@
                               [:tr
                                [:td [:a {:href (:href p)} (:name p)]]
                                (for [k fields] [:td (str (k p))])
-                               (when debug [:td (pr-str p)])])]]
-
-                          ]))
+                               (when debug [:td (pr-str p)])])]]]))
                  "application/edn" (pr-str (vec projects))
                  projects))
   :post! (fn [{{body :body} :request}]
