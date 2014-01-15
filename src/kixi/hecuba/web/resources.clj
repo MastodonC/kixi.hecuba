@@ -11,18 +11,18 @@
 
 (def base-media-types ["text/html" "application/json" "application/edn"])
 
-(defresource projects-resource [querier commander project-resource]
+(defresource items-resource [typ querier commander detail-resource]
   :allowed-methods #{:get :post}
   :available-media-types base-media-types
-  :exists? (fn [{{{id :id} :route-params body :body routes :jig.bidi/routes} :request :as ctx}]
-             {::projects
-              (map (fn [m] (assoc m :hecuba/href (path-for routes project-resource :id (:hecuba/id m))))
-                   (items querier))})
-  :handle-ok (fn [{projects ::projects {mt :media-type} :representation :as ctx}]
+  :exists? (fn [{{body :body routes :jig.bidi/routes} :request :as ctx}]
+             {::items
+              (map (fn [m] (assoc m :hecuba/href (path-for routes detail-resource :id (:hecuba/id m))))
+                   (items querier {:hecuba/type typ}))})
+  :handle-ok (fn [{items ::items {mt :media-type} :representation :as ctx}]
                (case mt
                  "text/html"
                  (let [debug false
-                       fields (remove #{:hecuba/name :hecuba/id :hecuba/href :hecuba/type} (keys (first projects)))]
+                       fields (remove #{:hecuba/name :hecuba/id :hecuba/href :hecuba/type} (keys (first items)))]
                    (html [:body
                           [:h2 "Fields"]
                           [:ul (for [k fields] [:li (csk/->snake_case_string (name k))])]
@@ -34,23 +34,23 @@
                              (for [k fields] [:th (string/replace (csk/->Snake_case_string k) "_" " ")])
                              (when debug [:th "Debug"])]]
                            [:tbody
-                            (for [p projects]
+                            (for [p items]
                               [:tr
                                [:td [:a {:href (:hecuba/href p)} (:hecuba/name p)]]
                                (for [k fields] [:td (str (k p))])
                                (when debug [:td (pr-str p)])])]]]))
-                 "application/edn" (pr-str (vec projects))
-                 projects))
+                 "application/edn" (pr-str (vec items))
+                 items))
   :post! (fn [{{body :body} :request}]
            (let [payload (io! (edn/read (java.io.PushbackReader. (io/reader body))))]
-             (upsert! commander (assoc payload :hecuba/type :project)))))
+             (upsert! commander (assoc payload :hecuba/type typ)))))
 
-(defresource project-resource [querier]
+(defresource item-resource [querier]
   :allowed-methods #{:get}
   :available-media-types base-media-types
   :exists? (fn [{{{id :id} :route-params body :body routes :jig.bidi/routes} :request :as ctx}]
-             (if-let [p (item querier id)] {::project p} false))
-  :handle-ok (fn [{project ::project {mt :media-type} :representation :as ctx}]
+             (if-let [p (item querier id)] {::item p} false))
+  :handle-ok (fn [{item ::item {mt :media-type} :representation :as ctx}]
                (case mt
-                 "text/html" (html [:h1 (:hecuba/name project)])
-                 project)))
+                 "text/html" (html [:h1 (:hecuba/name item)])
+                 item)))

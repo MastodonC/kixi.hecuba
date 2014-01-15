@@ -1,7 +1,7 @@
 (ns kixi.hecuba.web
   (:require
    jig
-   [kixi.hecuba.web.resources :refer (projects-resource project-resource)]
+   [kixi.hecuba.web.resources :refer (items-resource item-resource)]
    kixi.hecuba.web.property
    kixi.hecuba.web.device
    kixi.hecuba.web.messages
@@ -35,9 +35,9 @@
   {:status 200 :body (slurp (io/resource "reading.html"))})
 
 (defn create-handlers [commander querier]
-  (let [project (project-resource querier)]
+  (let [project (item-resource querier)]
     {:project project
-     :projects (projects-resource querier commander project)}))
+     :projects (items-resource :project querier commander project)}))
 
 (defn make-routes [producer-config querier commander handlers]
   ["/"
