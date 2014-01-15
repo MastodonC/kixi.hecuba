@@ -57,21 +57,19 @@
     system)
   (stop [_ system] system))
 
-
-
-
 (deftype RefCommander [r]
   Commander
   (upsert! [_ payload]
     (assert (every? payload #{:hecuba/name :hecuba/type}))
     (infof "upserting... %s" payload)
-    (let [id (sha1 (:hecuba/name payload))]
+    (let [id (-> payload ((juxt :hecuba/type :hecuba/name)) pr-str sha1)]
       (dosync (alter r assoc-in [id] (assoc payload :hecuba/id id))))))
 
 (defrecord RefQuerier [r]
   Querier
   (item [_ id] (get @r id))
-  (items [_] (vals @r)))
+  (items [_] (vals @r))
+  (items [this where] (filter #(= where (select-keys % (keys where))) (.items this))))
 
 (deftype RefStore [config]
   Lifecycle
