@@ -28,25 +28,8 @@
                          (:projects data)
                          {:key :name})))))))
 
-(def app-model
-  (atom {:header {:brand "Hecuba"}
-         :messages [{:id 1
-                     :avatar "http://placekitten.com/50/50"
-                     :name "John Smith"
-                     :message "1.Hey there, I wanted to ask you something..."
-                     :time "4:34PM"
-                     }
-                    {:id 2
-                     :avatar "http://placekitten.com/50/50"
-                     :name "John Smith"
-                     :message "2.Hey there, I wanted to ask you something..."
-                     :time "4:34PM"
-                     }
-                    {:id 3
-                     :avatar "http://placekitten.com/50/50"
-                     :name "John Smith"
-                     :message "3.Hey there, I wanted to ask you something..."
-                     :time "4:34PM"}]
+(def nav-model
+  (atom {:messages []
          :nav {:active "dashboard"
                :menuitems [{:name "dashboard" :label "Dashboard" :href "/index.html" :icon "dashboard" :active? true}
                            {:name "overview" :label "Overview" :href "/charts.html" :icon "bar-chart-o"}
@@ -61,11 +44,14 @@
 
 (def projects (atom {:projects []}))
 
+;; Add navigation.
+(om/root nav-model nav/nav (.getElementById js/document "hecuba-nav"))
+
 ;; Attach projects to a table component at hecuba-projects
 (om/root projects table (.getElementById js/document "hecuba-projects"))
 
-;; Add navigation.
-;;(om/root app-model nav/nav (.getElementById js/document "hecuba-nav"))
+(GET "/messages/" {:handler #(swap! nav-model assoc-in [:messages] %)
+                   :headers {"Accept" "application/edn"}})
 
 ;; Get the real project data
 (GET "/projects/" {:handler #(swap! projects assoc-in [:projects] %)

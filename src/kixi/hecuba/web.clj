@@ -4,6 +4,7 @@
    kixi.hecuba.web.project
    kixi.hecuba.web.property
    kixi.hecuba.web.device
+   kixi.hecuba.web.messages
    [jig.util :refer (get-dependencies satisfying-dependency)]
    [jig.bidi :refer (add-bidi-routes)]
    [bidi.bidi :refer (match-route path-for ->Resources ->Redirect ->Alternates)]
@@ -37,6 +38,8 @@
     (kixi.hecuba.web.device/create-routes producer-config)
     (kixi.hecuba.web.project/create-routes querier commander)
     (kixi.hecuba.web.property/create-routes querier commander)
+    (kixi.hecuba.web.messages/create-routes querier commander)
+
 
     ["hecuba-js/react.js" (->Resources {:prefix "sb-admin/"})]
     ["" (->Resources {:prefix "sb-admin/"})]
