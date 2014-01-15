@@ -5,7 +5,9 @@
    [bidi.bidi :refer (->Redirect path-for)]
    [hiccup.core :refer (html)]
    [clojure.edn :as edn]
-   [clojure.java.io :as io]))
+   [clojure.java.io :as io]
+   [clojure.string :as string]
+   [camel-snake-kebab :as csk]))
 
 (def base-media-types ["text/html" "application/json" "application/edn"])
 
@@ -23,13 +25,13 @@
                        fields (remove #{:name :id :href :type} (keys (first projects)))]
                    (html [:body
                           [:h2 "Fields"]
-                          [:ul (for [k fields] [:li (name k)])]
+                          [:ul (for [k fields] [:li (csk/->snake_case_string (name k))])]
                           [:h2 "Items"]
                           [:table
                            [:thead
                             [:tr
                              [:th "Name"]
-                             (for [k fields] [:th k])
+                             (for [k fields] [:th (string/replace (csk/->Snake_case_string k) "_" " ")])
                              (when debug [:th "Debug"])]]
                            [:tbody
                             (for [p projects]
