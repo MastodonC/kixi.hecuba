@@ -37,7 +37,7 @@
                             (for [p projects]
                               [:tr
                                [:td [:a {:href (:href p)} (:name p)]]
-                               (for [k fields] [:td (k p)])
+                               (for [k fields] [:td (str (k p))])
                                (when debug [:td (pr-str p)])])]]
 
                           ]))
