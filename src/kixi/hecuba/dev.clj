@@ -59,12 +59,14 @@
 
 
 
+
 (deftype RefCommander [r]
   Commander
   (upsert! [_ payload]
+    (assert (every? payload #{:name :type}))
     (infof "upserting... %s" payload)
     (let [id (sha1 (:name payload))]
-      (dosync (alter r assoc id (assoc payload :id id))))))
+      (dosync (alter r assoc-in [id] (assoc payload :id id))))))
 
 (defrecord RefQuerier [r]
   Querier
