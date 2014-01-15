@@ -34,7 +34,12 @@
 (defn readings [req]
   {:status 200 :body (slurp (io/resource "reading.html"))})
 
-(defn make-routes [producer-config querier commander project projects]
+(defn create-handlers [commander querier]
+  (let [project (project-resource querier)]
+    {:project project
+     :projects (projects-resource querier commander project)}))
+
+(defn make-routes [producer-config querier commander handlers]
   ["/"
    [["" (->Redirect 307 tables)]
     ["index.html" index]
@@ -47,11 +52,10 @@
     (kixi.hecuba.web.property/create-routes querier commander)
     (kixi.hecuba.web.messages/create-routes querier commander)
 
-
     ;; Projects
-    [["project/" :id] project]
-    ["projects/" projects]
-    ["projects" (->Redirect 307 projects)]
+    [["project/" :id] (:project handlers)]
+    ["projects/" (:projects handlers)]
+    ["projects" (->Redirect 307 (:projects handlers))]
 
     ["hecuba-js/react.js" (->Resources {:prefix "sb-admin/"})]
     ["" (->Resources {:prefix "sb-admin/"})]
@@ -64,17 +68,13 @@
   Lifecycle
   (init [_ system] system)
   (start [_ system]
-    (let [querier (:querier system)
-          commander (:commander system)
-          project (project-resource querier)
-          projects (projects-resource querier commander project)]
+    (let [commander (:commander system)
+          querier (:querier system)
+          handlers (create-handlers commander querier)]
       (-> system
           (add-bidi-routes
            config
            (make-routes (first (:kixi.hecuba.kafka/producer-config (:hecuba/kafka system)))
-                        querier
-                        commander
-                        project
-                        projects))
-          (update-in [:handlers] merge {:project project :projects projects}))))
+                        querier commander handlers))
+          (update-in [:handlers] merge handlers))))
   (stop [_ system] system))
