@@ -16,6 +16,12 @@
 
 (def base-media-types ["application/json"])
 
+(defn index [req]
+  {:status 200 :body (slurp (io/resource "sb-admin/index.html"))})
+
+(defn tables [req]
+  {:status 200 :body (slurp (io/resource "sb-admin/tables.html"))})
+
 (defn chart [req]
   {:status 200 :body (slurp (io/resource "hecuba/chart.html"))})
 
@@ -30,7 +36,9 @@
 
 (defn make-routes [producer-config querier commander project projects]
   ["/"
-   [;;["" (->Redirect 307 index)]
+   [["" (->Redirect 307 tables)]
+    ["index.html" index]
+    ["tables.html" tables]
     ["chart.html" chart]
     ["counters.html" counters]
     ["map.html" maps]
