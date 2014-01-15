@@ -21,15 +21,22 @@
                  "text/html"
                  (html [:body
                         [:table
-                         (for [p projects]
-                           [:tr
-                            [:td [:a {:href (:href p)} (:name p)]]
-                            [:td (:project-code p)]])]])
+                         [:thead
+                          [:tr
+                           [:th "Name"]
+                           [:th "Project code"]
+                           [:th "Debug"]]]
+                         [:tbody
+                          (for [p projects]
+                            [:tr
+                             [:td [:a {:href (:href p)} (:name p)]]
+                             [:td (:project-code p)]
+                             [:td (pr-str p)]])]]])
                  "application/edn" (pr-str (vec projects))
                  projects))
   :post! (fn [{{body :body} :request}]
            (let [payload (io! (edn/read (java.io.PushbackReader. (io/reader body))))]
-             (upsert! commander payload))))
+             (upsert! commander (assoc payload :type :project)))))
 
 (defresource project-resource [querier]
   :allowed-methods #{:get}
