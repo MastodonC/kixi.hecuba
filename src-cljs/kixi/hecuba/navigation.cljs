@@ -1,5 +1,5 @@
 (ns kixi.hecuba.navigation
-  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:require-macros [cljs.core.async.macros :refer [go-loop]])
   (:require
    [om.core :as om :include-macros true]
    [om.dom :as dom :include-macros true]
@@ -23,7 +23,10 @@
     (reify
       om/IWillMount
       (will-mount [_]
-        (go (while true (let [n (<! in)] (.log js/console "Got an event!" n)))))
+        (go-loop [] 
+          (let [n (<! in)] (.log js/console "Got an event!" n)
+               (when (not= "stop" n)
+                 (recur)))))
       om/IWillUnmount ;; TODO requires go block to be terminate-able.
       (will-unmount [_]
         (put! in "stop"))
