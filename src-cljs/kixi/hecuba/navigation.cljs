@@ -52,17 +52,19 @@
           (map message-preview messages))))
 
 (defn navbar-rightnav [{:keys [messages]} owner]
-  (om/component
-   (dom/ul #js {:className "nav navbar-nav navbar-right navbar-user"}
-           (dom/li #js {:className "dropdown messages-dropdown"}
-                   (dom/a #js {:href "#" 
-                               :className  "dropdown-toggle"
-                               :data-toggle "dropdown"}
-                          (dom/i #js {:className "fa fa-envelope"})
-                          "Messages"
-                          (dom/span #js {:className "badge"} (count messages))
-                          (dom/b #js {:className "caret"}))
-                   (om/build messages-dropdown messages)))))
+  (let [n (count messages)]
+    (om/component
+     (dom/ul #js {:className "nav navbar-nav navbar-right navbar-user"}
+             (dom/li #js {:className "dropdown messages-dropdown"}
+                     (apply dom/a #js {:href "#" 
+                                       :className  "dropdown-toggle"
+                                       :data-toggle "dropdown"}
+                            (dom/i #js {:className "fa fa-envelope"})
+                            " Messages"
+                            (when (pos? n)
+                              [(dom/span #js {:className "badge"} (str " " n))
+                               (dom/b #js {:className "caret"})]))
+                     (om/build messages-dropdown messages))))))
 
 (defn nav [app owner]
   (reify
