@@ -4,7 +4,8 @@
    [om.core :as om :include-macros true]
    [om.dom :as dom :include-macros true]
    [cljs.core.async :refer [<! chan put! sliding-buffer]]
-   [ajax.core :refer (GET POST)]))
+   [ajax.core :refer (GET POST)]
+   [kixi.hecuba.navigation :as nav]))
 
 (defn table-row [data owner]
   (om/component
@@ -28,21 +29,43 @@
                          {:key :name})))))))
 
 (def app-model
-  {:active "dashboard"
-   :menuitems [{:name "dashboard" :label "Dashboard" :href ""}
-               {:name "overview" :label "Overview"}
-               {:name "users" :label "Users"}
-               {:name "programmes" :label "Programmes"}
-               {:name "projects" :label "Project"}
-               {:name "properties" :label "Properties"}
-               {:name "about" :label "About"}
-               {:name "documentation" :label "Documentation"}
-               {:name "api_users" :label "API users"}]})
+  (atom {:header {:brand "Hecuba"}
+         :messages [{:id 1
+                     :avatar "http://placekitten.com/50/50"
+                     :name "John Smith"
+                     :message "1.Hey there, I wanted to ask you something..."
+                     :time "4:34PM"
+                     }
+                    {:id 2
+                     :avatar "http://placekitten.com/50/50"
+                     :name "John Smith"
+                     :message "2.Hey there, I wanted to ask you something..."
+                     :time "4:34PM"
+                     }
+                    {:id 3
+                     :avatar "http://placekitten.com/50/50"
+                     :name "John Smith"
+                     :message "3.Hey there, I wanted to ask you something..."
+                     :time "4:34PM"}]
+         :nav {:active "dashboard"
+               :menuitems [{:name "dashboard" :label "Dashboard" :href "/index.html" :icon "dashboard" :active? true}
+                           {:name "overview" :label "Overview" :href "/charts.html" :icon "bar-chart-o"}
+                           {:name "users" :label "Users"}
+                           {:name "programmes" :label "Programmes"}
+                           {:name "projects" :label "Project"}
+                           {:name "properties" :label "Properties"}
+                           {:name "about" :label "About"}
+                           {:name "documentation" :label "Documentation"}
+                           {:name "api_users" :label "API users"}
+                           ]}}))
 
 (def projects (atom {:projects []}))
 
 ;; Attach projects to a table component at hecuba-projects
 (om/root projects table (.getElementById js/document "hecuba-projects"))
+
+;; Add navigation.
+;;(om/root app-model nav/nav (.getElementById js/document "hecuba-nav"))
 
 ;; Get the real project data
 (GET "/projects/" {:handler #(swap! projects assoc-in [:projects] %)
