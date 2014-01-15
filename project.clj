@@ -22,7 +22,8 @@
                  [jig/http-kit ~jig-version]
                  [jig/bidi ~jig-version]
 
-                 [clj-kafka "0.1.2-0.8"]]
+                 [clj-kafka "0.1.2-0.8"]
+                 [camel-snake-kebab "0.1.2"]]
 
   :source-paths ["src" "src-cljs"]
 
