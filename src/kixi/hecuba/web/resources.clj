@@ -16,13 +16,13 @@
   :available-media-types base-media-types
   :exists? (fn [{{{id :id} :route-params body :body routes :jig.bidi/routes} :request :as ctx}]
              {::projects
-              (map (fn [m] (assoc m :href (path-for routes project-resource :id (:id m))))
+              (map (fn [m] (assoc m :hecuba/href (path-for routes project-resource :id (:hecuba/id m))))
                    (items querier))})
   :handle-ok (fn [{projects ::projects {mt :media-type} :representation :as ctx}]
                (case mt
                  "text/html"
                  (let [debug false
-                       fields (remove #{:name :id :href :type} (keys (first projects)))]
+                       fields (remove #{:hecuba/name :hecuba/id :hecuba/href :hecuba/type} (keys (first projects)))]
                    (html [:body
                           [:h2 "Fields"]
                           [:ul (for [k fields] [:li (csk/->snake_case_string (name k))])]
@@ -36,14 +36,14 @@
                            [:tbody
                             (for [p projects]
                               [:tr
-                               [:td [:a {:href (:href p)} (:name p)]]
+                               [:td [:a {:href (:hecuba/href p)} (:hecuba/name p)]]
                                (for [k fields] [:td (str (k p))])
                                (when debug [:td (pr-str p)])])]]]))
                  "application/edn" (pr-str (vec projects))
                  projects))
   :post! (fn [{{body :body} :request}]
            (let [payload (io! (edn/read (java.io.PushbackReader. (io/reader body))))]
-             (upsert! commander (assoc payload :type :project)))))
+             (upsert! commander (assoc payload :hecuba/type :project)))))
 
 (defresource project-resource [querier]
   :allowed-methods #{:get}
@@ -52,7 +52,7 @@
              (if-let [p (item querier id)] {::project p} false))
   :handle-ok (fn [{project ::project {mt :media-type} :representation :as ctx}]
                (case mt
-                 "text/html" (html [:h1 (:name project)])
+                 "text/html" (html [:h1 (:hecuba/name project)])
                  project)))
 
 (defn create-routes [querier commander]

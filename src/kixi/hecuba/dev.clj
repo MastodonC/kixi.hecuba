@@ -31,16 +31,16 @@
 
       (->>
        ;; We could get this sequence from somewhere else
-       [{:project-code "IRR"
-         :name "Eco-retrofit Ealing"
+       [{:hecuba/name "Eco-retrofit Ealing"
+         :project-code "IRR"
          :leaders ["/users/1" "/users/2"]}
 
-        {:project-code "IRR"
-         :name "Eco-retrofit Bolton"
+        {:hecuba/name "Eco-retrofit Bolton"
+         :project-code "IRR"
          :leaders ["/users/1" "/users/2"]}
 
-        {:project-code "IRR"
-         :name "The Glasgow House"
+        {:hecuba/name "The Glasgow House"
+         :project-code "IRR"
          :leaders ["/users/3"]}]
 
        ;; PUT them over HTTP
@@ -63,10 +63,10 @@
 (deftype RefCommander [r]
   Commander
   (upsert! [_ payload]
-    (assert (every? payload #{:name :type}))
+    (assert (every? payload #{:hecuba/name :hecuba/type}))
     (infof "upserting... %s" payload)
-    (let [id (sha1 (:name payload))]
-      (dosync (alter r assoc-in [id] (assoc payload :id id))))))
+    (let [id (sha1 (:hecuba/name payload))]
+      (dosync (alter r assoc-in [id] (assoc payload :hecuba/id id))))))
 
 (defrecord RefQuerier [r]
   Querier
