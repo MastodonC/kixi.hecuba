@@ -19,11 +19,12 @@
   :handle-ok (fn [{projects ::projects {mt :media-type} :representation :as ctx}]
                (case mt
                  "text/html"
-                 (html [:table
-                        (for [p projects]
-                          [:tr
-                           [:td [:a {:href (:href p)} (:name p)]]
-                           [:td (:project-code p)]])])
+                 (html [:body
+                        [:table
+                         (for [p projects]
+                           [:tr
+                            [:td [:a {:href (:href p)} (:name p)]]
+                            [:td (:project-code p)]])]])
                  "application/edn" (pr-str (vec projects))
                  projects))
   :post! (fn [{{body :body} :request}]
