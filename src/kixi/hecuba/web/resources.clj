@@ -19,19 +19,26 @@
   :handle-ok (fn [{projects ::projects {mt :media-type} :representation :as ctx}]
                (case mt
                  "text/html"
-                 (html [:body
-                        [:table
-                         [:thead
-                          [:tr
-                           [:th "Name"]
-                           [:th "Project code"]
-                           [:th "Debug"]]]
-                         [:tbody
-                          (for [p projects]
+                 (let [debug false
+                       fields (remove #{:name :id :href :type} (keys (first projects)))]
+                   (html [:body
+                          [:h2 "Fields"]
+                          [:ul (for [k fields] [:li (name k)])]
+                          [:h2 "Items"]
+                          [:table
+                           [:thead
                             [:tr
-                             [:td [:a {:href (:href p)} (:name p)]]
-                             [:td (:project-code p)]
-                             [:td (pr-str p)]])]]])
+                             [:th "Name"]
+                             (for [k fields] [:th k])
+                             (when debug [:th "Debug"])]]
+                           [:tbody
+                            (for [p projects]
+                              [:tr
+                               [:td [:a {:href (:href p)} (:name p)]]
+                               (for [k fields] [:td (k p)])
+                               (when debug [:td (pr-str p)])])]]
+
+                          ]))
                  "application/edn" (pr-str (vec projects))
                  projects))
   :post! (fn [{{body :body} :request}]
