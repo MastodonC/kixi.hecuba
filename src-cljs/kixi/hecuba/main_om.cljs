@@ -10,7 +10,7 @@
 (defn table-row [data owner]
   (om/component
       (dom/tr #js {:onClick (fn [e] (.log js/console "ooh!"))}
-           (dom/td nil (:name data))
+           (dom/td nil (:hecuba/name data))
            (dom/td nil (apply str (interpose ", " (:leaders data)))))))
 
 (defn table [data owner]
@@ -26,7 +26,7 @@
                 (dom/tbody nil
                      (om/build-all table-row
                          (:projects data)
-                         {:key :name})))))))
+                         {:key :hecuba/name})))))))
 
 (def nav-model
   (atom {:messages []
