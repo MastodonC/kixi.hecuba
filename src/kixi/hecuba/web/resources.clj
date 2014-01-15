@@ -1,4 +1,4 @@
-(ns kixi.hecuba.web.project
+(ns kixi.hecuba.web.resources
   (:require
    [liberator.core :refer (defresource)]
    [kixi.hecuba.protocols :refer (upsert! item items)]

@@ -1,7 +1,7 @@
 (ns kixi.hecuba.web
   (:require
    jig
-   [kixi.hecuba.web.project :refer (projects-resource project-resource)]
+   [kixi.hecuba.web.resources :refer (projects-resource project-resource)]
    kixi.hecuba.web.property
    kixi.hecuba.web.device
    kixi.hecuba.web.messages
