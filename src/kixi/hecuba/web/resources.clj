@@ -54,11 +54,3 @@
                (case mt
                  "text/html" (html [:h1 (:hecuba/name project)])
                  project)))
-
-(defn create-routes [querier commander]
-  (let [project (project-resource querier)
-        projects (projects-resource querier commander project)]
-    [""
-     [["projects/" projects]
-      ["projects" (->Redirect 307 projects)]
-      [["project/" :id] project]]]))
