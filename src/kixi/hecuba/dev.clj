@@ -4,6 +4,7 @@
   (:require
    jig
    kixi.hecuba.protocols
+   [bidi.bidi :refer (path-for)]
    [kixi.hecuba.hash :refer (sha1)]
    [clojure.tools.logging :refer :all]
    [org.httpkit.client :refer (request) :rename {request http-request}])
@@ -24,24 +25,35 @@
   Lifecycle
   (init [_ system] system)
   (start [_ system]
-    (->>
-     ;; We could get this sequence from somewhere else
-     [{:project-code "IRR"
-       :name "Eco-retrofit Ealing"
-       :leaders ["/users/1" "/users/2"]}
+    (let [routes (-> system :hecuba/routing :jig.bidi/routes)
+          handlers (-> system :handlers)
+          port (-> system :jig/config :jig/components :hecuba/webserver :port)]
 
-      {:project-code "IRR"
-       :name "Eco-retrofit Bolton"
-       :leaders ["/users/1" "/users/2"]}
+      (->>
+       ;; We could get this sequence from somewhere else
+       [{:project-code "IRR"
+         :name "Eco-retrofit Ealing"
+         :leaders ["/users/1" "/users/2"]}
 
-      {:project-code "IRR"
-       :name "The Glasgow House"
-       :leaders ["/users/3"]}]
+        {:project-code "IRR"
+         :name "Eco-retrofit Bolton"
+         :leaders ["/users/1" "/users/2"]}
 
-     (map (partial post-resource "http://localhost:8000/projects/")) ; PUT them over HTTP
-     (map deref) doall ; wait for all promises to be delivered (all responses to arrive)
-     #_(every? #(= (:status %) 201))  ; check each returns a status of 201
-     assert)                          ; fail otherwise!
+        {:project-code "IRR"
+         :name "The Glasgow House"
+         :leaders ["/users/3"]}]
+
+       ;; PUT them over HTTP
+       (map (partial post-resource
+                     (format "http://localhost:%d%s"
+                             port
+                             (path-for routes (:projects handlers)))))
+       ;; wait for all promises to be delivered (all responses to arrive)
+       (map deref) doall
+       ;; check each returns a status of 201
+       (every? #(= (:status %) 201))
+       ;; fail otherwise!
+       assert))
     system)
   (stop [_ system] system))
 

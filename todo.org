@@ -23,7 +23,11 @@
 * DONE 'Projects' table should be rendered by React
 * DONE Project rows should be individual components
 * DONE Project data should come in from AJAX
-* TODO Clicking on a project should get project details from Liberator
 * DONE Get real EDN
 
-* TODO Generify table component
+* UI
+** TODO Clicking on a project should get project details from Liberator
+** TODO Generify table component
+
+* Back end
+- [ ] dummy data component should drive uris

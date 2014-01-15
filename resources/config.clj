@@ -59,6 +59,6 @@
   :hecuba.dev/example-data-loader
   {:jig/component kixi.hecuba.dev/ExampleDataLoader
    :jig/project "../kixi.hecuba/project.clj"
-   :jig/dependencies [:hecuba/webserver]}
+   :jig/dependencies [:hecuba/webserver :hecuba/routing]}
 
 }}
