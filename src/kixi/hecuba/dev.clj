@@ -7,6 +7,7 @@
    [bidi.bidi :refer (path-for)]
    [kixi.hecuba.hash :refer (sha1)]
    [clojure.tools.logging :refer :all]
+   [clojure.java.io :as io]
    [org.httpkit.client :refer (request) :rename {request http-request}])
   (:import
    (jig Lifecycle)
@@ -19,41 +20,44 @@
     :body [data]}
    identity))
 
-;; TODO: Need to depend on routes and use them to path-for the uri, otherwise we tied ourselves to these URIS prematurely
+(defn get-port [system]
+  (-> system :jig/config :jig/components :hecuba/webserver :port))
+
+(defn get-routes [system]
+  (-> system :hecuba/routing :jig.bidi/routes))
+
+(defn get-handlers [system]
+  (-> system :handlers))
 
 (deftype ExampleDataLoader [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]
-    (let [routes (-> system :hecuba/routing :jig.bidi/routes)
-          handlers (-> system :handlers)
-          port (-> system :jig/config :jig/components :hecuba/webserver :port)]
+    (->>
+     ;; We could get this sequence from somewhere else
+     [{:hecuba/name "Eco-retrofit Ealing"
+       :project-code "IRR"
+       :leaders ["/users/1" "/users/2"]}
 
-      (->>
-       ;; We could get this sequence from somewhere else
-       [{:hecuba/name "Eco-retrofit Ealing"
-         :project-code "IRR"
-         :leaders ["/users/1" "/users/2"]}
+      {:hecuba/name "Eco-retrofit Bolton"
+       :project-code "IRR"
+       :leaders ["/users/1" "/users/2"]}
 
-        {:hecuba/name "Eco-retrofit Bolton"
-         :project-code "IRR"
-         :leaders ["/users/1" "/users/2"]}
+      {:hecuba/name "The Glasgow House"
+       :project-code "IRR"
+       :leaders ["/users/3"]}]
 
-        {:hecuba/name "The Glasgow House"
-         :project-code "IRR"
-         :leaders ["/users/3"]}]
-
-       ;; PUT them over HTTP
-       (map (partial post-resource
-                     (format "http://localhost:%d%s"
-                             port
-                             (path-for routes (:projects handlers)))))
-       ;; wait for all promises to be delivered (all responses to arrive)
-       (map deref) doall
-       ;; check each returns a status of 201
-       (every? #(= (:status %) 201))
-       ;; fail otherwise!
-       assert))
+     ;; PUT them over HTTP
+     (map (partial post-resource
+                   (format "http://localhost:%d%s"
+                           (get-port system)
+                           (path-for (get-routes system) (:projects (get-handlers system))))))
+     ;; wait for all promises to be delivered (all responses to arrive)
+     (map deref) doall
+     ;; check each returns a status of 201
+     (every? #(= (:status %) 201))
+     ;; fail otherwise!
+     assert)
     system)
   (stop [_ system] system))
 
@@ -79,4 +83,28 @@
        (assoc :commander (->RefCommander r))
        (assoc :querier (->RefQuerier r)))))
   (start [_ system] system)
+  (stop [_ system] system))
+
+(deftype HttpClientChecks [config]
+  Lifecycle
+  (init [_ system] system)
+  (start [_ system]
+    (let [uri (format "http://localhost:%d%s"
+                      (get-port system)
+                      (path-for (get-routes system) (:projects (get-handlers system))))]
+      (let [projects-response
+            @(http-request
+              {:method :get
+               :url uri
+               :headers {"Accept" "application/edn"}
+               }
+              identity)
+            projects
+            (clojure.edn/read (java.io.PushbackReader. (io/reader (:body projects-response))))]
+        (when-not
+            (and
+             (= (get-in projects-response [:headers :content-type]) "application/edn;charset=UTF-8")
+             (= 3 (count projects)))
+          (println "Warning: HTTP client checks failed"))))
+    system)
   (stop [_ system] system))
