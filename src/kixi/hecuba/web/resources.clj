@@ -22,7 +22,8 @@
                (case mt
                  "text/html"
                  (let [debug false
-                       fields (remove #{:hecuba/name :hecuba/id :hecuba/href :hecuba/type} (keys (first items)))]
+                       fields (remove #{:hecuba/name :hecuba/id :hecuba/href :hecuba/type}
+                                      (distinct (mapcat keys items)))]
                    (html [:body
                           [:h2 "Fields"]
                           [:ul (for [k fields] [:li (csk/->snake_case_string (name k))])]

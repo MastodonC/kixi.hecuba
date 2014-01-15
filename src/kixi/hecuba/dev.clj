@@ -67,11 +67,15 @@
     (put-items system
                :properties
                [{:hecuba/name "Falling Water"
-                 :address "1491 Mill Run Rd, Mill Run, PA"}
+                 :address "1491 Mill Run Rd, Mill Run, PA"
+                 :rooms 4
+                 :date-of-construction 1937}
                 {:hecuba/name "Buckingham Palace"
-                 :address "London SW1A 1AA, United Kingdom"}
+                 :address "London SW1A 1AA, United Kingdom"
+                 :rooms 775}
                 {:hecuba/name "The ODI"
-                 :address "3rd Floor, 65 Clifton Street, London EC2A 4JE"}])
+                 :address "3rd Floor, 65 Clifton Street, London EC2A 4JE"
+                 :rooms 13}])
     system)
   (stop [_ system] system))
 
