@@ -75,15 +75,20 @@
                     :address "1491 Mill Run Rd, Mill Run, PA"
                     :rooms 4
                     :date-of-construction 1937
-                    :project p1}
+                    :hecuba/parent p1}
+                   {:hecuba/name "The Empire State Building"
+                    :address "New York"
+                    :rooms 100
+                    :date-of-construction 1930
+                    :hecuba/parent p1}
                    {:hecuba/name "Buckingham Palace"
                     :address "London SW1A 1AA, United Kingdom"
                     :rooms 775
-                    :project p2}
+                    :hecuba/parent p2}
                    {:hecuba/name "The ODI"
                     :address "3rd Floor, 65 Clifton Street, London EC2A 4JE"
                     :rooms 13
-                    :project p3}])
+                    :hecuba/parent p3}])
        ))
 
 

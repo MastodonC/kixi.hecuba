@@ -17,7 +17,7 @@
   debug, to be able to check the data without too much UI logic
   involved."
   [items]
-  (let [fields (remove #{:hecuba/name :hecuba/id :hecuba/href :hecuba/type}
+  (let [fields (remove #{:hecuba/name :hecuba/id :hecuba/href :hecuba/type :hecuba/parent :hecuba/parent-href}
                        (distinct (mapcat keys items)))]
     (let [DEBUG false]
       (html [:body
@@ -28,12 +28,14 @@
               [:thead
                [:tr
                 [:th "Name"]
+                [:th "Parent"]
                 (for [k fields] [:th (string/replace (csk/->Snake_case_string k) "_" " ")])
                 (when DEBUG [:th "Debug"])]]
               [:tbody
                (for [p items]
                  [:tr
                   [:td [:a {:href (:hecuba/href p)} (:hecuba/name p)]]
+                  [:td [:a {:href (:hecuba/parent-href p)} "Parent"]]
                   (for [k fields] [:td (str (k p))])
                   (when DEBUG [:td (pr-str p)])])]]]))))
 
@@ -42,7 +44,7 @@
 ;; info: http://clojure-liberator.github.io/liberator/
 
 ;; REST resource for items (plural) - .
-(defresource items-resource [typ querier commander item-resource]
+(defresource items-resource [typ querier commander item-resource parent-resource]
   ;; acts as both an index of existing items and factory for new ones
   :allowed-methods #{:get :post}
 
@@ -57,7 +59,8 @@
            (merge route-params) ; adding any route-params
            (items querier) ; to query items
            ;; which are adorned with hrefs, throwing bidi's path-for all the kv pairs we have!
-           (map #(assoc % :hecuba/href (apply path-for routes item-resource (apply concat %)))))]
+           (map #(assoc % :hecuba/href (apply path-for routes item-resource (apply concat %))))
+           (map #(assoc % :hecuba/parent-href (path-for routes parent-resource :hecuba/id (:hecuba/parent %)))))]
       (case mime
         "text/html" (render-items-html items)
         ;; Liberator's default rendering of application/edn seems wrong

@@ -34,7 +34,7 @@
 (defn readings [req]
   {:status 200 :body (slurp (io/resource "reading.html"))})
 
-(defn create-handler-pairs
+#_(defn create-handler-pairs
   "Pairs are of form [:home-key :object-key], like [:mice :mouse]. The
   singular form (:mouse) is used to form the where clause in the
   resource."
@@ -43,9 +43,19 @@
    (for [[plural singular] pairs]
            (let [detail (item-resource querier)]
              {singular detail
-              plural (items-resource singular querier commander detail)}))
+              plural (items-resource singular querier commander detail parent-resource)}))
    ;; Merge all the pairs together to form a single handler map
    (apply merge)))
+
+(defn create-handlers [querier commander]
+  (let [project-resource (item-resource querier)
+        project-home (items-resource :project querier commander project-resource nil)
+        property-resource (item-resource querier)
+        property-home (items-resource :property querier commander property-resource project-resource)]
+    {:projects project-home
+     :project project-resource
+     :properties property-home
+     :property property-resource}))
 
 (defn make-routes [producer-config querier commander handlers]
   ["/"
@@ -79,16 +89,17 @@
     #_[(->Alternates ["stylesheets/" "images/" "javascripts/"])
        (->Resources {:prefix "hecuba/"})]]])
 
+
+
+
 (deftype Website [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]
     (let [commander (:commander system)
           querier (:querier system)
-          handlers (create-handler-pairs commander querier
-                                         [[:projects :project]
-                                          [:properties :property]
-                                          [:mice :mouse]])]
+          handlers (create-handlers  querier commander)]
+
       (-> system
           (add-bidi-routes
            config
