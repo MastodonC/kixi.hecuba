@@ -50,6 +50,12 @@
   Lifecycle
   (init [_ system] system)
   (start [_ system]
+    ;; The idea here is to create 3 projects (in parallel), and grab
+    ;; their identifiers from the returned location paths. It's handy
+    ;; that we can use bidi again to go between the location path and
+    ;; the embedded id. We put the returned identifiers in p1, p2 and
+    ;; p3, and we use these later on to assocated properties with
+    ;; projects.
     (let [[p1 p2 p3]
           (for [response
                 (put-items

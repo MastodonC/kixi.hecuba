@@ -73,14 +73,14 @@
     ;; Projects
     ["projects/" (:projects handlers)]
     ["projects" (->Redirect 307 (:projects handlers))]
-    [["project/" :hecuba/id] (:project handlers)]
+    [["projects/" :hecuba/id] (:project handlers)]
 
     ;; Properties, with an 'X' suffix to avoid conflicting with Anna's
     ;; work until we integrate this.
     ;; Eventually these routes can be generated from the keyword pairs.
-    [["propertyX/" :hecuba/id] (:property handlers)]
     ["propertiesX/" (:properties handlers)]
     ["propertiesX" (->Redirect 307 (:properties handlers))]
+    [["propertiesX/" :hecuba/id] (:property handlers)]
 
     ["hecuba-js/react.js" (->Resources {:prefix "sb-admin/"})]
     ["" (->Resources {:prefix "sb-admin/"})]
