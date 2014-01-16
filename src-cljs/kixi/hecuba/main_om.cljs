@@ -9,26 +9,29 @@
 
 (enable-console-print!)
 
-(defn table-row [data owner]
-  (om/component
-      (dom/tr #js {:onClick (fn [e] (.log js/console "ooh!"))}
-           (dom/td nil (:hecuba/name data))
-           (dom/td nil (apply str (interpose ", " (:leaders data)))))))
+(defn table-row [fields]
+  (fn [data owner]
+    (om/component
+        (apply dom/tr #js {:onClick (fn [e] (.log js/console "ooh!"))}
+               (for [field fields]
+                 (dom/td nil (str (get data field))))
+               ))))
 
-(defn table [data owner]
-  (reify
-    om/IRender
-    (render [_]
-      (dom/div #js {:className "table-responsive"}
-           (dom/table #js {:className "table table-bordered table-hover table-striped"}
-                (dom/thead nil
-                     (dom/tr nil
-                          (dom/th nil "Name")
-                          (dom/th nil "Leaders")))
-                (dom/tbody nil
-                     (om/build-all table-row
-                         (:projects data)
-                         {:key :hecuba/name})))))))
+(defn create-table [model-path fields row]
+  (fn [data owner]
+    (reify
+      om/IRender
+      (render [_]
+        (dom/div #js {:className "table-responsive"}
+             (dom/table #js {:className "table table-bordered table-hover table-striped"}
+                  (dom/thead nil
+                       (apply dom/tr nil
+                            (for [field fields]
+                              (dom/th nil field))))
+                  (dom/tbody nil
+                       (om/build-all row
+                           (get-in data model-path)
+                           {:key :hecuba/name}))))))))
 
 (def app-model
   (atom {:messages []
@@ -50,7 +53,13 @@
 (om/root app-model nav/nav (.getElementById js/document "hecuba-nav"))
 
 ;; Attach projects to a table component at hecuba-projects
-(om/root app-model table (.getElementById js/document "hecuba-projects"))
+(om/root app-model (create-table [:projects]
+                                 ["Name" "Project code" "Leaders"]
+                                 (table-row [:hecuba/name :project-code :leaders])) (.getElementById js/document "hecuba-projects"))
+
+(om/root app-model (create-table [:properties]
+                                 ["Name" "Address" "Rooms" "Construction date"]
+                                 (table-row [:hecuba/name :address :rooms :date-of-construction])) (.getElementById js/document "hecuba-properties"))
 
 (GET "/messages/" {:handler (fn [x]
                               (println "Messages: " x)

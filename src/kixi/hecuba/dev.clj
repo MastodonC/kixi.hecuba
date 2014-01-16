@@ -63,15 +63,15 @@
                  :projects
                  [{:hecuba/name "Eco-retrofit Ealing"
                    :project-code "IRR"
-                   :leaders ["/users/1" "/users/2"]}
+                   :leaders "John, Frank"}
 
                   {:hecuba/name "Eco-retrofit Bolton"
                    :project-code "IRR"
-                   :leaders ["/users/1" "/users/2"]}
+                   :leaders "Sue, Mike"}
 
                   {:hecuba/name "The Glasgow House"
                    :project-code "IRR"
-                   :leaders ["/users/3"]}])]
+                   :leaders "Brenda"}])]
             (get-id-from-path system (get-in response [:headers :location])))]
 
       (put-items
