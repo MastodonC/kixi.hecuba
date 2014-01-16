@@ -74,9 +74,11 @@
     (render [_]
       (dom/form
        #js {:className "chartForm" :onSubmit #(handle-submit % app)}
-       (.log js/console "I render (chart-form)")
-       (dom/input #js {:type "checkbox" :value "external_temp" :ref "external_temp"})
-       (dom/input #js {:type "checkbox" :value "external_humidity" :ref "external_humidity"})
+       (.log js/console "I'm rendering chart form.")
+       (dom/input #js {:id "external_temp" :type "checkbox" :ref "external_temp" :value "external_temp" :name "external_temp"})
+       (dom/label #js {:htmlFor "external_temp" } "External Temp")
+       (dom/input #js {:id "external_humidity" :type "checkbox" :value "external_humidity" :name "external_humidity" :ref "external_humidity"})
+       (dom/label #js {:htmlFor "external_humidity"} "External Humidity")
        (dom/input #js {:type "submit" :value "Update"})))))
 
 ;;;;;;;;;; Chart ;;;;;;;;;;
@@ -91,15 +93,17 @@
       (.log js/console "I will mount (chart-view)"))
     om/IRender
     (render [this]
-      (.log js/console "I render (chart-component)")  
+      (.log js/console "I render (chart-component)")     
       (dom/div #js {:id "chart"} 
+                (om/build chart-form app)
                (dom/h4 nil "Select reading types below.")))
     om/IDidMount
-    (did-mount [_ owner]    
+    (did-mount [_ owner]  
+     
       (om/set-state! owner [:dimple-chart] (.newSvg dimple (:div opts) (:width opts) (:height opts)))
       (.log js/console "I did mount (chart-component)"))))
 
-
+;; This can be used to create actual chart (after svg have been created)
 #_(let [svg   (om/get-state this [:dimple-chart])
                      Chart (.-chart dimple)]
                  (Chart. svg (clj->js data)))
