@@ -12,24 +12,7 @@
 (def dimple (this-as ct (aget ct "dimple")))
 
 (mrhyde/bootstrap)
-
-(defn create-svg
-  [div width height]
-  (.newSvg dimple div width height))
-
-(defn dimple-chart 
-  [div width height data]
-  (let [Chart (.-chart dimple)
-        svg   (create-svg div width height)]
-    (Chart. svg (clj->js data))))
-
-(defn init-bar-chart
-  [div width height data x-axis-title y-axis-title]
-  (let [chart (dimple-chart div width height data)]
-    (.addCategoryAxis chart "x" x-axis-title)
-    (.addMeasureAxis chart "y" y-axis-title)
-    (.addSeries chart nil js/dimple.plot.bar)
-    (.draw chart)))
+(enable-console-print!)
 
 (defn nodelist-to-seq
   "Converts nodelist to (not lazy) seq."
@@ -37,24 +20,13 @@
   (let [result-seq (map #(.item nl %) (range (.-length nl)))]
     (doall result-seq)))
 
-(def data  [{"Word" "Hello" "Awesomeness" 2000}
-            {"Word" "World" "Awesomeness" 3000}])
-
-(defn reload-chart [e]
-  (.log js/console e)
-  (.log js/console (.getElementsByTagName js/document "form"))
-  (.remove (first (nodelist-to-seq (.getElementsByTagName js/document "svg")))))
-
-
-
-;; ----- Om + dimple -----
-
-(enable-console-print!)
-
 (def app-state
   (atom {:data []}))
 
 ;;;;;;;;;;; Data ;;;;;;;;;;;
+
+(def data  [{"Word" "Hello" "Awesomeness" 2000}
+            {"Word" "World" "Awesomeness" 3000}])
 
 (defn select-data
  [selection]
@@ -83,6 +55,9 @@
 
 ;;;;;;;;;; Chart ;;;;;;;;;;
 
+(defn remove-chart []
+  (.remove (first (nodelist-to-seq (.getElementsByTagName js/document "svg")))))
+
 (defn chart-view [app opts]
   (reify
     om/IInitState
@@ -94,19 +69,20 @@
     om/IRender
     (render [this]
       (.log js/console "I render (chart-component)")     
-      (dom/div #js {:id "chart"} 
+      (dom/div #js {:id "form"} 
                 (om/build chart-form app)
-               (dom/h4 nil "Select reading types below.")))
+                (dom/h4 nil "Select reading types below.")))
     om/IDidMount
-    (did-mount [_ owner]  
-     
-      (om/set-state! owner [:dimple-chart] (.newSvg dimple (:div opts) (:width opts) (:height opts)))
+    (did-mount [_ owner]
+      (let [Chart        (.-chart dimple)
+            svg          (.newSvg dimple "#chart" 450 350)
+            dimple-chart (Chart. svg (clj->js data))]
+          (.addCategoryAxis dimple-chart "x" "Word")
+          (.addMeasureAxis dimple-chart "y" "Awesomeness")
+          (.addSeries dimple-chart nil js/dimple.plot.bar)
+         (.draw dimple-chart))
       (.log js/console "I did mount (chart-component)"))))
 
-;; This can be used to create actual chart (after svg have been created)
-#_(let [svg   (om/get-state this [:dimple-chart])
-                     Chart (.-chart dimple)]
-                 (Chart. svg (clj->js data)))
 
 (defn chart-app [app]
   (reify
