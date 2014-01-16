@@ -94,14 +94,17 @@
 
 (defn render-item-html
   "Render an item as HTML"
-  [item]
+  [item children]
   (html
    [:body
     [:h1 (:hecuba/name item)]
+    [:ul
+     (for [child children]
+       [:li [:a {:href (:hecuba/href child)} (str child)]])]
     [:pre (pr-str item)]]))
 
 ;; REST resource for individual items.
-(defresource item-resource [querier]
+(defresource item-resource [querier child-resource]
   :allowed-methods #{:get}
   :available-media-types base-media-types
 
@@ -109,11 +112,17 @@
            ; an extra query later on - this is a common Liberator
            ; pattern
   (fn [{{{id :hecuba/id} :route-params body :body routes :jig.bidi/routes} :request}]
-    (when-let [itm (item querier id)] {::item itm}))
+    (when-let [itm (item querier id)]
+      {::item itm
+       ::children
+       (map
+        #(when child-resource (assoc % :hecuba/href (path-for routes child-resource :hecuba/id (:hecuba/id %))))
+        (items querier {:hecuba/parent id}))}))
 
   :handle-ok
-  (fn [{item ::item {mime :media-type} :representation}]
+  (fn [{item ::item children ::children {mime :media-type} :representation}]
     (case mime
-      "text/html" (render-item-html item)
+      "text/html" (render-item-html item children)
       ;; The default is to let Liberator render our data
-      item)))
+      {:item item
+       :children children})))
