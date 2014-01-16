@@ -17,8 +17,6 @@
   [div width height]
   (.newSvg dimple div width height))
 
-(def chart-svg)
-
 (defn dimple-chart 
   [div width height data]
   (let [Chart (.-chart dimple)
@@ -56,39 +54,19 @@
 (def app-state
   (atom {:data []}))
 
-(defn comment-list [app opts]
-  (om/component
-   (dom/div #js {:className "commentList"}
-            (into-array
-             (map #(om/build comment app
-                             {:path [:comments %]
-                              :key :id})
-                  (range (count (:comments app))))))))
+;;;;;;;;;;; Data ;;;;;;;;;;;
+
+(defn select-data
+ [selection]
+ )
 
 (defn handle-submit
   [e app]
     (.log js/console (str "Handled submit and got: " e))
-    ())
+   ; (om/update! app )
+    )
 
-(defn table-row [data owner]
-  (om/component
-      (dom/tr #js {:onClick (fn [e] (.log js/console "ooh!"))}
-           (dom/td nil (:name data))
-           (dom/td nil (apply str (interpose ", " (:leaders data)))))))
-
-(defn table [app opts]
-  (reify
-    om/IRender
-    (render [_]
-      (dom/div #js {:className "table"}
-               (dom/thead nil
-                          (dom/tr nil
-                                  (dom/th nil "Name")
-                                  (dom/th nil "Leaders")))
-               (dom/tbody nil
-                          (om/build-all table-row
-                                        (:projects data)
-                                        (:key :name)))))))
+;;;;;;;;;;; Form ;;;;;;;;;;
 
 (defn chart-form [app]
   (reify
@@ -96,37 +74,44 @@
     (render [_]
       (dom/form
        #js {:className "chartForm" :onSubmit #(handle-submit % app)}
-       (.log js/console "I'm rendering chart form.")
+       (.log js/console "I render (chart-form)")
        (dom/input #js {:type "checkbox" :value "external_temp" :ref "external_temp"})
        (dom/input #js {:type "checkbox" :value "external_humidity" :ref "external_humidity"})
        (dom/input #js {:type "submit" :value "Update"})))))
 
-(defn chart-component [app opts]
+;;;;;;;;;; Chart ;;;;;;;;;;
+
+(defn chart-view [app opts]
   (reify
     om/IWillMount
     (will-mount [_]
-      (.log js/console "I'm about to mount"))
+      (.log js/console "I will mount (chart-view)"))
+    om/IDidMount
+    (did-mount [_ owner]
+      (.log js/console "I did mount (chart-view)")
+      (om/set-state! owner [:dimple-chart] (.newSvg dimple (:div opts) (:width opts) (:height opts))))
     om/IRender
     (render [_]
-      (dom/div #js {:id "chart2"}
-               (.log js/console "I'm rendering chart-component.")
-               (dom/h2 nil "Metering data")
-               (om/build chart-form app)))))
+      (.log js/console "I render (chart-component)")
+      (dom/div #js {:id "chart"}           
+               (let [svg   (om/get-state owner [:leaflet-map])
+                     Chart (.-chart dimple)]
+                  (Chart. svg (clj->js data)))
+              ; (om/build chart-form app)
+               ))))
 
 (defn chart-app [app]
   (reify
     om/IRender
     (render [_]
       (dom/div nil
-               (om/build chart-component app
-                         {:opts {:width 350
-                                 :height 450
-                                 :data []}})))))
+            (om/build chart-view app
+                      {:opts {:div "#chart"
+                              :width 450
+                              :heigth 350
+                              :data []}})))))
 
-;; Om version
-(om/root app-state chart-app (.getElementById js/document "content"))
+(om/root app-state chart-app (.getElementById js/document "app"))
 
-;; Dommy version
-(dommy/listen! (sel1 :#submit) :click reload-chart)
-(set! chart-svg (init-bar-chart "#chart" 450 350 data "Word" "Awesomeness"))
+
 
