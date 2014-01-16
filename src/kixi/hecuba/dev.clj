@@ -30,6 +30,7 @@
   (-> system :handlers))
 
 (defn put-items [system typ items]
+  {:post [(every? (fn [resp] (= (:status resp) 201)) %)]}
   (->>
    ;; We could get this sequence from somewhere else
    items
@@ -41,28 +42,26 @@
                          (path-for (get-routes system) (typ (get-handlers system))))))
    ;; wait for all promises to be delivered (all responses to arrive)
    (map deref) doall
-   ;; check each returns a status of 201
-   (every? #(= (:status %) 201))
-   ;; fail otherwise!
-   assert))
+   ))
 
 (deftype ExampleDataLoader [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]
-    (put-items system
-               :projects
-               [{:hecuba/name "Eco-retrofit Ealing"
-                 :project-code "IRR"
-                 :leaders ["/users/1" "/users/2"]}
+    (println
+     (first (put-items system
+                       :projects
+                       [{:hecuba/name "Eco-retrofit Ealing"
+                         :project-code "IRR"
+                         :leaders ["/users/1" "/users/2"]}
 
-                {:hecuba/name "Eco-retrofit Bolton"
-                 :project-code "IRR"
-                 :leaders ["/users/1" "/users/2"]}
+                        {:hecuba/name "Eco-retrofit Bolton"
+                         :project-code "IRR"
+                         :leaders ["/users/1" "/users/2"]}
 
-                {:hecuba/name "The Glasgow House"
-                 :project-code "IRR"
-                 :leaders ["/users/3"]}])
+                        {:hecuba/name "The Glasgow House"
+                         :project-code "IRR"
+                         :leaders ["/users/3"]}])))
 
     (put-items system
                :properties
@@ -85,7 +84,9 @@
     (assert (every? payload #{:hecuba/name :hecuba/type}))
     (infof "upserting... %s" payload)
     (let [id (-> payload ((juxt :hecuba/type :hecuba/name)) pr-str sha1)]
-      (dosync (alter r assoc-in [id] (assoc payload :hecuba/id id))))))
+      (dosync (alter r assoc-in [id] (assoc payload :hecuba/id id)))
+      id)
+    ))
 
 (defrecord RefQuerier [r]
   Querier

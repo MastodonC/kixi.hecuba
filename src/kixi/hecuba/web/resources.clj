@@ -1,6 +1,7 @@
 (ns kixi.hecuba.web.resources
   (:require
    [liberator.core :refer (defresource)]
+   [liberator.representation :refer (ring-response)]
    [kixi.hecuba.protocols :refer (upsert! item items)]
    [bidi.bidi :refer (->Redirect path-for)]
    [hiccup.core :refer (html)]
@@ -13,11 +14,16 @@
 
 (defresource items-resource [typ querier commander detail-resource]
   :allowed-methods #{:get :post}
+
   :available-media-types base-media-types
-  :exists? (fn [{{body :body routes :jig.bidi/routes} :request :as ctx}]
+
+  ;; This 'factory' resource ALWAYS exists, but we piggyback on this decision point to find the items.
+  ;; TODO: don't do this!
+  :exists? (fn [{{route-params :route-params body :body routes :jig.bidi/routes} :request :as ctx}]
              {::items
-              (map (fn [m] (assoc m :hecuba/href (path-for routes detail-resource :id (:hecuba/id m))))
-                   (items querier {:hecuba/type typ}))})
+              (map (fn [m] (assoc m :hecuba/href (path-for routes detail-resource :hecuba/id (:hecuba/id m))))
+                   (items querier (merge route-params {:hecuba/type typ})))})
+
   :handle-ok (fn [{items ::items {mt :media-type} :representation :as ctx}]
                (case mt
                  "text/html"
@@ -42,14 +48,20 @@
                                (when debug [:td (pr-str p)])])]]]))
                  "application/edn" (pr-str (vec items))
                  items))
+
+  :handle-created (fn [{{routes :jig.bidi/routes} :request id :hecuba/id :as ctx}]
+                    (ring-response
+                     {:headers {"Location"
+                                (path-for routes detail-resource :hecuba/id id)}}))
+
   :post! (fn [{{body :body} :request}]
            (let [payload (io! (edn/read (java.io.PushbackReader. (io/reader body))))]
-             (upsert! commander (assoc payload :hecuba/type typ)))))
+             {:hecuba/id (upsert! commander (assoc payload :hecuba/type typ))})))
 
 (defresource item-resource [querier]
   :allowed-methods #{:get}
   :available-media-types base-media-types
-  :exists? (fn [{{{id :id} :route-params body :body routes :jig.bidi/routes} :request :as ctx}]
+  :exists? (fn [{{{id :hecuba/id} :route-params body :body routes :jig.bidi/routes} :request :as ctx}]
              (if-let [p (item querier id)] {::item p} false))
   :handle-ok (fn [{item ::item {mt :media-type} :representation :as ctx}]
                (case mt

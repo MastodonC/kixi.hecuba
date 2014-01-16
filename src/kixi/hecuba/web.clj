@@ -61,14 +61,14 @@
     (kixi.hecuba.web.messages/create-routes querier commander)
 
     ;; Projects
-    [["project/" :id] (:project handlers)]
+    [["project/" :hecuba/id] (:project handlers)]
     ["projects/" (:projects handlers)]
     ["projects" (->Redirect 307 (:projects handlers))]
 
     ;; Properties, with an 'X' suffix to avoid conflicting with Anna's
     ;; work until we integrate this.
     ;; Eventually these routes can be generated from the keyword pairs.
-    [["propertyX/" :id] (:property handlers)]
+    [["propertyX/" :hecuba/id] (:property handlers)]
     ["propertiesX/" (:properties handlers)]
     ["propertiesX" (->Redirect 307 (:properties handlers))]
 
