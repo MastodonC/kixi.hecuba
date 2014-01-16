@@ -98,13 +98,16 @@
   (html
    [:body
     [:h1 (:hecuba/name item)]
+    (when-let [parent-href (:hecuba/parent-href item)]
+      [:p [:a {:href parent-href} "Parent"]])
+    [:h2 "Children"]
     [:ul
      (for [child children]
-       [:li [:a {:href (:hecuba/href child)} (str child)]])]
+       [:li [:a {:href (:hecuba/href child)} (:hecuba/name child)]])]
     [:pre (pr-str item)]]))
 
 ;; REST resource for individual items.
-(defresource item-resource [querier child-resource]
+(defresource item-resource [querier parent-resource-p child-resource]
   :allowed-methods #{:get}
   :available-media-types base-media-types
 
@@ -113,7 +116,8 @@
            ; pattern
   (fn [{{{id :hecuba/id} :route-params body :body routes :jig.bidi/routes} :request}]
     (when-let [itm (item querier id)]
-      {::item itm
+      {::item (assoc itm :hecuba/parent-href (when parent-resource-p
+                                               (path-for routes @parent-resource-p :hecuba/id (:hecuba/parent itm))) )
        ::children
        (map
         #(when child-resource (assoc % :hecuba/href (path-for routes child-resource :hecuba/id (:hecuba/id %))))
@@ -126,3 +130,6 @@
       ;; The default is to let Liberator render our data
       {:item item
        :children children})))
+
+
+;; (map #(assoc % :hecuba/parent-href (path-for routes parent-resource :hecuba/id (:hecuba/parent %))))

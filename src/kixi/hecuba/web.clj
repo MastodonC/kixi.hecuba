@@ -48,8 +48,10 @@
    (apply merge)))
 
 (defn create-handlers [querier commander]
-  (let [property-resource (item-resource querier nil)
-        project-resource (item-resource querier property-resource)
+  (let [project-resource-p (promise)
+        property-resource (item-resource querier project-resource-p nil)
+        project-resource (item-resource querier nil property-resource)
+        _ (deliver project-resource-p project-resource)
         project-home (items-resource :project querier commander project-resource nil)
         property-home (items-resource :property querier commander property-resource project-resource)]
     {:projects project-home
