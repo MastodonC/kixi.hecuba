@@ -1,7 +1,11 @@
 (ns kixi.hecuba.web.chart
+  (:require-macros [cljs.core.async.macros :refer [go]])
   (:require
    [mrhyde.core :as mrhyde]
-   [dommy.core :as dommy])
+   [dommy.core :as dommy]
+   [om.core :as om :include-macros true]
+   [om.dom :as dom :include-macros true]
+   [cljs.core.async :refer [<! chan put! sliding-buffer]])
   (:use-macros
    [dommy.macros :only [node sel sel1 by-tag]]))
 
@@ -43,8 +47,86 @@
   (.log js/console (.getElementsByTagName js/document "form"))
   (.remove (first (nodelist-to-seq (.getElementsByTagName js/document "svg")))))
 
+
+
+;; ----- Om + dimple -----
+
+(enable-console-print!)
+
+(def app-state
+  (atom {:data []}))
+
+(defn comment-list [app opts]
+  (om/component
+   (dom/div #js {:className "commentList"}
+            (into-array
+             (map #(om/build comment app
+                             {:path [:comments %]
+                              :key :id})
+                  (range (count (:comments app))))))))
+
+(defn handle-submit
+  [e app]
+    (.log js/console (str "Handled submit and got: " e))
+    ())
+
+(defn table-row [data owner]
+  (om/component
+      (dom/tr #js {:onClick (fn [e] (.log js/console "ooh!"))}
+           (dom/td nil (:name data))
+           (dom/td nil (apply str (interpose ", " (:leaders data)))))))
+
+(defn table [app opts]
+  (reify
+    om/IRender
+    (render [_]
+      (dom/div #js {:className "table"}
+               (dom/thead nil
+                          (dom/tr nil
+                                  (dom/th nil "Name")
+                                  (dom/th nil "Leaders")))
+               (dom/tbody nil
+                          (om/build-all table-row
+                                        (:projects data)
+                                        (:key :name)))))))
+
+(defn chart-form [app]
+  (reify
+    om/IRender
+    (render [_]
+      (dom/form
+       #js {:className "chartForm" :onSubmit #(handle-submit % app)}
+       (.log js/console "I'm rendering chart form.")
+       (dom/input #js {:type "checkbox" :value "external_temp" :ref "external_temp"})
+       (dom/input #js {:type "checkbox" :value "external_humidity" :ref "external_humidity"})
+       (dom/input #js {:type "submit" :value "Update"})))))
+
+(defn chart-component [app opts]
+  (reify
+    om/IWillMount
+    (will-mount [_]
+      (.log js/console "I'm about to mount"))
+    om/IRender
+    (render [_]
+      (dom/div #js {:id "chart2"}
+               (.log js/console "I'm rendering chart-component.")
+               (dom/h2 nil "Metering data")
+               (om/build chart-form app)))))
+
+(defn chart-app [app]
+  (reify
+    om/IRender
+    (render [_]
+      (dom/div nil
+               (om/build chart-component app
+                         {:opts {:width 350
+                                 :height 450
+                                 :data []}})))))
+
+;; Om version
+(om/root app-state chart-app (.getElementById js/document "content"))
+
+;; Dommy version
 (dommy/listen! (sel1 :#submit) :click reload-chart)
-
 (set! chart-svg (init-bar-chart "#chart" 450 350 data "Word" "Awesomeness"))
-
 
