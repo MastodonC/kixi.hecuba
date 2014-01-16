@@ -41,8 +41,7 @@
                          (get-port system)
                          (path-for (get-routes system) (typ (get-handlers system))))))
    ;; wait for all promises to be delivered (all responses to arrive)
-   (map deref) doall
-   ))
+   (map deref) doall))
 
 (defn get-id-from-path [system path]
   (get-in (match-route (get-routes system) path) [:params :hecuba/id]))
@@ -51,46 +50,45 @@
   Lifecycle
   (init [_ system] system)
   (start [_ system]
-    (println
-     (let [[p1 p2 p3]
-           (for [response
-                 (put-items system
-                            :projects
-                            [{:hecuba/name "Eco-retrofit Ealing"
-                              :project-code "IRR"
-                              :leaders ["/users/1" "/users/2"]}
+    (let [[p1 p2 p3]
+          (for [response
+                (put-items
+                 system
+                 :projects
+                 [{:hecuba/name "Eco-retrofit Ealing"
+                   :project-code "IRR"
+                   :leaders ["/users/1" "/users/2"]}
 
-                             {:hecuba/name "Eco-retrofit Bolton"
-                              :project-code "IRR"
-                              :leaders ["/users/1" "/users/2"]}
+                  {:hecuba/name "Eco-retrofit Bolton"
+                   :project-code "IRR"
+                   :leaders ["/users/1" "/users/2"]}
 
-                             {:hecuba/name "The Glasgow House"
-                              :project-code "IRR"
-                              :leaders ["/users/3"]}])]
-             (get-id-from-path system (get-in response [:headers :location]))
-             )]
-       (put-items system
-                  :properties
-                  [{:hecuba/name "Falling Water"
-                    :address "1491 Mill Run Rd, Mill Run, PA"
-                    :rooms 4
-                    :date-of-construction 1937
-                    :hecuba/parent p1}
-                   {:hecuba/name "The Empire State Building"
-                    :address "New York"
-                    :rooms 100
-                    :date-of-construction 1930
-                    :hecuba/parent p1}
-                   {:hecuba/name "Buckingham Palace"
-                    :address "London SW1A 1AA, United Kingdom"
-                    :rooms 775
-                    :hecuba/parent p2}
-                   {:hecuba/name "The ODI"
-                    :address "3rd Floor, 65 Clifton Street, London EC2A 4JE"
-                    :rooms 13
-                    :hecuba/parent p3}])
-       ))
+                  {:hecuba/name "The Glasgow House"
+                   :project-code "IRR"
+                   :leaders ["/users/3"]}])]
+            (get-id-from-path system (get-in response [:headers :location])))]
 
+      (put-items
+       system
+       :properties
+       [{:hecuba/name "Falling Water"
+         :address "1491 Mill Run Rd, Mill Run, PA"
+         :rooms 4
+         :date-of-construction 1937
+         :hecuba/parent p1}
+        {:hecuba/name "The Empire State Building"
+         :address "New York"
+         :rooms 100
+         :date-of-construction 1930
+         :hecuba/parent p1}
+        {:hecuba/name "Buckingham Palace"
+         :address "London SW1A 1AA, United Kingdom"
+         :rooms 775
+         :hecuba/parent p2}
+        {:hecuba/name "The ODI"
+         :address "3rd Floor, 65 Clifton Street, London EC2A 4JE"
+         :rooms 13
+         :hecuba/parent p3}]))
 
     system)
   (stop [_ system] system))
