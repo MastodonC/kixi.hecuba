@@ -4,7 +4,7 @@
   (:require
    jig
    kixi.hecuba.protocols
-   [bidi.bidi :refer (path-for)]
+   [bidi.bidi :refer (path-for match-route)]
    [kixi.hecuba.hash :refer (sha1)]
    [clojure.tools.logging :refer :all]
    [clojure.java.io :as io]
@@ -44,37 +44,49 @@
    (map deref) doall
    ))
 
+(defn get-id-from-path [system path]
+  (get-in (match-route (get-routes system) path) [:params :hecuba/id]))
+
 (deftype ExampleDataLoader [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]
     (println
-     (first (put-items system
-                       :projects
-                       [{:hecuba/name "Eco-retrofit Ealing"
-                         :project-code "IRR"
-                         :leaders ["/users/1" "/users/2"]}
+     (let [[p1 p2 p3]
+           (for [response
+                 (put-items system
+                            :projects
+                            [{:hecuba/name "Eco-retrofit Ealing"
+                              :project-code "IRR"
+                              :leaders ["/users/1" "/users/2"]}
 
-                        {:hecuba/name "Eco-retrofit Bolton"
-                         :project-code "IRR"
-                         :leaders ["/users/1" "/users/2"]}
+                             {:hecuba/name "Eco-retrofit Bolton"
+                              :project-code "IRR"
+                              :leaders ["/users/1" "/users/2"]}
 
-                        {:hecuba/name "The Glasgow House"
-                         :project-code "IRR"
-                         :leaders ["/users/3"]}])))
+                             {:hecuba/name "The Glasgow House"
+                              :project-code "IRR"
+                              :leaders ["/users/3"]}])]
+             (get-id-from-path system (get-in response [:headers :location]))
+             )]
+       (put-items system
+                  :properties
+                  [{:hecuba/name "Falling Water"
+                    :address "1491 Mill Run Rd, Mill Run, PA"
+                    :rooms 4
+                    :date-of-construction 1937
+                    :project p1}
+                   {:hecuba/name "Buckingham Palace"
+                    :address "London SW1A 1AA, United Kingdom"
+                    :rooms 775
+                    :project p2}
+                   {:hecuba/name "The ODI"
+                    :address "3rd Floor, 65 Clifton Street, London EC2A 4JE"
+                    :rooms 13
+                    :project p3}])
+       ))
 
-    (put-items system
-               :properties
-               [{:hecuba/name "Falling Water"
-                 :address "1491 Mill Run Rd, Mill Run, PA"
-                 :rooms 4
-                 :date-of-construction 1937}
-                {:hecuba/name "Buckingham Palace"
-                 :address "London SW1A 1AA, United Kingdom"
-                 :rooms 775}
-                {:hecuba/name "The ODI"
-                 :address "3rd Floor, 65 Clifton Street, London EC2A 4JE"
-                 :rooms 13}])
+
     system)
   (stop [_ system] system))
 

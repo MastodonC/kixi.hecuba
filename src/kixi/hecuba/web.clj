@@ -87,7 +87,8 @@
           querier (:querier system)
           handlers (create-handler-pairs commander querier
                                          [[:projects :project]
-                                          [:properties :property]])]
+                                          [:properties :property]
+                                          [:mice :mouse]])]
       (-> system
           (add-bidi-routes
            config
