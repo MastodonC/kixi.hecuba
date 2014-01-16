@@ -7,6 +7,8 @@
    [ajax.core :refer (GET POST)]
    [kixi.hecuba.navigation :as nav]))
 
+(enable-console-print!)
+
 (defn table-row [data owner]
   (om/component
       (dom/tr #js {:onClick (fn [e] (.log js/console "ooh!"))}
@@ -28,7 +30,7 @@
                          (:projects data)
                          {:key :hecuba/name})))))))
 
-(def nav-model
+(def app-model
   (atom {:messages []
          :nav {:active "dashboard"
                :menuitems [{:name "dashboard" :label "Dashboard" :href "/index.html" :icon "dashboard" :active? true}
@@ -40,19 +42,26 @@
                            {:name "about" :label "About"}
                            {:name "documentation" :label "Documentation"}
                            {:name "api_users" :label "API users"}
-                           ]}}))
-
-(def projects (atom {:projects []}))
+                           ]}
+         :projects []
+         :properties []}))
 
 ;; Add navigation.
-(om/root nav-model nav/nav (.getElementById js/document "hecuba-nav"))
+(om/root app-model nav/nav (.getElementById js/document "hecuba-nav"))
 
 ;; Attach projects to a table component at hecuba-projects
-(om/root projects table (.getElementById js/document "hecuba-projects"))
+(om/root app-model table (.getElementById js/document "hecuba-projects"))
 
-(GET "/messages/" {:handler #(swap! nav-model assoc-in [:messages] %)
+(GET "/messages/" {:handler (fn [x]
+                              (println "Messages: " x)
+                              (swap! app-model assoc-in [:messages] x))
                    :headers {"Accept" "application/edn"}})
 
 ;; Get the real project data
-(GET "/projects/" {:handler #(swap! projects assoc-in [:projects] %)
+(GET "/projects/" {:handler #(swap! app-model assoc-in [:projects] %)
                    :headers {"Accept" "application/edn"}})
+
+(GET "/propertiesX/" {:handler #(swap! app-model assoc-in [:properties] %)
+                      :headers {"Accept" "application/edn"}})
+
+;; Observation: Projects and Messages appear to be competing - only one of them seems to 'win'

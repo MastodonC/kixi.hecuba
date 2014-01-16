@@ -11,7 +11,7 @@
         {:keys [label href icon]} data]
     (om/component
      (dom/li attrs
-             (dom/a #js {:href href 
+             (dom/a #js {:href href
                          :onClick (fn [e]
                                     (.preventDefault e)
                                     (put! ch (:name (om/read data om/value))))}
@@ -23,7 +23,7 @@
     (reify
       om/IWillMount
       (will-mount [_]
-        (go-loop [] 
+        (go-loop []
           (let [n (<! in)] (.log js/console "Got an event!" n)
                (when (not= "stop" n)
                  (recur)))))
@@ -56,10 +56,11 @@
 
 (defn navbar-rightnav [{:keys [messages]} owner]
   (let [n (count messages)]
+    (println "How many messages? " n)
     (om/component
      (dom/ul #js {:className "nav navbar-nav navbar-right navbar-user"}
              (dom/li #js {:className "dropdown messages-dropdown"}
-                     (apply dom/a #js {:href "#" 
+                     (apply dom/a #js {:href "#"
                                        :className  "dropdown-toggle"
                                        :data-toggle "dropdown"}
                             (dom/i #js {:className "fa fa-envelope"})
@@ -73,18 +74,18 @@
   (reify
     om/IRender
     (render [_]
-      (dom/nav #js {:className "navbar navbar-inverse navbar-fixed-top" 
+      (println "Rendering nav")
+      (dom/nav #js {:className "navbar navbar-inverse navbar-fixed-top"
                     :role "navigation"}
-               (om/build navbar-rightnav app)
-               (om/build navbar-sidenav app )))))
+           (om/build navbar-rightnav app)
+           (om/build navbar-sidenav app )))))
 
 (defn FOO-add-message [app name message]
   (swap! app (fn [xs x]
-                     (update-in xs [:messages] 
+                     (update-in xs [:messages]
                                 conj x))
-         {:id (rand-int 1000) 
+         {:id (rand-int 1000)
           :avatar "http://placekitten.com/50/50"
           :name name
           :message message
           :time "4:34PM"}))
-
