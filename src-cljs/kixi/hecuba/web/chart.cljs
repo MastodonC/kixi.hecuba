@@ -97,8 +97,10 @@
       (dom/form
        #js {:className "chartForm" :onSubmit #(handle-submit % app)}
        (.log js/console "I'm rendering chart form.")
-       (dom/input #js {:type "checkbox" :value "external_temp" :ref "external_temp"})
-       (dom/input #js {:type "checkbox" :value "external_humidity" :ref "external_humidity"})
+       (dom/input #js {:id "external_temp" :type "checkbox" :ref "external_temp" :value "external_temp" :name "external_temp"})
+       (dom/label #js {:htmlFor "external_temp" } "External Temp")
+       (dom/input #js {:id "external_humidity" :type "checkbox" :value "external_humidity" :name "external_humidity" :ref "external_humidity"})
+       (dom/label #js {:htmlFor "external_humidity"} "External Humidity")
        (dom/input #js {:type "submit" :value "Update"})))))
 
 (defn chart-component [app opts]
