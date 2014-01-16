@@ -87,7 +87,7 @@
      ;; header. Liberator doesn't do this for us, and clients might need
      ;; to know where the new resource is located.
      ;; See http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.2.2
-     {:headers {"Location" (path-for routes item-resource (assoc route-params :hecuba/id id))}})))
+     {:headers {"Location" (apply path-for routes item-resource (apply concat (assoc route-params :hecuba/id id)))}})))
 
 (defn render-item-html
   "Render an item as HTML"
