@@ -83,22 +83,26 @@
 
 (defn chart-view [app opts]
   (reify
+    om/IInitState
+    (init-state [this]
+      (.log js/console "I init state (chart-view)"))
     om/IWillMount
     (will-mount [_]
       (.log js/console "I will mount (chart-view)"))
-    om/IDidMount
-    (did-mount [_ owner]
-      (.log js/console "I did mount (chart-view)")
-      (om/set-state! owner [:dimple-chart] (.newSvg dimple (:div opts) (:width opts) (:height opts))))
     om/IRender
-    (render [_]
-      (.log js/console "I render (chart-component)")
-      (dom/div #js {:id "chart"}           
-               (let [svg   (om/get-state owner [:leaflet-map])
+    (render [this]
+      (.log js/console "I render (chart-component)")  
+      (dom/div #js {:id "chart"} 
+               (dom/h4 nil "Select reading types below.")))
+    om/IDidMount
+    (did-mount [_ owner]    
+      (om/set-state! owner [:dimple-chart] (.newSvg dimple (:div opts) (:width opts) (:height opts)))
+      (.log js/console "I did mount (chart-component)"))))
+
+
+#_(let [svg   (om/get-state this [:dimple-chart])
                      Chart (.-chart dimple)]
-                  (Chart. svg (clj->js data)))
-              ; (om/build chart-form app)
-               ))))
+                 (Chart. svg (clj->js data)))
 
 (defn chart-app [app]
   (reify
