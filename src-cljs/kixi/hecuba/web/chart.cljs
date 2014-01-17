@@ -49,16 +49,16 @@
                                         {"month" "december" "reading" 9}]})
 
 (def app-state
-  {:selected false
+  {:selected []
    :devices []})
 
 (defn remove-chart []
   (.remove (first (nodelist-to-seq (.getElementsByTagName js/document "svg")))))
 
-(defn select-device [app device]
-  (.log js/console "select-device")
-  (remove-chart)
-  (om/update! app [:selected] (constantly device))
+(defn select-device [data device-name]
+  (.log js/console device-name)
+ ; (remove-chart)
+ ;  (om/transact! app [:selected] (constantly device-name))
   )
 
 ;;;;;;;;;;; List of devices for axis plots ;;;;;;;;;;
@@ -66,36 +66,19 @@
 (defn device-list-item
   [devices]
   (fn [data owner]
-    (.log js/console "device-list-item")
     (om/component
-     (apply dom/input #js {:type "checkbox" :onClick #(select-device app (:hecuba/name device))}
-            (for [device devices]
-              (str (get data device)))))))
+    (let [device-name  (for [device devices] (get data device))]
+      (apply dom/input #js {:type "checkbox" :onClick #(select-device data (str device-name))}
+            (str device-name))))))
 
 ;;;;;;;;;; Chart UI ;;;;;;;;;;
 
-(defn chart-view [data opts]
-  (reify
-   om/IRender
-   (render [this] (dom/div #js {:id "chart"}))
-   om/IDidMount
-   (did-mount [_ owner]
-     (let [Chart        (.-chart dimple)
-           svg          (.newSvg dimple "#chart" 400 350)
-           dimple-chart (Chart. svg (clj->js (:external-humidity mock-data)))]
-       (.setBounds dimple-chart 60 30 300 300)
-       (.addCategoryAxis dimple-chart "x" "month")
-       (.addMeasureAxis dimple-chart "y" "reading")
-       (.addSeries dimple-chart nil js/dimple.plot.line)
-       (.draw dimple-chart)))))
-
 (defn chart-item
-  [data]
+  [device-details]
   (fn [data opts]
     (reify
       om/IRender
       (render [this]
-        (.log js/console "[chart] I render")
         (dom/div #js {:id "chart"}))
       om/IDidMount
       (did-mount [_ owner]
@@ -115,12 +98,12 @@
     (reify
       om/IRender
       (render [_]
-        (om/build chart-item data)
         (dom/div #js {:className "devices"}
                  (dom/form #js {:className "devices-form"}
                            (om/build-all device-item
                                          (get-in data model-path)
-                                         {:key :hecuba/name})))))))
+                                         {:key :hecuba/name})
+                           (om/build chart-item data)))))))
 
 
 (go (let [external-temp     {:hecuba/name "01"
@@ -133,7 +116,7 @@
                                   #(vec (concat % [external-temp external-humidity])))]
         (om/root init-state (create-form-and-chart [:devices]
                                                    (device-list-item [:hecuba/name :name])
-                                                   (chart-item [:hecuba/name :name]))
+                                                   (chart-item [:hecuba/name :name :data]))
                  (.getElementById js/document "app")))))
 
 
