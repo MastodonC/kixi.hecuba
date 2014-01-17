@@ -20,82 +20,108 @@
   (let [result-seq (map #(.item nl %) (range (.-length nl)))]
     (doall result-seq)))
 
-(def app-state
-  (atom {:data []}))
 
 ;;;;;;;;;;; Data ;;;;;;;;;;;
 
-(def data  [{"Word" "Hello" "Awesomeness" 2000}
-            {"Word" "World" "Awesomeness" 3000}])
+(def mock-data {:external-humidity     [{"month" "january" "reading" 0.8}
+                                        {"month" "february" "reading" 0.9}
+                                        {"month" "march" "reading" 0.8}
+                                        {"month" "april" "reading" 0.75}
+                                        {"month" "may" "reading" 0.65}
+                                        {"month" "june" "reading" 0.50}
+                                        {"month" "july" "reading" 0.55}
+                                        {"month" "august" "reading" 0.6}
+                                        {"month" "september" "reading" 0.66}
+                                        {"month" "october" "reading" 0.68}
+                                        {"month" "november" "reading" 0.71}
+                                        {"month" "december" "reading" 0.9}]
+                :external-temperature  [{"month" "january" "reading" 6}
+                                        {"month" "february" "reading" 10}
+                                        {"month" "march" "reading" 12}
+                                        {"month" "april" "reading" 15}
+                                        {"month" "may" "reading" 18}
+                                        {"month" "june" "reading" 20}
+                                        {"month" "july" "reading" 25}
+                                        {"month" "august" "reading" 31}
+                                        {"month" "september" "reading" 20}
+                                        {"month" "october" "reading" 17}
+                                        {"month" "november" "reading" 12}
+                                        {"month" "december" "reading" 9}]})
 
-(defn select-data
- [selection]
- )
-
-(defn handle-submit
-  [e app]
-    (.log js/console (str "Handled submit and got: " e))
-   ; (om/update! app )
-    )
-
-;;;;;;;;;;; Form ;;;;;;;;;;
-
-(defn chart-form [app]
-  (reify
-    om/IRender
-    (render [_]
-      (dom/form
-       #js {:className "chartForm" :onSubmit #(handle-submit % app)}
-       (.log js/console "I'm rendering chart form.")
-       (dom/input #js {:id "external_temp" :type "checkbox" :ref "external_temp" :value "external_temp" :name "external_temp"})
-       (dom/label #js {:htmlFor "external_temp" } "External Temp")
-       (dom/input #js {:id "external_humidity" :type "checkbox" :value "external_humidity" :name "external_humidity" :ref "external_humidity"})
-       (dom/label #js {:htmlFor "external_humidity"} "External Humidity")
-       (dom/input #js {:type "submit" :value "Update"})))))
-
-;;;;;;;;;; Chart ;;;;;;;;;;
+(def app-state
+  {:selected false
+   :devices []})
 
 (defn remove-chart []
   (.remove (first (nodelist-to-seq (.getElementsByTagName js/document "svg")))))
 
+(defn select-device [app device]
+  (.log js/console "select-device")
+  (remove-chart)
+  (om/update! app [:selected] (constantly device))
+  )
+
+;;;;;;;;;;; List of devices for axis plots ;;;;;;;;;;
+
+(defn device-list-item
+  [app {:keys [n]}]
+  (.log js/console "device-list-item")
+  (.log js/console (str "N: " n))
+  (om/component
+   (let [device   (get-in app [:devices n])
+         selected (= n (:selected app))]
+     (.log js/console (:name device))
+     (dom/input #js {:id (:id device) :type "checkbox" :onClick #(select-device app n)} (:name device))
+     )))
+
+(defn devices-list [app]
+  (om/component
+   (.log js/console "devices-list")
+   (dom/div #js {:id "devices"}
+            (dom/h4 nil "Devlices")
+            (dom/form nil (into-array
+                           (map #(om/build device-list-item
+                                           app
+                                           {:opts {:key %}})
+                                (range (count (:devices app)))))))))
+
+;;;;;;;;;; Chart UI ;;;;;;;;;;
+
 (defn chart-view [app opts]
   (reify
-    om/IInitState
-    (init-state [this]
-      (.log js/console "I init state (chart-view)"))
-    om/IWillMount
-    (will-mount [_]
-      (.log js/console "I will mount (chart-view)"))
-    om/IRender
-    (render [this]
-      (.log js/console "I render (chart-component)")     
-      (dom/div #js {:id "form"} 
-                (om/build chart-form app)
-                (dom/h4 nil "Select reading types below.")))
-    om/IDidMount
-    (did-mount [_ owner]
-      (let [Chart        (.-chart dimple)
-            svg          (.newSvg dimple "#chart" 450 350)
-            dimple-chart (Chart. svg (clj->js data))]
-          (.addCategoryAxis dimple-chart "x" "Word")
-          (.addMeasureAxis dimple-chart "y" "Awesomeness")
-          (.addSeries dimple-chart nil js/dimple.plot.bar)
-         (.draw dimple-chart))
-      (.log js/console "I did mount (chart-component)"))))
+   om/IRender
+   (render [this] (dom/div #js {:id "chart"}))
+   om/IDidMount
+   (did-mount [_ owner]
+     (let [Chart        (.-chart dimple)
+           svg          (.newSvg dimple "#chart" 450 450)
+           dimple-chart (Chart. svg (clj->js (:external-humidity mock-data)))]
+       (.addOrderRule (.addCategoryAxis dimple-chart "x" "month") "Date")
+       (.addMeasureAxis dimple-chart "y" "reading")
+       (.addSeries dimple-chart nil js/dimple.plot.line)
+       (.draw dimple-chart)))))
+
+;;;;;;;;;;; Bootstrap ;;;;;;;;;;;;
+
+(defn chart-ui [app]
+  (om/component
+   (dom/div nil
+            (dom/header #js {:className "auth"})
+            (dom/div #js {:id "data"}
+                     (om/build devices-list app {:opts [:devices (:selected app)]}))
+            (om/build chart-view app {:opts [:layers]}))))
 
 
-(defn chart-app [app]
-  (reify
-    om/IRender
-    (render [_]
-      (dom/div nil
-            (om/build chart-view app
-                      {:opts {:div "#chart"
-                              :width 450
-                              :heigth 350
-                              :data []}})))))
+(go (let [external-temp     {:name "External temperature"
+                             :id "external_temp"
+                             :data (:external-temperature mock-data)}
+          external-humidity {:name "External humidity"
+                             :id "external_humidity"
+                             :data (:external-humidity mock-data)}]
+      (let [init-state (update-in app-state [:devices]
+                                  #(vec (concat % [external-temp external-humidity])))]
+        (om/root init-state chart-ui (.getElementById js/document "app")))))
 
-(om/root app-state chart-app (.getElementById js/document "app"))
 
 
 
