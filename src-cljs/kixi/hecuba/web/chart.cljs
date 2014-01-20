@@ -50,34 +50,36 @@
 
 ;;;;;;;;; Utils ;;;;;;;;;;;;;;;;;;;;;;
 
-(defn- fetch-data
-  "The data need to be a vector."
-  [cursor opts]
-  (om/update!
-   cursor #(assoc % :data (get mock-data (:selected cursor)))))
-
 (defn- remove-chart []
   (.remove (first (nodelist-to-seq (.getElementsByTagName js/document "svg")))))
+
+(defn- fetch-data!
+  "The data need to be a vector."
+  [cursor opts]
+  (om/transact! cursor (fn [cursor]
+                         (assoc cursor :data (get mock-data (:selected cursor)))))
+  ;(om/update! cursor #(assoc % :data (get mock-data (:selected cursor))))
+  )
 
 (defn- select-device!
   [cursor device-id]
   (.log js/console device-id)
  ; (remove-chart)
-  (om/update!
-   cursor #(assoc % :selected (vector device-id))))
+  (om/update! cursor [:selected] (constantly (vector device-id)))
+ ; (om/transact! cursor (fn [cursor] (assoc cursor :selected (vector device-id))))
+ ; (om/update! cursor #(assoc % :selected (vector device-id)))
+  )
 
 ;;;;;;;;;; Components ;;;;;;;;;;;;;;;;;
 
 (def chart-state
-  (atom {:selected ["01"]
+  (atom {:selected []
          :property "rad003"
          :devices [{:hecuba/name "01"
                     :name "External temperature"}
                    {:hecuba/name "02"
-                    :name "External humidity"}
-                   {:hecuba/name "03"
-                    :name "Ambient temperature"}]
-         :data (get mock-data "01")}))
+                    :name "External humidity"}]
+         :data []}))
 
 ;;;;;;;;;;; Component 1:  List of devices for axis plots ;;;;;;;;;;
 
@@ -101,16 +103,17 @@
   (fn [cursor opts]
     (reify
       om/IInitState
-      (init-state [_]
-        (om/update! cursor #(assoc % :selected "01")))
+      (init-state [this]
+        (om/update! cursor #(assoc % :selected (vector "01"))) ; TOFIX this does not update :selected
+        (.log js/console (get cursor :selected)))
       om/IWillMount
-      (will-mount [_]
-        (go (fetch-data cursor opts)))
+      (will-mount [this]
+        (fetch-data! cursor opts)) ;; TOFIX This does not update :data
       om/IRender
       (render [this]
         (dom/div #js {:id "chart"}))
       om/IDidMount
-      (did-mount [_ owner]
+      (did-mount [this owner]
         (let [Chart        (.-chart dimple)
               svg          (.newSvg dimple "#chart" 400 350)
               measurements (:data cursor)
@@ -128,7 +131,7 @@
   (fn [cursor owner]
     (reify
       om/IRender
-      (render [_]
+      (render [this]
         (dom/div #js {:className "devices"}
                  (dom/h3 nil (str "Metering data - " (get-in cursor [:property])))
                  (dom/h4 nil "Select devices to be plotted on the chart:")
