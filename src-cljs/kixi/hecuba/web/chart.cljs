@@ -53,23 +53,6 @@
 (defn- remove-chart []
   (.remove (first (nodelist-to-seq (.getElementsByTagName js/document "svg")))))
 
-(defn- fetch-data!
-  "The data need to be a vector."
-  [cursor opts]
-  (om/transact! cursor (fn [cursor]
-                         (assoc cursor :data (get mock-data (:selected cursor)))))
-  ;(om/update! cursor #(assoc % :data (get mock-data (:selected cursor))))
-  )
-
-(defn- select-device!
-  [cursor device-id]
-  (.log js/console device-id)
- ; (remove-chart)
-  (om/update! cursor [:selected] (constantly (vector device-id)))
- ; (om/transact! cursor (fn [cursor] (assoc cursor :selected (vector device-id))))
- ; (om/update! cursor #(assoc % :selected (vector device-id)))
-  )
-
 ;;;;;;;;;; Components ;;;;;;;;;;;;;;;;;
 
 (def chart-state
@@ -87,13 +70,17 @@
   [devices]
   (fn [cursor owner]
     (om/component
+     (.log js/console "[device-list-item] I render")
     (let [device-details  (for [device devices] (get cursor device))
           device-id       (nth device-details 0) ;; TODO Sersiously need to change the way elements are accessed
           device-name     (str (nth device-details 1))
           selected        (= device-id (first (:selected cursor)))]
       (apply dom/input #js {:className (when selected "selected")
                             :type "checkbox"
-                            :onClick #(select-device! data device-id)}
+                            :onClick 
+                            (fn [e]
+                              (.log js/console "Clicked")
+                              (om/update! cursor [:selected] (fn [selected] (vector device-id))))}
             device-name)))))
 
 ;;;;;;;;;; Component 2: Chart UI ;;;;;;;;;;
@@ -102,28 +89,28 @@
   [device-details]
   (fn [cursor opts]
     (reify
-      om/IInitState
-      (init-state [this]
-        (om/update! cursor #(assoc % :selected (vector "01"))) ; TOFIX this does not update :selected
-        (.log js/console (get cursor :selected)))
       om/IWillMount
       (will-mount [this]
-        (fetch-data! cursor opts)) ;; TOFIX This does not update :data
+        (.log js/console "[chart-item] I will mount")
+        (om/update! cursor [:data] (fn [data] (get mock-data (:selected cursor)))))
       om/IRender
       (render [this]
+        (.log js/console "[chart-item] I render")
         (dom/div #js {:id "chart"}))
       om/IDidMount
       (did-mount [this owner]
+        (.log js/console "[chart-item] I did mount")
         (let [Chart        (.-chart dimple)
               svg          (.newSvg dimple "#chart" 400 350)
               measurements (:data cursor)
               dimple-chart (Chart. svg (clj->js measurements))]
-          (.log js/console measurements)
+         ; (.log js/console measurements)
           (.setBounds dimple-chart 60 30 300 300)
           (.addCategoryAxis dimple-chart "x" "month")
           (.addMeasureAxis dimple-chart "y" "reading")
           (.addSeries dimple-chart nil js/dimple.plot.line)
-          (.draw dimple-chart) )))))
+          (.draw dimple-chart))
+        (.log js/console "[chart-item] Finished I did mount")))))
 
 ;;;;;;;;;;; Bootstrap ;;;;;;;;;;;;
 
