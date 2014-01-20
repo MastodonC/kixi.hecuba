@@ -23,60 +23,89 @@
 
 ;;;;;;;;;;; Data ;;;;;;;;;;;
 
-(def mock-data {:external-humidity     [{"month" "Jan" "reading" 0.8}
-                                        {"month" "Feb" "reading" 0.9}
-                                        {"month" "Mar" "reading" 0.8}
-                                        {"month" "Apr" "reading" 0.75}
-                                        {"month" "May" "reading" 0.65}
-                                        {"month" "Jun" "reading" 0.50}
-                                        {"month" "Jul" "reading" 0.55}
-                                        {"month" "Aug" "reading" 0.6}
-                                        {"month" "Sep" "reading" 0.66}
-                                        {"month" "Oct" "reading" 0.68}
-                                        {"month" "Nov" "reading" 0.71}
-                                        {"month" "Dec" "reading" 0.9}]
-                :external-temperature  [{"month" "january" "reading" 6}
-                                        {"month" "february" "reading" 10}
-                                        {"month" "march" "reading" 12}
-                                        {"month" "april" "reading" 15}
-                                        {"month" "may" "reading" 18}
-                                        {"month" "june" "reading" 20}
-                                        {"month" "july" "reading" 25}
-                                        {"month" "august" "reading" 31}
-                                        {"month" "september" "reading" 20}
-                                        {"month" "october" "reading" 17}
-                                        {"month" "november" "reading" 12}
-                                        {"month" "december" "reading" 9}]})
+(def mock-data {"01"     [{"month" "Jan" "reading" 0.8}
+                          {"month" "Feb" "reading" 0.9}
+                          {"month" "Mar" "reading" 0.8}
+                          {"month" "Apr" "reading" 0.75}
+                          {"month" "May" "reading" 0.65}
+                          {"month" "Jun" "reading" 0.50}
+                          {"month" "Jul" "reading" 0.55}
+                          {"month" "Aug" "reading" 0.6}
+                          {"month" "Sep" "reading" 0.66}
+                          {"month" "Oct" "reading" 0.68}
+                          {"month" "Nov" "reading" 0.71}
+                          {"month" "Dec" "reading" 0.9}]
+                "02"     [{"month" "january" "reading" 6}
+                          {"month" "february" "reading" 10}
+                          {"month" "march" "reading" 12}
+                          {"month" "april" "reading" 15}
+                          {"month" "may" "reading" 18}
+                          {"month" "june" "reading" 20}
+                          {"month" "july" "reading" 25}
+                          {"month" "august" "reading" 31}
+                          {"month" "september" "reading" 20}
+                          {"month" "october" "reading" 17}
+                          {"month" "november" "reading" 12}
+                          {"month" "december" "reading" 9}]})
 
-(def app-state
-  {:selected []
-   :devices []})
+;;;;;;;;; Utils ;;;;;;;;;;;;;;;;;;;;;;
 
-(defn remove-chart []
+(defn- fetch-data
+  "The data need to be a vector."
+  [cursor opts]
+  (om/update!
+   cursor #(assoc % :data (get mock-data (:selected cursor)))))
+
+(defn- remove-chart []
   (.remove (first (nodelist-to-seq (.getElementsByTagName js/document "svg")))))
 
-(defn select-device [data device-name]
-  (.log js/console device-name)
+(defn- select-device!
+  [cursor device-id]
+  (.log js/console device-id)
  ; (remove-chart)
- ;  (om/transact! app [:selected] (constantly device-name))
-  )
+  (om/update!
+   cursor #(assoc % :selected (vector device-id))))
 
-;;;;;;;;;;; List of devices for axis plots ;;;;;;;;;;
+;;;;;;;;;; Components ;;;;;;;;;;;;;;;;;
+
+(def chart-state
+  (atom {:selected ["01"]
+         :property "rad003"
+         :devices [{:hecuba/name "01"
+                    :name "External temperature"}
+                   {:hecuba/name "02"
+                    :name "External humidity"}
+                   {:hecuba/name "03"
+                    :name "Ambient temperature"}]
+         :data (get mock-data "01")}))
+
+;;;;;;;;;;; Component 1:  List of devices for axis plots ;;;;;;;;;;
 
 (defn device-list-item
   [devices]
-  (fn [data owner]
+  (fn [cursor owner]
     (om/component
-    (let [device-name  (for [device devices] (get data device))]
-      (apply dom/input #js {:type "checkbox" :onClick #(select-device data (str device-name))}
-            (str device-name))))))
+    (let [device-details  (for [device devices] (get cursor device))
+          device-id       (nth device-details 0) ;; TODO Sersiously need to change the way elements are accessed
+          device-name     (str (nth device-details 1))
+          selected        (= device-id (first (:selected cursor)))]
+      (apply dom/input #js {:className (when selected "selected")
+                            :type "checkbox"
+                            :onClick #(select-device! data device-id)}
+            device-name)))))
 
-;;;;;;;;;; Chart UI ;;;;;;;;;;
+;;;;;;;;;; Component 2: Chart UI ;;;;;;;;;;
 
 (defn chart-item
   [device-details]
-  (fn [data opts]
+  (fn [cursor opts]
     (reify
+      om/IInitState
+      (init-state [_]
+        (om/update! cursor #(assoc % :selected "01")))
+      om/IWillMount
+      (will-mount [_]
+        (go (fetch-data cursor opts)))
       om/IRender
       (render [this]
         (dom/div #js {:id "chart"}))
@@ -84,7 +113,9 @@
       (did-mount [_ owner]
         (let [Chart        (.-chart dimple)
               svg          (.newSvg dimple "#chart" 400 350)
-              dimple-chart (Chart. svg (clj->js (:external-humidity mock-data)))]
+              measurements (:data cursor)
+              dimple-chart (Chart. svg (clj->js measurements))]
+          (.log js/console measurements)
           (.setBounds dimple-chart 60 30 300 300)
           (.addCategoryAxis dimple-chart "x" "month")
           (.addMeasureAxis dimple-chart "y" "reading")
@@ -94,30 +125,25 @@
 ;;;;;;;;;;; Bootstrap ;;;;;;;;;;;;
 
 (defn create-form-and-chart [model-path device-item chart-item]
-  (fn [data owner]
+  (fn [cursor owner]
     (reify
       om/IRender
       (render [_]
         (dom/div #js {:className "devices"}
+                 (dom/h3 nil (str "Metering data - " (get-in cursor [:property])))
+                 (dom/h4 nil "Select devices to be plotted on the chart:")
                  (dom/form #js {:className "devices-form"}
                            (om/build-all device-item
-                                         (get-in data model-path)
+                                         (get-in cursor model-path)
                                          {:key :hecuba/name})
-                           (om/build chart-item data)))))))
+                           (om/build chart-item cursor)))))))
 
 
-(go (let [external-temp     {:hecuba/name "01"
-                             :name "External temperature"
-                             :data (:external-temperature mock-data)}
-          external-humidity {:hecuba/name "02"
-                             :name "External humidity"
-                             :data (:external-humidity mock-data)}]
-      (let [init-state (update-in app-state [:devices]
-                                  #(vec (concat % [external-temp external-humidity])))]
-        (om/root init-state (create-form-and-chart [:devices]
+(om/root chart-state (create-form-and-chart [:devices]
                                                    (device-list-item [:hecuba/name :name])
                                                    (chart-item [:hecuba/name :name :data]))
-                 (.getElementById js/document "app")))))
+                 (.getElementById js/document "app"))
+
 
 
 
