@@ -44,7 +44,7 @@
 ;; info: http://clojure-liberator.github.io/liberator/
 
 ;; REST resource for items (plural) - .
-(defresource items-resource [typ querier commander item-resource parent-resource]
+(defresource items-resource [typ item-resource parent-resource {:keys [querier commander]}]
   ;; acts as both an index of existing items and factory for new ones
   :allowed-methods #{:get :post}
 
@@ -90,7 +90,13 @@
      ;; header. Liberator doesn't do this for us, and clients might need
      ;; to know where the new resource is located.
      ;; See http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.2.2
-     {:headers {"Location" (apply path-for routes item-resource (apply concat (assoc route-params :hecuba/id id)))}})))
+     {:headers {"Location" (->> id
+                                ;; Set id but keep existing route params
+                                (assoc route-params :hecuba/id)
+                                ;; Flatten into the keyword param form
+                                (apply concat)
+                                ;; Ask bidi to return the Location URI
+                                (apply path-for routes item-resource))}})))
 
 (defn render-item-html
   "Render an item as HTML"
@@ -100,27 +106,43 @@
     [:h1 (:hecuba/name item)]
     (when-let [parent-href (:hecuba/parent-href item)]
       [:p [:a {:href parent-href} "Parent"]])
-    [:h2 "Children"]
-    [:ul
-     (for [child children]
-       [:li [:a {:href (:hecuba/href child)} (:hecuba/name child)]])]
+    (when (not (empty? children))
+      [:h2 "Children"]
+      [:ul
+       (for [child children]
+         [:li [:a {:href (:hecuba/href child)} (:hecuba/name child)]])])
     [:pre (pr-str item)]]))
 
 ;; REST resource for individual items.
-(defresource item-resource [querier parent-resource-p child-resource]
+
+;; Delivers REST verbs onto a single (particular) entity, like a
+;; particular project or particular house.
+
+;; The parent resource is the handler used by bidi to generate hrefs to
+;; this resources parent container. For example, a house is owned by a
+;; project.
+
+;; The child resource is the reverse, used by bidi to generate hrefs to
+;; any entities this item contains. The child resource is given as a
+;; promise, since it cannot be known when constructing handlers top-down.
+
+(defresource item-resource [parent-resource child-resource-p {:keys [querier]}]
   :allowed-methods #{:get}
   :available-media-types base-media-types
 
-  :exists? ; iff the item exists, we bind it to ::item in order to save
-           ; an extra query later on - this is a common Liberator
-           ; pattern
+  :exists?  ; iff the item exists, we bind it to ::item in order to save
+                                        ; an extra query later on - this is a common Liberator
+                                        ; pattern
   (fn [{{{id :hecuba/id} :route-params body :body routes :jig.bidi/routes} :request}]
     (when-let [itm (item querier id)]
-      {::item (assoc itm :hecuba/parent-href (when parent-resource-p
-                                               (path-for routes @parent-resource-p :hecuba/id (:hecuba/parent itm))) )
+      {::item (assoc itm
+                :hecuba/parent-href
+                (when parent-resource
+                  (path-for routes parent-resource :hecuba/id (:hecuba/parent itm))))
        ::children
        (map
-        #(when child-resource (assoc % :hecuba/href (path-for routes child-resource :hecuba/id (:hecuba/id %))))
+        #(when child-resource-p
+           (assoc % :hecuba/href (path-for routes @child-resource-p :hecuba/id (:hecuba/id %))))
         (items querier {:hecuba/parent id}))}))
 
   :handle-ok
@@ -130,6 +152,3 @@
       ;; The default is to let Liberator render our data
       {:item item
        :children children})))
-
-
-;; (map #(assoc % :hecuba/parent-href (path-for routes parent-resource :hecuba/id (:hecuba/parent %))))

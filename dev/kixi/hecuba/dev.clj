@@ -6,8 +6,10 @@
    kixi.hecuba.protocols
    [bidi.bidi :refer (path-for match-route)]
    [kixi.hecuba.hash :refer (sha1)]
+   [kixi.hecuba.data :as data]
    [clojure.tools.logging :refer :all]
    [clojure.java.io :as io]
+   [clojure.walk :refer (postwalk)]
    [org.httpkit.client :refer (request) :rename {request http-request}])
   (:import
    (jig Lifecycle)
@@ -29,20 +31,6 @@
 (defn get-handlers [system]
   (-> system :handlers))
 
-(defn put-items [system typ items]
-  {:post [(every? (fn [resp] (= (:status resp) 201)) %)]}
-  (->>
-   ;; We could get this sequence from somewhere else
-   items
-
-   ;; PUT them over HTTP
-   (map (partial post-resource
-                 (format "http://localhost:%d%s"
-                         (get-port system)
-                         (path-for (get-routes system) (typ (get-handlers system))))))
-   ;; wait for all promises to be delivered (all responses to arrive)
-   (map deref) doall))
-
 (defn get-id-from-path [system path]
   (get-in (match-route (get-routes system) path) [:params :hecuba/id]))
 
@@ -50,52 +38,68 @@
   Lifecycle
   (init [_ system] system)
   (start [_ system]
-    ;; The idea here is to create 3 projects (in parallel), and grab
-    ;; their identifiers from the returned location paths. It's handy
-    ;; that we can use bidi again to go between the location path and
-    ;; the embedded id. We put the returned identifiers in p1, p2 and
-    ;; p3, and we use these later on to assocated properties with
-    ;; projects.
-    (let [[p1 p2 p3]
-          (for [response
-                (put-items
-                 system
-                 :projects
-                 [{:hecuba/name "Eco-retrofit Ealing"
-                   :project-code "IRR"
-                   :leaders "John, Frank"}
+    (let [remove-nil-parent (fn [m] (if (:hecuba/parent m) m (dissoc m :hecuba/parent)))
 
-                  {:hecuba/name "Eco-retrofit Bolton"
-                   :project-code "IRR"
-                   :leaders "Sue, Mike"}
+          ;; This function provides a non-lazy recursive
+          ;; sequence-comprehension over the data in order to POST it
+          ;; into the application.
+          post-resource-tree
+          (fn this [data pairs parent]
+            (doseq [item ((ffirst pairs) data)]
+              (let [handler ((ffirst pairs) (get-handlers system))
+                    _ (assert handler)
+                    response @(post-resource
+                               (format "http://localhost:%d%s"
+                                       (get-port system)
+                                       (path-for (get-routes system) handler))
+                               (-> item
+                                   (dissoc (first (second pairs)))
+                                   (assoc :hecuba/parent parent)
+                                   remove-nil-parent))
+                    id (get-id-from-path system (get-in response [:headers :location]))]
+                {:item id
+                 :children (when-let [n (next pairs)] (this item n id))})))]
 
-                  {:hecuba/name "The Glasgow House"
-                   :project-code "IRR"
-                   :leaders "Brenda"}])]
-            (get-id-from-path system (get-in response [:headers :location])))]
+      ;; Some dummy data - you can add any fields in here, it's
+      ;; schema-less. There are some keys that have special meaning,
+      ;; they are in the hecuba namespace to denote this.
 
-      (put-items
-       system
-       :properties
-       [{:hecuba/name "Falling Water"
-         :address "1491 Mill Run Rd, Mill Run, PA"
-         :rooms 4
-         :date-of-construction 1937
-         :hecuba/parent p1}
-        {:hecuba/name "The Empire State Building"
-         :address "New York"
-         :rooms 100
-         :date-of-construction 1930
-         :hecuba/parent p1}
-        {:hecuba/name "Buckingham Palace"
-         :address "London SW1A 1AA, United Kingdom"
-         :rooms 775
-         :hecuba/parent p2}
-        {:hecuba/name "The ODI"
-         :address "3rd Floor, 65 Clifton Street, London EC2A 4JE"
-         :rooms 13
-         :hecuba/parent p3}]))
+      (-> {:programmes
+           [{:hecuba/name "America"
+             :leaders "Bush"
+             :projects
+             [{:hecuba/name "Green Manhattan"
+               :properties [{:hecuba/name "The Empire State Building"
+                             :address "New York"
+                             :rooms 100
+                             :date-of-construction 1930}]}
 
+
+              {:hecuba/name "The Historical Buildings Project"
+               :properties [{:hecuba/name "Falling Water"
+                             :address "1491 Mill Run Rd, Mill Run, PA"
+                             :rooms 4
+                             :date-of-construction 1937}]}
+
+              {:hecuba/name "Area 51 Conservation Project"}]}
+
+            {:hecuba/name "London"
+             :leaders "Blair"
+             :projects
+             [{:hecuba/name "Monarchy Energy Savings"
+               :properties [{:hecuba/name "Buckingham Palace"
+                             :address "London SW1A 1AA, United Kingdom"
+                             :rooms 775}
+
+                            {:hecuba/name "Windsor Castle"
+                             :rooms 175}]}
+
+              {:hecuba/name "Carbon Neutral Tech City"
+               :properties [{:hecuba/name "The ODI"
+                             :address "3rd Floor, 65 Clifton Street, London EC2A 4JE"
+                             :rooms 13
+                             }]}]}]}
+          (post-resource-tree data/hierarchy nil)))
     system)
   (stop [_ system] system))
 
@@ -106,8 +110,7 @@
     (infof "upserting... %s" payload)
     (let [id (-> payload ((juxt :hecuba/type :hecuba/name)) pr-str sha1)]
       (dosync (alter r assoc-in [id] (assoc payload :hecuba/id id)))
-      id)
-    ))
+      id)))
 
 (defrecord RefQuerier [r]
   Querier
@@ -144,7 +147,7 @@
         (when-not
             (and
              (= (get-in projects-response [:headers :content-type]) "application/edn;charset=UTF-8")
-             (= 3 (count projects)))
-          (println "Warning: HTTP client checks failed"))))
+             (<= 5 (count projects)))
+          (println "Warning: HTTP client checks failed" (count projects)))))
     system)
   (stop [_ system] system))
