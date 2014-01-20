@@ -5,4 +5,6 @@
 
 (defprotocol Querier
   (item [_ id])
-  (items [_]))
+  (items [_] [_ where])
+
+)

@@ -23,7 +23,18 @@
 * DONE 'Projects' table should be rendered by React
 * DONE Project rows should be individual components
 * DONE Project data should come in from AJAX
-* TODO Clicking on a project should get project details from Liberator
 * DONE Get real EDN
 
-* TODO Generify table component
+* UI
+** TODO Clicking on a project should get project details from Liberator
+** TODO Generify table component
+
+* Back end
+** TODO  what is left in projects/ resource that is particular to projects?
+*** TODO items/item must include type in query now
+- [X] fix code
+- [X] test all
+- [X] commit
+
+** TODO create a properties resource which can be posted to
+** TODO add dummy properties as well as projects, with a relationship between the 2

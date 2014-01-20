@@ -13,7 +13,7 @@
                  ;; ClojureScript dependencies
                  [prismatic/dommy "0.1.1"]
                  [cljs-ajax "0.2.3"]
-                 [om "0.1.5"]
+                 [om "0.1.7"]
                  [net.drib/mrhyde "0.5.2"]
 
                  [jig ~jig-version]
@@ -22,7 +22,8 @@
                  [jig/http-kit ~jig-version]
                  [jig/bidi ~jig-version]
 
-                 [clj-kafka "0.1.2-0.8"]]
+                 [clj-kafka "0.1.2-0.8"]
+                 [camel-snake-kebab "0.1.2"]]
 
   :source-paths ["src" "src-cljs"]
 

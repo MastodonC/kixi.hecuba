@@ -23,6 +23,16 @@ body {
   padding: 5px 15px;
 }
 
+h1,h2,h3,h4,h5 {
+    font-family: "Asap";
+    font-weight: bold;
+}
+
+nav {
+    font-family: "Asap";
+    color: #efe;
+}
+
 /* Nav Messages */
 
 .messages-dropdown .dropdown-menu .message-preview .avatar,
