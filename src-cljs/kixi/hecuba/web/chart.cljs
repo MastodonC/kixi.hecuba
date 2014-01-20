@@ -77,10 +77,10 @@
           selected        (= device-id (first (:selected cursor)))]
       (apply dom/input #js {:className (when selected "selected")
                             :type "checkbox"
-                            :onClick 
+                            :onClick
                             (fn [e]
                               (.log js/console "Clicked")
-                              (om/update! cursor [:selected] (fn [selected] (vector device-id))))}
+                              (om/update! cursor update-in [:selected] (fn [selected] (vector device-id))))}
             device-name)))))
 
 ;;;;;;;;;; Component 2: Chart UI ;;;;;;;;;;
