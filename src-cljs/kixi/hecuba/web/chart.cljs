@@ -92,7 +92,7 @@
       om/IWillMount
       (will-mount [this]
         (.log js/console "[chart-item] I will mount")
-        (om/update! cursor [:data] (fn [data] (get mock-data (:selected cursor)))))
+        (om/update! cursor update-in [:data] (fn [data] (get mock-data (:selected cursor)))))
       om/IRender
       (render [this]
         (.log js/console "[chart-item] I render")
