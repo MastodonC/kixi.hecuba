@@ -33,31 +33,22 @@
                            (get-in data model-path)
                            {:key :hecuba/name}))))))))
 
-#_(defn card [data owner]
-  (om/component
-      (println "Rendering card: " (:title data) (:visible data))
-      (dom/div #js {:style #js {"display" (if (:visible data) "block" "none")}}
-           (dom/h1 nil (:title data)))))
-
 (defn about-card [data owner]
   (om/component
       (dom/p nil "I'm the About card")))
+
+(defn blank-card [data owner]
+  (om/component
+      (dom/p nil "This page is unintentionally left blank")))
 
 (defn card-container [cards]
   (fn [data owner]
     (om/component
         (dom/div nil
-             (when-let [card (get cards (-> data :card-container :selected))]
-               (println "Building a found card:" (-> data :card-container :selected))
+             (if-let [card (get cards (-> data :card-container :selected))]
                (om/build card data)
+               (om/build blank-card data))))))
 
-               )
-             #_(om/build-all card
-                 (map (fn [x]
-                        (if (= (:name x) (-> data :card-container :selected))
-                          (assoc x :visible true) x))
-                      (-> data :card-container :cards))
-                 {:key :name})))))
 
 (def app-model
   (atom {:messages []
@@ -81,8 +72,12 @@
          :projects []
          :properties []}))
 
-(defn ^:export change-card [card]
-  (swap! app-model assoc-in [:card-container :selected] card))
+(defn ^:export handle-left-nav [menu-item]
+  ;; Currently we implement a one-to-one correspondence between the
+  ;; left-hand-menu and the card container, but in due course 'Project'
+  ;; and 'Properties' will cause a scroll to a location under the
+  ;; 'Programmes' card
+  (swap! app-model assoc-in [:card-container :selected] menu-item))
 
 (defn ^:export change []
   (.log js/console "Hello Malcolm!")
@@ -90,7 +85,7 @@
   )
 
 ;; Add navigation.
-(om/root app-model (nav/nav change-card) (.getElementById js/document "hecuba-nav"))
+(om/root app-model (nav/nav handle-left-nav) (.getElementById js/document "hecuba-nav"))
 
 ;; Attach projects to a table component at hecuba-projects
 #_(om/root app-model (create-table [:projects]
