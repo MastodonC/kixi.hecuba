@@ -35,7 +35,21 @@
 
 (defn about-tab [data owner tab]
   (om/component
-      (dom/p nil "I'm the About tab")))
+      (dom/div nil
+           (dom/h1 nil (:title tab))
+           (dom/p nil "I'm the About tab"))))
+
+(defn documentation-tab [data owner tab]
+  (om/component
+      (dom/div nil
+           (dom/h1 nil (:title tab))
+           (dom/p nil "Some documentation"))))
+
+(defn users-tab [data owner tab]
+  (om/component
+      (dom/div nil
+           (dom/h1 nil (:title tab))
+           (dom/p nil "List of users"))))
 
 (defn programmes-tab [data owner tab]
   (om/component
@@ -61,27 +75,29 @@
 
 
 (def app-model
-  (atom {:messages []
-         :nav {:active "dashboard"
-               :menuitems [{:name :dashboard :label "Dashboard" :href "/index.html" :icon "dashboard" :active? true}
-                           {:name :overview :label "Overview" :href "/charts.html" :icon "bar-chart-o"}
-                           {:name :users :label "Users"}
-                           {:name :programmes :label "Programmes"}
-                           {:name :projects :label "Project"}
-                           {:name :properties :label "Properties"}
-                           {:name :about :label "About"}
-                           {:name :documentation :label "Documentation"}
-                           {:name :api_users :label "API users"}
+  (atom
+   {:messages []
+    :nav {:active "dashboard"
+          :menuitems [{:name :dashboard :label "Dashboard" :href "/index.html" :icon "dashboard" :active? true}
+                      {:name :overview :label "Overview" :href "/charts.html" :icon "bar-chart-o"}
+                      {:name :users :label "Users"}
+                      {:name :programmes :label "Programmes"}
+                      {:name :projects :label "Project"}
+                      {:name :properties :label "Properties"}
+                      {:name :about :label "About"}
+                      {:name :documentation :label "Documentation"}
+                      {:name :api_users :label "API users"}
+                      ]}
+
+    :tab-container {:selected :programmes
+                    :tabs [{:name :about :title "About"}
+                           {:name :documentation :title "Documentation"}
+                           {:name :users :title "Users"}
+                           {:name :programmes :title "Programmes"}
                            ]}
-         :tab-container {:selected :programmes
-                          :tabs [{:name :about :title "About"}
-                                  {:name :documentation :title "Documentation"}
-                                  {:name :users :title "Users"}
-                                  {:name :programmes :title "Programmes"}
-                                  ]}
-         :programmes {}
-         :projects {}
-         :properties {}}))
+    :programmes {}
+    :projects {}
+    :properties {}}))
 
 (defn ^:export handle-left-nav [menu-item]
   ;; Currently we implement a one-to-one correspondence between the
@@ -90,25 +106,14 @@
   ;; 'Programmes' tab
   (swap! app-model assoc-in [:tab-container :selected] menu-item))
 
-(defn ^:export change []
-  (.log js/console "Hello Malcolm!")
-  (change-tab "documentation")
-  )
-
 ;; Add navigation.
 (om/root app-model (nav/nav handle-left-nav) (.getElementById js/document "hecuba-nav"))
 
-;; Attach projects to a table component at hecuba-projects
-#_(om/root app-model (create-table [:projects]
-                                 ["Name" "Project code" "Leaders"]
-                                 (make-table-row [:hecuba/name :project-code :leaders])) (.getElementById js/document "hecuba-projects"))
-
-#_(om/root app-model (create-table [:properties]
-                                 ["Name" "Address" "Rooms" "Construction date"]
-                                 (make-table-row [:hecuba/name :address :rooms :date-of-construction])) (.getElementById js/document "hecuba-properties"))
-
 (om/root app-model (tab-container {:about about-tab
-                                    :programmes programmes-tab}) (.getElementById js/document "hecuba-tabs"))
+                                   :programmes programmes-tab
+                                   :documentation documentation-tab
+                                   :users users-tab})
+    (.getElementById js/document "hecuba-tabs"))
 
 (GET "/messages/" {:handler (fn [x]
                               (println "Messages: " x)
@@ -119,10 +124,8 @@
   (fn [data]
     (let [cols (distinct (mapcat keys data))]
       (swap! app-model assoc-in [k]
-             {:raw data
-              :table {:cols cols
-                      :rows data}
-              }))))
+             {:raw data :table {:cols cols :rows data}}))))
+
 
 ;; Get the real project data
 (GET "/programmes/" {:handler (handle-get :programmes) :headers {"Accept" "application/edn"}})
