@@ -39,8 +39,7 @@
                   (for [k fields] [:td (str (k p))])
                   (when DEBUG [:td (pr-str p)])])]]]))))
 
-;; Now for the Liberator resources. These are heavily commented because
-;; Liberator isn't well-known. Check the Liberator website for more
+;; Now for the Liberator resources. Check the Liberator website for more
 ;; info: http://clojure-liberator.github.io/liberator/
 
 ;; REST resource for items (plural) - .
@@ -48,19 +47,21 @@
   ;; acts as both an index of existing items and factory for new ones
   :allowed-methods #{:get :post}
 
-  :exists? true ; This 'factory' resource ALWAYS exists
+  :exists? true                  ; This 'factory' resource ALWAYS exists
   :available-media-types base-media-types
 
-  :handle-ok ; do this upon a successful GET
+  :handle-ok                            ; do this upon a successful GET
   (fn [{{mime :media-type} :representation {routes :jig.bidi/routes route-params :route-params} :request}]
     (let [items
           (->>
            {:hecuba/type typ} ; form a 'where' clause starting with the type
-           (merge route-params) ; adding any route-params
-           (items querier) ; to query items
+           (merge route-params)         ; adding any route-params
+           (items querier)              ; to query items
            ;; which are adorned with hrefs, throwing bidi's path-for all the kv pairs we have!
-           (map #(assoc % :hecuba/href (apply path-for routes item-resource (apply concat %))))
-           (map #(assoc % :hecuba/parent-href (path-for routes parent-resource :hecuba/id (:hecuba/parent %)))))]
+           (map #(assoc %
+                   :hecuba/href (apply path-for routes item-resource (apply concat %))
+                   :hecuba/parent-href (path-for routes parent-resource :hecuba/id (:hecuba/parent %)))))]
+
       (case mime
         "text/html" (render-items-html items)
         ;; Liberator's default rendering of application/edn seems wrong
@@ -71,9 +72,9 @@
         ;; The default is to let Liberator render our data
         items)))
 
-  :post! ; enact the 'side-effect' of creating an item
+  :post!                   ; enact the 'side-effect' of creating an item
   (fn [{{body :body} :request}]
-    {:hecuba/id ; add this entry to Liberator's context
+    {:hecuba/id                  ; add this entry to Liberator's context
      (upsert! commander
               (-> body
                   ;; Prepare to read the body
@@ -83,20 +84,21 @@
                   ;; Add the type prior to upserting
                   (assoc :hecuba/type typ)))})
 
-  :handle-created ; do this upon a successful POST
+  :handle-created                       ; do this upon a successful POST
   (fn [{{routes :jig.bidi/routes route-params :route-params} :request id :hecuba/id}]
-    (ring-response ; Liberator, we're returning an actual Ring map!
+    (ring-response      ; Liberator, we're returning an actual Ring map!
      ;; We must return the new resource path in the HTTP Location
      ;; header. Liberator doesn't do this for us, and clients might need
      ;; to know where the new resource is located.
      ;; See http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.2.2
-     {:headers {"Location" (->> id
-                                ;; Set id but keep existing route params
-                                (assoc route-params :hecuba/id)
-                                ;; Flatten into the keyword param form
-                                (apply concat)
-                                ;; Ask bidi to return the Location URI
-                                (apply path-for routes item-resource))}})))
+     {:headers {"Location"
+                (->> id                ; essentially the id
+                     ;; but keep existing route params
+                     (assoc route-params :hecuba/id)
+                     ;; flatten into the keyword param form
+                     (apply concat)
+                     ;; ask bidi to return the Location URI
+                     (apply path-for routes item-resource))}})))
 
 (defn render-item-html
   "Render an item as HTML"
