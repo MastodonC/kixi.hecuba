@@ -13,7 +13,7 @@
                  ;; ClojureScript dependencies
                  [prismatic/dommy "0.1.1"]
                  [cljs-ajax "0.2.3"]
-                 [om "0.1.7"]
+                 [om "0.2.3"]
                  [net.drib/mrhyde "0.5.2"]
 
                  [jig ~jig-version]

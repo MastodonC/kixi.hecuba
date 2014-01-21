@@ -110,7 +110,13 @@
           (.addMeasureAxis dimple-chart "y" "reading")
           (.addSeries dimple-chart nil js/dimple.plot.line)
           (.draw dimple-chart))
-        (.log js/console "[chart-item] Finished I did mount")))))
+        (.log js/console "[chart-item] Finished I did mount"))
+      om/IWillUpdate
+      (will-update [this next-props next-state]
+        (.log js/console "[chart-item] I will update"))
+      om/IDidUpdate
+      (did-update [this prev-props prev-state root-node]
+        (.log js/console "[chart-item] I did update")))))
 
 ;;;;;;;;;;; Bootstrap ;;;;;;;;;;;;
 
