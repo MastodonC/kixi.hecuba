@@ -56,10 +56,10 @@
 (defn- fetch-data [device-id]
   (get mock-data device-id))
 
-;;;;;;;;;; Components ;;;;;;;;;;;;;;;;;
+;;;;;;;;;; Application state ;;;;;;;;;;;;;;;;;
 
 (def chart-state
-  (atom {:selected []
+  (atom {:selected #{}
          :property "rad003"
          :devices [{:hecuba/name "01"
                     :name "External temperature"}
@@ -67,49 +67,39 @@
                     :name "External humidity"}]
          :data []}))
 
-;;;;;;;;;;; Component 1:  List of devices for axis plots ;;;;;;;;;;
+;;;;;;;;;; Chart Component ;;;;;;;;;;
 
-(defn device-list-item
-  [devices]
-  (fn [cursor owner]
-    (om/component
-     (.log js/console "[device-list-item] I render")
-    (let [device-details  (for [device devices] (get cursor device))
-          device-id       (nth device-details 0) ;; TODO Sersiously need to change the way elements are accessed
-          device-name     (str (nth device-details 1))
-          selected        (= device-id (first (:selected cursor)))]
-      (apply dom/input #js {:className (when selected "selected")
-                            :type "checkbox"
-                            :onClick
-                            (fn [e]
-                              (.log js/console "Clicked")
-                              (om/update! cursor update-in [:selected] (fn [selected] (vector device-id))))}
-            device-name)))))
-
-;;;;;;;;;; Component 2: Chart UI ;;;;;;;;;;
-
-(defn chart-item
+(defn chart-component
   [device-details]
   (fn [cursor opts]
     (reify
       om/IWillMount
       (will-mount [this]
-        (.log js/console "[chart-item] I will mount")
+        (.log js/console "I will mount")
         (om/update! cursor update-in [:data] (fn [data] (get mock-data (:selected cursor)))))
       om/IRender
       (render [this]
-        (.log js/console "[chart-item] I render")
-        (dom/div #js {:id "chart"}))
-      om/IDidMount
-      (did-mount [this owner]
-        (.log js/console "[chart-item] I did mount"))
-      om/IWillUpdate
-      (will-update [this next-props next-state]
-        (.log js/console "[chart-item] I will update"))
+        (.log js/console "I render")
+        (dom/div nil
+                 (dom/p nil (apply str (interpose "," (get-in cursor [:selected]))))
+                 (dom/form nil
+                           (for [device (get cursor :devices)]
+                             (let [device-id   (str (:hecuba/name device))
+                                   device-name (str (:name device))]
+                               (.log js/console "I did mount" device-id device-name)
+                               (dom/input #js {:type "checkbox"
+                                               :onClick (fn [e]
+                                                          (.dir js/console e)
+                                                          (om/update! cursor update-in [:selected]
+                                                                      conj device-id))}
+                                          device-name))))
+                 (dom/div #js {:id "chart"})))
       om/IDidUpdate
       (did-update [this prev-props prev-state root-node]
-        (.log js/console "[chart-item] I did update")
-       ; (remove-chart)
+        (.log js/console "I did update")
+        (let [n (.getElementById js/document "chart")]
+             (while (.hasChildNodes n)
+               (.removeChild n (.-lastChild n))))
          (let [Chart        (.-chart dimple)
               svg          (.newSvg dimple "#chart" 400 350)
               measurements []
@@ -122,24 +112,18 @@
 
 ;;;;;;;;;;; Bootstrap ;;;;;;;;;;;;
 
-(defn create-form-and-chart [model-path device-item chart-item]
+(defn create-form-and-chart [model-path chart-comp]
   (fn [cursor owner]
     (reify
       om/IRender
       (render [this]
-        (dom/div #js {:className "devices"}
+        (dom/div nil
                  (dom/h3 nil (str "Metering data - " (get-in cursor [:property])))
                  (dom/h4 nil "Select devices to be plotted on the chart:")
-                 (dom/form #js {:className "devices-form"}
-                           (om/build-all device-item
-                                         (get-in cursor model-path)
-                                         {:key :hecuba/name})
-                           (om/build chart-item cursor)))))))
+                 (om/build chart-comp cursor))))))
 
 
-(om/root chart-state (create-form-and-chart [:devices]
-                                                   (device-list-item [:hecuba/name :name])
-                                                   (chart-item [:hecuba/name :name :data]))
+(om/root chart-state (create-form-and-chart [:devices] (chart-component [:hecuba/name :name :data]))
                  (.getElementById js/document "app"))
 
 
