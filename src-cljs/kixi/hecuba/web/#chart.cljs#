@@ -109,7 +109,6 @@
       om/IDidUpdate
       (did-update [this prev-props prev-state root-node]
         (.log js/console "[chart-item] I did update")
-       ; (remove-chart)
          (let [Chart        (.-chart dimple)
               svg          (.newSvg dimple "#chart" 400 350)
               measurements []
