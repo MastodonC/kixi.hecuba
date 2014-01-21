@@ -5,6 +5,7 @@
    kixi.hecuba.web.property
    kixi.hecuba.web.device
    kixi.hecuba.web.messages
+   [kixi.hecuba.data :as data]
    [jig.util :refer (get-dependencies satisfying-dependency)]
    [jig.bidi :refer (add-bidi-routes)]
    [bidi.bidi :refer (match-route path-for ->Resources ->Redirect ->Alternates)]
@@ -34,32 +35,43 @@
 (defn readings [req]
   {:status 200 :body (slurp (io/resource "reading.html"))})
 
-#_(defn create-handler-pairs
-  "Pairs are of form [:home-key :object-key], like [:mice :mouse]. The
-  singular form (:mouse) is used to form the where clause in the
-  resource."
-  [commander querier pairs]
-  (->>
-   (for [[plural singular] pairs]
-           (let [detail (item-resource querier)]
-             {singular detail
-              plural (items-resource singular querier commander detail parent-resource)}))
-   ;; Merge all the pairs together to form a single handler map
-   (apply merge)))
+;; TODO querier and commander and simply here to be passed through to
+;; the resources, there is not much value in separating them out into
+;; individual args, so put them in a map.
+(defn make-handlers
+  "This is a difficult function to read and implement. The purpose of
+  this function is to return a map of REST handlers, keyed with the
+  keywords given in pairs. The pairs argument is a sequence of keyword
+  pairs, each pair denoting the plural and singular of a given
+  entity (e.g. [:projects :project]. The sequence of pairs represents a
+  hierarchy of entities, ordered parent first."
+  [pairs opts]
+  ;; We loop down the hierarchy, as defined by 'pairs'
+  (loop [[plural singular :as pair] (first pairs)
+         remaining (next pairs)
+         parent-resource nil      ; nil the root entity in the hierarchy
+         unknown-child-resource (promise) ; see below
+         result {}]
+    (if-not pair
+      result ; return at the end
+      (let [
+            ;; item-resource needs to know the child-resource this is a
+            ;; catch-22, we can't know what the child resource handler
+            ;; is going to be, but we 'promise' that we will.
+            child-resource (promise)
 
-(defn create-handlers [querier commander]
-  (let [project-resource-p (promise)
-        property-resource (item-resource querier project-resource-p nil)
-        project-resource (item-resource querier nil property-resource)
-        _ (deliver project-resource-p project-resource)
-        project-home (items-resource :project querier commander project-resource nil)
-        property-home (items-resource :property querier commander property-resource project-resource)]
-    {:projects project-home
-     :project project-resource
-     :properties property-home
-     :property property-resource}))
+            ;; Specific here is in contrast to an 'index' resource which
+            ;; provides a resource onto multiple items.
+            specific-resource (item-resource parent-resource child-resource opts)
+            index-resource (items-resource singular specific-resource parent-resource opts)]
 
-(defn make-routes [producer-config querier commander handlers]
+        ;; Now we have created our child resource we can make good on our promise
+        (deliver unknown-child-resource specific-resource)
+
+        (recur (first remaining) (next remaining) specific-resource child-resource
+               (assoc result plural index-resource singular specific-resource))))))
+
+(defn make-routes [producer-config handlers {:keys [querier commander]}]
   ["/"
    [["" (->Redirect 307 tables)]
     ["index.html" index]
@@ -71,6 +83,11 @@
     (kixi.hecuba.web.device/create-routes producer-config)
     (kixi.hecuba.web.property/create-routes querier commander)
     (kixi.hecuba.web.messages/create-routes querier commander)
+
+    ;; Programmes
+    ["programmes/" (:programmes handlers)]
+    ["programmes" (->Redirect 307 (:programmes handlers))]
+    [["programmes/" :hecuba/id] (:programme handlers)]
 
     ;; Projects
     ["projects/" (:projects handlers)]
@@ -86,13 +103,7 @@
 
     ["hecuba-js/react.js" (->Resources {:prefix "sb-admin/"})]
     ["" (->Resources {:prefix "sb-admin/"})]
-
-    ;; Static resources
-    #_[(->Alternates ["stylesheets/" "images/" "javascripts/"])
-       (->Resources {:prefix "hecuba/"})]]])
-
-
-
+    ]])
 
 (deftype Website [config]
   Lifecycle
@@ -100,12 +111,10 @@
   (start [_ system]
     (let [commander (:commander system)
           querier (:querier system)
-          handlers (create-handlers  querier commander)]
-
+          handlers (make-handlers data/hierarchy {:querier querier :commander commander})
+          routes (make-routes (first (:kixi.hecuba.kafka/producer-config (:hecuba/kafka system)))
+                              handlers {:querier querier :commander commander})]
       (-> system
-          (add-bidi-routes
-           config
-           (make-routes (first (:kixi.hecuba.kafka/producer-config (:hecuba/kafka system)))
-                        querier commander handlers))
+          (add-bidi-routes config routes)
           (update-in [:handlers] merge handlers))))
   (stop [_ system] system))

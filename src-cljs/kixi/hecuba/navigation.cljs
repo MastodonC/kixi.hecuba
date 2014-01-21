@@ -18,16 +18,18 @@
                     (dom/i #js {:className (str "fa fa-" icon)})
                     (str " " label))))))
 
-(defn- navbar-sidenav [{:keys [header nav]} owner]
+(defn- navbar-sidenav [{:keys [header nav]} owner nav-observer]
   (let [in (chan (sliding-buffer 1))]
     (reify
       om/IWillMount
       (will-mount [_]
         (go-loop []
-          (let [n (<! in)] (.log js/console "Got an event!" n)
-               (when (not= "stop" n)
+          (let [n (<! in)]
+            (nav-observer n)
+            (when (not= "stop" n)
                  (recur)))))
       om/IWillUnmount ;; TODO requires go block to be terminate-able.
+;; Malcolm says: why not close the channel here, instead of 'stop'? the above go block will receive a nil
       (will-unmount [_]
         (put! in "stop"))
       om/IRender
@@ -70,15 +72,16 @@
                                (dom/b #js {:className "caret"})]))
                      (om/build messages-dropdown messages))))))
 
-(defn nav [app owner]
-  (reify
-    om/IRender
-    (render [_]
-      (println "Rendering nav")
-      (dom/nav #js {:className "navbar navbar-inverse navbar-fixed-top"
-                    :role "navigation"}
-           (om/build navbar-rightnav app)
-           (om/build navbar-sidenav app )))))
+(defn nav [nav-observer]
+  (fn [app owner]
+    (reify
+      om/IRender
+      (render [_]
+        (println "Rendering nav")
+        (dom/nav #js {:className "navbar navbar-inverse navbar-fixed-top"
+                      :role "navigation"}
+             (om/build navbar-rightnav app)
+             (om/build navbar-sidenav app {:opts nav-observer}))))))
 
 (defn FOO-add-message [app name message]
   (swap! app (fn [xs x]
