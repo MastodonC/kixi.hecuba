@@ -58,7 +58,6 @@
 
 (defn navbar-rightnav [{:keys [messages]} owner]
   (let [n (count messages)]
-    (println "How many messages? " n)
     (om/component
      (dom/ul #js {:className "nav navbar-nav navbar-right navbar-user"}
              (dom/li #js {:className "dropdown messages-dropdown"}
@@ -77,7 +76,6 @@
     (reify
       om/IRender
       (render [_]
-        (println "Rendering nav")
         (dom/nav #js {:className "navbar navbar-inverse navbar-fixed-top"
                       :role "navigation"}
              (om/build navbar-rightnav app)
