@@ -9,14 +9,6 @@
 
 (enable-console-print!)
 
-(defn table-row [data owner cols]
-  (om/component
-      (apply dom/tr nil
-             (for [col cols]
-               (let [d (get data col)
-                     sd (if (keyword? d) (name d) (str d))]
-                 (dom/td nil (if (#{:hecuba/href :hecuba/parent-href} col) (dom/a #js {:href sd} sd) sd)))))))
-
 (defn table [data owner]
   (om/component
       (dom/div #js {:className "table-responsive"}
@@ -25,9 +17,13 @@
                      (apply dom/tr nil
                             (for [col (:cols data)]
                               (dom/th nil (name col)))))
-                (dom/tbody nil
-                     (om/build-all table-row (:rows data)
-                         {:key :hecuba/id :opts (:cols data)}))))))
+                (apply dom/tbody nil
+                       (for [row (:rows data)]
+                         (apply dom/tr nil
+                              (for [col (:cols data)]
+                                (let [d (get row col)
+                                      sd (if (keyword? d) (name d) (str d))]
+                                  (dom/td nil (if (#{:hecuba/href :hecuba/parent-href} col) (dom/a #js {:href sd} sd) sd)))))))))))
 
 (defn blank-tab [data owner]
   (om/component
