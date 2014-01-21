@@ -23,35 +23,32 @@
 
 ;;;;;;;;;;; Data ;;;;;;;;;;;
 
-(def mock-data {"01"     [{"month" "Jan" "reading" 0.8}
-                          {"month" "Feb" "reading" 0.9}
-                          {"month" "Mar" "reading" 0.8}
-                          {"month" "Apr" "reading" 0.75}
-                          {"month" "May" "reading" 0.65}
-                          {"month" "Jun" "reading" 0.50}
-                          {"month" "Jul" "reading" 0.55}
-                          {"month" "Aug" "reading" 0.6}
-                          {"month" "Sep" "reading" 0.66}
-                          {"month" "Oct" "reading" 0.68}
-                          {"month" "Nov" "reading" 0.71}
-                          {"month" "Dec" "reading" 0.9}]
-                "02"     [{"month" "january" "reading" 6}
-                          {"month" "february" "reading" 10}
-                          {"month" "march" "reading" 12}
-                          {"month" "april" "reading" 15}
-                          {"month" "may" "reading" 18}
-                          {"month" "june" "reading" 20}
-                          {"month" "july" "reading" 25}
-                          {"month" "august" "reading" 31}
-                          {"month" "september" "reading" 20}
-                          {"month" "october" "reading" 17}
-                          {"month" "november" "reading" 12}
-                          {"month" "december" "reading" 9}]})
+(def mock-data {"01"     [{"device_id" "01" "month" "01/01/2011" "reading" 0.8}
+                          {"device_id" "01" "month" "01/02/2011" "reading" 0.9}
+                          {"device_id" "01" "month" "01/03/2011" "reading" 0.8}
+                          {"device_id" "01" "month" "01/04/2011" "reading" 0.75}
+                          {"device_id" "01" "month" "01/05/2011" "reading" 0.65}
+                          {"device_id" "01" "month" "01/06/2011" "reading" 0.50}
+                          {"device_id" "01" "month" "01/07/2011" "reading" 0.55}
+                          {"device_id" "01" "month" "01/08/2011" "reading" 0.6}
+                          {"device_id" "01" "month" "01/09/2011" "reading" 0.66}
+                          {"device_id" "01" "month" "01/10/2011" "reading" 0.68}
+                          {"device_id" "01" "month" "01/11/2011" "reading" 0.71}
+                          {"device_id" "01" "month" "01/12/2011" "reading" 0.9}]
+                "02"     [{"device_id" "02" "month" "01/01/2011" "reading" 6}
+                          {"device_id" "02" "month" "01/02/2011" "reading" 10}
+                          {"device_id" "02" "month" "01/03/2011" "reading" 12}
+                          {"device_id" "02" "month" "01/04/2011" "reading" 15}
+                          {"device_id" "02" "month" "01/05/2011" "reading" 18}
+                          {"device_id" "02" "month" "01/06/2011" "reading" 20}
+                          {"device_id" "02" "month" "01/07/2011" "reading" 25}
+                          {"device_id" "02" "month" "01/08/2011" "reading" 31}
+                          {"device_id" "02" "month" "01/09/2011" "reading" 20}
+                          {"device_id" "02" "month" "01/10/2011" "reading" 17}
+                          {"device_id" "02" "month" "01/11/2011" "reading" 12}
+                          {"device_id" "02" "month" "01/12/2011" "reading" 9}]})
 
 ;;;;;;;;; Utils ;;;;;;;;;;;;;;;;;;;;;;
-
-(defn- remove-chart []
-  (.remove (first (nodelist-to-seq (.getElementsByTagName js/document "svg")))))
 
 (defn- fetch-data [device-id]
   (get mock-data device-id))
@@ -64,8 +61,7 @@
          :devices [{:hecuba/name "01"
                     :name "External temperature"}
                    {:hecuba/name "02"
-                    :name "External humidity"}]
-         :data []}))
+                    :name "External humidity"}]}))
 
 ;;;;;;;;;; Chart Component ;;;;;;;;;;
 
@@ -86,12 +82,12 @@
                            (for [device (get cursor :devices)]
                              (let [device-id   (str (:hecuba/name device))
                                    device-name (str (:name device))]
-                               (.log js/console "I did mount" device-id device-name)
                                (dom/input #js {:type "checkbox"
-                                               :onClick (fn [e]
-                                                          (.dir js/console e)
+                                               :value device-id
+                                               :ref device-name
+                                               :onChange (fn [e]
                                                           (om/update! cursor update-in [:selected]
-                                                                      conj device-id))}
+                                                                      (if (.. e -target -checked) conj disj) device-id))}
                                           device-name))))
                  (dom/div #js {:id "chart"})))
       om/IDidUpdate
@@ -101,13 +97,14 @@
              (while (.hasChildNodes n)
                (.removeChild n (.-lastChild n))))
          (let [Chart        (.-chart dimple)
-              svg          (.newSvg dimple "#chart" 400 350)
-              measurements []
-              dimple-chart (Chart. svg (clj->js measurements))]
-          (.setBounds dimple-chart 60 30 300 300)
+               svg          (.newSvg dimple "#chart" 500 450)
+               measurements (apply concat (vals (select-keys mock-data (:selected cursor)))) 
+               dimple-chart (Chart. svg (clj->js measurements))]
+          (.setBounds dimple-chart 60 30 400 300) 
           (.addCategoryAxis dimple-chart "x" "month")
           (.addMeasureAxis dimple-chart "y" "reading")
-          (.addSeries dimple-chart nil js/dimple.plot.line)
+          (.addSeries dimple-chart "device_id" js/dimple.plot.line)
+          (.addLegend dimple-chart 60 10 300 20 "right")
           (.draw dimple-chart))))))
 
 ;;;;;;;;;;; Bootstrap ;;;;;;;;;;;;
