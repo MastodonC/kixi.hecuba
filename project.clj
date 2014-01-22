@@ -1,4 +1,4 @@
-(def jig-version "2.0.0-RC6")
+(def jig-version "2.0.0-RC8-SNAPSHOT")
 
 (defproject hecuba "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
@@ -27,7 +27,8 @@
 
   :source-paths ["src" "src-cljs"]
 
-  :profiles {:dev {:source-paths ["dev"]}
+  :profiles {:dev {:source-paths ["dev"]
+                   :dependencies [[ring-mock "0.1.5"]]}
              :uberjar {:main kixi.hecuba :aot [kixi.hecuba]}}
 
   )
