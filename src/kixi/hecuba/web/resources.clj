@@ -108,20 +108,17 @@
 
 (defn render-item-html
   "Render an item as HTML"
-  [item children]
+  [item]
   (html
    [:body
     [:h1 (:hecuba/name item)]
     (when-let [parent-href (:hecuba/parent-href item)]
       [:p [:a {:href parent-href} "Parent"]])
-    (when (not (empty? children))
-      [:h2 "Children"]
-      [:ul
-       (for [child children]
-         [:li [:a {:href (:hecuba/href child)} (:hecuba/name child)]])])
+    (when-let [children-href (:hecuba/children-href item)]
+      [:p [:a {:href children-href} "Children"]])
+
     [:pre (with-out-str
-            (pprint {:item item
-                     :children children}))]]))
+            (pprint item))]]))
 
 ;; REST resource for individual items.
 
@@ -136,7 +133,7 @@
 ;; any entities this item contains. The child resource is given as a
 ;; promise, since it cannot be known when constructing handlers top-down.
 
-(defresource item-resource [parent-resource child-resource-p {:keys [querier]}]
+(defresource item-resource [parent-resource child-index-p {:keys [querier]}]
   :allowed-methods #{:get}
   :available-media-types base-media-types
 
@@ -144,23 +141,21 @@
                                         ; an extra query later on - this is a common Liberator
                                         ; pattern
   (fn [{{{id :hecuba/id} :route-params body :body routes :jig.bidi/routes} :request}]
+    (println "Does this item exist?" id)
     (when-let [itm (item querier id)]
       {::item (assoc itm
                 :hecuba/parent-href
                 (when parent-resource
-                  (path-for routes parent-resource :hecuba/id (:hecuba/parent itm))))
-       ::children
-       (map
-        #(when child-resource-p
-           (assoc % :hecuba/href (path-for routes @child-resource-p :hecuba/id (:hecuba/id %))))
-        (items querier {:hecuba/parent id}))}))
+                  (path-for routes parent-resource :hecuba/id (:hecuba/parent itm)))
+                :hecuba/children-href
+                (when child-index-p
+                  (assert (realized? child-index-p))
+                  (path-for routes @child-index-p :hecuba/parent id)))}))
 
   :handle-ok
-  (fn [{item ::item children ::children {mime :media-type} :representation}]
+  (fn [{item ::item {mime :media-type} :representation}]
     (case mime
-      "text/html" (render-item-html item children)
-      "application/edn" (pr-str {:item item
-                                 :children children})
+      "text/html" (render-item-html item)
+      "application/edn" (pr-str item)
       ;; The default is to let Liberator render our data
-      {:item item
-       :children children})))
+      item)))

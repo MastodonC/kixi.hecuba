@@ -50,7 +50,7 @@
   (loop [[plural singular :as pair] (first pairs)
          remaining (next pairs)
          parent-resource nil      ; nil the root entity in the hierarchy
-         unknown-child-resource (promise) ; see below
+         unknown-child-index (promise) ; see below
          handlers {}]
     (if-not pair
       handlers ; return at the end
@@ -58,17 +58,17 @@
             ;; item-resource needs to know the child-resource this is a
             ;; catch-22, we can't know what the child resource handler
             ;; is going to be, but we 'promise' that we will.
-            child-resource (promise)
+            child-index (when remaining (promise))
 
             ;; Specific here is in contrast to an 'index' resource which
             ;; provides a resource onto multiple items.
-            specific-resource (item-resource parent-resource child-resource opts)
+            specific-resource (item-resource parent-resource child-index opts)
             index-resource (items-resource singular specific-resource parent-resource opts)]
 
         ;; Now we have created our child resource we can make good on our promise
-        (deliver unknown-child-resource specific-resource)
+        (deliver unknown-child-index index-resource)
 
-        (recur (first remaining) (next remaining) specific-resource child-resource
+        (recur (first remaining) (next remaining) specific-resource child-index
                (assoc handlers plural index-resource singular specific-resource))))))
 
 (def sha1-regex #"[a-f0-9]+")
@@ -103,7 +103,7 @@
     ;; Eventually these routes can be generated from the keyword pairs.
     ["propertiesX/" (:properties handlers)]
     ["propertiesX" (->Redirect 307 (:properties handlers))]
-    [["propertiesX/" :hecuba/id] (:property handlers)]
+    [["propertiesX/" [sha1-regex :hecuba/id]] (:property handlers)]
 
     ["hecuba-js/react.js" (->Resources {:prefix "sb-admin/"})]
     ["" (->Resources {:prefix "sb-admin/"})]
@@ -122,21 +122,3 @@
           (add-bidi-routes config routes)
           (update-in [:handlers] merge handlers))))
   (stop [_ system] system))
-
-
-
-#_(match-route
- (let [handlers {:programmes :programmes
-                 :programme :programme
-                 :projects :projects}]
-   ["/" [
-         ["programmes/" (:programmes handlers)]
-         ["programmes" (->Redirect 307 (:programmes handlers))]
-         [["programmes/" [#"[a-f0-9]+" :hecuba/id]] (:programme handlers)]
-         [["programmes/" [#"[a-f0-9]+" :hecuba/id] "/projects"] (:projects handlers)]
-         ]])
- "/programmes/a3b/projects")
-
-
-;;path: /properties     body: {:hecuba/parent 1234 :hecuba/name "Buckingham Palace" } -> :hecuba/id (generated and returned, as a part)
-;;path: /projects/1234/properties  body { :hecuba/name "Buckingham Palace" } -> :hecuba/id (generated and returned, as a part)
