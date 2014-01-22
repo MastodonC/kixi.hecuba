@@ -51,9 +51,9 @@
          remaining (next pairs)
          parent-resource nil      ; nil the root entity in the hierarchy
          unknown-child-resource (promise) ; see below
-         result {}]
+         handlers {}]
     (if-not pair
-      result ; return at the end
+      handlers ; return at the end
       (let [
             ;; item-resource needs to know the child-resource this is a
             ;; catch-22, we can't know what the child resource handler
@@ -69,7 +69,7 @@
         (deliver unknown-child-resource specific-resource)
 
         (recur (first remaining) (next remaining) specific-resource child-resource
-               (assoc result plural index-resource singular specific-resource))))))
+               (assoc handlers plural index-resource singular specific-resource))))))
 
 (defn make-routes [producer-config handlers {:keys [querier commander]}]
   ["/"
