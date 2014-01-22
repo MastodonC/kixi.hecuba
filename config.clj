@@ -61,8 +61,8 @@
    :jig/project "../kixi.hecuba/project.clj"
    :jig/dependencies [:hecuba/webserver :hecuba/routing]}
 
-  :hecuba.dev/liberator-client-tests
-  {:jig/doc "For sanity while developing, run some tests to make sure our Liberator resources are working."
+  #_:hecuba.dev/liberator-client-tests
+  #_{:jig/doc "For sanity while developing, run some tests to make sure our Liberator resources are working."
    :jig/component kixi.hecuba.dev/HttpClientChecks
    :jig/project "../kixi.hecuba/project.clj"
    :jig/dependencies [:hecuba.dev/example-data-loader]}

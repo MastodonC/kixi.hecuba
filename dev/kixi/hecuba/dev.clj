@@ -51,10 +51,10 @@
                     response @(post-resource
                                (format "http://localhost:%d%s"
                                        (get-port system)
-                                       (path-for (get-routes system) handler))
+                                       (path-for (get-routes system) handler :hecuba/parent parent))
                                (-> item
                                    (dissoc (first (second pairs)))
-                                   (assoc :hecuba/parent parent)
+                                   ;;(assoc :hecuba/parent parent)
                                    remove-nil-parent))
                     id (get-id-from-path system (get-in response [:headers :location]))]
                 {:item id

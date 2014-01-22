@@ -74,16 +74,18 @@
         items)))
 
   :post!                   ; enact the 'side-effect' of creating an item
-  (fn [{{body :body} :request}]
+  (fn [{{body :body route-params :route-params} :request}]
     {:hecuba/id                  ; add this entry to Liberator's context
      (upsert! commander
-              (-> body
-                  ;; Prepare to read the body
-                  io/reader (java.io.PushbackReader.)
-                  ;; Read the body (can't repeat this so no transactions!)
-                  edn/read io!
-                  ;; Add the type prior to upserting
-                  (assoc :hecuba/type typ)))})
+              (merge
+               route-params
+               (-> body
+                   ;; Prepare to read the body
+                   io/reader (java.io.PushbackReader.)
+                   ;; Read the body (can't repeat this so no transactions!)
+                   edn/read io!
+                   ;; Add the type prior to upserting
+                   (assoc :hecuba/type typ))))})
 
   :handle-created                       ; do this upon a successful POST
   (fn [{{routes :jig.bidi/routes route-params :route-params} :request id :hecuba/id}]

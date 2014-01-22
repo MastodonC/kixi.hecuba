@@ -87,7 +87,8 @@
     ;; Programmes
     ["programmes/" (:programmes handlers)]
     ["programmes" (->Redirect 307 (:programmes handlers))]
-    [["programmes/" :hecuba/id] (:programme handlers)]
+    [["programmes/" [#"[a-f0-9]+" :hecuba/id]] (:programme handlers)]
+    [["programmes/" [#"[a-f0-9]+" :hecuba/parent] "/projects"] (:projects handlers)]
 
     ;; Projects
     ["projects/" (:projects handlers)]
@@ -118,3 +119,21 @@
           (add-bidi-routes config routes)
           (update-in [:handlers] merge handlers))))
   (stop [_ system] system))
+
+
+
+#_(match-route
+ (let [handlers {:programmes :programmes
+                 :programme :programme
+                 :projects :projects}]
+   ["/" [
+         ["programmes/" (:programmes handlers)]
+         ["programmes" (->Redirect 307 (:programmes handlers))]
+         [["programmes/" [#"[a-f0-9]+" :hecuba/id]] (:programme handlers)]
+         [["programmes/" [#"[a-f0-9]+" :hecuba/id] "/projects"] (:projects handlers)]
+         ]])
+ "/programmes/a3b/projects")
+
+
+;;path: /properties     body: {:hecuba/parent 1234 :hecuba/name "Buckingham Palace" } -> :hecuba/id (generated and returned, as a part)
+;;path: /projects/1234/properties  body { :hecuba/name "Buckingham Palace" } -> :hecuba/id (generated and returned, as a part)
