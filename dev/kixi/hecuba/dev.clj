@@ -32,6 +32,7 @@
   (-> system :handlers))
 
 (defn get-id-from-path [system path]
+  (assert path)
   (get-in (match-route (get-routes system) path) [:params :hecuba/id]))
 
 (deftype ExampleDataLoader [config]
@@ -54,8 +55,8 @@
                                        (path-for (get-routes system) handler :hecuba/parent parent))
                                (-> item
                                    (dissoc (first (second pairs)))
-                                   ;;(assoc :hecuba/parent parent)
                                    remove-nil-parent))
+                    _ (assert (= 201 (:status response)) (format "Got status %d" (:status response)))
                     id (get-id-from-path system (get-in response [:headers :location]))]
                 {:item id
                  :children (when-let [n (next pairs)] (this item n id))})))]

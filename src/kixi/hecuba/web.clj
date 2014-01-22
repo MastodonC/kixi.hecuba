@@ -71,6 +71,8 @@
         (recur (first remaining) (next remaining) specific-resource child-resource
                (assoc handlers plural index-resource singular specific-resource))))))
 
+(def sha1-regex #"[a-f0-9]+")
+
 (defn make-routes [producer-config handlers {:keys [querier commander]}]
   ["/"
    [["" (->Redirect 307 tables)]
@@ -87,13 +89,14 @@
     ;; Programmes
     ["programmes/" (:programmes handlers)]
     ["programmes" (->Redirect 307 (:programmes handlers))]
-    [["programmes/" [#"[a-f0-9]+" :hecuba/id]] (:programme handlers)]
-    [["programmes/" [#"[a-f0-9]+" :hecuba/parent] "/projects"] (:projects handlers)]
+    [["programmes/" [sha1-regex :hecuba/id]] (:programme handlers)]
+    [["programmes/" [sha1-regex :hecuba/parent] "/projects"] (:projects handlers)]
 
     ;; Projects
     ["projects/" (:projects handlers)]
     ["projects" (->Redirect 307 (:projects handlers))]
-    [["projects/" :hecuba/id] (:project handlers)]
+    [["projects/" [sha1-regex :hecuba/id]] (:project handlers)]
+    [["projects/" [sha1-regex :hecuba/parent] "/properties"] (:properties handlers)]
 
     ;; Properties, with an 'X' suffix to avoid conflicting with Anna's
     ;; work until we integrate this.
