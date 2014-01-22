@@ -134,7 +134,7 @@
   (start [_ system]
     (let [uri (format "http://localhost:%d%s"
                       (get-port system)
-                      (path-for (get-routes system) (:projects (get-handlers system))))]
+                      (path-for (get-routes system) (:programmes (get-handlers system))))]
       (let [projects-response
             @(http-request
               {:method :get
@@ -147,7 +147,7 @@
         (when-not
             (and
              (= (get-in projects-response [:headers :content-type]) "application/edn;charset=UTF-8")
-             (<= 5 (count projects)))
+             (<= 2 (count projects)))
           (println "Warning: HTTP client checks failed" (count projects)))))
     system)
   (stop [_ system] system))

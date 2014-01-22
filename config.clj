@@ -42,10 +42,17 @@
    :jig.web/context "/hecuba-js/"
    }
 
+  :amon/api
+  {:jig/component kixi.hecuba.web.amon/ApiServiceV3
+   :jig/dependencies []
+     ;; TODO Malcolm fix the fact that this doesn't work because add-bidi-routes doesn't look for it
+   ;;:jig.web/context "/3/"
+   }
+
   :hecuba/routing
   {:jig/component jig.bidi/Router
    :jig/project "../kixi.hecuba/project.clj"
-   :jig/dependencies [:hecuba/cljs-server :hecuba/website]
+   :jig/dependencies [:hecuba/cljs-server :amon/api :hecuba/website]
    ;; Optionally, route systems can be mounted on a sub-context
    ;;:jig.web/context "/services"
    }
@@ -61,8 +68,8 @@
    :jig/project "../kixi.hecuba/project.clj"
    :jig/dependencies [:hecuba/webserver :hecuba/routing]}
 
-  #_:hecuba.dev/liberator-client-tests
-  #_{:jig/doc "For sanity while developing, run some tests to make sure our Liberator resources are working."
+  :hecuba.dev/liberator-client-tests
+  {:jig/doc "For sanity while developing, run some tests to make sure our Liberator resources are working."
    :jig/component kixi.hecuba.dev/HttpClientChecks
    :jig/project "../kixi.hecuba/project.clj"
    :jig/dependencies [:hecuba.dev/example-data-loader]}
