@@ -69,30 +69,31 @@
   [device-details]
   (fn [cursor opts]
     (reify
-      om/IWillMount
-      (will-mount [this]
-        (.log js/console "I will mount")
-        (om/update! cursor update-in [:data] (fn [data] (get mock-data (:selected cursor)))))
       om/IRender
       (render [this]
-        (.log js/console "I render")
         (dom/div nil
-                 (dom/p nil (apply str (interpose "," (get-in cursor [:selected]))))
-                 (dom/form nil
-                           (for [device (get cursor :devices)]
-                             (let [device-id   (str (:hecuba/name device))
-                                   device-name (str (:name device))]
-                               (dom/input #js {:type "checkbox"
-                                               :value device-id
-                                               :ref device-name
-                                               :onChange (fn [e]
-                                                          (om/update! cursor update-in [:selected]
-                                                                      (if (.. e -target -checked) conj disj) device-id))}
-                                          device-name))))
-                 (dom/div #js {:id "chart"})))
+                 (dom/div #js {:id "chart" :width 500 :height 450})
+                 (dom/table #js {:id "form-table" :cellSpacing "10"}
+                            (let [cols ["Left axis plots" "Right axis plots"]]
+                               (dom/tr nil
+                                       (for [col cols]
+                                         (dom/td nil
+                                                 (dom/h4 nil (str col))
+                                                 (dom/form nil
+                                                           (for [device (get cursor :devices)]
+                                                             (let [device-id   (str (:hecuba/name device))
+                                                                   device-name (str (:name device))]
+                                                               (dom/div nil
+                                                                        (dom/input #js {:type "checkbox"
+                                                                                        :ref device-id
+                                                                                        :value device-id
+                                                                                        :onChange (fn [e]
+                                                                                                    (om/update! cursor update-in [:selected]
+                                                                                                                (if (.. e -target -checked) conj disj) device-id))})
+                                                                        (dom/label #js {:htmlFor device-id} device-name)
+                                                                        (dom/br #js {}))))))))))))
       om/IDidUpdate
       (did-update [this prev-props prev-state root-node]
-        (.log js/console "I did update")
         (let [n (.getElementById js/document "chart")]
              (while (.hasChildNodes n)
                (.removeChild n (.-lastChild n))))
@@ -116,7 +117,7 @@
       (render [this]
         (dom/div nil
                  (dom/h3 nil (str "Metering data - " (get-in cursor [:property])))
-                 (dom/h4 nil "Select devices to be plotted on the chart:")
+                 (dom/p nil "Note: When you select something to plot on a given axis, you will only be able to plot other items of the same unit on that axis.")
                  (om/build chart-comp cursor))))))
 
 
