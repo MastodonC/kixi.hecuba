@@ -78,6 +78,9 @@
     {:hecuba/id                  ; add this entry to Liberator's context
      (upsert! commander
               (merge
+               ;; Depending on the URI, the :hecuba/parent may already
+               ;; be known. If so, it can be set (but the merge will
+               ;; privilege any :hecuba/parent in the request body.
                route-params
                (-> body
                    ;; Prepare to read the body
