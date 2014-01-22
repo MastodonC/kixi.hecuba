@@ -32,7 +32,8 @@
                            ]}
     :programmes {}
     :projects {}
-    :properties {}}))
+    :properties {}
+    :devices {}}))
 
 (defn handle-get [k]
   (fn [data]
@@ -56,14 +57,20 @@
   (GET (str "/programmes/" id)
       {:handler (fn [data]
                   (println "data is " data)
-                  (set-table-data! :projects (:children data))
-                  (let [id (:hecuba/id (first (:children data)))]
-                    (println "child id is" id)
-                    (GET (str "/projects/" id)
-                        {:handler (fn [data]
-                                    (set-table-data! :properties (:children data))
-                                    )
-                         :headers {"Accept" "application/edn"}})))
+                  (let [children-href (:hecuba/children-href data)]
+                    (GET children-href {:headers {"Accept" "application/edn"}
+                                        :handler (fn [data]
+                                                   (println "children is " data)
+                                                   (set-table-data! :projects data)
+                                                   (let [id (:hecuba/id (first (:children data)))]
+                                                     (GET (str "/projects/" id)
+                                                         {:handler (fn [data]
+                                                                     (set-table-data! :properties (:children data))
+                                                                     )
+                                                          :headers {"Accept" "application/edn"}}))
+                                                   )})
+                    )
+                  )
        :headers {"Accept" "application/edn"}}))
 
 (GET "/programmes/" {:handler (handle-get :programmes) :headers {"Accept" "application/edn"}})
@@ -117,6 +124,9 @@
              (om/build table tabdata  {:opts (fn [id] (select-project id))}))
            (dom/h1 nil "Properties")
            (when-let [tabdata (get-in data [:properties :table])]
+             (om/build table tabdata  {:opts (fn [id] nil)}))
+           (dom/h1 nil "Devices")
+           (when-let [tabdata (get-in data [:devices :table])]
              (om/build table tabdata  {:opts (fn [id] nil)})))))
 
 (defn tab-container [tabs]

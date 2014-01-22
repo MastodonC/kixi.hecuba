@@ -18,7 +18,7 @@
   debug, to be able to check the data without too much UI logic
   involved."
   [items]
-  (let [fields (remove #{:hecuba/name :hecuba/id :hecuba/href :hecuba/type :hecuba/parent :hecuba/parent-href}
+  (let [fields (remove #{:hecuba/name :hecuba/id :hecuba/href :hecuba/type :hecuba/parent :hecuba/parent-href :hecuba/children-href}
                        (distinct (mapcat keys items)))]
     (let [DEBUG false]
       (html [:body
@@ -30,6 +30,7 @@
                [:tr
                 [:th "Name"]
                 [:th "Parent"]
+                [:th "Children"]
                 (for [k fields] [:th (string/replace (csk/->Snake_case_string k) "_" " ")])
                 (when DEBUG [:th "Debug"])]]
               [:tbody
@@ -37,6 +38,7 @@
                  [:tr
                   [:td [:a {:href (:hecuba/href p)} (:hecuba/name p)]]
                   [:td [:a {:href (:hecuba/parent-href p)} "Parent"]]
+                  [:td [:a {:href (:hecuba/children-href p)} "Children"]]
                   (for [k fields] [:td (str (k p))])
                   (when DEBUG [:td (pr-str p)])])]]]))))
 
@@ -44,7 +46,7 @@
 ;; info: http://clojure-liberator.github.io/liberator/
 
 ;; REST resource for items (plural) - .
-(defresource items-resource [typ item-resource parent-resource {:keys [querier commander]}]
+(defresource items-resource [typ item-resource parent-resource child-index-p {:keys [querier commander]}]
   ;; acts as both an index of existing items and factory for new ones
   :allowed-methods #{:get :post}
 
@@ -61,10 +63,12 @@
            ;; which are adorned with hrefs, throwing bidi's path-for all the kv pairs we have!
            (map #(assoc %
                    :hecuba/href (apply path-for routes item-resource (apply concat %))
+                   :hecuba/children-href (when child-index-p
+                                           (apply path-for routes @child-index-p (apply concat (assoc % :hecuba/parent (:hecuba/id %)))))
                    :hecuba/parent-href (path-for routes parent-resource :hecuba/id (:hecuba/parent %)))))]
 
       (case mime
-        "text/html" (render-items-html items)
+        "text/html" (render-items-html  items)
         ;; Liberator's default rendering of application/edn seems wrong
         ;; (it wraps the data in 'clojure.lang.PersistentArrayMap', so
         ;; we override it here.

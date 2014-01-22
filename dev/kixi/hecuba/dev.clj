@@ -93,7 +93,14 @@
                              :rooms 775}
 
                             {:hecuba/name "Windsor Castle"
-                             :rooms 175}]}
+                             :rooms 175
+                             :devices [{:hecuba/name "Corgi Boiler"
+                                        :room "Throne Room"}
+                                       {:hecuba/name "Crown Jewels Security Camera"
+                                        :room "The Vault"}
+                                       {:hecuba/name "Lord Lucan Escape Monitor"
+                                        :room "Dungeon"}]
+                             }]}
 
               {:hecuba/name "Carbon Neutral Tech City"
                :properties [{:hecuba/name "The ODI"

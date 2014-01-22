@@ -63,7 +63,7 @@
             ;; Specific here is in contrast to an 'index' resource which
             ;; provides a resource onto multiple items.
             specific-resource (item-resource parent-resource child-index opts)
-            index-resource (items-resource singular specific-resource parent-resource opts)]
+            index-resource (items-resource singular specific-resource parent-resource child-index opts)]
 
         ;; Now we have created our child resource we can make good on our promise
         (deliver unknown-child-index index-resource)
@@ -104,6 +104,11 @@
     ["propertiesX/" (:properties handlers)]
     ["propertiesX" (->Redirect 307 (:properties handlers))]
     [["propertiesX/" [sha1-regex :hecuba/id]] (:property handlers)]
+    [["propertiesX/" [sha1-regex :hecuba/parent] "/devices"] (:devices handlers)]
+
+    ["devices/" (:devices handlers)]
+    ["devices" (->Redirect 307 (:devices handlers))]
+    [["devices/" [sha1-regex :hecuba/id]] (:device handlers)]
 
     ["hecuba-js/react.js" (->Resources {:prefix "sb-admin/"})]
     ["" (->Resources {:prefix "sb-admin/"})]

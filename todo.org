@@ -38,3 +38,5 @@
 
 ** TODO create a properties resource which can be posted to
 ** TODO add dummy properties as well as projects, with a relationship between the 2
+
+* TODO Relative URIs should be absolute in content (sw1nn)
