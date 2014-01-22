@@ -46,6 +46,12 @@
           :table {:cols (distinct (mapcat keys rows))
                   :rows rows}}))
 
+(defn select-project [id]
+  (println "Selecting project!" id)
+  (GET (str "/projects/" id)
+      {:handler (fn [data] (set-table-data! :properties (:children data)))
+       :headers {"Accept" "application/edn"}}))
+
 (defn select-programme [id]
   (GET (str "/programmes/" id)
       {:handler (fn [data]
@@ -57,12 +63,8 @@
                         {:handler (fn [data]
                                     (set-table-data! :properties (:children data))
                                     )
-                         :headers {"Accept" "application/edn"}})
-                    )
-
-                  )
-       :headers {"Accept" "application/edn"}})
-  )
+                         :headers {"Accept" "application/edn"}})))
+       :headers {"Accept" "application/edn"}}))
 
 (GET "/programmes/" {:handler (handle-get :programmes) :headers {"Accept" "application/edn"}})
 
@@ -112,7 +114,7 @@
              (om/build table tabdata {:opts (fn [id] (select-programme id))}))
            (dom/h1 nil "Projects")
            (when-let [tabdata (get-in data [:projects :table])]
-             (om/build table tabdata  {:opts (fn [id] nil)}))
+             (om/build table tabdata  {:opts (fn [id] (select-project id))}))
            (dom/h1 nil "Properties")
            (when-let [tabdata (get-in data [:properties :table])]
              (om/build table tabdata  {:opts (fn [id] nil)})))))
