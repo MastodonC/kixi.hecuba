@@ -8,6 +8,7 @@
    [clojure.edn :as edn]
    [clojure.java.io :as io]
    [clojure.string :as string]
+   [clojure.pprint :refer (pprint)]
    [camel-snake-kebab :as csk]))
 
 (def base-media-types ["text/html" "application/json" "application/edn"])
@@ -113,7 +114,9 @@
       [:ul
        (for [child children]
          [:li [:a {:href (:hecuba/href child)} (:hecuba/name child)]])])
-    [:pre (pr-str item)]]))
+    [:pre (with-out-str
+            (pprint {:item item
+                     :children children}))]]))
 
 ;; REST resource for individual items.
 
@@ -151,6 +154,8 @@
   (fn [{item ::item children ::children {mime :media-type} :representation}]
     (case mime
       "text/html" (render-item-html item children)
+      "application/edn" (pr-str {:item item
+                                 :children children})
       ;; The default is to let Liberator render our data
       {:item item
        :children children})))
