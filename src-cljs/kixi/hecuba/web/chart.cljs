@@ -50,8 +50,7 @@
 
 ;;;;;;;;; Utils ;;;;;;;;;;;;;;;;;;;;;;
 
-(defn- fetch-data [device-id]
-  (get mock-data device-id))
+(def truthy? (complement #{"false"}))
 
 ;;;;;;;;;; Application state ;;;;;;;;;;;;;;;;;
 
@@ -64,70 +63,100 @@
                    {:hecuba/name "02"
                     :name "External humidity"}]}))
 
-;;;;;;;;;; Chart Component ;;;;;;;;;;
+;;;;;;;;;;; Component 1:  Form containing list of devices for both axis plots ;;;;;;;;;;
 
-(defn chart-component
-  [device-details]
-  (fn [cursor opts]
-    (reify
-      om/IRender
-      (render [this]
-        (dom/div nil
-                 (dom/div #js {:id "chart" :width 500 :height 450})
+(defn device-form
+  [cursor owner]
+  (reify
+    om/IRenderState
+    (render-state [_ {:keys [clicked]}]
+      (dom/div nil
                  (dom/table #js {:id "form-table" :cellSpacing "10"}
                             (let [cols {:left "Left axis plots" :right "Right axis plots"}]
-                               (dom/tr nil
-                                       (for [col cols]
-                                         (dom/td nil
-                                                 (dom/h4 nil (val col))
-                                                 (dom/form nil
-                                                           (for [device (get cursor :devices)]
-                                                             (let [device-id   (str (:hecuba/name device))
-                                                                   device-name (str (:name device))
-                                                                   device-ref  (str (:red device))]
-                                                               (dom/div nil
-                                                                        (dom/input #js {:type "checkbox"
-                                                                                        :ref device-ref
-                                                                                        :value device-id
-                                                                                        :onChange (fn [e]
-                                                                                                   (om/update! cursor update-in [:selected (key col)] (if (.. e -target -checked) conj disj) device-id))})
-                                                                        (dom/label #js {:htmlFor device-id} device-name)
-                                                                        (dom/br #js {}))))))))))))
+                              (dom/tr nil
+                                      (for [col cols]
+                                        (dom/td nil
+                                                (dom/h4 nil (val col))
+                                                (dom/form nil
+                                                          (for [device cursor]
+                                                            (let [id      (str (:hecuba/name device))
+                                                                  name    (str (:name device))
+                                                                  axis    (first col)
+                                                                  ]
+                                                              (dom/div nil
+                                                                       (dom/input #js
+                                                                                  {:type "checkbox"
+                                                                                   :onChange
+                                                                                   (fn [e]
+                                                                                     (let [checked (= (.. e -target -checked) true)]
+                                                                                       (put! clicked 
+                                                                                             {:id id
+                                                                                              :axis axis 
+                                                                                              :checked checked})
+                                                                                       ))})
+                                                                       (dom/label nil name)
+                                                                       (dom/br #js {}))))))))))))))
+
+;;;;;;;;;;;;; Component 2: Chart ;;;;;;;;;;;;;;;;
+
+(defn chart-item
+  [cursor owner]
+   (reify
+     om/IWillMount
+     (will-mount [_]
+       (let [clicked-items (om/get-state owner [:clicked])]
+          (go (while true
+                (let [sel (<! clicked-items)
+                      checked         (str (get sel :checked))
+                      axis            (get sel :axis)
+                      id              (str (get sel :id))]
+                  (.log js/console "Consumed axis: " (str axis) ". Id " (str id) ". Checked: " (str checked))
+                  (om/update! cursor update-in [:selected axis] (if (truthy? checked) conj disj) id))))))
+     om/IRender
+     (render [_]
+       (dom/div #js {:id "chart" :width 500 :height 550}))
       om/IDidUpdate
       (did-update [this prev-props prev-state root-node]
         (let [n (.getElementById js/document "chart")]
-             (while (.hasChildNodes n)
-               (.removeChild n (.-lastChild n))))
-         (let [Chart        (.-chart dimple)
-               svg          (.newSvg dimple "#chart" 500 450)
-               measurements (apply concat (vals (select-keys mock-data (merge (:left (:selected cursor)) (:right (:selected cursor))))))
-               l-axis-label (str (into [] (:left (:selected cursor))))
-               r-axis-label (str (into [] (:right (:selected cursor))))
-               dimple-chart (Chart. svg (clj->js measurements))
-               x            (.addCategoryAxis dimple-chart "x" "month")
-               y1           (.addMeasureAxis dimple-chart "y" "reading")
-               y2           (.addMeasureAxis dimple-chart "y" "reading")]
-          (.setBounds dimple-chart 60 30 300 300)
-          (.addSeries dimple-chart "device_id" js/dimple.plot.line (clj->js [x y1]))
-          (.addSeries dimple-chart "device_id" js/dimple.plot.line (clj->js [x y2]))
-          (.addLegend dimple-chart 60 10 300 20 "right")
-          (.draw dimple-chart))))))
+          (while (.hasChildNodes n)
+            (.removeChild n (.-lastChild n))))
+        (let [Chart        (.-chart dimple)
+             svg          (.newSvg dimple "#chart" 500 500)
+             measurements (apply concat (vals (select-keys mock-data (merge (:left (:selected cursor)) (:right (:selected cursor))))))
+             dimple-chart (Chart. svg (clj->js measurements))
+             x            (.addCategoryAxis dimple-chart "x" "month")
+             y1           (.addMeasureAxis dimple-chart "y" "reading")
+             y2           (.addMeasureAxis dimple-chart "y" "reading")]
+         (.setBounds dimple-chart 60 30 350 350)
+         (.addSeries dimple-chart "device_id" js/dimple.plot.line (clj->js [x y1]))
+         (.addSeries dimple-chart "device_id" js/dimple.plot.line (clj->js [x y2]))
+         (.addLegend dimple-chart 60 10 300 20 "right")
+         (.draw dimple-chart)))))
 
 ;;;;;;;;;;; Bootstrap ;;;;;;;;;;;;
 
-(defn create-form-and-chart [model-path chart-comp]
+(defn create-form-and-chart [model-path]
   (fn [cursor owner]
     (reify
-      om/IRender
-      (render [this]
+      om/IInitState
+      (init-state [_]
+        {:chans {:clicked (chan (sliding-buffer 1))}})
+      om/IRenderState
+      (render-state [_ {:keys [chans]}]
         (dom/div nil
-                 (dom/h3 nil (str "Metering data - " (get-in cursor [:property])))
+                 (dom/h3 #js {:key "head"} (str "Metering data - " (get-in cursor [:property])))
                  (dom/p nil "Note: When you select something to plot on a given axis, you will only be able to plot other items of the same unit on that axis.")
-                 (om/build chart-comp cursor))))))
+                 ;; Builds chart component
+                 (om/build chart-item cursor {:key :hecuba/name :init-state chans})
+                 ;; Builds table containing form components for left and right axis
+                 (dom/div #js {:id "device-form"}
+                          (om/build device-form (get-in cursor model-path)
+                                     {:key :hecuba/name :init-state chans})))))))
 
 
-(om/root chart-state (create-form-and-chart [:devices] (chart-component [:hecuba/name :name :data]))
-                 (.getElementById js/document "app"))
+(om/root chart-state (create-form-and-chart [:devices]) (.getElementById js/document "app"))
+
+
 
 
 
