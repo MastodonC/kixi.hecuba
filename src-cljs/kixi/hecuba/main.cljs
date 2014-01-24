@@ -19,6 +19,7 @@
                       {:name :programmes :label "Programmes"}
                       {:name :projects :label "Project"}
                       {:name :properties :label "Properties"}
+                      {:name :charts :label "Charts"}
                       {:name :about :label "About"}
                       {:name :documentation :label "Documentation"}
                       {:name :api_users :label "API users"}
