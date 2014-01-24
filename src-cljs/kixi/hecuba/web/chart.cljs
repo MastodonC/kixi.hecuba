@@ -54,15 +54,6 @@
 
 (def truthy? (complement #{"false"}))
 
-;;;;;;;;;; Application state ;;;;;;;;;;;;;;;;;
-
-(def chart-model
-  {:property "rad003"
-   :devices [{:hecuba/name "01"
-              :name "External temperature"}
-             {:hecuba/name "02"
-              :name "External humidity"}]})
-
 ;;;;;;;;;;; Component 1:  Form containing list of devices for both axis plots ;;;;;;;;;;
 
 (defn device-form
@@ -70,30 +61,31 @@
   (reify
     om/IRenderState
     (render-state [_ {:keys [clicked]}]
-      (dom/div nil
-           (dom/table #js {:id "form-table" :cellSpacing "10"}
-                (let [cols {:left "Left axis plots" :right "Right axis plots"}]
-                  (dom/tr nil
-                       (for [col cols]
-                         (dom/td nil
-                              (dom/h4 nil (val col))
-                              (dom/form nil
-                                   (for [device cursor]
-                                     (let [id (str (:hecuba/name device))
-                                           name (str (:name device))
-                                           axis (first col)]
-                                       (dom/div nil
-                                            (dom/input #js
-                                                 {:type "checkbox"
-                                                  :onChange
-                                                  (fn [e]
-                                                    (let [checked (= (.. e -target -checked) true)]
-                                                      (put! clicked
-                                                            {:id id
-                                                             :axis axis
-                                                             :checked checked})))})
-                                            (dom/label nil name)
-                                            (dom/br #js {}))))))))))))))
+      (dom/table #js {:id "form-table" :cellSpacing "10"}
+           (let [cols {:left "Left axis plots" :right "Right axis plots"}]
+             (dom/tr nil
+                  (into-array
+                   (for [col cols]
+                     (dom/td nil
+                          (dom/h4 nil (val col))
+                          (dom/form nil
+                               (into-array
+                                (for [device cursor]
+                                  (let [id (str (:hecuba/name device))
+                                        name (str (:name device))
+                                        axis (first col)]
+                                    (dom/div nil
+                                         (dom/input #js
+                                              {:type "checkbox"
+                                               :onChange
+                                               (fn [e]
+                                                 (let [checked (= (.. e -target -checked) true)]
+                                                   (put! clicked
+                                                         {:id id
+                                                          :axis axis
+                                                          :checked checked})))})
+                                         (dom/label nil name)
+                                         (dom/br #js {})))))))))))))))
 
 ;;;;;;;;;;;;; Component 2: Chart ;;;;;;;;;;;;;;;;
 
@@ -138,23 +130,20 @@
 
 ;;;;;;;;;;; Bootstrap ;;;;;;;;;;;;
 
-(defn create-form-and-chart [model-path]
-  (fn [cursor owner]
-    (reify
-      om/IInitState
-      (init-state [_]
-        {:chans {:clicked (chan (sliding-buffer 1))}})
-      om/IRenderState
-      (render-state [_ {:keys [chans]}]
-        (dom/div nil
-             (dom/h3 #js {:key "head"} (str "Metering data - " (get-in cursor [:property])))
-             (dom/p nil "Note: When you select something to plot on a given axis, you will only be able to plot other items of the same unit on that axis.")
-             ;; Builds chart component
-             (om/build chart-item cursor {:key :hecuba/name :init-state chans})
-             ;; Builds table containing form components for left and right axis
-             (dom/div #js {:id "device-form"}
-                  (om/build device-form (get-in cursor model-path)
-                      {:key :hecuba/name :init-state chans})))))))
-
-
-(om/root chart-model (create-form-and-chart [:devices]) (.getElementById js/document "app"))
+(defn chart-figure [cursor owner]
+  (reify
+    om/IInitState
+    (init-state [_]
+      {:chans {:clicked (chan (sliding-buffer 1))}})
+    om/IRenderState
+    (render-state [_ {:keys [chans]}]
+      (dom/div nil
+           (dom/h3 #js {:key "head"} (str "Metering data - " (get-in cursor [:property])))
+           (dom/p nil "Note: When you select something to plot on a given axis, you will only be able to plot other items of the same unit on that axis.")
+           ;; Builds chart component
+           (om/build chart-item cursor {:key :hecuba/name :init-state chans})
+           ;; Builds table containing form components for left and right axis
+           (println "Devices is" (:devices cursor))
+           (dom/div #js {:id "device-form"}
+                (om/build device-form (:devices cursor)
+                    {:key :hecuba/name :init-state chans}))))))

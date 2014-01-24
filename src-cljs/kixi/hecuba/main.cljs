@@ -5,7 +5,8 @@
    [om.dom :as dom :include-macros true]
    [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map<]]
    [ajax.core :refer (GET POST)]
-   [kixi.hecuba.navigation :as nav]))
+   [kixi.hecuba.navigation :as nav]
+   [kixi.hecuba.web.chart :as chart]))
 
 (enable-console-print!)
 
@@ -36,12 +37,27 @@
                                                     :leaders {:label "Leaders"}}
                                              :sort [:hecuba/name :leaders]}}
                             }
+                           {:name :charts
+                            :title "Charts"
+                            :chart {:property "rad003"
+                                    :devices [{:hecuba/name "01"
+                                               :name "External temperature"}
+                                              {:hecuba/name "02"
+                                               :name "External humidity"}]}
+                            }
                            ]}
+
     }))
 
 (defn blank-tab [data owner]
   (om/component
       (dom/p nil "This page is unintentionally left blank")))
+
+(defn charts-tab [data owner]
+  (om/component
+      (dom/div nil
+           (dom/h1 nil (:title data))
+           (om/build chart/chart-figure (:chart data)))))
 
 (defn about-tab [data owner]
   (om/component
@@ -219,6 +235,7 @@
 
 (om/root app-model (tab-container {:about about-tab
                                    :programmes programmes-tab
+                                   :charts charts-tab
                                    :documentation documentation-tab
                                    :users users-tab})
     (.getElementById js/document "hecuba-tabs"))
