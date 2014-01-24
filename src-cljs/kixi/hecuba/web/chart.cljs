@@ -56,14 +56,12 @@
 
 ;;;;;;;;;; Application state ;;;;;;;;;;;;;;;;;
 
-(def chart-state
-  (atom {:selected {:left #{}
-                    :right #{}}
-         :property "rad003"
-         :devices [{:hecuba/name "01"
-                    :name "External temperature"}
-                   {:hecuba/name "02"
-                    :name "External humidity"}]}))
+(def chart-model
+  {:property "rad003"
+   :devices [{:hecuba/name "01"
+              :name "External temperature"}
+             {:hecuba/name "02"
+              :name "External humidity"}]})
 
 ;;;;;;;;;;; Component 1:  Form containing list of devices for both axis plots ;;;;;;;;;;
 
@@ -159,4 +157,4 @@
                       {:key :hecuba/name :init-state chans})))))))
 
 
-(om/root chart-state (create-form-and-chart [:devices]) (.getElementById js/document "app"))
+(om/root chart-model (create-form-and-chart [:devices]) (.getElementById js/document "app"))
