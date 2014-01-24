@@ -19,10 +19,19 @@
                "auto.commit.enable" "true"}
    }
 
+  :hecuba/cassandra
+  {:jig/component kixi.hecuba.cassandra/Cassandra
+   :jig/project "../kixi.hecuba/project.clj"
+   :jig/dependencies []
+   :cassandra-config {:nodes ["localhost"]
+                      :port 9161
+                      :credentials {:username "vmfest"
+                                    :password "vmfest"}}}
+
   :hecuba/website
   {:jig/component kixi.hecuba.web/Website
    :jig/project "../kixi.hecuba/project.clj"
-   :jig/dependencies [:hecuba/refstore :hecuba/kafka]
+   :jig/dependencies [:hecuba/refstore :hecuba/kafka :hecuba/cassandra]
    :doc "This depends on types that satisfy Commander and Querier being
    bound in the system at :querier and :commander respectively" }
 
