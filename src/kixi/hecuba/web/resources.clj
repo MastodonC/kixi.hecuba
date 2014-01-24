@@ -61,11 +61,14 @@
            (merge route-params)         ; adding any route-params
            (items querier)              ; to query items
            ;; which are adorned with hrefs, throwing bidi's path-for all the kv pairs we have!
-           (map #(assoc %
-                   :hecuba/href (apply path-for routes item-resource (apply concat %))
-                   :hecuba/children-href (when child-index-p
-                                           (apply path-for routes @child-index-p (apply concat (assoc % :hecuba/parent (:hecuba/id %)))))
-                   :hecuba/parent-href (path-for routes parent-resource :hecuba/id (:hecuba/parent %)))))]
+           (map #(-> (assoc % 
+                       :hecuba/href (apply path-for routes item-resource (apply concat %)))
+                     (cond-> (:hecuba-parent %)
+                             (assoc :hecuba/parent-href 
+                               (path-for routes parent-resource :hecuba/id (:hecuba/parent %))))
+                     (cond-> (:hecuba/id %)           
+                             (assoc :hecuba/children-href 
+                               (apply path-for routes @child-index-p (apply concat (assoc % :hecuba/parent (:hecuba/id %)))))))))]
 
       (case mime
         "text/html" (render-items-html  items)
@@ -147,14 +150,13 @@
   (fn [{{{id :hecuba/id} :route-params body :body routes :jig.bidi/routes} :request}]
     (println "Does this item exist?" id)
     (when-let [itm (item querier id)]
-      {::item (assoc itm
-                :hecuba/parent-href
-                (when parent-resource
-                  (path-for routes parent-resource :hecuba/id (:hecuba/parent itm)))
-                :hecuba/children-href
-                (when child-index-p
-                  (assert (realized? child-index-p))
-                  (path-for routes @child-index-p :hecuba/parent id)))}))
+      {::item (-> itm 
+                  (cond-> parent-resource 
+                          (assoc :hecuba/parent-href
+                            (path-for routes parent-resource :hecuba/id (:hecuba/parent itm))))
+                  (cond-> child-index-p
+                          (assoc :hecuba/children-href 
+                            (path-for routes @child-index-p :hecuba/parent id))))}))
 
   :handle-ok
   (fn [{item ::item {mime :media-type} :representation}]

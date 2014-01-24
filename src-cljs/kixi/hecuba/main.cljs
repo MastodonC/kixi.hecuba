@@ -1,75 +1,223 @@
 (ns kixi.hecuba.main
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require
-   [dommy.utils :as utils]
-   [dommy.core :as dommy]
+   [om.core :as om :include-macros true]
+   [om.dom :as dom :include-macros true]
+   [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map<]]
    [ajax.core :refer (GET POST)]
-   )
-  (:require-macros
-   [dommy.macros :refer [node sel sel1]]))
+   [kixi.hecuba.navigation :as nav]))
 
-(def project-table
-  {:headings {:programme "Programme"
-              :name "Project"
-              :project-code "Project code"
-              :last-edit "Last edit"
-              :leaders "Leaders"
-              :properties "Properties"}})
+(enable-console-print!)
 
-(defn make-handler [table-def]
-  (fn [response]
-    (let [table
-          (node
-           [:table.full
-            [:thead
-             [:tr
-              (for [h (vals (:headings table-def))]
-                (do
-                  (.log js/console "h is " h)
-                  [:th h]))]]
-            [:tbody
-             (for [row (js->clj response)]
-               (do
-                 (.log js/console "processing row: " row)
-                 [:tr
-                  (for [[k _] (:headings table-def)]
-                    [:td (str (get row (name k)))]
-                    )
-                  ]))]])]
-      (dommy/replace! (sel1 [:#projects :table]) table))))
+(def app-model
+  (atom
+   {:messages []
+    :nav {:active "dashboard"
+          :menuitems [{:name :dashboard :label "Dashboard" :href "/index.html" :icon "dashboard" :active? true}
+                      {:name :overview :label "Overview" :href "/charts.html" :icon "bar-chart-o"}
+                      {:name :users :label "Users"}
+                      {:name :programmes :label "Programmes"}
+                      {:name :projects :label "Project"}
+                      {:name :properties :label "Properties"}
+                      {:name :about :label "About"}
+                      {:name :documentation :label "Documentation"}
+                      {:name :api_users :label "API users"}
+                      ]}
 
-(defn table [cols]
-  [:table.full
-   [:thead
-    [:tr
-     (for [colname cols]
-       [:th colname])]]
-   [:tbody]])
+    :tab-container {:selected :programmes
+                    :tabs [{:name :about :title "About"}
+                           {:name :documentation :title "Documentation"}
+                           {:name :users :title "Users"}
+                           {:name :programmes
+                            :title "Programmes"
+                            :table {:name "Programmes"
+                                    :header {:cols {:hecuba/name {:label "Name" :href :hecuba/href}
+                                                    :leaders {:label "Leaders"}}
+                                             :sort [:hecuba/name :leaders]}}
+                            }
+                           ]}
+    }))
 
-(defn main []
-  (dommy/prepend! (sel1 :#content)
-         (node
-          [:div
-           [:h1 "Overview"]
-           [:div#programmes
-            [:h2 "Programmes"]
-            (table ["Name"
-                    "Public access"
-                    "Projects"
-                    "Number of properties"
-                    "Number of users"])]
-           [:div#projects
-            [:h2 "Projects"]
-            (table ["Programme" "Project" "Project code" "Last edit" "Leaders" "Properties"])
-            [:p
-             [:a.view-all {:href "/projects"} "View all »"]
-             [:a {:href "/projects/new"} "Add a new project"]]]
-           [:div#properties
-            [:h2 "Properties"]
-            (table ["" "" "Property" "Property code" "Project" "Last activity" "Monitoring level" "Contextual data completeness" "% Raw Data Completion (6 Months)"])
-            [:p
-             [:a.view-all {:href "/projects"} "View all »"]
-             [:a {:href "/projects/new"} "Add a new project"]]]
-           ]))
-  (GET "/projects/" {:handler (make-handler project-table) :headers {"Accept" "application/json"}}))
+(defn blank-tab [data owner]
+  (om/component
+      (dom/p nil "This page is unintentionally left blank")))
 
-(set! (.-onload js/window) main)
+(defn about-tab [data owner]
+  (om/component
+      (dom/div nil
+           (dom/h1 nil (:title data))
+           (dom/p nil "I'm the About tab"))))
+
+(defn documentation-tab [data owner]
+  (om/component
+      (dom/div nil
+           (dom/h1 nil (:title data))
+           (dom/p nil "Some documentation"))))
+
+(defn users-tab [data owner]
+  (om/component
+      (dom/div nil
+           (dom/h1 nil (:title data))
+           (dom/p nil "List of users"))))
+
+(defn ajax [{:keys [in out]}]
+  (go-loop []
+           (when-let [url (<! in)]
+             (GET url
+                 {:handler (partial put! out)
+                  :headers {"Accept" "application/edn"}})
+             (recur))))
+
+(defn table [{{cols :cols headersort :sort} :header :as cursor} owner {:keys [in out]}]
+  (reify
+
+    om/IWillMount
+    (will-mount [_]
+      (go-loop []
+               (when-let [data (<! in)]
+                 (om/set-state! owner :data data)
+                 (recur))))
+
+    om/IRender
+    (render [_]
+      (dom/table #js {:className "table table-bordered table-hover table-striped hecuba-table"}
+           (dom/thead nil
+                (dom/tr nil
+                     (into-array
+                      (for [[_ {:keys [label]}] cols]
+                        (dom/th nil label)))))
+           (dom/tbody nil
+                (into-array
+                 (for [row (om/get-state owner :data)]
+                   (dom/tr #js {:onClick (om/pure-bind
+                                             (fn [_ _]
+                                               (put! out {:type :row-selected
+                                                          :row row}))
+                                             cursor)}
+                        (into-array
+                         (for [[k {:keys [href]}] cols]
+                           (dom/td nil (if href
+                                         (dom/a #js {:href (get row href)} (get row k))
+                                         (get row k)))))))))))))
+
+(defmulti render-content-directive (fn [itemtype _ _] itemtype))
+
+(defmethod render-content-directive :text
+  [_ item _]
+  (dom/p nil item))
+
+(defmethod render-content-directive :table
+  [_ item owner]
+  (om/build table item {:opts (om/get-state owner :event-chan)}))
+
+(defn content-tab
+  "A component that knows how to render from a list of content directives."
+  [data owner]
+  (reify
+    om/IWillMount
+    (will-mount [_]
+      (let [ch (chan (sliding-buffer 1))]
+        (om/set-state! owner :event-chan ch)
+        (go-loop [] (when-let [e (<! ch)]
+                      (println e)
+                      (recur)))))
+    om/IRender
+    (render [_]
+      (dom/div nil
+           (dom/h1 nil (:title data))
+           (into-array
+            (for [[itemtype item] (:content data)]
+              (render-content-directive itemtype item owner)
+              ))))))
+
+(defn console-sink [label ch]
+  (go-loop []
+   (when-let [v (<! ch)]
+     (println "[console-sink]" label ":" v)
+     (recur))))
+
+(defn make-channel-pair []
+  {:in (chan (sliding-buffer 1))
+   :out (chan (sliding-buffer 1))})
+
+(defn programmes-tab [data owner]
+  (reify
+    om/IWillMount
+    (will-mount [_]
+
+      (let [programmes-table-ajax-pair (make-channel-pair)
+            programmes-table-pair (make-channel-pair)
+            projects-table-ajax-pair (make-channel-pair)
+            projects-table-pair (make-channel-pair)
+            properties-table-ajax-pair (make-channel-pair)
+            properties-table-pair (make-channel-pair)]
+
+        (ajax programmes-table-ajax-pair)
+        (ajax projects-table-ajax-pair)
+        (ajax properties-table-ajax-pair)
+
+        ;; The data coming 'out' of the programmes table ajax controller goes 'in' to the programmes table
+        (pipe (:out programmes-table-ajax-pair) (:in programmes-table-pair))
+
+        ;; The row clicked coming 'out' of the programmes table, we pick
+        ;; out the uri and feed it 'in' to the projects table ajax
+        ;; controller
+        (pipe (map< (comp :hecuba/children-href :row) (:out programmes-table-pair))
+              (:in projects-table-ajax-pair))
+
+        ;; The data coming 'out' of the projects table ajax controller goes 'in' to the projects table
+        (pipe (:out projects-table-ajax-pair) (:in projects-table-pair))
+
+        ;; The row clicked coming 'out' of the projects table, we pick
+        ;; out the uri and feed it 'in' to the properties table ajax
+        ;; controller
+        (pipe (map< (comp :hecuba/children-href :row) (:out projects-table-pair))
+              (:in properties-table-ajax-pair))
+
+        ;; The data coming 'out' of the properties table ajax controller goes 'in' to the properties table
+        (pipe (:out properties-table-ajax-pair) (:in properties-table-pair))
+
+        (console-sink "properties-table" (:out properties-table-pair))
+
+        ;; Seed programmes table
+        (put! (programmes-table-ajax-pair :in) "/programmes")
+
+        (om/set-state! owner :programmes-table-channels programmes-table-pair)
+        (om/set-state! owner :projects-table-channels projects-table-pair)
+        (om/set-state! owner :properties-table-channels properties-table-pair)
+
+        ))
+
+    om/IRender
+    (render [_]
+      (dom/div nil
+           (dom/h1 nil (:title data))
+           (dom/p nil "TODO: Done enough, now add the table")
+           (om/build table (:table data) {:opts (om/get-state owner :programmes-table-channels)})
+           (om/build table (:table data) {:opts (om/get-state owner :projects-table-channels)})
+           (om/build table (:table data) {:opts (om/get-state owner :properties-table-channels)})
+           ))))
+
+(defn tab-container [tabs]
+  (fn [data owner]
+    (om/component
+        (dom/div nil
+             (let [selected (-> data :tab-container :selected)]
+               (if-let [tab (get tabs selected)]
+                 (om/build tab (->> data :tab-container :tabs (filter #(= (:name %) selected)) first))
+                 (om/build blank-tab data)))))))
+
+(defn ^:export handle-left-nav [menu-item]
+  ;; Currently we implement a one-to-one correspondence between the
+  ;; left-hand-menu and the tab container, but in due course 'Project'
+  ;; and 'Properties' will cause a scroll to a location under the
+  ;; 'Programmes' tab
+  (swap! app-model assoc-in [:tab-container :selected] menu-item))
+
+(om/root app-model (nav/nav handle-left-nav) (.getElementById js/document "hecuba-nav"))
+
+(om/root app-model (tab-container {:about about-tab
+                                   :programmes programmes-tab
+                                   :documentation documentation-tab
+                                   :users users-tab})
+    (.getElementById js/document "hecuba-tabs"))

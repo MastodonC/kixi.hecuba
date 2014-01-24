@@ -1,9 +1,9 @@
 (ns kixi.hecuba.main-om
-  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require
    [om.core :as om :include-macros true]
    [om.dom :as dom :include-macros true]
-   [cljs.core.async :refer [<! chan put! sliding-buffer]]
+   [cljs.core.async :refer [<! >! chan put! sliding-buffer]]
    [ajax.core :refer (GET POST)]
    [kixi.hecuba.navigation :as nav]))
 
@@ -75,6 +75,27 @@
 
 (GET "/programmes/" {:handler (handle-get :programmes) :headers {"Accept" "application/edn"}})
 
+(defn table2 [data owner ch]
+  (om/component
+      (dom/div #js {:className "table-responsive"}
+           (dom/table #js {:className "table table-bordered table-hover table-striped"}
+                (dom/thead nil
+                     (apply dom/tr nil
+                            (for [col (:cols data)]
+                              (dom/th nil (name col)))))
+                (apply dom/tbody nil
+                       (for [row (:rows data)]
+                         (apply dom/tr #js {:onClick (om/pure-bind
+                                                         (fn [e cursor]
+                                                           (put! ch (:hecuba/id cursor)))
+                                                         row)}
+                                (for [col (:cols data)]
+                                  (let [d (get row col)
+                                        sd (if (keyword? d) (name d) (str d))]
+                                    (dom/td nil (if (#{:hecuba/href :hecuba/parent-href :hecuba/children-href} col) (dom/a #js {:href sd} sd) sd))))))))))
+  )
+
+
 (defn table [data owner click-handler]
   (om/component
       (dom/div #js {:className "table-responsive"}
@@ -118,7 +139,17 @@
       (dom/div nil
            (dom/h1 nil (:title tab))
            (when-let [tabdata (get-in data [:programmes :table])]
-             (om/build table tabdata {:opts (fn [id] (select-programme id))}))
+             (let [ch (chan (sliding-buffer 1))]
+               (go-loop []
+                        (let [id (<! ch)]
+                          (println "Getting from channel " id)
+                          ;; TODO (bidi bidi bidi! I bid you come to clojurescript land!)
+                          (GET (str "/programmes/" id "/projects")
+                              {:handler (fn [data] (println data))
+                               :headers {"Accept" "application/edn"}} )
+                          (recur)))
+               (om/build table2 tabdata {:opts ch})
+               ))
            (dom/h1 nil "Projects")
            (when-let [tabdata (get-in data [:projects :table])]
              (om/build table tabdata  {:opts (fn [id] (select-project id))}))
