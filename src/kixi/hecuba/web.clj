@@ -2,7 +2,6 @@
   (:require
    jig
    [kixi.hecuba.web.resources :refer (items-resource item-resource)]
-   kixi.hecuba.web.property
    kixi.hecuba.web.device
    kixi.hecuba.web.messages
    [kixi.hecuba.data :as data]
@@ -83,7 +82,6 @@
     ["map.html" maps]
 
     (kixi.hecuba.web.device/create-routes producer-config)
-    (kixi.hecuba.web.property/create-routes querier commander)
     (kixi.hecuba.web.messages/create-routes querier commander)
 
     ;; Programmes
