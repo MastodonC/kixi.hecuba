@@ -110,8 +110,10 @@
                     checked         (str (get sel :checked))
                     axis            (get sel :axis)
                     id              (str (get sel :id))]
-                (.log js/console "Consumed axis: " (str axis) ". Id " (str id) ". Checked: " (str checked))
-                (om/update! cursor update-in [:selected axis] (if (truthy? checked) conj disj) id))))))
+                (println "Consumed axis: " (str axis)
+                         ". Id " (str id)
+                         ". Checked: " (str checked))
+                (om/set-state! owner [:selected axis id] (truthy? checked)))))))
     om/IRender
     (render [_]
       (dom/div #js {:id "chart" :width 500 :height 550}))
@@ -122,7 +124,8 @@
           (.removeChild n (.-lastChild n))))
       (let [Chart        (.-chart dimple)
             svg          (.newSvg dimple "#chart" 500 500)
-            measurements (apply concat (vals (select-keys mock-data (merge (:left (:selected cursor)) (:right (:selected cursor))))))
+            data-keys    (map first (filter second (om/get-state owner [:selected :left])))
+            measurements (apply concat (vals (select-keys mock-data data-keys)))
             dimple-chart (Chart. svg (clj->js measurements))
             x            (.addCategoryAxis dimple-chart "x" "month")
             y1           (.addMeasureAxis dimple-chart "y" "reading")
