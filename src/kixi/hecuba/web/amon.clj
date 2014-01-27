@@ -2,6 +2,7 @@
   (:require
    [kixi.hecuba.protocols :refer (upsert!)]
    jig
+   [bidi.bidi :refer (path-for)]
    [jig.bidi :refer (add-bidi-routes)]
    [liberator.core :refer (defresource)]
    [cheshire.core :refer (decode)]
@@ -17,9 +18,11 @@
   :allowed-methods #{:post}
   :available-media-types #{"application/json"}
   :post! (fn [{{body :body} :request}]
-           (let [data (decode body)]
-             (upsert! commander (assoc data :hecuba/id (make-uuid)))))
-  :handle-ok "Hi")
+           {:hecuba/id (upsert! commander (assoc (decode body) :hecuba/id (make-uuid)))})
+  :handle-created (fn [{{routes :jig.bidi/routes} :request id :hecuba/id}]
+                    (ring-response
+                     {:headers {"Location" (path-for routes (:entities-specific @handlers) :hecuba/id id)}})
+                    ))
 
 (defresource entities-specific)
 
@@ -34,7 +37,8 @@
 
 (defn make-routes [handlers]
   ;; AMON API here
-  ["/entities" (:entities-index handlers)]
+  ["" [["/entities" (:entities-index handlers)]
+       [["/entities/" :hecuba/id] (:entities-specific handlers)]]]
   ;;["/entities/" [uuid-regex :amon/entity-id] "/devices/" [uuid-regex :amon/device-id] "/measurements"] {:entities-index handlers}
 
 )

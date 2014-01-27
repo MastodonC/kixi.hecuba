@@ -6,7 +6,8 @@
    [cheshire.core :refer (generate-string)]
    [bidi.bidi :as bidi]
    [jig.bidi :refer (wrap-routes)]
-   [ring.mock.request :refer (request)]))
+   [ring.mock.request :refer (request)])
+  (:import (java.util UUID)))
 
 (defn uuid [] (java.util.UUID/randomUUID))
 
@@ -31,14 +32,24 @@
 
 (deftest amon-api-tests
   (testing "Create a new entity"
-    (let [r (ref {})
-          handlers (-> r make-mock-records amon/make-handlers)
+    (let [database (ref {})
+          resource-key :entities-index
+          handlers (-> database make-mock-records amon/make-handlers)
           routes (-> handlers amon/make-routes)
+          path (-> routes (bidi/path-for (resource-key handlers)))
           handler (-> routes bidi/make-handler (wrap-routes routes))
           response (-> (make-entity)
                        (add-devices (uuid))
-                       (as-json-body-request (bidi/path-for routes (:entities-index handlers)))
+                       (as-json-body-request path)
                        handler)]
       (is (not (nil? response)))
       (is (= (:status response) 201))
-      (is (= (count @r) 1)))))
+      (is (= (count @database) 1))
+      (let [{handler :handler {uuid :hecuba/id} :params}
+            (bidi/match-route routes (get-in response [:headers "Location"]))
+            uuid (UUID/fromString uuid)]
+        (is (= handler (:entities-specific handlers)))
+        (is (contains? @database uuid))
+        ))))
+
+;; TODO: Can the above be simplified with Prismatic graph?
