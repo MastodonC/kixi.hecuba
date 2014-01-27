@@ -1,7 +1,8 @@
 (ns kixi.hecuba.protocols)
 
 (defprotocol Commander
-  (upsert! [_ payload]))
+  (upsert! [_ payload])
+  (delete! [_ id]))
 
 (defprotocol Querier
   (item [_ id])

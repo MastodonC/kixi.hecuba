@@ -127,7 +127,9 @@
   (upsert! [_ payload]
     (let [id (hashfn payload)]
       (dosync (alter r assoc-in [id] (assoc payload :hecuba/id id)))
-      id)))
+      id))
+  (delete! [_ id]
+    (dosync (alter r dissoc id))))
 
 (defrecord RefQuerier [r]
   Querier

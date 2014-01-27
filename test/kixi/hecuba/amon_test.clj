@@ -33,6 +33,7 @@
   {:commander (->RefCommander r :hecuba/id)
    :querier (->RefQuerier r)})
 
+;; TODO: Can this be simplified with Prismatic graph?
 (defn create-entity [db]
   (let [handlers (-> db make-mock-records amon/make-handlers)
         routes (-> handlers amon/make-routes)
@@ -57,23 +58,18 @@
   (let [handlers (-> db make-mock-records amon/make-handlers)
         routes (-> handlers amon/make-routes)
         path (-> routes (bidi/path-for (:entities-specific handlers) :hecuba/id id))
-        handler (-> routes bidi/make-handler (wrap-routes routes))
-        response (-> (request :delete path) handler)]
+        handler (-> routes bidi/make-handler (wrap-routes routes))]
+    (is (= (count @db) 1))
+    (let [response (-> (request :delete path) handler)]
+      (is (not (nil? response)))
+      (is (= (:status response) 204))
+      (is (= (count @db) 0))
+      db)))
 
-    (is (not (nil? response)))
-    (is (= (:status response) 200))
-    (is (= (count @db) 0))
-    db)
-)
+;; Try deleting an entity that doesn't exist! (should get a 404)
 
 (deftest amon-api-tests
   (-> (ref {}) create-entity)
   (let [db (ref {})
         db (create-entity db)]
-    (-> db (delete-entity (-> db deref keys first str)))
-    )
-
-
-  )
-
-;; TODO: Can the above be simplified with Prismatic graph?
+    (-> db (delete-entity (-> db deref keys first str)))))
