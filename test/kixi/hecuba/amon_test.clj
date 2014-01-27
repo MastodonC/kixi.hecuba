@@ -29,19 +29,16 @@
   {:commander (->RefCommander r :hecuba/id)
    :querier (->RefQuerier r)})
 
-(defn make-handler [r]
-  (let [routes (-> r  make-mock-records amon/make-handlers amon/make-routes)]
-    (-> routes bidi/make-handler (wrap-routes routes))))
-
 (deftest amon-api-tests
   (testing "Create a new entity"
     (let [r (ref {})
-          handler (make-handler r)
+          handlers (-> r make-mock-records amon/make-handlers)
+          routes (-> handlers amon/make-routes)
+          handler (-> routes bidi/make-handler (wrap-routes routes))
           response (-> (make-entity)
                        (add-devices (uuid))
-                       (as-json-body-request "/entities")
-                       handler)
-          ]
+                       (as-json-body-request (bidi/path-for routes (:entities-index handlers)))
+                       handler)]
       (is (not (nil? response)))
       (is (= (:status response) 201))
       (is (= (count @r) 1)))))
