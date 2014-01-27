@@ -3,10 +3,9 @@
         kixi.hecuba.protocols
         kixi.hecuba.dev))
 
-
 (deftest query
   (let [r (ref {})
-        commander (->RefCommander r)
+        commander (->RefCommander r (sha1-hashfn :hecuba/name :hecuba/type))
         querier (->RefQuerier r)]
 
     ;; Add some data

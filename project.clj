@@ -8,6 +8,7 @@
 
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [liberator "0.10.0"]
+                 [cheshire "5.3.1"]
                  ;; [com.cemerick/friend "0.2.0"]
 
                  ;; ClojureScript dependencies

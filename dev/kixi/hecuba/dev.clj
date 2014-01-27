@@ -111,12 +111,21 @@
     system)
   (stop [_ system] system))
 
-(deftype RefCommander [r]
+(defn sha1-hashfn
+  "From a given payload, compute an id that is a SHA1 dependent on the given types."
+  [& types]
+  (fn [payload]
+    (assert (every? payload (set types)))
+    (-> payload ((apply juxt types)) pr-str sha1)))
+
+;; The hashfn here is a fn that takes a single argument (the payload)
+;; and computes the id. The hashfn can be created with sha1-hashfn, or
+;; simply :hecuba/id or a combination (for instance, using
+;; clojure.core/some)
+(deftype RefCommander [r hashfn]
   Commander
   (upsert! [_ payload]
-    (assert (every? payload #{:hecuba/name :hecuba/type}))
-    (infof "upserting... %s" payload)
-    (let [id (-> payload ((juxt :hecuba/type :hecuba/name)) pr-str sha1)]
+    (let [id (hashfn payload)]
       (dosync (alter r assoc-in [id] (assoc payload :hecuba/id id)))
       id)))
 
@@ -129,9 +138,10 @@
 (deftype RefStore [config]
   Lifecycle
   (init [_ system]
-    (let [r (ref {})]
+    (let [r (ref {})
+          idgen (sha1-hashfn :hecuba/name :hecuba/type)]
       (-> system
-       (assoc :commander (->RefCommander r))
+       (assoc :commander (->RefCommander r idgen))
        (assoc :querier (->RefQuerier r)))))
   (start [_ system] system)
   (stop [_ system] system))
