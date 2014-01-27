@@ -21,35 +21,59 @@
 (defn add-metering-points [entity & uuids]
   (update-in entity [:meteringPointIds] concat uuids))
 
+(defn add-json-content-type [req]
+  (update-in req [:headers] conj ["Content-Type" "application/json"]))
+
 (defn as-json-body-request [body path]
   (-> (request :post path)
-      (update-in [:headers] conj ["Content-Type" "application/json"])
+      add-json-content-type
       (assoc-in [:body] (generate-string body))))
 
 (defn make-mock-records [r]
   {:commander (->RefCommander r :hecuba/id)
    :querier (->RefQuerier r)})
 
+(defn create-entity [db]
+  (let [handlers (-> db make-mock-records amon/make-handlers)
+        routes (-> handlers amon/make-routes)
+        path (-> routes (bidi/path-for (:entities-index handlers)))
+        handler (-> routes bidi/make-handler (wrap-routes routes))
+        response (-> (make-entity)
+                     (add-devices (uuid))
+                     (as-json-body-request path)
+                     handler)]
+    (is (not (nil? response)))
+    (is (= (:status response) 201))
+    (is (= (count @db) 1))
+    (let [{handler :handler {uuid :hecuba/id} :params}
+          (bidi/match-route routes (get-in response [:headers "Location"]))
+          uuid (UUID/fromString uuid)]
+      (is (= handler (:entities-specific handlers)))
+      (is (contains? @db uuid))
+      )
+    db))
+
+(defn delete-entity [db id]
+  (let [handlers (-> db make-mock-records amon/make-handlers)
+        routes (-> handlers amon/make-routes)
+        path (-> routes (bidi/path-for (:entities-specific handlers) :hecuba/id id))
+        handler (-> routes bidi/make-handler (wrap-routes routes))
+        response (-> (request :delete path) handler)]
+
+    (is (not (nil? response)))
+    (is (= (:status response) 200))
+    (is (= (count @db) 0))
+    db)
+)
+
 (deftest amon-api-tests
-  (testing "Create a new entity"
-    (let [database (ref {})
-          resource-key :entities-index
-          handlers (-> database make-mock-records amon/make-handlers)
-          routes (-> handlers amon/make-routes)
-          path (-> routes (bidi/path-for (resource-key handlers)))
-          handler (-> routes bidi/make-handler (wrap-routes routes))
-          response (-> (make-entity)
-                       (add-devices (uuid))
-                       (as-json-body-request path)
-                       handler)]
-      (is (not (nil? response)))
-      (is (= (:status response) 201))
-      (is (= (count @database) 1))
-      (let [{handler :handler {uuid :hecuba/id} :params}
-            (bidi/match-route routes (get-in response [:headers "Location"]))
-            uuid (UUID/fromString uuid)]
-        (is (= handler (:entities-specific handlers)))
-        (is (contains? @database uuid))
-        ))))
+  (-> (ref {}) create-entity)
+  (let [db (ref {})
+        db (create-entity db)]
+    (-> db (delete-entity (-> db deref keys first str)))
+    )
+
+
+  )
 
 ;; TODO: Can the above be simplified with Prismatic graph?
