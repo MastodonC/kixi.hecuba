@@ -120,16 +120,16 @@
             right-keys   (map first (filter second (om/get-state owner [:selected :right])))
             y1-data      (apply concat (vals (select-keys mock-data left-keys)))
             y2-data      (apply concat (vals (select-keys mock-data right-keys)))
-            dimple-chart (Chart. svg)
+            dimple-chart (.setBounds (Chart. svg) 60 30 350 350) 
             x (.addCategoryAxis dimple-chart "x" "month")
             y1 (.addMeasureAxis dimple-chart "y" "reading")
             y2 (.addMeasureAxis dimple-chart "y" "reading")
             s1 (.addSeries dimple-chart "device_id" js/dimple.plot.line (clj->js [x, y1]))
-            s2 (.addSeries dimple-chart "device_id" js/dimple.plot.line (clj->js [x, y2]))]
-       ; (.setBounds dimple-chart 60 30 350 350)
+            s2 (.addSeries dimple-chart "device_id" js/dimple.plot.line (clj->js [x, y2]))]     
         (aset s1 "data" (clj->js y1-data))
         (aset s2 "data" (clj->js y2-data))
-       ; (.addLegend dimple-chart 60 10 300 20 "right")
+        (.addLegend dimple-chart 60 10 300 20 "right")
+      
         (.draw dimple-chart)))))
 
 ;;;;;;;;;;; Bootstrap ;;;;;;;;;;;;
