@@ -19,8 +19,8 @@
                "auto.commit.enable" "true"}
    }
 
-  :hecuba/db
-  {:jig/component kixi.hecuba.db/Database
+  #_:hecuba/db
+  #_{:jig/component kixi.hecuba.db/Database
    :jig/project "../kixi.hecuba/project.clj"
    :jig/dependencies []
    :hosts ["127.0.0.1"]
@@ -31,7 +31,7 @@
   :hecuba/website
   {:jig/component kixi.hecuba.web/Website
    :jig/project "../kixi.hecuba/project.clj"
-   :jig/dependencies [:hecuba/refstore :hecuba/kafka :hecuba/db]
+   :jig/dependencies [:hecuba/refstore :hecuba/kafka]
    :doc "This depends on types that satisfy Commander and Querier being
    bound in the system at :querier and :commander respectively" }
 

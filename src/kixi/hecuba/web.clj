@@ -34,9 +34,6 @@
 (defn readings [req]
   {:status 200 :body (slurp (io/resource "reading.html"))})
 
-(defn cassandra [req]
-  {:status 200 :body (slurp (io/resource "hecuba/cassandra.html"))})
-
 ;; TODO querier and commander and simply here to be passed through to
 ;; the resources, there is not much value in separating them out into
 ;; individual args, so put them in a map.
@@ -83,7 +80,6 @@
     ["chart.html" chart]
     ["counters.html" counters]
     ["map.html" maps]
-    ["cassandra.html" cassandra]
 
     (kixi.hecuba.web.device/create-routes producer-config)
     (kixi.hecuba.web.messages/create-routes querier commander)
