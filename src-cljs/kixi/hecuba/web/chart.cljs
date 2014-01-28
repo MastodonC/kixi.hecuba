@@ -116,16 +116,20 @@
           (.removeChild n (.-lastChild n))))
       (let [Chart (.-chart dimple)
             svg          (.newSvg dimple "#chart" 500 500)
-            data-keys    (map first (filter second (om/get-state owner [:selected :left])))
-            measurements (apply concat (vals (select-keys mock-data data-keys)))
-            dimple-chart (Chart. svg (clj->js measurements))
+            left-keys    (map first (filter second (om/get-state owner [:selected :left])))
+            right-keys   (map first (filter second (om/get-state owner [:selected :right])))
+            y1-data      (apply concat (vals (select-keys mock-data left-keys)))
+            y2-data      (apply concat (vals (select-keys mock-data right-keys)))
+            dimple-chart (Chart. svg)
             x (.addCategoryAxis dimple-chart "x" "month")
             y1 (.addMeasureAxis dimple-chart "y" "reading")
-            y2 (.addMeasureAxis dimple-chart "y" "reading")]
-        (.setBounds dimple-chart 60 30 350 350)
-        (.addSeries dimple-chart "device_id" js/dimple.plot.line (clj->js [x y1]))
-        (.addSeries dimple-chart "device_id" js/dimple.plot.line (clj->js [x y2]))
-        (.addLegend dimple-chart 60 10 300 20 "right")
+            y2 (.addMeasureAxis dimple-chart "y" "reading")
+            s1 (.addSeries dimple-chart "device_id" js/dimple.plot.line (clj->js [x, y1]))
+            s2 (.addSeries dimple-chart "device_id" js/dimple.plot.line (clj->js [x, y2]))]
+       ; (.setBounds dimple-chart 60 30 350 350)
+        (aset s1 "data" (clj->js y1-data))
+        (aset s2 "data" (clj->js y2-data))
+       ; (.addLegend dimple-chart 60 10 300 20 "right")
         (.draw dimple-chart)))))
 
 ;;;;;;;;;;; Bootstrap ;;;;;;;;;;;;
