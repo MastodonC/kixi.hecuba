@@ -127,26 +127,6 @@
   [_ item owner]
   (om/build table item {:opts (om/get-state owner :event-chan)}))
 
-(defn content-tab
-  "A component that knows how to render from a list of content directives."
-  [data owner]
-  (reify
-    om/IWillMount
-    (will-mount [_]
-      (let [ch (chan (sliding-buffer 1))]
-        (om/set-state! owner :event-chan ch)
-        (go-loop [] (when-let [e (<! ch)]
-                      (println e)
-                      (recur)))))
-    om/IRender
-    (render [_]
-      (dom/div nil
-           (dom/h1 nil (:title data))
-           (into-array
-            (for [[itemtype item] (:content data)]
-              (render-content-directive itemtype item owner)
-              ))))))
-
 (defn console-sink [label ch]
   (go-loop []
    (when-let [v (<! ch)]
