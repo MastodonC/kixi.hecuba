@@ -92,7 +92,7 @@
                   :headers {"Accept" "application/edn"}})
              (recur))))
 
-(defn table [{{cols :cols headersort :sort} :header :as cursor} owner {:keys [in out]}]
+(defn table [cursor owner {:keys [in out]}]
   (reify
 
     om/IWillMount
@@ -107,25 +107,25 @@
     (render [_]
       ;; Select the first row
       ;;(put! out {:type :row-selected :row (first (om/get-state owner :data))})
-      (dom/table #js {:className "table table-bordered table-hover table-striped hecuba-table"}
-           (dom/thead nil
-                (dom/tr nil
-                     (into-array
-                      (for [[_ {:keys [label]}] cols]
-                        (dom/th nil label)))))
-           (dom/tbody nil
-                (into-array
-                 (for [row (om/get-state owner :data)]
-                   (dom/tr #js {:onClick (om/pure-bind
-                                             (fn [_ _]
-                                               (put! out {:type :row-selected
-                                                          :row row}))
-                                             cursor)}
-                        (into-array
-                         (for [[k {:keys [href]}] cols]
-                           (dom/td nil (if href
-                                         (dom/a #js {:href (get row href)} (get row k))
-                                         (get row k))))))))))
+      (let [cols (get-in cursor [:header :cols])]
+        (dom/table #js {:className "table table-bordered table-hover table-striped hecuba-table"}
+             (dom/thead nil
+                  (dom/tr nil
+                       (into-array
+                        (for [[_ {:keys [label]}] cols]
+                          (dom/th nil label)))))
+             (dom/tbody nil
+                  (into-array
+                   (for [row (om/get-state owner :data)]
+                     (dom/tr #js {:onClick (om/pure-bind
+                                               (fn [_ _]
+                                                 (put! out {:type :row-selected :row row}))
+                                               cursor)}
+                          (into-array
+                           (for [[k {:keys [href]}] cols]
+                             (dom/td nil (if href
+                                           (dom/a #js {:href (get row href)} (get row k))
+                                           (get row k)))))))))))
       )))
 
 (defmulti render-content-directive (fn [itemtype _ _] itemtype))
