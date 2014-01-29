@@ -100,6 +100,7 @@
       (go-loop []
                (when-let [data (<! in)]
                  (om/set-state! owner :data data)
+                 (om/transact! cursor :selected (constantly (first data)))
                  (put! out {:type :row-selected :row (first data)})
                  (recur))))
 
@@ -108,7 +109,7 @@
       ;; Select the first row
       ;;(put! out {:type :row-selected :row (first (om/get-state owner :data))})
       (let [cols (get-in cursor [:header :cols])]
-        (dom/table #js {:className "table table-bordered table-hover table-striped hecuba-table"}
+        (dom/table #js {:className "table table-bordered hecuba-table"} ;; table-hover table-striped
              (dom/thead nil
                   (dom/tr nil
                        (into-array
@@ -119,8 +120,13 @@
                    (for [row (om/get-state owner :data)]
                      (dom/tr #js {:onClick (om/pure-bind
                                                (fn [_ _]
-                                                 (put! out {:type :row-selected :row row}))
-                                               cursor)}
+                                                 (om/transact! cursor :selected (constantly row))
+                                                 (put! out {:type :row-selected :row row})
+                                                 )
+
+                                               cursor)
+                                  :className (when (= row (:selected cursor)) "row-selected")
+                                  }
                           (into-array
                            (for [[k {:keys [href]}] cols]
                              (dom/td nil (if href

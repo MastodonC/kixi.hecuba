@@ -1,3 +1,7 @@
 .hecuba-table {
 /*    height: 200px; */
 }
+
+.row-selected {
+    background-color: #ffa !important;
+}
