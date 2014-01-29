@@ -13,7 +13,6 @@
      (dom/li attrs
              (dom/a #js {:href href
                          :onClick (fn [e]
-                                    (.preventDefault e)
                                     (put! ch (:name (om/read data om/value))))}
                     (dom/i #js {:className (str "fa fa-" icon)})
                     (str " " label))))))
