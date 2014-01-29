@@ -189,7 +189,6 @@
     (render [_]
       (dom/div nil
            (dom/h1 nil (:title data))
-           (dom/p nil "TODO: Done enough, now add the table")
            (om/build table (:table data) {:opts (om/get-state owner :programmes-table-channels)})
            (om/build table (:table data) {:opts (om/get-state owner :projects-table-channels)})
            (om/build table (:table data) {:opts (om/get-state owner :properties-table-channels)})
