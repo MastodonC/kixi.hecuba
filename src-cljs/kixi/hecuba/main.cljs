@@ -100,10 +100,13 @@
       (go-loop []
                (when-let [data (<! in)]
                  (om/set-state! owner :data data)
+                 (put! out {:type :row-selected :row (first data)})
                  (recur))))
 
     om/IRender
     (render [_]
+      ;; Select the first row
+      ;;(put! out {:type :row-selected :row (first (om/get-state owner :data))})
       (dom/table #js {:className "table table-bordered table-hover table-striped hecuba-table"}
            (dom/thead nil
                 (dom/tr nil
@@ -122,7 +125,8 @@
                          (for [[k {:keys [href]}] cols]
                            (dom/td nil (if href
                                          (dom/a #js {:href (get row href)} (get row k))
-                                         (get row k)))))))))))))
+                                         (get row k))))))))))
+      )))
 
 (defmulti render-content-directive (fn [itemtype _ _] itemtype))
 
