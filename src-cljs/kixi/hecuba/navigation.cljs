@@ -5,12 +5,11 @@
    [om.dom :as dom :include-macros true]
    [cljs.core.async :refer [<! chan put! sliding-buffer]]))
 
-(defn- navbar-sidenav [data owner nav-observer]
+(defn- navbar-sidenav [data owner {:keys [in out]}]
   (reify
     om/IWillMount
     (will-mount [_]
       (let [out (chan (sliding-buffer 1))]
-        (om/set-state! owner :out out)
         (go-loop []
                  (when-let [n (<! out)]
                    (nav-observer n)
@@ -22,22 +21,18 @@
 
     om/IRender
     (render [_]
-      (let [out (om/get-state owner :out)]
-        (println "rendering, current active is" (:active data))
-        (dom/div #js {:className "collapse navbar-collapse navbar-ex1-collapse"}
-             (dom/ul #js {:className "nav navbar-nav side-nav"}
-                  (into-array
-                   (for [item (:menuitems data)]
-                     (dom/li
-                          (when (= (:active data) (:name item))
-                            #js {:className "active"})
-                          (dom/a #js {:href "#"
-                                      :onClick (fn [e]
-
-                                                 (println "rightnav: clicked on " (:name (om/read item om/value)))
-                                                 (om/transact! data :active (constantly (:name (om/read item om/value))))
-                                                 (put! out (:name (om/read item om/value))))}
-                               (:label item)))))))))))
+      (dom/div #js {:className "collapse navbar-collapse navbar-ex1-collapse"}
+           (dom/ul #js {:className "nav navbar-nav side-nav"}
+                (into-array
+                 (for [item (:menuitems data)]
+                   (dom/li
+                        (when (= (:active data) (:name item))
+                          #js {:className "active"})
+                        (dom/a #js {:href "#"
+                                    :onClick (fn [e]
+                                               (om/transact! data :active (constantly (:name (om/read item om/value))))
+                                               (put! out (:name (om/read item om/value))))}
+                             (:label item))))))))))
 
 
 (defn- message-preview [{:keys [avatar name message time]}]
@@ -73,7 +68,7 @@
                                (dom/b #js {:className "caret"})]))
                      (om/build messages-dropdown messages))))))
 
-(defn nav [nav-observer]
+(defn nav [pair]
   (fn [app owner]
     (reify
       om/IRender
@@ -81,7 +76,7 @@
         (dom/nav #js {:className "navbar navbar-inverse navbar-fixed-top"
                       :role "navigation"}
              (om/build navbar-rightnav app)
-             (om/build navbar-sidenav (:nav app) {:opts nav-observer}))))))
+             (om/build navbar-sidenav (:nav app) {:opts pair}))))))
 
 (defn FOO-add-message [app name message]
   (swap! app (fn [xs x]

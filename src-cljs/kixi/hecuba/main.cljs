@@ -227,7 +227,14 @@
   ;; 'Programmes' tab
   (swap! app-model assoc-in [:tab-container :selected] menu-item))
 
-(om/root app-model (nav/nav handle-left-nav) (.getElementById js/document "hecuba-nav"))
+(om/root app-model
+    (let [{:keys [in out] :as pair} (make-channel-pair)]
+      (go-loop []
+               (when-let [n (<! out)]
+                 (handle-left-nav n)
+                 (recur)))
+      (nav/nav pair))
+    (.getElementById js/document "hecuba-nav"))
 
 (om/root app-model (tab-container {:about about-tab
                                    :programmes programmes-tab
