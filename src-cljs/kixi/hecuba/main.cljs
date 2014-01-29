@@ -14,10 +14,10 @@
   (atom
    {:messages []
     :nav {:active "dashboard"
-          :menuitems [{:name :dashboard :label "Dashboard" :href "/index.html" :icon "dashboard" :active? true}
+          :menuitems [{:name :dashboard :label "Dashboard" :href "/index.html" :icon "dashboard"}
                       {:name :overview :label "Overview" :href "/charts.html" :icon "bar-chart-o"}
                       {:name :users :label "Users"}
-                      {:name :programmes :label "Programmes"}
+                      {:name :programmes :label "Programmes" :active? true}
                       {:name :projects :label "Project"}
                       {:name :properties :label "Properties"}
                       {:name :charts :label "Charts"}

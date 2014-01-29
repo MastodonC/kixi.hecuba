@@ -24,14 +24,13 @@
       om/IWillMount
       (will-mount [_]
         (go-loop []
-          (let [n (<! in)]
+          (when-let [n (<! in)]
             (nav-observer n)
-            (when (not= "stop" n)
-                 (recur)))))
-      om/IWillUnmount ;; TODO requires go block to be terminate-able.
-;; Malcolm says: why not close the channel here, instead of 'stop'? the above go block will receive a nil
+            (recur))))
+
+      om/IWillUnmount
       (will-unmount [_]
-        (put! in "stop"))
+        (close! in))
       om/IRender
       (render [_]
         (dom/div #js {:className "collapse navbar-collapse navbar-ex1-collapse"}
