@@ -32,10 +32,17 @@
                            {:name :users :title "Users"}
                            {:name :programmes
                             :title "Programmes"
-                            :table {:name "Programmes"
-                                    :header {:cols {:hecuba/name {:label "Name" :href :hecuba/href}
-                                                    :leaders {:label "Leaders"}}
-                                             :sort [:hecuba/name :leaders]}}
+                            :tables {:programmes {:name "Programmes"
+                                                  :header {:cols {:hecuba/name {:label "Name" :href :hecuba/href}
+                                                                  :leaders {:label "Leaders"}}
+                                                           :sort [:hecuba/name :leaders]}}
+                                     :projects {:name "Projects"
+                                                :header {:cols {:hecuba/name {:label "Name" :href :hecuba/href}}
+                                                         :sort [:hecuba/name]}}
+                                     :properties {:name "Properties"
+                                                  :header {:cols {:hecuba/name {:label "Name" :href :hecuba/href}
+                                                                  :rooms {:label "Rooms"}}
+                                                           :sort [:hecuba/name :rooms]}}}
                             }
                            {:name :charts
                             :title "Charts"
@@ -189,9 +196,9 @@
     (render [_]
       (dom/div nil
            (dom/h1 nil (:title data))
-           (om/build table (:table data) {:opts (om/get-state owner :programmes-table-channels)})
-           (om/build table (:table data) {:opts (om/get-state owner :projects-table-channels)})
-           (om/build table (:table data) {:opts (om/get-state owner :properties-table-channels)})
+           (om/build table (get-in data [:tables :programmes]) {:opts (om/get-state owner :programmes-table-channels)})
+           (om/build table (get-in data [:tables :projects]) {:opts (om/get-state owner :projects-table-channels)})
+           (om/build table (get-in data [:tables :properties]) {:opts (om/get-state owner :properties-table-channels)})
            ))))
 
 (defn tab-container [tabs]
