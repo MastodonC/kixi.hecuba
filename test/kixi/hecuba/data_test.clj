@@ -12,12 +12,6 @@
 
 ;;;;;;;;;;;;;;;; Generate devices ;;;;;;;;;;;;;;
 
-(def period (gen/elements ["INSTANT" "CUMULATIVE" "PULSE"]))
-(def year (gen/elements ["2012" "2013" "2014"]))
-(def month (gen/elements ["01" "02" "03" "04" "05" "06" "07" "08" "09" "10" "11" "12"]))
-(def day (gen/elements ["01" "02" "03" "04" "05" "06" "07" "08" "09" "10" "11" "12" "13" "14" "15" "16" "17" "18" "19" "20" "21"
-                        "23" "24" "25" "26" "27" "28"]))
-
 (defn reading-gen [period]
   (gen/hash-map :type (gen/not-empty gen/string-alpha-numeric) 
                 :unit gen/string-alpha-numeric
@@ -40,9 +34,7 @@
   (gen/one-of [gen/int gen/boolean gen/string gen/ratio]))
 
 (def timestamp-gen
-  (gen/fmap (fn [[y m d]]
-               (str y m d))
-            (gen/tuple (gen/not-empty year) (gen/not-empty month) (gen/not-empty day))))
+  (gen/elements [(tf/unparse custom-formatter (t/now))]))
 
 (def measurement-gen
   (gen/hash-map :type (gen/not-empty gen/string)
