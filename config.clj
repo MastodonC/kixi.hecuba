@@ -19,6 +19,15 @@
                "auto.commit.enable" "true"}
    }
 
+  #_:hecuba/db
+  #_{:jig/component kixi.hecuba.db/Database
+   :jig/project "../kixi.hecuba/project.clj"
+   :jig/dependencies []
+   :hosts ["127.0.0.1"]
+   :keyspace "m7"
+   :port 9161
+   :credentials {:username "vmfest" :password "vmfest"}}
+
   :hecuba/website
   {:jig/component kixi.hecuba.web/Website
    :jig/project "../kixi.hecuba/project.clj"
