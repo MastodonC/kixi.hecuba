@@ -7,5 +7,4 @@
 (defprotocol Querier
   (item [_ id])
   (items [_] [_ where])
-
-)
+  (authorized? [_ props]))

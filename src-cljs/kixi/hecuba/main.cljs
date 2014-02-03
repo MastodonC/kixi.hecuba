@@ -89,7 +89,8 @@
            (when-let [url (<! in)]
              (GET url
                  {:handler (partial put! out)
-                  :headers {"Accept" "application/edn"}})
+                  :headers {"Accept" "application/edn"
+                            "Authorization" "Basic bWFsY29sbTpmb28K"}})
              (recur))))
 
 (defn table [cursor owner {:keys [in out]}]

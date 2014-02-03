@@ -1,15 +1,17 @@
 (ns kixi.hecuba.web.resources
   (:require
+   [clojure.tools.logging :refer (infof)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
-   [kixi.hecuba.protocols :refer (upsert! item items)]
+   [kixi.hecuba.protocols :refer (upsert! item items authorized?)]
    [bidi.bidi :refer (->Redirect path-for)]
    [hiccup.core :refer (html)]
    [clojure.edn :as edn]
    [clojure.java.io :as io]
    [clojure.string :as string]
    [clojure.pprint :refer (pprint)]
-   [camel-snake-kebab :as csk]))
+   [camel-snake-kebab :as csk])
+  (:import javax.xml.bind.DatatypeConverter))
 
 (def base-media-types ["text/html" "application/json" "application/edn"])
 
@@ -45,6 +47,8 @@
 ;; Now for the Liberator resources. Check the Liberator website for more
 ;; info: http://clojure-liberator.github.io/liberator/
 
+
+
 ;; REST resource for items (plural) - .
 (defresource items-resource [typ item-resource parent-resource child-index-p {:keys [querier commander]}]
   ;; acts as both an index of existing items and factory for new ones
@@ -52,6 +56,17 @@
 
   :exists? true                  ; This 'factory' resource ALWAYS exists
   :available-media-types base-media-types
+
+  :authorized? (fn [{{headers :headers route-params :route-params} :request}]
+                 (when-let [auth (get headers "authorization")]
+                   (infof "auth is %s" auth)
+                   (when-let [basic-creds (second (re-matches #"\QBasic\E\s+(.*)" auth))]
+                     (let [[user password] (->> (String. (DatatypeConverter/parseBase64Binary basic-creds) "UTF-8")
+                                                (re-matches #"(.*):(.*)")
+                                                rest)]
+                       (authorized? querier (merge route-params
+                                                   {:hecuba/user user :hecuba/password password :type typ}))))))
+
 
   :handle-ok                            ; do this upon a successful GET
   (fn [{{mime :media-type} :representation {routes :jig.bidi/routes route-params :route-params} :request}]
@@ -61,13 +76,13 @@
            (merge route-params)         ; adding any route-params
            (items querier)              ; to query items
            ;; which are adorned with hrefs, throwing bidi's path-for all the kv pairs we have!
-           (map #(-> (assoc % 
+           (map #(-> (assoc %
                        :hecuba/href (apply path-for routes item-resource (apply concat %)))
                      (cond-> (:hecuba-parent %)
-                             (assoc :hecuba/parent-href 
+                             (assoc :hecuba/parent-href
                                (path-for routes parent-resource :hecuba/id (:hecuba/parent %))))
-                     (cond-> (:hecuba/id %)           
-                             (assoc :hecuba/children-href 
+                     (cond-> (:hecuba/id %)
+                             (assoc :hecuba/children-href
                                (apply path-for routes @child-index-p (apply concat (assoc % :hecuba/parent (:hecuba/id %)))))))))]
 
       (case mime
@@ -150,12 +165,12 @@
   (fn [{{{id :hecuba/id} :route-params body :body routes :jig.bidi/routes} :request}]
     (println "Does this item exist?" id)
     (when-let [itm (item querier id)]
-      {::item (-> itm 
-                  (cond-> parent-resource 
+      {::item (-> itm
+                  (cond-> parent-resource
                           (assoc :hecuba/parent-href
                             (path-for routes parent-resource :hecuba/id (:hecuba/parent itm))))
                   (cond-> child-index-p
-                          (assoc :hecuba/children-href 
+                          (assoc :hecuba/children-href
                             (path-for routes @child-index-p :hecuba/parent id))))}))
 
   :handle-ok

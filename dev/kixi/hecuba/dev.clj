@@ -19,6 +19,7 @@
   (http-request
    {:method :post
     :url post-uri
+    :basic-auth ["bob" "secret"]
     :body [data]}
    identity))
 
@@ -135,7 +136,10 @@
   Querier
   (item [_ id] (get @r id))
   (items [_] (vals @r))
-  (items [this where] (filter #(= where (select-keys % (keys where))) (.items this))))
+  (items [this where] (filter #(= where (select-keys % (keys where))) (.items this)))
+  (authorized? [_ props]
+    (infof "yeah, let them in: %s" props)
+    true))
 
 (deftype RefStore [config]
   Lifecycle
@@ -159,6 +163,7 @@
             @(http-request
               {:method :get
                :url uri
+               :basic-auth ["bob" "secret"]
                :headers {"Accept" "application/edn"}
                }
               identity)
