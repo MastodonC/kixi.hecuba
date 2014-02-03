@@ -44,9 +44,6 @@
                   (for [k fields] [:td (str (k p))])
                   (when DEBUG [:td (pr-str p)])])]]]))))
 
-;; Now for the Liberator resources. Check the Liberator website for more
-;; info: http://clojure-liberator.github.io/liberator/
-
 (defn authorized? [typ querier]
   (fn [{{headers :headers route-params :route-params} :request}]
     (when-let [auth (get headers "authorization")]
@@ -57,6 +54,9 @@
                                    rest)]
           (protocols/authorized? querier (merge route-params
                                                 {:hecuba/user user :hecuba/password password :type typ})))))))
+
+;; Now for the Liberator resources. Check the Liberator website for more
+;; info: http://clojure-liberator.github.io/liberator/
 
 ;; REST resource for items (plural) - .
 (defresource items-resource [typ item-resource parent-resource child-index-p {:keys [querier commander]}]
