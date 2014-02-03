@@ -90,7 +90,7 @@
              (GET url
                  {:handler (partial put! out)
                   :headers {"Accept" "application/edn"
-                            "Authorization" "Basic bWFsY29sbTpmb28K"}})
+                            "Authorization" "Basic Ym9iOnNlY3JldA=="}})
              (recur))))
 
 (defn table [cursor owner {:keys [in out]}]

@@ -138,8 +138,8 @@
   (items [_] (vals @r))
   (items [this where] (filter #(= where (select-keys % (keys where))) (.items this)))
   (authorized? [_ props]
-    (infof "yeah, let them in: %s" props)
-    true))
+    ;; The master password!
+    (= (:hecuba/password props) "secret")))
 
 (deftype RefStore [config]
   Lifecycle
