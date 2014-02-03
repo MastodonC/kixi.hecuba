@@ -61,7 +61,7 @@
 
             ;; Specific here is in contrast to an 'index' resource which
             ;; provides a resource onto multiple items.
-            specific-resource (item-resource parent-resource child-index opts)
+            specific-resource (item-resource singular parent-resource child-index opts)
             index-resource (items-resource singular specific-resource parent-resource child-index opts)]
 
         ;; Now we have created our child resource we can make good on our promise

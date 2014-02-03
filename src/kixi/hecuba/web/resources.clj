@@ -3,7 +3,7 @@
    [clojure.tools.logging :refer (infof)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
-   [kixi.hecuba.protocols :refer (upsert! item items authorized?)]
+   [kixi.hecuba.protocols :refer (upsert! item items) :as protocols]
    [bidi.bidi :refer (->Redirect path-for)]
    [hiccup.core :refer (html)]
    [clojure.edn :as edn]
@@ -47,7 +47,16 @@
 ;; Now for the Liberator resources. Check the Liberator website for more
 ;; info: http://clojure-liberator.github.io/liberator/
 
-
+(defn authorized? [typ querier]
+  (fn [{{headers :headers route-params :route-params} :request}]
+    (when-let [auth (get headers "authorization")]
+      (infof "auth is %s" auth)
+      (when-let [basic-creds (second (re-matches #"\QBasic\E\s+(.*)" auth))]
+        (let [[user password] (->> (String. (DatatypeConverter/parseBase64Binary basic-creds) "UTF-8")
+                                   (re-matches #"(.*):(.*)")
+                                   rest)]
+          (protocols/authorized? querier (merge route-params
+                                                {:hecuba/user user :hecuba/password password :type typ})))))))
 
 ;; REST resource for items (plural) - .
 (defresource items-resource [typ item-resource parent-resource child-index-p {:keys [querier commander]}]
@@ -57,16 +66,7 @@
   :exists? true                  ; This 'factory' resource ALWAYS exists
   :available-media-types base-media-types
 
-  :authorized? (fn [{{headers :headers route-params :route-params} :request}]
-                 (when-let [auth (get headers "authorization")]
-                   (infof "auth is %s" auth)
-                   (when-let [basic-creds (second (re-matches #"\QBasic\E\s+(.*)" auth))]
-                     (let [[user password] (->> (String. (DatatypeConverter/parseBase64Binary basic-creds) "UTF-8")
-                                                (re-matches #"(.*):(.*)")
-                                                rest)]
-                       (authorized? querier (merge route-params
-                                                   {:hecuba/user user :hecuba/password password :type typ}))))))
-
+  :authorized? (authorized? typ querier)
 
   :handle-ok                            ; do this upon a successful GET
   (fn [{{mime :media-type} :representation {routes :jig.bidi/routes route-params :route-params} :request}]
@@ -155,9 +155,11 @@
 ;; any entities this item contains. The child resource is given as a
 ;; promise, since it cannot be known when constructing handlers top-down.
 
-(defresource item-resource [parent-resource child-index-p {:keys [querier]}]
+(defresource item-resource [typ parent-resource child-index-p {:keys [querier]}]
   :allowed-methods #{:get}
   :available-media-types base-media-types
+
+  :authorized? (authorized? typ querier)
 
   :exists?  ; iff the item exists, we bind it to ::item in order to save
                                         ; an extra query later on - this is a common Liberator
