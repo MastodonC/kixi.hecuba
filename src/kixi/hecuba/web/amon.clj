@@ -106,6 +106,9 @@
 (defresource device [{:keys [commander querier]} handlers]
   :allowed-methods #{})
 
+(defresource measurements [{:keys [commander querier]} handlers]
+  :allowed-methods #{:post})
+
 ;; Handlers and Routes
 
 (defn make-handlers [opts]
@@ -114,6 +117,7 @@
                  :entity (entity opts p)
                  :devices (devices opts p)
                  :device (device opts p)
+                 :measurements (measurements opts p)
                  })))
 
 (def uuid-regex #"[0-9a-f-]+")
@@ -124,10 +128,9 @@
        [["/entities/" [uuid-regex :amon/entity-id]] (:entity handlers)]
        [["/entities/" [uuid-regex :amon/entity-id] "/devices"] (:devices handlers)]
        [["/entities/" [uuid-regex :amon/entity-id] "/devices/" [uuid-regex :amon/device-id]] (:device handlers)]
-       ]]
-  ;;["/entities/" [uuid-regex :amon/entity-id] "/devices/" [uuid-regex :amon/device-id] "/measurements"] {:entities-index handlers}
+       [["/entities/" [uuid-regex :amon/entity-id] "/devices/" [uuid-regex :amon/device-id] "/measurements"] (:measurements handlers)]
+       ]])
 
-)
 
 (deftype ApiServiceV3 [config]
   Lifecycle

@@ -119,6 +119,19 @@
     (is (not (nil? response)))
     (is (= (:status response) 400))))
 
+(defn send-measurements [db entity-id device-id measurements]
+  (let [handlers (-> db make-mock-records amon/make-handlers)
+        routes (-> handlers amon/make-routes)
+        path (-> routes (bidi/path-for (:measurements handlers)
+                                       :amon/entity-id (str entity-id)
+                                       :amon/device-id (str device-id)))
+        handler (-> routes bidi/make-handler (wrap-routes routes))
+        response (-> {"measurements" measurements}
+                     (as-json-body-request path)
+                     handler)]
+    (is (not (nil? response)))
+    (is (= (:status response) 201))))
+
 (deftest amon-api-tests
   ;; Test create entity
   (-> (ref {}) create-entity)
@@ -145,8 +158,13 @@
 
   ;; Send in some measurements to a new device
   (let [db (ref {})
-        entity-id (create-entity db)]
-    (create-device db entity-id)
+        entity-id (create-entity db)
+        device-id (create-device db entity-id)]
+    (send-measurements db entity-id device-id [{:type :temperature :value 50}
+                                               {:type :temperature :value 60}
+                                               {:type :temperature :value 55}])
+
+
 
     )
   )
