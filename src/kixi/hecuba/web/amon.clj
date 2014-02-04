@@ -21,7 +21,7 @@
   [x]
   (postwalk
    #(cond
-     (instance?  java.util.UUID %) (str %)
+     (instance? java.util.UUID %) (str %)
      (keyword? %) (name %)
      (or (coll? %) (string? %)) %
      :otherwise (throw (ex-info (format "No JSON type for %s"
