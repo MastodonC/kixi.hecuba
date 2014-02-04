@@ -52,7 +52,11 @@
       (is (= handler (:entities-specific handlers)))
       (is (contains? @db uuid))
       )
-    db))
+    ))
+
+(defn get-entity [db id]
+
+  )
 
 (defn delete-entity [db id]
   (let [handlers (-> db make-mock-records amon/make-handlers)
@@ -63,13 +67,15 @@
     (let [response (-> (request :delete path) handler)]
       (is (not (nil? response)))
       (is (= (:status response) 204))
-      (is (= (count @db) 0))
-      db)))
+      (is (= (count @db) 0)))))
 
 ;; Try deleting an entity that doesn't exist! (should get a 404)
 
 (deftest amon-api-tests
+  ;; Test create entity
   (-> (ref {}) create-entity)
-  (let [db (ref {})
-        db (create-entity db)]
-    (-> db (delete-entity (-> db deref keys first str)))))
+
+  ;; Test delete entity
+  (let [db (ref {})]
+    (create-entity db)
+    (delete-entity db (-> @db keys first str))))
