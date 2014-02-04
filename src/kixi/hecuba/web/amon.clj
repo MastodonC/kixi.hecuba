@@ -139,3 +139,8 @@
     (add-bidi-routes system config
                      (make-routes (make-handlers (select-keys system [:commander :querier])))))
   (stop [_ system] system))
+
+
+;; TODO Entity PUTs
+;; TODO Device PUTs
+;; TODO Measurement GETs
