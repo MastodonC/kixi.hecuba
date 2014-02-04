@@ -12,18 +12,9 @@
    (jig Lifecycle)
    (java.util UUID)))
 
-;; Resources
+;; Utility
 
 (defn make-uuid [] (java.util.UUID/randomUUID))
-
-(defresource entities-index [{:keys [commander querier]} handlers]
-  :allowed-methods #{:post}
-  :available-media-types #{"application/json"}
-  :post! (fn [{{body :body} :request}]
-           {:hecuba/id (upsert! commander (assoc (decode body) :hecuba/id (make-uuid)))})
-  :handle-created (fn [{{routes :jig.bidi/routes} :request id :hecuba/id}]
-                    (ring-response
-                     {:headers {"Location" (path-for routes (:entities-specific @handlers) :hecuba/id id)}})))
 
 (defn downcast-to-json
   "For JSON serialization we need to widen the types contained in the structure."
@@ -39,10 +30,21 @@
                                  :type (type %)})))
    x))
 
+;; Resources
+
+(defresource entities-index [{:keys [commander querier]} handlers]
+  :allowed-methods #{:post}
+  :available-media-types #{"application/json"}
+  :post! (fn [{{body :body} :request}]
+           {:hecuba/id (upsert! commander (assoc (decode body) :hecuba/id (make-uuid)))})
+  :handle-created (fn [{{routes :jig.bidi/routes} :request id :hecuba/id}]
+                    (ring-response
+                     {:headers {"Location" (path-for routes (:entities-specific @handlers) :hecuba/entity-id id)}})))
+
 (defresource entities-specific [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :delete}
   :available-media-types #{"application/json"}
-  :exists? (fn [{{{id :hecuba/id} :route-params} :request}]
+  :exists? (fn [{{{id :hecuba/entity-id} :route-params} :request}]
              {::item (item querier (UUID/fromString id))})
   :handle-ok (fn [{item ::item}]
                (-> {:entityId (:hecuba/id item)}
@@ -50,19 +52,35 @@
   :delete! (fn [{{id :hecuba/id} ::item}]
              (delete! commander id)))
 
+(defresource devices-index [{:keys [commander querier]} handlers]
+  :allowed-methods #{:post}
+  :available-media-types #{"application/json"}
+  :post! (fn [{{body :body} :request}]
+           {:hecuba/id (upsert! commander (assoc (decode body) :hecuba/id (make-uuid)))})
+  :handle-created (fn [{{routes :jig.bidi/routes {:keys [entity-id]} :route-params} :request id :hecuba/id}]
+                    (ring-response
+                     {:headers {"Location" (path-for routes (:devices-specific @handlers) :hecuba/id id :hecuba/entity-id entity-id)}})))
+
+(defresource devices-specific [{:keys [commander querier]} handlers]
+  :allowed-methods #{})
+
 ;; Routes
 
 (defn make-handlers [opts]
   (let [p (promise)]
     @(deliver p {:entities-index (entities-index opts p)
-                 :entities-specific (entities-specific opts p)})))
+                 :entities-specific (entities-specific opts p)
+                 :devices-index (devices-index opts p)
+                 :devices-specific (devices-specific opts p)
+                 })))
 
 (def uuid-regex #"[0-9a-f-]+")
 
 (defn make-routes [handlers]
   ;; AMON API here
   ["" [["/entities" (:entities-index handlers)]
-       [["/entities/" :hecuba/id] (:entities-specific handlers)]
+       [["/entities/" :hecuba/entity-id] (:entities-specific handlers)]
+       [["/entities/" :hecuba/entity-id "/devices"] (:devices-index handlers)]
        ]]
   ;;["/entities/" [uuid-regex :amon/entity-id] "/devices/" [uuid-regex :amon/device-id] "/measurements"] {:entities-index handlers}
 
