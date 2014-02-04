@@ -46,7 +46,7 @@
     (is (not (nil? response)))
     (is (= (:status response) 201))
     (is (= (count @db) 1))
-    (let [{handler :handler {uuid :hecuba/entity-id} :params}
+    (let [{handler :handler {uuid :amon/entity-id} :params}
           (bidi/match-route routes (get-in response [:headers "Location"]))
           uuid (UUID/fromString uuid)]
       (is (= handler (:entity handlers)))
@@ -57,7 +57,7 @@
 (defn get-entity [db id]
   (let [handlers (-> db make-mock-records amon/make-handlers)
         routes (-> handlers amon/make-routes)
-        path (-> routes (bidi/path-for (:entity handlers) :hecuba/entity-id (str id)))
+        path (-> routes (bidi/path-for (:entity handlers) :amon/entity-id (str id)))
         handler (-> routes bidi/make-handler (wrap-routes routes))]
     (let [orig-db @db]
       (is (= (count @db) 1))
@@ -71,7 +71,7 @@
 (defn delete-entity [db id]
   (let [handlers (-> db make-mock-records amon/make-handlers)
         routes (-> handlers amon/make-routes)
-        path (-> routes (bidi/path-for (:entity handlers) :hecuba/entity-id (str id)))
+        path (-> routes (bidi/path-for (:entity handlers) :amon/entity-id (str id)))
         handler (-> routes bidi/make-handler (wrap-routes routes))]
     (is (= (count @db) 1))
     (let [response (-> (request :delete path) handler)]
@@ -84,7 +84,7 @@
 (defn create-device [db entity-id]
   (let [handlers (-> db make-mock-records amon/make-handlers)
         routes (-> handlers amon/make-routes)
-        path (-> routes (bidi/path-for (:devices handlers) :hecuba/entity-id entity-id))
+        path (-> routes (bidi/path-for (:devices handlers) :amon/entity-id entity-id))
         _ (is (= path (str "/entities/" entity-id "/devices")))
         handler (-> routes bidi/make-handler (wrap-routes routes))
         response (-> (make-entity)

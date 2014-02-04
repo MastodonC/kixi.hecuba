@@ -39,12 +39,12 @@
            {:hecuba/id (upsert! commander (assoc (decode body) :hecuba/id (make-uuid)))})
   :handle-created (fn [{{routes :jig.bidi/routes} :request id :hecuba/id}]
                     (ring-response
-                     {:headers {"Location" (path-for routes (:entity @handlers) :hecuba/entity-id id)}})))
+                     {:headers {"Location" (path-for routes (:entity @handlers) :amon/entity-id id)}})))
 
 (defresource entity [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :delete}
   :available-media-types #{"application/json"}
-  :exists? (fn [{{{id :hecuba/entity-id} :route-params} :request}]
+  :exists? (fn [{{{id :amon/entity-id} :route-params} :request}]
              {::item (item querier (UUID/fromString id))})
   :handle-ok (fn [{item ::item}]
                (-> {:entityId (:hecuba/id item)}
@@ -59,7 +59,7 @@
            {:hecuba/id (upsert! commander (assoc (decode body) :hecuba/id (make-uuid)))})
   :handle-created (fn [{{routes :jig.bidi/routes {:keys [entity-id]} :route-params} :request id :hecuba/id}]
                     (ring-response
-                     {:headers {"Location" (path-for routes (:device @handlers) :hecuba/id id :hecuba/entity-id entity-id)}})))
+                     {:headers {"Location" (path-for routes (:device @handlers) :hecuba/id id :amon/entity-id entity-id)}})))
 
 (defresource device [{:keys [commander querier]} handlers]
   :allowed-methods #{})
@@ -76,13 +76,11 @@
 
 (def uuid-regex #"[0-9a-f-]+")
 
-;; TODO :hecuba/entity-id should be :amon/entity-id
-
 (defn make-routes [handlers]
   ;; AMON API here
   ["" [["/entities" (:entities handlers)]
-       [["/entities/" :hecuba/entity-id] (:entity handlers)]
-       [["/entities/" :hecuba/entity-id "/devices"] (:devices handlers)]
+       [["/entities/" :amon/entity-id] (:entity handlers)]
+       [["/entities/" :amon/entity-id "/devices"] (:devices handlers)]
        ]]
   ;;["/entities/" [uuid-regex :amon/entity-id] "/devices/" [uuid-regex :amon/device-id] "/measurements"] {:entities-index handlers}
 
