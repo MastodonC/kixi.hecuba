@@ -50,13 +50,14 @@
     (is (not (nil? response)))
     (is (= (:status response) 201))
     (is (= (count @db) 1))
-    (let [{handler :handler {uuid :amon/entity-id} :params}
+    (let [{handler :handler {entity-id :amon/entity-id} :params}
           (bidi/match-route routes (get-in response [:headers "Location"]))
-          uuid (UUID/fromString uuid)]
+          entity-id (UUID/fromString entity-id)]
       (is (= handler (:entity handlers)))
-      (is (contains? @db uuid))
-      ;; Return the uuid
-      uuid)))
+      (is (contains? @db entity-id))
+      ;; Return the entity-id, might be useful
+      entity-id
+      )))
 
 (defn get-entity [db id]
   (let [handlers (-> db make-mock-records amon/make-handlers)
@@ -100,9 +101,10 @@
           {handler :handler {entity-id :amon/entity-id
                              device-id :amon/device-id} :params}
           (bidi/match-route routes location)
-          ]
+          device-id (java.util.UUID/fromString device-id)]
       (is (not (nil? (java.util.UUID/fromString entity-id))))
-      (is (not (nil? (java.util.UUID/fromString device-id))))
+      ;; Return the device-id to the caller, might be useful
+      device-id
       )))
 
 (defn create-device-with-bad-entity-in-body [db entity-id]
@@ -139,4 +141,12 @@
   ;; Test create device with wrong entity in body
   (let [db (ref {})
         entity-id (create-entity db)]
-    (create-device-with-bad-entity-in-body db entity-id)))
+    (create-device-with-bad-entity-in-body db entity-id))
+
+  ;; Send in some measurements to a new device
+  (let [db (ref {})
+        entity-id (create-entity db)]
+    (create-device db entity-id)
+
+    )
+  )
