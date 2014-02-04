@@ -37,7 +37,7 @@
 (defn create-entity [db]
   (let [handlers (-> db make-mock-records amon/make-handlers)
         routes (-> handlers amon/make-routes)
-        path (-> routes (bidi/path-for (:entities-index handlers)))
+        path (-> routes (bidi/path-for (:entities handlers)))
         handler (-> routes bidi/make-handler (wrap-routes routes))
         response (-> (make-entity)
                      (add-devices (uuid))
@@ -49,7 +49,7 @@
     (let [{handler :handler {uuid :hecuba/entity-id} :params}
           (bidi/match-route routes (get-in response [:headers "Location"]))
           uuid (UUID/fromString uuid)]
-      (is (= handler (:entities-specific handlers)))
+      (is (= handler (:entity handlers)))
       (is (contains? @db uuid))
       ;; Return the uuid
       uuid)))
@@ -57,7 +57,7 @@
 (defn get-entity [db id]
   (let [handlers (-> db make-mock-records amon/make-handlers)
         routes (-> handlers amon/make-routes)
-        path (-> routes (bidi/path-for (:entities-specific handlers) :hecuba/entity-id (str id)))
+        path (-> routes (bidi/path-for (:entity handlers) :hecuba/entity-id (str id)))
         handler (-> routes bidi/make-handler (wrap-routes routes))]
     (let [orig-db @db]
       (is (= (count @db) 1))
@@ -71,7 +71,7 @@
 (defn delete-entity [db id]
   (let [handlers (-> db make-mock-records amon/make-handlers)
         routes (-> handlers amon/make-routes)
-        path (-> routes (bidi/path-for (:entities-specific handlers) :hecuba/entity-id (str id)))
+        path (-> routes (bidi/path-for (:entity handlers) :hecuba/entity-id (str id)))
         handler (-> routes bidi/make-handler (wrap-routes routes))]
     (is (= (count @db) 1))
     (let [response (-> (request :delete path) handler)]
@@ -84,7 +84,7 @@
 (defn create-device [db entity-id]
   (let [handlers (-> db make-mock-records amon/make-handlers)
         routes (-> handlers amon/make-routes)
-        path (-> routes (bidi/path-for (:devices-index handlers) :hecuba/entity-id entity-id))
+        path (-> routes (bidi/path-for (:devices handlers) :hecuba/entity-id entity-id))
         _ (is (= path (str "/entities/" entity-id "/devices")))
         handler (-> routes bidi/make-handler (wrap-routes routes))
         response (-> (make-entity)

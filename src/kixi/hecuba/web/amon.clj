@@ -32,16 +32,16 @@
 
 ;; Resources
 
-(defresource entities-index [{:keys [commander querier]} handlers]
+(defresource entities [{:keys [commander querier]} handlers]
   :allowed-methods #{:post}
   :available-media-types #{"application/json"}
   :post! (fn [{{body :body} :request}]
            {:hecuba/id (upsert! commander (assoc (decode body) :hecuba/id (make-uuid)))})
   :handle-created (fn [{{routes :jig.bidi/routes} :request id :hecuba/id}]
                     (ring-response
-                     {:headers {"Location" (path-for routes (:entities-specific @handlers) :hecuba/entity-id id)}})))
+                     {:headers {"Location" (path-for routes (:entity @handlers) :hecuba/entity-id id)}})))
 
-(defresource entities-specific [{:keys [commander querier]} handlers]
+(defresource entity [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :delete}
   :available-media-types #{"application/json"}
   :exists? (fn [{{{id :hecuba/entity-id} :route-params} :request}]
@@ -52,35 +52,37 @@
   :delete! (fn [{{id :hecuba/id} ::item}]
              (delete! commander id)))
 
-(defresource devices-index [{:keys [commander querier]} handlers]
+(defresource devices [{:keys [commander querier]} handlers]
   :allowed-methods #{:post}
   :available-media-types #{"application/json"}
   :post! (fn [{{body :body} :request}]
            {:hecuba/id (upsert! commander (assoc (decode body) :hecuba/id (make-uuid)))})
   :handle-created (fn [{{routes :jig.bidi/routes {:keys [entity-id]} :route-params} :request id :hecuba/id}]
                     (ring-response
-                     {:headers {"Location" (path-for routes (:devices-specific @handlers) :hecuba/id id :hecuba/entity-id entity-id)}})))
+                     {:headers {"Location" (path-for routes (:device @handlers) :hecuba/id id :hecuba/entity-id entity-id)}})))
 
-(defresource devices-specific [{:keys [commander querier]} handlers]
+(defresource device [{:keys [commander querier]} handlers]
   :allowed-methods #{})
 
 ;; Routes
 
 (defn make-handlers [opts]
   (let [p (promise)]
-    @(deliver p {:entities-index (entities-index opts p)
-                 :entities-specific (entities-specific opts p)
-                 :devices-index (devices-index opts p)
-                 :devices-specific (devices-specific opts p)
+    @(deliver p {:entities (entities opts p)
+                 :entity (entity opts p)
+                 :devices (devices opts p)
+                 :device (device opts p)
                  })))
 
 (def uuid-regex #"[0-9a-f-]+")
 
+;; TODO :hecuba/entity-id should be :amon/entity-id
+
 (defn make-routes [handlers]
   ;; AMON API here
-  ["" [["/entities" (:entities-index handlers)]
-       [["/entities/" :hecuba/entity-id] (:entities-specific handlers)]
-       [["/entities/" :hecuba/entity-id "/devices"] (:devices-index handlers)]
+  ["" [["/entities" (:entities handlers)]
+       [["/entities/" :hecuba/entity-id] (:entity handlers)]
+       [["/entities/" :hecuba/entity-id "/devices"] (:devices handlers)]
        ]]
   ;;["/entities/" [uuid-regex :amon/entity-id] "/devices/" [uuid-regex :amon/device-id] "/measurements"] {:entities-index handlers}
 
