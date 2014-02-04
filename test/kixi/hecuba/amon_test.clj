@@ -95,7 +95,15 @@
                      (as-json-body-request path)
                      handler)]
     (is (not (nil? response)))
-    (is (= (:status response) 201))))
+    (is (= (:status response) 201))
+    (let [location (get-in response [:headers "Location"])
+          {handler :handler {entity-id :amon/entity-id
+                             device-id :amon/device-id} :params}
+          (bidi/match-route routes location)
+          ]
+      (is (not (nil? (java.util.UUID/fromString entity-id))))
+      (is (not (nil? (java.util.UUID/fromString device-id))))
+      )))
 
 (defn create-device-with-bad-entity-in-body [db entity-id]
   (let [handlers (-> db make-mock-records amon/make-handlers)

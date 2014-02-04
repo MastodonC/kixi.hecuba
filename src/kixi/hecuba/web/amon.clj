@@ -47,15 +47,17 @@
 
   :handle-created
   (fn [{{routes :jig.bidi/routes} :request id :amon/entity-id}]
-    (ring-response
-     {:headers {"Location"
-                (path-for routes (:entity @handlers)
-                          ;; TODO: id is a uuid here, so we str it, but I
-                          ;; think this should bidi's responsiblity
+    (let [location (path-for routes (:entity @handlers)
+                             ;; TODO: id is a uuid here, so we str it, but I
+                             ;; think this should bidi's responsiblity
 
-                          ;; TODO: Raise an issue against bidi
-                          :amon/entity-id (str id)
-                          )}})))
+                             ;; TODO: Raise an issue against bidi
+                             :amon/entity-id (str id)
+                             )]
+      (when-not location
+        (throw (ex-info "No path resolved for Location header"
+                        {:amon/entity-id id})))
+      (ring-response {:headers {"Location" location}}))))
 
 (defresource entity [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :delete}
@@ -91,11 +93,17 @@
       {:amon/device-id (upsert! commander (assoc body :amon/id uuid :amon/device-id uuid))}))
 
   :handle-created
-  (fn [{{routes :jig.bidi/routes {:keys [entity-id]} :route-params} :request device-id :amon/device-id}]
-    (ring-response
-     {:headers {"Location" (path-for routes (:device @handlers)
-                                     :amon/entity-id entity-id
-                                     :amon/device-id (str device-id))}})))
+  (fn [{{routes :jig.bidi/routes {entity-id :amon/entity-id} :route-params} :request device-id :amon/device-id}]
+    (println {:amon/entity-id entity-id
+              :amon/device-id (str device-id)})
+    (let [location
+          (path-for routes (:device @handlers)
+                    :amon/entity-id entity-id
+                    :amon/device-id (str device-id))]
+      (when-not location (throw (ex-info "No path resolved for Location header"
+                                         {:amon/entity-id entity-id
+                                          :amon/device-id device-id})))
+      (ring-response {:headers {"Location" location}}))))
 
 (defresource device [{:keys [commander querier]} handlers]
   :allowed-methods #{})
@@ -117,6 +125,7 @@
   ["" [["/entities" (:entities handlers)]
        [["/entities/" [uuid-regex :amon/entity-id]] (:entity handlers)]
        [["/entities/" [uuid-regex :amon/entity-id] "/devices"] (:devices handlers)]
+       [["/entities/" [uuid-regex :amon/entity-id] "/devices/" [uuid-regex :amon/device-id]] (:device handlers)]
        ]]
   ;;["/entities/" [uuid-regex :amon/entity-id] "/devices/" [uuid-regex :amon/device-id] "/measurements"] {:entities-index handlers}
 
