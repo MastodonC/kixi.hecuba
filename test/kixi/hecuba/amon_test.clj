@@ -3,7 +3,7 @@
   (:require
    [kixi.hecuba.dev :refer (->RefCommander ->RefQuerier)]
    [kixi.hecuba.web.amon :as amon]
-   [cheshire.core :refer (generate-string)]
+   [cheshire.core :refer (generate-string parse-string)]
    [bidi.bidi :as bidi]
    [jig.bidi :refer (wrap-routes)]
    [ring.mock.request :refer (request)])
@@ -55,7 +55,20 @@
     ))
 
 (defn get-entity [db id]
+  (let [handlers (-> db make-mock-records amon/make-handlers)
+        routes (-> handlers amon/make-routes)
+        path (-> routes (bidi/path-for (:entities-specific handlers) :hecuba/id id))
+        handler (-> routes bidi/make-handler (wrap-routes routes))]
+    (let [orig-db @db]
+      (is (= (count @db) 1))
+      (let [response (-> (request :get path) handler)]
+        (is (not (nil? response)))
+        (is (= (:status response) 200))
+        (is (= orig-db @db)) ; ensure we didn't modify the database
+        (let [json (parse-string (:body response))]
+          (is (contains? json "entityId")))
 
+        )))
   )
 
 (defn delete-entity [db id]
@@ -74,6 +87,11 @@
 (deftest amon-api-tests
   ;; Test create entity
   (-> (ref {}) create-entity)
+
+  ;; Test delete entity
+  (let [db (ref {})]
+    (create-entity db)
+    (get-entity db (-> @db keys first str)))
 
   ;; Test delete entity
   (let [db (ref {})]
