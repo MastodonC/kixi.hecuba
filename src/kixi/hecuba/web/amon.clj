@@ -94,8 +94,6 @@
 
   :handle-created
   (fn [{{routes :jig.bidi/routes {entity-id :amon/entity-id} :route-params} :request device-id :amon/device-id}]
-    (println {:amon/entity-id entity-id
-              :amon/device-id (str device-id)})
     (let [location
           (path-for routes (:device @handlers)
                     :amon/entity-id entity-id
