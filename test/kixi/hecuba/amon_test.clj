@@ -15,6 +15,10 @@
   ([] {})
   ([uuid] {:entityId uuid}))
 
+(defn make-device
+  ([] {})
+  ([uuid] {:deviceId uuid}))
+
 (defn add-devices [entity & uuids]
   (update-in entity [:deviceIds] concat uuids))
 
@@ -30,7 +34,7 @@
       (assoc-in [:body] (generate-string body))))
 
 (defn make-mock-records [r]
-  {:commander (->RefCommander r :hecuba/id)
+  {:commander (->RefCommander r :amon/id)
    :querier (->RefQuerier r)})
 
 ;; TODO: Can this be simplified with Prismatic graph?
@@ -87,12 +91,23 @@
         path (-> routes (bidi/path-for (:devices handlers) :amon/entity-id (str entity-id)))
         _ (is (= path (str "/entities/" entity-id "/devices")))
         handler (-> routes bidi/make-handler (wrap-routes routes))
-        response (-> (make-entity)
-                     (add-devices (uuid))
+        response (-> {"entityId" entity-id}
                      (as-json-body-request path)
                      handler)]
     (is (not (nil? response)))
     (is (= (:status response) 201))))
+
+(defn create-device-with-bad-entity-in-body [db entity-id]
+  (let [handlers (-> db make-mock-records amon/make-handlers)
+        routes (-> handlers amon/make-routes)
+        path (-> routes (bidi/path-for (:devices handlers) :amon/entity-id (str entity-id)))
+        _ (is (= path (str "/entities/" entity-id "/devices")))
+        handler (-> routes bidi/make-handler (wrap-routes routes))
+        response (-> {"entityId" (str entity-id "BAD_DATA")}
+                     (as-json-body-request path)
+                     handler)]
+    (is (not (nil? response)))
+    (is (= (:status response) 400))))
 
 (deftest amon-api-tests
   ;; Test create entity
@@ -111,4 +126,9 @@
   ;; Test create device
   (let [db (ref {})
         entity-id (create-entity db)]
-    (create-device db entity-id)))
+    (create-device db entity-id))
+
+  ;; Test create device with wrong entity in body
+  (let [db (ref {})
+        entity-id (create-entity db)]
+    (create-device-with-bad-entity-in-body db entity-id)))

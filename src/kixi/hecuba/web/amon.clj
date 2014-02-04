@@ -23,7 +23,7 @@
    #(cond
      (instance?  java.util.UUID %) (str %)
      (keyword? %) (name %)
-     (coll? %) %
+     (or (coll? %) (string? %)) %
      :otherwise (throw (ex-info (format "No JSON type for %s"
                                         (type %))
                                 {:value %
@@ -38,10 +38,15 @@
 
   :post!
   (fn [{{body :body} :request}]
-    {:hecuba/id (upsert! commander (assoc (decode body) :hecuba/id (make-uuid)))})
+    (let [uuid (make-uuid)]
+      {:amon/entity-id (upsert! commander
+                                (assoc (decode body)
+                                  :amon/id uuid ; we need this to indicate the unique id
+                                  :amon/entity-id uuid
+                                  ))}))
 
   :handle-created
-  (fn [{{routes :jig.bidi/routes} :request id :hecuba/id}]
+  (fn [{{routes :jig.bidi/routes} :request id :amon/entity-id}]
     (ring-response
      {:headers {"Location"
                 (path-for routes (:entity @handlers)
@@ -62,26 +67,35 @@
 
   :handle-ok
   (fn [{item ::item}]
-    (-> {:entityId (:hecuba/id item)}
+    (-> {"entityId" (:amon/entity-id item)}
         downcast-to-json))
 
-  :delete! (fn [{{id :hecuba/id} ::item}]
+  :delete! (fn [{{id :amon/entity-id} ::item}]
              (delete! commander id)))
 
 (defresource devices [{:keys [commander querier]} handlers]
   :allowed-methods #{:post}
   :available-media-types #{"application/json"}
 
+  :malformed?
+  (fn [{{body :body {entity-id :amon/entity-id} :route-params} :request}]
+    (let [body (decode body)]
+      ;; We need to assert a few things
+      (or
+       (not= (get body "entityId") entity-id))))
+
   :post!
-  (fn [{{body :body} :request}]
-    {:hecuba/id (upsert! commander (assoc (decode body) :hecuba/id (make-uuid)))})
+  (fn [{{body :body {entity-id :amon/entity-id} :route-params} :request}]
+    (let [body (decode body)
+          uuid (make-uuid)]
+      {:amon/device-id (upsert! commander (assoc body :amon/id uuid :amon/device-id uuid))}))
 
   :handle-created
-  (fn [{{routes :jig.bidi/routes {:keys [entity-id]} :route-params} :request id :hecuba/id}]
+  (fn [{{routes :jig.bidi/routes {:keys [entity-id]} :route-params} :request device-id :amon/device-id}]
     (ring-response
      {:headers {"Location" (path-for routes (:device @handlers)
-                                     :hecuba/id (str id) ; see TODO above
-                                     :amon/entity-id entity-id)}})))
+                                     :amon/entity-id entity-id
+                                     :amon/device-id (str device-id))}})))
 
 (defresource device [{:keys [commander querier]} handlers]
   :allowed-methods #{})
