@@ -81,10 +81,10 @@
 
   :malformed?
   (fn [{{body :body {entity-id :amon/entity-id} :route-params} :request}]
-    (let [body (decode body)]
+    (let [body (decode body keyword)]
       ;; We need to assert a few things
       (or
-       (not= (get body "entityId") entity-id))))
+       (not= (:entityId body) entity-id))))
 
   :post!
   (fn [{{body :body {entity-id :amon/entity-id} :route-params} :request}]
