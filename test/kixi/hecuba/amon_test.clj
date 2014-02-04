@@ -84,7 +84,7 @@
 (defn create-device [db entity-id]
   (let [handlers (-> db make-mock-records amon/make-handlers)
         routes (-> handlers amon/make-routes)
-        path (-> routes (bidi/path-for (:devices handlers) :amon/entity-id entity-id))
+        path (-> routes (bidi/path-for (:devices handlers) :amon/entity-id (str entity-id)))
         _ (is (= path (str "/entities/" entity-id "/devices")))
         handler (-> routes bidi/make-handler (wrap-routes routes))
         response (-> (make-entity)

@@ -35,36 +35,58 @@
 (defresource entities [{:keys [commander querier]} handlers]
   :allowed-methods #{:post}
   :available-media-types #{"application/json"}
-  :post! (fn [{{body :body} :request}]
-           {:hecuba/id (upsert! commander (assoc (decode body) :hecuba/id (make-uuid)))})
-  :handle-created (fn [{{routes :jig.bidi/routes} :request id :hecuba/id}]
-                    (ring-response
-                     {:headers {"Location" (path-for routes (:entity @handlers) :amon/entity-id id)}})))
+
+  :post!
+  (fn [{{body :body} :request}]
+    {:hecuba/id (upsert! commander (assoc (decode body) :hecuba/id (make-uuid)))})
+
+  :handle-created
+  (fn [{{routes :jig.bidi/routes} :request id :hecuba/id}]
+    (ring-response
+     {:headers {"Location"
+                (path-for routes (:entity @handlers)
+                          ;; TODO: id is a uuid here, so we str it, but I
+                          ;; think this should bidi's responsiblity
+
+                          ;; TODO: Raise an issue against bidi
+                          :amon/entity-id (str id)
+                          )}})))
 
 (defresource entity [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :delete}
   :available-media-types #{"application/json"}
-  :exists? (fn [{{{id :amon/entity-id} :route-params} :request}]
-             {::item (item querier (UUID/fromString id))})
-  :handle-ok (fn [{item ::item}]
-               (-> {:entityId (:hecuba/id item)}
-                   downcast-to-json))
+
+  :exists?
+  (fn [{{{id :amon/entity-id} :route-params} :request}]
+    {::item (item querier (UUID/fromString id))})
+
+  :handle-ok
+  (fn [{item ::item}]
+    (-> {:entityId (:hecuba/id item)}
+        downcast-to-json))
+
   :delete! (fn [{{id :hecuba/id} ::item}]
              (delete! commander id)))
 
 (defresource devices [{:keys [commander querier]} handlers]
   :allowed-methods #{:post}
   :available-media-types #{"application/json"}
-  :post! (fn [{{body :body} :request}]
-           {:hecuba/id (upsert! commander (assoc (decode body) :hecuba/id (make-uuid)))})
-  :handle-created (fn [{{routes :jig.bidi/routes {:keys [entity-id]} :route-params} :request id :hecuba/id}]
-                    (ring-response
-                     {:headers {"Location" (path-for routes (:device @handlers) :hecuba/id id :amon/entity-id entity-id)}})))
+
+  :post!
+  (fn [{{body :body} :request}]
+    {:hecuba/id (upsert! commander (assoc (decode body) :hecuba/id (make-uuid)))})
+
+  :handle-created
+  (fn [{{routes :jig.bidi/routes {:keys [entity-id]} :route-params} :request id :hecuba/id}]
+    (ring-response
+     {:headers {"Location" (path-for routes (:device @handlers)
+                                     :hecuba/id (str id) ; see TODO above
+                                     :amon/entity-id entity-id)}})))
 
 (defresource device [{:keys [commander querier]} handlers]
   :allowed-methods #{})
 
-;; Routes
+;; Handlers and Routes
 
 (defn make-handlers [opts]
   (let [p (promise)]
@@ -79,8 +101,8 @@
 (defn make-routes [handlers]
   ;; AMON API here
   ["" [["/entities" (:entities handlers)]
-       [["/entities/" :amon/entity-id] (:entity handlers)]
-       [["/entities/" :amon/entity-id "/devices"] (:devices handlers)]
+       [["/entities/" [uuid-regex :amon/entity-id]] (:entity handlers)]
+       [["/entities/" [uuid-regex :amon/entity-id] "/devices"] (:devices handlers)]
        ]]
   ;;["/entities/" [uuid-regex :amon/entity-id] "/devices/" [uuid-regex :amon/device-id] "/measurements"] {:entities-index handlers}
 
