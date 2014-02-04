@@ -50,9 +50,7 @@
           (bidi/match-route routes (get-in response [:headers "Location"]))
           uuid (UUID/fromString uuid)]
       (is (= handler (:entities-specific handlers)))
-      (is (contains? @db uuid))
-      )
-    ))
+      (is (contains? @db uuid)))))
 
 (defn get-entity [db id]
   (let [handlers (-> db make-mock-records amon/make-handlers)
@@ -66,10 +64,7 @@
         (is (= (:status response) 200))
         (is (= orig-db @db)) ; ensure we didn't modify the database
         (let [json (parse-string (:body response))]
-          (is (contains? json "entityId")))
-
-        )))
-  )
+          (is (contains? json "entityId")))))))
 
 (defn delete-entity [db id]
   (let [handlers (-> db make-mock-records amon/make-handlers)
