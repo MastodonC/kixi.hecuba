@@ -130,9 +130,9 @@
                      (as-json-body-request path)
                      handler)]
     (is (not (nil? response)))
-    (is (= (:status response) 201))))
+    (is (= (:status response) 202))))
 
-(deftest amon-api-tests
+(defn amon-api-tests []
   ;; Test create entity
   (-> (ref {}) create-entity)
 
@@ -162,9 +162,8 @@
         device-id (create-device db entity-id)]
     (send-measurements db entity-id device-id [{:type :temperature :value 50}
                                                {:type :temperature :value 60}
-                                               {:type :temperature :value 55}])
+                                               {:type :temperature :value 55}])))
 
 
-
-    )
-  )
+(deftest amon-api-tests-ref
+  (amon-api-tests))

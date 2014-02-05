@@ -107,7 +107,9 @@
   :allowed-methods #{})
 
 (defresource measurements [{:keys [commander querier]} handlers]
-  :allowed-methods #{:post})
+  :allowed-methods #{:post}
+  :post! (fn [_] (println "Measurement added!"))
+  :handle-created (fn [_] (ring-response {:status 202 :body "Accepted"})))
 
 ;; Handlers and Routes
 

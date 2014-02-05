@@ -6,6 +6,12 @@
    :doc "An in-memory store for testing, this binds Commander and Querier in the system at :querier and :commander respectively"
    }
 
+  :hecuba/cassandra-direct-store
+  {:jig/component kixi.hecuba.dev/RefStore
+   :jig/project "../kixi.hecuba/project.clj"
+   :doc "An in-memory store for testing, this binds Commander and Querier in the system at :querier and :commander respectively"
+   }
+
   :hecuba/kafka
   {:jig/component kixi.hecuba.kafka/Kafka
    :jig/project "../kixi.hecuba/project.clj"

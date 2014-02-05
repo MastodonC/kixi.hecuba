@@ -10,6 +10,8 @@
    [clojure.tools.logging :refer :all]
    [clojure.java.io :as io]
    [clojure.walk :refer (postwalk)]
+   [clojurewerkz.cassaforte.client :as cassaclient]
+   [clojurewerkz.cassaforte.cql :as cql]
    [org.httpkit.client :refer (request) :rename {request http-request}])
   (:import
    (jig Lifecycle)
@@ -151,6 +153,41 @@
        (assoc :querier (->RefQuerier r)))))
   (start [_ system] system)
   (stop [_ system] system))
+
+(deftype CassandraDirectCommander [session]
+  Commander
+  (upsert! [_ payload]
+    (let [res (cql/insert "measurements" payload)]
+      (println "Result from insert was...." res)
+      ))
+  (delete! [_ id]
+    (throw (ex-info "Can't delete anything yet!!" {}))))
+
+(deftype CassandraQuerier [session]
+  Querier
+  (item [_ id] nil)
+  (items [_] nil)
+  (items [this where] nil)
+  (authorized? [_ props]
+    true))
+
+(deftype CassandraDirectStore [config]
+  Lifecycle
+  (init [_ system]
+    system)
+  (start [_ system]
+    (let [cluster (cassaclient/build-cluster
+                   {:contact-points ["127.0.0.1"]
+                    :port 9042})
+          session (cassaclient/connect cluster :test)]
+      (-> system
+          (assoc :commander (->CassandraDirectCommander session))
+          (assoc :querier (->CassandraQuerier session)))
+      (assoc system :cassandra {:cluster cluster :session session})))
+  (stop [_ system]
+    (.shutdown (get-in system [:cassandra :session]))
+    (.shutdown (get-in system [:cassandra :cluster]))
+    system))
 
 (deftype HttpClientChecks [config]
   Lifecycle
