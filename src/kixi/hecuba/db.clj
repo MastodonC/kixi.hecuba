@@ -7,15 +7,9 @@
    (jig Lifecycle)
    (kixi.hecuba.protocols Commander)))
 
-
-(defn execute-query
-  "Executes raw CQL query."
-  [session query]
-  (client/execute session query))
-
 (defn create-db-session
   "Connects to a cluster, creates a session and binds it to system."
-  [system config]
+  [config]
   (let [host        (:hosts config)
         ks          (:keyspace config)
         port        (:port config)
@@ -26,12 +20,19 @@
                       :credentials credentials})]
     (client/connect cluster ks)))
 
+(defn execute-query
+  "Executes raw CQL query."
+  [config query]
+  (let [session (create-db-session config)]
+    (client/execute session query)
+   ; (client/disconnect!)
+    ))
+
 (deftype Database [config]
   Lifecycle
   (init [_ system]
     system)
   (start [_ system]
-    (let [session (create-db-session system config)]  
-      (update-in system [(:jig/id config) ::db-session] (constantly session))))
+    (update-in system [(:jig/id config) ::cluster] (constantly (select-keys config [:hosts :keyspace :port :credentials]))))
   (stop [_ system]
     system))
