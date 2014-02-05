@@ -25,8 +25,8 @@
                "auto.commit.enable" "true"}
    }
 
-  #_:hecuba/db
-  #_{:jig/component kixi.hecuba.db/Database
+  :hecuba/db
+  {:jig/component kixi.hecuba.db/Database
    :jig/project "../kixi.hecuba/project.clj"
    :jig/dependencies []
    :hosts ["127.0.0.1"]
