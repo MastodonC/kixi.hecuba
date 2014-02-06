@@ -11,7 +11,7 @@ $ cd jig
 jig/ $ lein install-all
 ```
 
-The need to install is only due to the possibility that Hecuba is using a SNAPSHOT version of Jig which is gnot released to clojars.org.
+The need to install is only due to the possibility that Hecuba is using a SNAPSHOT version of Jig which is not released to clojars.org.
 
 Point Jig at Hecuba's config.
 
