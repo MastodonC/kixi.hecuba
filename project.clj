@@ -25,7 +25,7 @@
 
                  [clj-kafka "0.1.2-0.8" :exclusions [org.slf4j/slf4j-simple]]
                  [camel-snake-kebab "0.1.2"]
-                 [clojurewerkz/cassaforte "1.3.0-beta8" :exclusions [[com.datastax.cassandra/cassandra-driver-core]]]
+                 [clojurewerkz/cassaforte "1.3.0-beta9" :exclusions [[com.datastax.cassandra/cassandra-driver-core]]]
                  [com.datastax.cassandra/cassandra-driver-core "1.0.5" :exclusions [[org.slf4j/slf4j-log4j12]
                                                                                     [log4j/log4j]]]
 
