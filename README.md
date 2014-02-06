@@ -29,6 +29,18 @@ jig/ $ lein repl
 
 Navigate to http://localhost:8000
 
+## Dev environment
+
+We are using Vagrant to manage dev environments.
+
++ Install VirtualBox v4.3.6 from [here](https://www.virtualbox.org/wiki/Downloads) or preferably via your OS's package manager.
++ Install Vagrant v. 1.4.3 from [here](http://www.vagrantup.com/) or preferably via your OS's package manager.
++ ``cd ${PROJECT_HOME}``
++ ``vagrant up`` (This will download stuff the first time and will be slow, after that it will be quicker)
++ You will now have all the services required running in a virtual machine with the ports forwarded for access from your local machine
+
+TODO [2014/02/06]: Currently you only get a VM with java installed, which is pretty useless, but watch this space.
+
 ## Support
 
 Hecuba is a new project which is being developed 'in the open'. Therefore it may not work exactly as described in these notes. Hecuba is not (yet) a released and supported code-base, rather it is being made available for others as a learning aid. Please bear this in mind when contacting the team, raising issues and submitting pull requests.
