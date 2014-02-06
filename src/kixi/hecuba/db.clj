@@ -22,17 +22,15 @@
 
 (defn execute-query
   "Executes raw CQL query."
-  [config query]
-  (let [session (create-db-session config)]
-    (client/execute session query)
-   ; (client/disconnect!)
-    ))
+  [session query]
+  (client/execute session query))
 
 (deftype Database [config]
   Lifecycle
   (init [_ system]
     system)
   (start [_ system]
-    (update-in system [(:jig/id config) ::cluster] (constantly (select-keys config [:hosts :keyspace :port :credentials]))))
+    (let [session (create-db-session config)]
+      (update-in system [(:jig/id config) ::db-session] (constantly session))))
   (stop [_ system]
     system))
