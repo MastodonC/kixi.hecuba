@@ -10,21 +10,38 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   #TODO - validate this is a sensible box to use
   config.vm.box_url = "http://grahamc.com/vagrant/ubuntu-12.04-omnibus-chef.box"
 
-  config.vm.network :forwarded_port, guest: 9092, host: 9092 #Kafka
-  config.vm.network :forwarded_port, guest: 2181, host: 2181 #Zookeeper
-  config.vm.network :forwarded_port, guest: 9042, host: 9042 #Cassandra CQL
-  config.vm.network :forwarded_port, guest: 9160, host: 9160 #Cassandra Thrift
-  config.vm.network :forwarded_port, guest: 7199, host: 7199 #Cassandra JMX (TODO - confirm)
 
-
-  config.vm.provider :virtualbox do |vb|
+  config.vm.provider :virtualbox do |vb, override|
     # headless mode
     vb.gui = false
-  
+
     # Use VBoxManage to customize the VM.
     # See http://www.virtualbox.org/manual/ch08.html#idp56624480
     vb.customize ["modifyvm", :id, "--memory", "1024"]
-    vb.customize ["modifyvm", :id, "--cpus", "4"]
+    vb.customize ["modifyvm", :id, "--cpus", "2"]
+    override.vm.network :forwarded_port, guest: 9092, host: 9092 #Kafka
+    override.vm.network :forwarded_port, guest: 2181, host: 2181 #Zookeeper
+    override.vm.network :forwarded_port, guest: 9042, host: 9042 #Cassandra CQL
+    override.vm.network :forwarded_port, guest: 9160, host: 9160 #Cassandra Thrift
+    override.vm.network :forwarded_port, guest: 7199, host: 7199 #Cassandra JMX (TODO - confirm)
+ 
+  end
+
+  config.vm.provider :aws do |aws, override|
+    aws.access_key_id = ENV['AWS_ACCESS_KEY']
+    aws.secret_access_key = ENV['AWS_SECRET_KEY']
+    aws.keypair_name = ENV['AWS_KEYPAIR']
+    aws.instance_type = "m1.small"
+    aws.security_groups = "kixi"
+
+    aws.ami = "ami-7747d01e" # for m1.small
+
+    aws.user_data = "#cloud-config\nbootcmd:\n - echo 'manual' > /etc/init/ssh.override\npackages:\n - ruby-1.9.3\nruncmd:\n - [ wget, 'https://www.opscode.com/chef/install.sh', -O, /tmp/install_chef.sh ]\n - [sh, /tmp/install_chef.sh]\n - [ 'rm', '/etc/init/ssh.override' ]\n - [ 'service', 'ssh', 'start' ]\n"
+
+
+    override.vm.box = "dummy"
+    override.ssh.username = "ubuntu"
+    override.ssh.private_key_path = ENV['SSH_KEY_PATH']
   end
 
   # Enable provisioning with chef solo, specifying a cookbooks path, roles
@@ -48,10 +65,20 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
                              }
                            }
                          }
+                       },
+                       :cassandra => {
+                         :version => "1.2.15"
+                       },
+                       :kafka => {
+                         :version => "0.8.0",
+                         :init_style => :upstart
                        }
     })
+
     chef.add_recipe "apt"
     chef.add_recipe "java"
+    chef.add_recipe "kafka::zookeeper"
+    chef.add_recipe "cassandra::datastax"
   end
 
 end

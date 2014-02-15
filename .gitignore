@@ -8,3 +8,6 @@ pom.xml.asc
 /.lein-*
 /.nrepl-port
 /.vagrant
+/.ruby-*
+/.env
+/vagrant/tmp

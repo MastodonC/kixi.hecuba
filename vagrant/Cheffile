@@ -3,5 +3,11 @@
 
 site 'http://community.opscode.com/api/v1'
 cookbook 'apt'
-cookbook 'java', :git =>
-'http://github.com/sw1nn/opscode-cookbooks-java'
+cookbook 'java', :git => 'http://github.com/sw1nn/opscode-cookbooks-java'
+
+# Zookeeper
+cookbook 'zookeeper'
+# Kafka
+cookbook 'kafka', :git => 'https://github.com/mthssdrbrg/kafka-cookbook'
+# Cassandra
+cookbook 'cassandra', :git => 'https://github.com/michaelklishin/cassandra-chef-cookbook'

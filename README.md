@@ -38,8 +38,21 @@ We are using Vagrant to manage dev environments.
 + ``cd ${PROJECT_HOME}``
 + ``vagrant up`` (This will download stuff the first time and will be slow, after that it will be quicker)
 + You will now have all the services required running in a virtual machine with the ports forwarded for access from your local machine
++ install the vbguest plugin so Virtual Box guest additions will updated
+  for you ``vagrant plugin install vagrant-vbguest``
 
-TODO [2014/02/06]: Currently you only get a VM with java installed, which is pretty useless, but watch this space.
+## Start an EC2 instance
+
++ make sure you have foreman installed
++ add the aws plugin ``vagrant plugin install vagrant-aws``
+
+```
+$ gem install foreman
+```
+
++ copy env.example into .env and edit your AWS credentials in there
++ ``foreman run vagrant up --provider=aws``
+
 
 ## Support
 

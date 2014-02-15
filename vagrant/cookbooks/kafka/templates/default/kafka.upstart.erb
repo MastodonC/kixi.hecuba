@@ -1,0 +1,24 @@
+# <%= @daemon_name %> - <%= @daemon_name %> daemon
+
+description "<%= @daemon_name %> daemon"
+
+start on runlevel [2345]
+stop on runlevel [016]
+
+kill signal INT
+kill timeout 10
+
+setuid kafka
+
+script
+  [ -f /etc/default/<%= @daemon_name %> ] && . /etc/default/<%= @daemon_name %>
+  exec $KAFKA_RUN $KAFKA_ARGS $KAFKA_CONFIG
+end script
+
+post-start script
+  tries=0
+  while [ ! `netstat --listen | grep -qE '<%= @port %>|ircd'` ] && [ $tries -lt 3 ]; do
+    sleep 1
+    tries=$((tries + 1))
+  done
+end script

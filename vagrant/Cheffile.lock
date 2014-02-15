@@ -1,0 +1,49 @@
+SITE
+  remote: http://community.opscode.com/api/v1
+  specs:
+    apt (2.3.6)
+    ark (0.4.2)
+    aws (1.0.0)
+    build-essential (1.4.2)
+    chef_handler (1.1.4)
+    windows (1.12.8)
+      chef_handler (>= 0.0.0)
+    yum (3.0.6)
+    zookeeper (1.5.0)
+      build-essential (>= 0.0.0)
+      java (>= 0.0.0)
+
+GIT
+  remote: http://github.com/sw1nn/opscode-cookbooks-java
+  ref: master
+  sha: 8f20a9a342087f978a5c2d1eef0d008098e899c6
+  specs:
+    java (1.13.1)
+      aws (>= 0.0.0)
+      windows (>= 0.0.0)
+
+GIT
+  remote: https://github.com/michaelklishin/cassandra-chef-cookbook
+  ref: master
+  sha: c724e40265493f7281d28f1e8ed1dd39831e6544
+  specs:
+    cassandra (2.1.0)
+      apt (>= 0.0.0)
+      ark (>= 0.0.0)
+      java (>= 0.0.0)
+      yum (~> 3.0)
+
+GIT
+  remote: https://github.com/mthssdrbrg/kafka-cookbook
+  ref: master
+  sha: 20b1c7e13c5aa3416ab8d9d9aa8b198416c2f0f1
+  specs:
+    kafka (0.2.0)
+
+DEPENDENCIES
+  apt (>= 0)
+  cassandra (>= 0)
+  java (>= 0)
+  kafka (>= 0)
+  zookeeper (>= 0)
+
