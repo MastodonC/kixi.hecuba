@@ -68,7 +68,13 @@
                                                                :unit {:label "Unit"}
                                                                :period {:label "Period"}
                                                                :deviceId {:label "Device"}}
-                                                        :sort [:type]}}}
+                                                        :sort [:type]}}
+                                     :measurements {:name "Measurements"
+                                               :header {:cols {:timestamp {:label "Timestamp"}
+                                                               :type {:label "Type"}
+                                                               :value {:label "Value"}
+                                                               :error {:label "Error"}}
+                                                        :sort [:timestamp]}}}
                             }
                            {:name :charts
                             :title "Charts"
@@ -204,12 +210,15 @@
             devices-table-pair (make-channel-pair)
             devices-detail-ajax-pair (make-channel-pair)
             devices-detail-pair (make-channel-pair)
-            sensors-table-pair (make-channel-pair)]
+            sensors-table-pair (make-channel-pair)
+            measurements-table-ajax-pair (make-channel-pair)
+            measurements-table-pair (make-channel-pair)]
 
         (ajax programmes-table-ajax-pair "application/edn")
         (ajax projects-table-ajax-pair "application/edn")
         (ajax properties-table-ajax-pair "application/json")
         (ajax devices-detail-ajax-pair "application/json")
+        (ajax measurements-table-ajax-pair "application/json")
 
         #_(go-loop []
           (when-let [url (<! in)]
@@ -279,6 +288,7 @@
         (om/set-state! owner :properties-table-channels properties-table-pair)
         (om/set-state! owner :devices-table-channels devices-table-pair)
         (om/set-state! owner :sensors-table-channels sensors-table-pair)
+        (om/set-state! owner :measurements-table-channels measurements-table-pair)
 
         ))
 
@@ -298,6 +308,8 @@
                (dom/p nil (str "Latitude: " (get-in data [:location :latitude])))
                (dom/h2 nil "Sensors")
                (om/build table (get-in data [:tables :sensors]) {:opts (om/get-state owner :sensors-table-channels)})
+               (dom/h2 nil "Measurements")
+               (om/build table (get-in data [:tables :measurements]) {:opts (om/get-state owner :measurements-table-channels)})
                ))))
 
 
