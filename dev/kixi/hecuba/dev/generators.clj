@@ -17,31 +17,46 @@
 ;;;;;;;;;;;;;; Generate sensors ;;;;;;;;;;;;;;;
 
 (defn type-gen []
-  (gen/elements ["relativeHumidity" "temperature" "electricityConsumption" "gasAsHeatingFuel"]))
+  (gen/elements ["relativeHumidity" "temperature" "electricityConsumption" "gasAsHeatingFuel"
+                 "solarRadiation" "waterConsumption" "temperatureGround" "co2"]))
+
+(defn unit-gen [type]
+  (cond
+   (= "relativeHumidity" type) "%RH"
+   (= "temperature" type) "C"
+   (= "electricityConsumption" type) "kWh"
+   (= "gasHeatingFuel" type) "m^3"
+   (= "solarRadiation" type) "W/m^2"
+   (= "waterConsumption" type) "L"
+   (= "temperatureGround" type) "C"
+   (= "co2" type) "ppm"
+   :else ""))
 
 (defn generate-sensor-sample [period n]
-  (take n (repeatedly n #(hash-map
-                          :type (first (gen/sample (type-gen) 1))
-                          :unit ""
-                          :resolution ""
-                          :accuracy ""
-                          :period (first (gen/sample (gen/elements [period])))
-                          :min ""
-                          :max ""
-                          :correction ""
-                          :correctedUnit ""
-                          :correctionFactor ""
-                          :correctionFactorBreakdown ""
-                          :events 0
-                          :errors 0))))
+  (take n (repeatedly n #(let [type (first (gen/sample (type-gen) 1))
+                               unit (unit-gen type)]
+                           {:type type
+                            :unit unit
+                            :resolution (str (rand-int 60))
+                            :accuracy (str (rand-int 100))
+                            :period (first (gen/sample (gen/elements [period])))
+                            :min "0"
+                            :max (str (rand-int 100))
+                            :correction ""
+                            :correctedUnit ""
+                            :correctionFactor ""
+                            :correctionFactorBreakdown ""
+                            :events 0
+                            :errors 0}))))
 
 
 ;;;;;;;;;;;;;;; Generate devices ;;;;;;;;;;;;;;
 
 (def location-gen
-  (gen/hash-map :name gen/string-alpha-numeric
-                :latitude gen/string-alpha-numeric
-                :longitude gen/string-alpha-numeric))
+  {:name (first (gen/sample 
+                 (gen/not-empty (gen/elements ["Kitchen" "Living Room Floor" "Living Room Ceiling" "Bathroom"])) 1))
+   :latitude (str (rand 55)) 
+   :longitude (str (rand 1))})
 
 (defn generate-device-sample
   [entity-id n]
@@ -50,7 +65,7 @@
                                  :description (first (gen/sample gen/string 1))
                                  :parent-id (uuid)
                                  :entity-id entity-id
-                                 :location (json/write-str (first (gen/sample location-gen 1)))
+                                 :location (json/write-str location-gen)
                                  :metadata ""
                                  :privacy (first (gen/sample (gen/not-empty (gen/elements ["public" "private"])) 1))
                                  :meteringPointId (uuid)))))
