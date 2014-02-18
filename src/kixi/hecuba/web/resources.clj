@@ -65,6 +65,7 @@
 
   :exists? true                  ; This 'factory' resource ALWAYS exists
   :available-media-types base-media-types
+  :known-content-type? #{"application/edn"}
 
   :authorized? (authorized? typ querier)
 
@@ -74,7 +75,7 @@
           (->>
            {:hecuba/type typ} ; form a 'where' clause starting with the type
            (merge route-params)         ; adding any route-params
-           (items querier)              ; to query items
+           (items querier typ)              ; to query items
            ;; which are adorned with hrefs, throwing bidi's path-for all the kv pairs we have!
            (map #(-> (assoc %
                        :hecuba/href (apply path-for routes item-resource (apply concat %)))
@@ -99,6 +100,7 @@
   (fn [{{body :body route-params :route-params} :request}]
     {:hecuba/id                  ; add this entry to Liberator's context
      (upsert! commander
+              typ
               (merge
                ;; Depending on the URI, the :hecuba/parent may already
                ;; be known. If so, it can be set (but the merge will
@@ -109,8 +111,9 @@
                    io/reader (java.io.PushbackReader.)
                    ;; Read the body (can't repeat this so no transactions!)
                    edn/read io!
-                   ;; Add the type prior to upserting
-                   (assoc :hecuba/type typ))))})
+                   ;; Add the type
+                   (assoc :hecuba/type typ)
+                   )))})
 
   :handle-created                       ; do this upon a successful POST
   (fn [{{routes :jig.bidi/routes route-params :route-params} :request id :hecuba/id}]
@@ -158,6 +161,7 @@
 (defresource item-resource [typ parent-resource child-index-p {:keys [querier]}]
   :allowed-methods #{:get}
   :available-media-types base-media-types
+  :known-content-type? #{"application/edn"}
 
   :authorized? (authorized? typ querier)
 
@@ -166,7 +170,7 @@
                                         ; pattern
   (fn [{{{id :hecuba/id} :route-params body :body routes :jig.bidi/routes} :request}]
     (println "Does this item exist?" id)
-    (when-let [itm (item querier id)]
+    (when-let [itm (item querier typ id)]
       {::item (-> itm
                   (cond-> parent-resource
                           (assoc :hecuba/parent-href

@@ -1,4 +1,4 @@
-(def jig-version "2.0.0-RC8-SNAPSHOT")
+(def jig-version "2.0.0-RC7")
 
 (defproject hecuba "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
@@ -17,7 +17,7 @@
                  [om "0.2.3"]
                  [net.drib/mrhyde "0.5.2"]
 
-                 [jig ~jig-version]
+                 [jig/protocols ~jig-version]
                  [jig/async ~jig-version]
                  [jig/cljs-builder ~jig-version]
                  [jig/http-kit ~jig-version]
@@ -30,7 +30,10 @@
                                                                                     [log4j/log4j]]]
 
                  [reiddraper/simple-check "0.5.6"]
-                 [clj-time "0.6.0"]]
+                 [roul "0.2.0"]
+                 [com.stuartsierra/frequencies "0.1.0"]
+                 [clj-time "0.6.0"]
+                 [org.clojure/data.json "0.2.4"]]
 
   :source-paths ["src" "src-cljs"]
 

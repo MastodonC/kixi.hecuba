@@ -3,7 +3,7 @@
   (:require
    [om.core :as om :include-macros true]
    [om.dom :as dom :include-macros true]
-   [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map<]]
+   [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map< filter<]]
    [ajax.core :refer (GET POST)]
    [kixi.hecuba.navigation :as nav]
    [kixi.hecuba.web.chart :as chart]))
@@ -33,16 +33,37 @@
                            {:name :programmes
                             :title "Programmes"
                             :tables {:programmes {:name "Programmes"
-                                                  :header {:cols {:hecuba/name {:label "Name" :href :hecuba/href}
-                                                                  :leaders {:label "Leaders"}}
-                                                           :sort [:hecuba/name :leaders]}}
+                                                  :header {:cols {:name {:label "Name" :href :href}
+                                                                  :description {:label "Description"}
+                                                                  :created_at {:label "Created at"}
+                                                                  }
+                                                           :sort [:name :leaders]}}
                                      :projects {:name "Projects"
-                                                :header {:cols {:hecuba/name {:label "Name" :href :hecuba/href}}
-                                                         :sort [:hecuba/name]}}
+                                                :header {:cols {:name {:label "Name" :href :href}
+                                                                :type_of {:label "Type"}
+                                                                :description {:label "Description"}
+                                                                :created_at {:label "Created at"}
+                                                                :organisation {:label "Organisation"}
+                                                                :project_code {:label "Project code"}}
+                                                         :sort [:name]}}
                                      :properties {:name "Properties"
-                                                  :header {:cols {:hecuba/name {:label "Name" :href :hecuba/href}
-                                                                  :rooms {:label "Rooms"}}
-                                                           :sort [:hecuba/name :rooms]}}}
+                                                  :header {:cols {"addressStreetTwo" {:label "Address" :href "href"}
+                                                                  "addressCounty" {:label "County"}
+                                                                  "addressCountry" {:label "Country"}
+                                                                  "addressRegion" {:label "Region"}}
+                                                           :sort ["addressStreetTwo"]}}
+                                     :devices {:name "Devices"
+                                               :header {
+                                                        ;; TODO Why do keys work here? Probably a bug in the liberator resource
+                                                        :cols {:entity-id {:label "Entity"}
+                                                               :device-id {:label "Device"}
+                                                               }
+                                                        :sort [:entity-id :device-id]}}
+                                     :sensors {:name "Sensors"
+                                               :header {:cols {"type" {:label "Type"}
+                                                               "period" {:label "Period"}
+                                                               "deviceId" {:label "Device"}}
+                                                        :sort ["type"]}}}
                             }
                            {:name :charts
                             :title "Charts"
@@ -84,12 +105,16 @@
            (dom/h1 nil (:title data))
            (dom/p nil "List of users"))))
 
-(defn ajax [{:keys [in out]}]
+(defn ajax [{:keys [in out]} content-type]
   (go-loop []
            (when-let [url (<! in)]
+             (println "GET" url)
              (GET url
-                 {:handler (partial put! out)
-                  :headers {"Accept" "application/edn"
+                 {:handler (partial put!
+                                    (case content-type
+                                      "application/json" (js->clj out)
+                                      out))
+                  :headers {"Accept" content-type
                             "Authorization" "Basic Ym9iOnNlY3JldA=="}})
              (recur))))
 
@@ -102,7 +127,11 @@
                (when-let [data (<! in)]
                  (om/set-state! owner :data data)
                  (om/transact! cursor :selected (constantly (first data)))
-                 (put! out {:type :row-selected :row (first data)})
+                 (when-let [row (first data)]
+                   (put! out {:type :row-selected :row row})
+                   ;; TODO We need to 'clear' tables below us if there's no data on this table
+                   ;;(put! out {:type :clear-table})
+                   )
                  (recur))))
 
     om/IRender
@@ -122,6 +151,7 @@
                      (dom/tr #js {:onClick (om/pure-bind
                                                (fn [_ _]
                                                  (om/transact! cursor :selected (constantly row))
+                                                 (println {:type :row-selected :row row})
                                                  (put! out {:type :row-selected :row row})
                                                  )
 
@@ -165,11 +195,16 @@
             projects-table-ajax-pair (make-channel-pair)
             projects-table-pair (make-channel-pair)
             properties-table-ajax-pair (make-channel-pair)
-            properties-table-pair (make-channel-pair)]
+            properties-table-pair (make-channel-pair)
+            devices-table-pair (make-channel-pair)
+            devices-detail-ajax-pair (make-channel-pair)
+            devices-detail-pair (make-channel-pair)
+            sensors-table-pair (make-channel-pair)]
 
-        (ajax programmes-table-ajax-pair)
-        (ajax projects-table-ajax-pair)
-        (ajax properties-table-ajax-pair)
+        (ajax programmes-table-ajax-pair "application/edn")
+        (ajax projects-table-ajax-pair "application/edn")
+        (ajax properties-table-ajax-pair "application/json")
+        (ajax devices-detail-ajax-pair "application/json")
 
         ;; The data coming 'out' of the programmes table ajax controller goes 'in' to the programmes table
         (pipe (:out programmes-table-ajax-pair) (:in programmes-table-pair))
@@ -177,7 +212,7 @@
         ;; The row clicked coming 'out' of the programmes table, we pick
         ;; out the uri and feed it 'in' to the projects table ajax
         ;; controller
-        (pipe (map< (comp :hecuba/children-href :row) (:out programmes-table-pair))
+        (pipe (map< (comp :projects :row) (:out programmes-table-pair))
               (:in projects-table-ajax-pair))
 
         ;; The data coming 'out' of the projects table ajax controller goes 'in' to the projects table
@@ -186,13 +221,35 @@
         ;; The row clicked coming 'out' of the projects table, we pick
         ;; out the uri and feed it 'in' to the properties table ajax
         ;; controller
-        (pipe (map< (comp :hecuba/children-href :row) (:out projects-table-pair))
+        (pipe (map< (comp :properties :row) (:out projects-table-pair))
               (:in properties-table-ajax-pair))
 
         ;; The data coming 'out' of the properties table ajax controller goes 'in' to the properties table
         (pipe (:out properties-table-ajax-pair) (:in properties-table-pair))
 
-        (console-sink "properties-table" (:out properties-table-pair))
+        (pipe (map< (comp
+                     (fn [{:keys [id device-ids]}] (for [device-id device-ids] {:entity-id id :device-id device-id}))
+                     (fn [row] {:id (get row "id") :device-ids (get row "deviceIds")} ) ; from the device ids
+                     :row) ; stored on the property row
+                    (:out properties-table-pair))
+              (:in devices-table-pair))
+
+        (pipe (map< (comp (fn [{:keys [device-id entity-id]}]
+                            (if (and device-id entity-id)
+                              (do
+                                (println "Constructing URI to device" (str "/entities/" entity-id "/devices/" device-id))
+                                (str "/entities/" entity-id "/devices/" device-id))
+                              (str "/Dummy")
+                              ))
+                          :row)
+                    (:out devices-table-pair))
+              (:in devices-detail-ajax-pair))
+
+        (pipe (map< (fn [data] (get data "readings"))
+                    (:out devices-detail-ajax-pair))
+              (:in sensors-table-pair))
+
+        (console-sink "devices-detail-ajax" (:out sensors-table-pair))
 
         ;; Seed programmes table
         (put! (programmes-table-ajax-pair :in) "/programmes")
@@ -200,6 +257,8 @@
         (om/set-state! owner :programmes-table-channels programmes-table-pair)
         (om/set-state! owner :projects-table-channels projects-table-pair)
         (om/set-state! owner :properties-table-channels properties-table-pair)
+        (om/set-state! owner :devices-table-channels devices-table-pair)
+        (om/set-state! owner :sensors-table-channels sensors-table-pair)
 
         ))
 
@@ -208,9 +267,16 @@
       (dom/div nil
            (dom/h1 nil (:title data))
            (om/build table (get-in data [:tables :programmes]) {:opts (om/get-state owner :programmes-table-channels)})
+           (dom/h2 nil "Projects")
            (om/build table (get-in data [:tables :projects]) {:opts (om/get-state owner :projects-table-channels)})
+           (dom/h2 nil "Properties")
            (om/build table (get-in data [:tables :properties]) {:opts (om/get-state owner :properties-table-channels)})
+           (dom/h2 nil "Devices")
+           (om/build table (get-in data [:tables :devices]) {:opts (om/get-state owner :devices-table-channels)})
+           (dom/h2 nil "Sensors")
+           (om/build table (get-in data [:tables :sensors]) {:opts (om/get-state owner :sensors-table-channels)})
            ))))
+
 
 (defn tab-container [tabs]
   (fn [data owner]

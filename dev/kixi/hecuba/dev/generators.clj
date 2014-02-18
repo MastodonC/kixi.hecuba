@@ -1,0 +1,185 @@
+(ns kixi.hecuba.dev.generators
+  (:require [roul.random :as rr]
+            [clj-time.core :as t]
+            [clj-time.format :as tf]
+            [clj-time.coerce :as tc]
+            [clj-time.periodic :as periodic]
+            [simple-check.generators :as gen]
+            [clojure.data.json :as json]
+
+            [clojurewerkz.cassaforte.client :as client]
+            [clojurewerkz.cassaforte.query :as query]
+            [clojurewerkz.cassaforte.cql :as cql])
+  (:import (jig Lifecycle)))
+
+(defn uuid [] (java.util.UUID/randomUUID))
+
+;;;;;;;;;;;;;; Generate sensors ;;;;;;;;;;;;;;;
+
+(defn type-gen []
+  (gen/elements ["relativeHumidity" "temperature" "electricityConsumption" "gasAsHeatingFuel"]))
+
+(defn generate-sensor-sample [period n]
+  (take n (repeatedly n #(hash-map
+                          :type (first (gen/sample (type-gen) 1))
+                          :unit ""
+                          :resolution ""
+                          :accuracy ""
+                          :period (first (gen/sample (gen/elements [period])))
+                          :min ""
+                          :max ""
+                          :correction ""
+                          :correctedUnit ""
+                          :correctionFactor ""
+                          :correctionFactorBreakdown ""
+                          :events 0
+                          :errors 0))))
+
+
+;;;;;;;;;;;;;;; Generate devices ;;;;;;;;;;;;;;
+
+(def location-gen
+  (gen/hash-map :name gen/string-alpha-numeric
+                :latitude gen/string-alpha-numeric
+                :longitude gen/string-alpha-numeric))
+
+(defn generate-device-sample
+  [entity-id n]
+  (take n (repeatedly n
+                      #(hash-map :device-id (str (uuid))
+                                 :description (first (gen/sample gen/string 1))
+                                 :parent-id (uuid)
+                                 :entity-id entity-id
+                                 :location (json/write-str (first (gen/sample location-gen 1)))
+                                 :metadata ""
+                                 :privacy (first (gen/sample (gen/not-empty (gen/elements ["public" "private"])) 1))
+                                 :meteringPointId (uuid)))))
+
+;;;;;;;;;;;;;;;;; Generate measurements ;;;;;;;;;;;;;;;;
+
+(defn timestamps [frequency]
+  (into [] (take 50 (periodic/periodic-seq (t/now) frequency))))
+
+(defn get-month [timestamp]
+   (str (t/year timestamp) "-" (t/month timestamp)))
+
+;; Standard measurements
+
+(defmulti generate-measurements
+  "Dispatches a call to a specific device period and generates
+  appropriate measurements."
+  (fn [sensor]
+    (:period sensor)))
+
+(defmethod generate-measurements "INSTANT"
+  [sensor]
+    (let [timestamps (timestamps (t/minutes 5))
+          type       (:type sensor)]
+    (map #(hash-map :device-id (:device-id sensor)
+                    :type type
+                    :month (get-month %)
+                    :timestamp (tc/to-date %)
+                    :value (str (rand 150))
+                    :error "false") timestamps)))
+
+(defmethod generate-measurements "PULSE"
+  [sensor]
+  (let [timestamps (timestamps (t/hours 2))
+        type       (:type sensor)]
+    (map #(hash-map :device-id (:device-id sensor)
+                    :type type
+                    :month (get-month %)
+                    :timestamp (tc/to-date %)
+                    :value (str (rand-int 100))
+                    :error "false") timestamps)))
+
+(defmethod generate-measurements "CUMULATIVE"
+  [sensor]
+   (let [timestamps (timestamps (t/minutes 15))
+         type       (:type sensor)]
+     (map-indexed (fn [i t] (hash-map :device-id (:device-id sensor)
+                                      :type type
+                                      :month (get-month t)
+                                      :timestamp (tc/to-date t)
+                                      :value (str i)
+                                      :error "false")) timestamps)))
+
+(defn measurements
+  "Iterates through all sensors and generates appropriate
+  measurements. Returns a list of maps."
+  [sensor]
+  (generate-measurements sensor))
+
+;; Invalid measurements
+(defn generate-measurements-above-median
+  "Generates measurements that contain readings 200 x median."
+  [sensor]
+  (let [timestamps (timestamps (t/minutes 5))
+        device-id  (:device-id sensor)
+        type       (:type sensor)]
+    (map-indexed (fn [i t] (hash-map :device-id device-id
+                                     :type type
+                                     :month (get-month t)
+                                     :timestamp t
+                                     :value (str (if (= 0 (mod i 50)) (* 300 (rr/rand-gaussian-int)) (rr/rand-gaussian-int)))
+                                     :error "false")) timestamps)))
+
+(defn generate-invalid-measurements
+  "Generates measurements that contain invalid readings."
+  [sensor]
+  (let [timestamps (timestamps (t/minutes 5))
+        device-id  (:device-id sensor)
+        type       (:type sensor)]
+    (map-indexed (fn [i t] (merge {:device-id device-id
+                                   :type type
+                                   :month (get-month t)
+                                   :timestamp (tc/to-date t)}
+                                  (if (= 0 (mod i 5))
+                                    {:value "Invalid reading"
+                                     :error "true"}
+                                    {:value (str (rand-int 10))
+                                     :error "false"}))) timestamps)))
+
+(defn mislabelled-measurements
+  "Generates mislabelled measurements
+   for a given sensor."
+  [sensor period]
+  (let [sensor (assoc-in sensor [:period] period)]
+    (generate-measurements sensor)))
+
+(defn validate-and-insert
+  "Updates appropriate counters and inserts data."
+  [session measurement]
+  (binding [client/*default-session* session]
+   ; (v/validate-measurement session measurement)
+    (cql/insert "measurements" measurement)))
+
+(defn insert-measurements
+  [session measurements]
+  (doseq [m measurements] (validate-and-insert session m)))
+
+(defn insert-sensors
+  [session sensors]
+  (binding [client/*default-session* session]
+    (doseq [s sensors] (cql/insert "sensors" s))))
+
+(defn insert-devices
+  [session devices]
+  (binding [client/*default-session* session]
+    (doseq [d devices] (cql/insert "devices" d))))
+
+;; STEPS:
+;; 1. Create devices
+;; 2. Create sensor for each device
+;; 3. Create measurements for each sensor
+;; e.g.
+;; (let [devices (generate-device-sample 5)
+;;       sensors (reduce concat (map #(generate-sensor-sample "CUMULATIVE" 1) devices))]
+;;   (doseq [s sensors] (insert-measurements session (measurements s))))
+
+
+(deftype DataGenerator [config]
+  Lifecycle
+  (init [_ system] system)
+  (start [_ system] system)
+  (stop [_ system] system))

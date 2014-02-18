@@ -7,8 +7,7 @@
    [clj-kafka.core        :as kcore]
    [clj-kafka.consumer.zk :as consumer])
   (:import
-   (jig Lifecycle)
-   (kixi.hecuba.protocols Commander)))
+   (jig Lifecycle)))
 
 (defn string-value
   [m]
@@ -26,13 +25,6 @@
 (defn create-kafka-connections
   [system config]
   (update-in system [(:jig/id config) ::producer-config] conj (:producer config)))
-
-(deftype KafkaCommander [producer-config]
-  Commander
-  (upsert! [_ payload]
-    (send-msg payload)
-    )
-  )
 
 (deftype Kafka [config]
   Lifecycle

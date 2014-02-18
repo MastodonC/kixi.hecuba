@@ -40,3 +40,22 @@
 ** TODO add dummy properties as well as projects, with a relationship between the 2
 
 * TODO Relative URIs should be absolute in content (sw1nn)
+
+* TODO Tuesday plan <2014-02-11 Tue>
+
+** DONE remove all the printlns that helped us along
+
+** TODO get the example data loader component working again
+
+** TODO get the hecuba tests on reset working (perhaps add in the amon_tests now, they run very fast (sub-second) - even on C*
+
+** TODO then get the UI working again
+- [X] Switch from property to entity, using the AMON API
+
+** TODO Add core.async channel to emulate Kafka
+
+** TODO then start to flesh out the functionality - right now it's a single measurement being added to C*, that's it,
+
+** TODO then work with Anna getting her simpletest measurement generation hooked up so it runs through the loop
+
+** TODO then cake! (if we get that far)
