@@ -310,22 +310,15 @@
         [false {:body body}] ; it's not malformed, return the body now we've read it
         )))
 
-  #_:handle-ok
-  #_(fn [{{mime :media-type} :representation {routes :jig.bidi/routes route-params :route-params} :request}]
-    (let [coll (if (:entity-id route-params)
-                 (items querier :device route-params)
-                 (items querier :device))]
-      (case mime
-        "text/html" (render-items-html coll)
-        "application/json" (encode (map camelify (map downcast-to-json coll)))
-        coll)))
-
   :post!
   (fn [{{{entity-id :entity-id} :route-params} :request body :body}]
     (let [device-id (str (make-uuid))]
       (doseq [reading (:readings body)]
         (upsert! commander :sensor (->shallow-kebab-map (assoc reading :device-id device-id))))
-      {:device-id (upsert! commander :device (-> body (assoc :id device-id) (dissoc :readings)))}))
+      {:device-id (upsert! commander :device (-> body
+                                                 (assoc :id device-id)
+                                                 (dissoc :readings)
+                                                 (update-in [:location] encode)))}))
 
   :handle-created
   (fn [{{routes :jig.bidi/routes {entity-id :entity-id} :route-params} :request device-id :device-id}]
@@ -348,6 +341,7 @@
                #_(prn "item is " item)
                (-> item
                    (assoc :readings (items querier :sensor {:device-id (:id item)}))
+                   (update-in [:location] decode)
                    downcast-to-json camelify encode)))
 
 (defresource measurements [{:keys [commander querier]} handlers]

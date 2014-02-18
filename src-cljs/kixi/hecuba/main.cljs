@@ -32,6 +32,9 @@
                            {:name :users :title "Users"}
                            {:name :programmes
                             :title "Programmes"
+                            :location {:name "(location name goes here)"
+                                       :longitude "0"
+                                       :latitude "0"}
                             :tables {:programmes {:name "Programmes"
                                                   :header {:cols {:name {:label "Name" :href :href}
                                                                   :description {:label "Description"}
@@ -42,16 +45,17 @@
                                                 :header {:cols {:name {:label "Name" :href :href}
                                                                 :type_of {:label "Type"}
                                                                 :description {:label "Description"}
+                                                                ;; TODO Why are these underscores?
                                                                 :created_at {:label "Created at"}
                                                                 :organisation {:label "Organisation"}
                                                                 :project_code {:label "Project code"}}
                                                          :sort [:name]}}
                                      :properties {:name "Properties"
-                                                  :header {:cols {"addressStreetTwo" {:label "Address" :href "href"}
-                                                                  "addressCounty" {:label "County"}
-                                                                  "addressCountry" {:label "Country"}
-                                                                  "addressRegion" {:label "Region"}}
-                                                           :sort ["addressStreetTwo"]}}
+                                                  :header {:cols {:addressStreetTwo {:label "Address" :href "href"}
+                                                                  :addressCounty {:label "County"}
+                                                                  :addressCountry {:label "Country"}
+                                                                  :addressRegion {:label "Region"}}
+                                                           :sort [:addressStreetTwo]}}
                                      :devices {:name "Devices"
                                                :header {
                                                         ;; TODO Why do keys work here? Probably a bug in the liberator resource
@@ -60,11 +64,11 @@
                                                                }
                                                         :sort [:entity-id :device-id]}}
                                      :sensors {:name "Sensors"
-                                               :header {:cols {"type" {:label "Type"}
-                                                               "unit" {:label "Unit"}
-                                                               "period" {:label "Period"}
-                                                               "deviceId" {:label "Device"}}
-                                                        :sort ["type"]}}}
+                                               :header {:cols {:type {:label "Type"}
+                                                               :unit {:label "Unit"}
+                                                               :period {:label "Period"}
+                                                               :deviceId {:label "Device"}}
+                                                        :sort [:type]}}}
                             }
                            {:name :charts
                             :title "Charts"
@@ -106,16 +110,18 @@
            (dom/h1 nil (:title data))
            (dom/p nil "List of users"))))
 
+(defn update-when [x pred f & args]
+  (if pred (apply f x args) x))
+
 (defn ajax [{:keys [in out]} content-type]
   (go-loop []
     (when-let [url (<! in)]
-      (println "GET" url)
       (GET url
-          {:handler #(put! out (case content-type
-                                 "application/json" (js->clj %)
-                                 %))
-           :headers {"Accept" content-type
-                     "Authorization" "Basic Ym9iOnNlY3JldA=="}})
+          (-> {:handler #(put! out %)
+               :headers {"Accept" content-type
+                         "Authorization" "Basic Ym9iOnNlY3JldA=="}}
+              (update-when (= content-type "application/json") merge {:response-format :json :keywords? true})))
+
       (recur))))
 
 (defn table [cursor owner {:keys [in out]}]
@@ -151,7 +157,6 @@
                      (dom/tr #js {:onClick (om/pure-bind
                                                (fn [_ _]
                                                  (om/transact! cursor :selected (constantly row))
-                                                 (println {:type :row-selected :row row})
                                                  (put! out {:type :row-selected :row row})
                                                  )
 
@@ -206,6 +211,17 @@
         (ajax properties-table-ajax-pair "application/json")
         (ajax devices-detail-ajax-pair "application/json")
 
+        #_(go-loop []
+          (when-let [url (<! in)]
+            (println "GET" url)
+            (GET url
+                {:handler #(put! out (case content-type
+                                       "application/json" (js->clj %)
+                                       %))
+                 :headers {"Accept" content-type
+                           "Authorization" "Basic Ym9iOnNlY3JldA=="}})
+            (recur)))
+
         ;; The data coming 'out' of the programmes table ajax controller goes 'in' to the programmes table
         (pipe (:out programmes-table-ajax-pair) (:in programmes-table-pair))
 
@@ -228,9 +244,8 @@
         (pipe (:out properties-table-ajax-pair) (:in properties-table-pair))
 
         (pipe (map< (comp
-                     (fn [{:keys [id device-ids]}] (for [device-id device-ids] {:entity-id id :device-id device-id}))
-                     (fn [row] {:id (get row "id") :device-ids (get row "deviceIds")} ) ; from the device ids
-                     :row) ; stored on the property row
+                     (fn [{:keys [id deviceIds]}] (for [device-id deviceIds] {:entity-id id :device-id device-id}))
+                     :row)              ; stored on the property row
                     (:out properties-table-pair))
               (:in devices-table-pair))
 
@@ -245,7 +260,10 @@
                     (:out devices-table-pair))
               (:in devices-detail-ajax-pair))
 
-        (pipe (map< (fn [data] (get data "readings"))
+        (pipe (map< (fn [x]
+                      ;; TODO This should really be an independent consumer on a multiplexed channel
+                      (om/transact! data [:location :name] (constantly (-> x :location :name)))
+                      (:readings x))
                     (:out devices-detail-ajax-pair))
               (:in sensors-table-pair))
 
@@ -265,17 +283,20 @@
     om/IRender
     (render [_]
       (dom/div nil
-           (dom/h1 nil (:title data))
-           (om/build table (get-in data [:tables :programmes]) {:opts (om/get-state owner :programmes-table-channels)})
-           (dom/h2 nil "Projects")
-           (om/build table (get-in data [:tables :projects]) {:opts (om/get-state owner :projects-table-channels)})
-           (dom/h2 nil "Properties")
-           (om/build table (get-in data [:tables :properties]) {:opts (om/get-state owner :properties-table-channels)})
-           (dom/h2 nil "Devices")
-           (om/build table (get-in data [:tables :devices]) {:opts (om/get-state owner :devices-table-channels)})
-           (dom/h2 nil "Sensors")
-           (om/build table (get-in data [:tables :sensors]) {:opts (om/get-state owner :sensors-table-channels)})
-           ))))
+               (dom/h1 nil (:title data))
+               (om/build table (get-in data [:tables :programmes]) {:opts (om/get-state owner :programmes-table-channels)})
+               (dom/h2 nil "Projects")
+               (om/build table (get-in data [:tables :projects]) {:opts (om/get-state owner :projects-table-channels)})
+               (dom/h2 nil "Properties")
+               (om/build table (get-in data [:tables :properties]) {:opts (om/get-state owner :properties-table-channels)})
+               (dom/h2 nil "Devices")
+               (om/build table (get-in data [:tables :devices]) {:opts (om/get-state owner :devices-table-channels)})
+               (dom/p nil (str "Location " (get-in data [:location :name])))
+               (dom/p nil (str "Longitude " (get-in data [:location :longitude])))
+               (dom/p nil (str "Latitude " (get-in data [:location :latitude])))
+               (dom/h2 nil "Sensors")
+               (om/build table (get-in data [:tables :sensors]) {:opts (om/get-state owner :sensors-table-channels)})
+               ))))
 
 
 (defn tab-container [tabs]

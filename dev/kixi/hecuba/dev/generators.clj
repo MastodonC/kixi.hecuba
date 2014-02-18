@@ -52,10 +52,10 @@
 
 ;;;;;;;;;;;;;;; Generate devices ;;;;;;;;;;;;;;
 
-(def location-gen
-  {:name (first (gen/sample 
+(defn location-gen []
+  {:name (first (gen/sample
                  (gen/not-empty (gen/elements ["Kitchen" "Living Room Floor" "Living Room Ceiling" "Bathroom"])) 1))
-   :latitude (str (rand 55)) 
+   :latitude (str (rand 55))
    :longitude (str (rand 1))})
 
 (defn generate-device-sample
@@ -65,7 +65,7 @@
                                  :description (first (gen/sample gen/string 1))
                                  :parent-id (uuid)
                                  :entity-id entity-id
-                                 :location (json/write-str location-gen)
+                                 :location (location-gen)
                                  :metadata ""
                                  :privacy (first (gen/sample (gen/not-empty (gen/elements ["public" "private"])) 1))
                                  :meteringPointId (uuid)))))
