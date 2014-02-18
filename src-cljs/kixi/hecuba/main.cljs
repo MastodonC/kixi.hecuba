@@ -263,6 +263,8 @@
         (pipe (map< (fn [x]
                       ;; TODO This should really be an independent consumer on a multiplexed channel
                       (om/transact! data [:location :name] (constantly (-> x :location :name)))
+                      (om/transact! data [:location :longitude] (constantly (-> x :location :longitude)))
+                      (om/transact! data [:location :latitude] (constantly (-> x :location :latitude)))
                       (:readings x))
                     (:out devices-detail-ajax-pair))
               (:in sensors-table-pair))
@@ -291,9 +293,9 @@
                (om/build table (get-in data [:tables :properties]) {:opts (om/get-state owner :properties-table-channels)})
                (dom/h2 nil "Devices")
                (om/build table (get-in data [:tables :devices]) {:opts (om/get-state owner :devices-table-channels)})
-               (dom/p nil (str "Location " (get-in data [:location :name])))
-               (dom/p nil (str "Longitude " (get-in data [:location :longitude])))
-               (dom/p nil (str "Latitude " (get-in data [:location :latitude])))
+               (dom/p nil (str "Location: " (get-in data [:location :name])))
+               (dom/p nil (str "Longitude: " (get-in data [:location :longitude])))
+               (dom/p nil (str "Latitude: " (get-in data [:location :latitude])))
                (dom/h2 nil "Sensors")
                (om/build table (get-in data [:tables :sensors]) {:opts (om/get-state owner :sensors-table-channels)})
                ))))
