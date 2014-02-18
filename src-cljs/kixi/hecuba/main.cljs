@@ -61,6 +61,7 @@
                                                         :sort [:entity-id :device-id]}}
                                      :sensors {:name "Sensors"
                                                :header {:cols {"type" {:label "Type"}
+                                                               "unit" {:label "Unit"}
                                                                "period" {:label "Period"}
                                                                "deviceId" {:label "Device"}}
                                                         :sort ["type"]}}}
