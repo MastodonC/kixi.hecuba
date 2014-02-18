@@ -342,6 +342,7 @@
 (defmethod gen-key :entity [typ payload] (:id payload))
 (defmethod gen-key :device [typ payload] (:id payload))
 (defmethod gen-key :sensor [typ payload] nil)
+(defmethod gen-key :measurement [typ payload] nil)
 
 (defmulti get-primary-key-field (fn [typ] typ))
 (defmethod get-primary-key-field :programme [typ] :id)
@@ -356,6 +357,7 @@
 (defmethod get-table :device [_] "devices")
 (defmethod get-table :entity [_] "entities")
 (defmethod get-table :sensor [_] "sensors")
+(defmethod get-table :measurement [_] "measurements")
 
 (defn cassandraify
   "Cassandra has various conventions, such as forbidding hyphens in
@@ -384,7 +386,6 @@
     (debugf "type is %s, payload %s" typ payload)
     (binding [cassaclient/*default-session* session]
       (let [id (gen-key typ payload)]
-
         (cql/insert (get-table typ)
              (let [id-payload (if id (assoc payload :id id) payload)]
                (-> id-payload cassandraify)))

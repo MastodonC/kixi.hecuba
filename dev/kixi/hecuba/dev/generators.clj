@@ -90,9 +90,7 @@
   [sensor]
     (let [timestamps (timestamps (t/minutes 5))
           type       (:type sensor)]
-    (map #(hash-map :device-id (:device-id sensor)
-                    :type type
-                    :month (get-month %)
+    (map #(hash-map :type type
                     :timestamp (tc/to-date %)
                     :value (str (rand 150))
                     :error "false") timestamps)))
@@ -101,9 +99,7 @@
   [sensor]
   (let [timestamps (timestamps (t/hours 2))
         type       (:type sensor)]
-    (map #(hash-map :device-id (:device-id sensor)
-                    :type type
-                    :month (get-month %)
+    (map #(hash-map :type type
                     :timestamp (tc/to-date %)
                     :value (str (rand-int 100))
                     :error "false") timestamps)))
@@ -112,9 +108,7 @@
   [sensor]
    (let [timestamps (timestamps (t/minutes 15))
          type       (:type sensor)]
-     (map-indexed (fn [i t] (hash-map :device-id (:device-id sensor)
-                                      :type type
-                                      :month (get-month t)
+     (map-indexed (fn [i t] (hash-map :type type
                                       :timestamp (tc/to-date t)
                                       :value (str i)
                                       :error "false")) timestamps)))

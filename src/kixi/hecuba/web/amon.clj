@@ -4,11 +4,14 @@
    [bidi.bidi :refer (path-for)]
    [camel-snake-kebab :as csk :refer (->kebab-case-keyword ->camelCaseString)]
    [cheshire.core :refer (decode decode-stream encode)]
+   [clj-time.core :as t]
+   [clj-time.format :as tf]
+   [clj-time.coerce :as tc]
    [clojure.edn :as edn]
-   [clojure.string :as string]
    [clojure.java.io :as io]
-   [clojure.walk :refer (postwalk)]
    [clojure.pprint :refer (pprint)]
+   [clojure.string :as string]
+   [clojure.walk :refer (postwalk)]
    [hiccup.core :refer (html)]
    [jig.bidi :refer (add-bidi-routes)]
    [kixi.hecuba.protocols :refer (upsert! delete! item items)]
@@ -344,9 +347,28 @@
                    (update-in [:location] decode)
                    downcast-to-json camelify encode)))
 
+(defn get-month [t]
+  (format "%4d-%02d" (t/year t) (t/month t)))
+
 (defresource measurements [{:keys [commander querier]} handlers]
   :allowed-methods #{:post}
-  :post! (fn [_] (println "Measurement added!"))
+  :available-media-types #{"application/json"}
+  :known-content-type? #{"application/json"}
+  :post! (fn [{{body :body {:keys [device-id]} :route-params} :request}]
+           (doseq [measurement (-> body read-json-body ->shallow-kebab-map :measurements)]
+             (let [t (tf/parse (:date-time-no-ms tf/formatters) (get measurement "timestamp"))]
+               (println "measurement is " measurement)
+               (let [m2
+                     {:device-id device-id
+                      :type (get measurement "type")
+                      :timestamp (tc/to-date t)
+                      :value (get measurement "value")
+                      :error (get measurement "error")
+                      :month (get-month t)}
+                     ]
+                 (prn "m2 is " m2)
+                 (upsert! commander :measurement m2))))
+           (println "Measurements added!"))
   :handle-created (fn [_] (ring-response {:status 202 :body "Accepted"})))
 
 ;; Handlers and Routes
