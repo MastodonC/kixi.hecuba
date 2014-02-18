@@ -108,16 +108,15 @@
 
 (defn ajax [{:keys [in out]} content-type]
   (go-loop []
-           (when-let [url (<! in)]
-             (println "GET" url)
-             (GET url
-                 {:handler (partial put!
-                                    (case content-type
-                                      "application/json" (js->clj out)
-                                      out))
-                  :headers {"Accept" content-type
-                            "Authorization" "Basic Ym9iOnNlY3JldA=="}})
-             (recur))))
+    (when-let [url (<! in)]
+      (println "GET" url)
+      (GET url
+          {:handler #(put! out (case content-type
+                                 "application/json" (js->clj %)
+                                 %))
+           :headers {"Accept" content-type
+                     "Authorization" "Basic Ym9iOnNlY3JldA=="}})
+      (recur))))
 
 (defn table [cursor owner {:keys [in out]}]
   (reify
