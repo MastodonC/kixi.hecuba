@@ -65,12 +65,12 @@
     new-median))
 
 (defn is-errored?
-  [measurement median]
+  [measurement median events]
   (let [value (-> measurement :value read-string)
         error (-> measurement :error)]
     (or
      (= "true" error)
-     (not (integer? value))
+     (not (number? value))
      (larger-than-median? median value))))
 
 (defn is-broken?
@@ -79,12 +79,11 @@
   (when (and (not (zero? errors)) (not (zero? events)))
     (> (/ events errors) 0.1)))
 
-;; TODO Should reset status to ok or to empty status?
 (defn reset-counters!
   "Reset the counters and mark as ok."
   [querier commander device-id type events]
   (update! commander :sensor :events 0 {:device-id device-id :type type})
-  (update! commander :sensor :status "ok" {:device-id device-id :type type}))
+  (update! commander :sensor :errors 0 {:device-id device-id :type type}))
 
 (defn validate-measurement
   "Called before inserting the measurement. Increments appropriate counters"
@@ -94,16 +93,16 @@
         sensor    (items querier :sensor {:device-id device-id :type type})
         errors    (-> sensor first :errors read-string)
         events    (-> sensor first :events read-string)
-        median    (update-median querier commander sensor (-> measurement :value read-string))
-        ]
+        median    (update-median querier commander sensor (-> measurement :value read-string))]
     (do
       (when (= 1440 events)
         (reset-counters! querier commander device-id type events))
       (update! commander :sensor :events (inc events) {:device-id device-id :type type})
-      (when (is-errored? measurement median)
+      (when (is-errored? measurement median events)
         (update! commander :sensor :errors (inc errors) {:device-id device-id :type type}))
-      (when (is-broken? errors events)
-        (update! commander :sensor :status "broken" {:device-id device-id :type type})))))
+      (if (is-broken? errors events)
+        (update! commander :sensor :status "Broken" {:device-id device-id :type type})
+        (update! commander :sensor :status "OK" {:device-id device-id :type type})))))
 
 
 

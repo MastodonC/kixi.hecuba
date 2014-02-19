@@ -48,6 +48,7 @@
                             :correctionFactorBreakdown ""
                             :events 0
                             :errors 0
+                            :status "Not enough data"
                             :median 0}))))
 
 
@@ -74,7 +75,7 @@
 ;;;;;;;;;;;;;;;;; Generate measurements ;;;;;;;;;;;;;;;;
 
 (defn timestamps [frequency]
-  (into [] (take 100 (periodic/periodic-seq (t/now) frequency))))
+  (into [] (take 1000 (periodic/periodic-seq (t/now) frequency))))
 
 (defn get-month [timestamp]
    (str (t/year timestamp) "-" (t/month timestamp)))
@@ -93,7 +94,7 @@
           type       (:type sensor)]
     (map #(hash-map :type type
                     :timestamp (tc/to-date %)
-                    :value (str (rand 150))
+                    :value (str (rand 50))
                     :error "false") timestamps)))
 
 (defmethod generate-measurements "PULSE"
