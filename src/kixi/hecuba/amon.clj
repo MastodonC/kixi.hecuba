@@ -38,8 +38,6 @@
   (read-edn-body [body] (io! (edn/read (java.io.PushbackReader. (io/reader body)))))
   (read-json-body [body] (io! (decode-stream (io/reader body)))))
 
-(defn make-uuid [] (java.util.UUID/randomUUID))
-
 (defn downcast-to-json
   "For JSON serialization we need to widen the types contained in the structure."
   [x]
@@ -256,7 +254,9 @@
 
   :post!
   (fn [{{body :body} :request}]
-    {:entity-id (upsert! commander :entity (-> body read-json-body ->shallow-kebab-map (assoc :id (str (make-uuid)))))})
+    (let [entity (-> body read-json-body ->shallow-kebab-map)]
+      (println "entity is" entity)
+      {:entity-id (upsert! commander :entity entity)}))
 
   :handle-created
   (fn [{{routes :jig.bidi/routes} :request id :entity-id}]
@@ -309,19 +309,18 @@
       (if
           (or
            (not= (:entity-id body) entity-id))
-        true ; it's malformed, game over
+        true                 ; it's malformed, game over
         [false {:body body}] ; it's not malformed, return the body now we've read it
         )))
 
   :post!
   (fn [{{{entity-id :entity-id} :route-params} :request body :body}]
-    (let [device-id (str (make-uuid))]
+    (let [device-id (upsert! commander :device (-> body
+                                                   (dissoc :readings)
+                                                   (update-in [:location] encode)))]
       (doseq [reading (:readings body)]
         (upsert! commander :sensor (->shallow-kebab-map (assoc reading :device-id device-id))))
-      {:device-id (upsert! commander :device (-> body
-                                                 (assoc :id device-id)
-                                                 (dissoc :readings)
-                                                 (update-in [:location] encode)))}))
+      {:device-id device-id}))
 
   :handle-created
   (fn [{{routes :jig.bidi/routes {entity-id :entity-id} :route-params} :request device-id :device-id}]

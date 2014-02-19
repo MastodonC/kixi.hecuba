@@ -339,8 +339,13 @@
 (defmulti gen-key (fn [typ payload] typ))
 (defmethod gen-key :programme [typ payload] ((sha1-keyfn :name) payload))
 (defmethod gen-key :project [typ payload] ((sha1-keyfn :name) payload))
-(defmethod gen-key :entity [typ payload] (:id payload))
-(defmethod gen-key :device [typ payload] (:id payload))
+
+;; From the CSV files, we actually have an id we can SHA1 from
+;; For new properties, we'll have to decide which fields make up the property's 'value'
+(defmethod gen-key :entity [typ payload] ((sha1-keyfn :id) payload))
+;; Again, not sure what should go into the SHA1 here, but it's unlikely for two devices to share the same exact location (which includes name), so let's use that for now
+(defmethod gen-key :device [typ payload] ((sha1-keyfn :location) payload))
+
 (defmethod gen-key :sensor [typ payload] nil)
 (defmethod gen-key :measurement [typ payload] nil)
 
