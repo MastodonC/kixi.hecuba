@@ -4,6 +4,7 @@
            [clj-time.format :as tf]
            [com.stuartsierra.frequencies :as freq]
            [clojure.data.json :as json]
+           [kixi.hecuba.protocols :refer (upsert! update! delete! item items)]
            [kixi.hecuba.db :as db]))
 
 ;;; Helper functions ;;;
@@ -76,16 +77,17 @@
 
 (defn validate-measurement
   "Called before inserting the measurement. Increments appropriate counters"
-  [session measurement]
-  (let [device-id (:device_id measurement)
+  [querier commander measurement]
+  (let [device-id (:device-id measurement)
         type      (:type measurement)
-        errors    (:errors (db/get-counter session device-id type :errors))
-        events    (:events (db/get-counter session device-id type :events))]
-    (db/update-counter session device-id type :events (inc events))
+        sensor    (items querier :sensor {:device-id device-id :type type})
+        errors    (-> sensor first :errors read-string)
+        events    (-> sensor first :events read-string)]
+    (update! commander :sensor :events (inc events) {:device-id device-id :type type})
     (when (is-errored? measurement)
-      (db/update-counter session device-id type :errors (inc errors)))
+      (update! commander :sensor :errors (inc errors) {:device-id device-id :type type}))
     (when (is-broken? errors events)
-      (db/update-sensor-status session device-id type "broken"))))
+      (update! commander :sensor :status "broken" {:device-id device-id :type type}))))
 
 
 

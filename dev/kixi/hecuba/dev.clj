@@ -396,6 +396,13 @@
                (-> id-payload cassandraify)))
         id)))
 
+  (update! [_ typ col payload where]
+    (assert col "No column!")
+    (assert where "No where clause!")
+    (binding [cassaclient/*default-session* session]
+      (cql/update (get-table typ) {col (int payload)}
+                  (apply cassaquery/where (apply concat (cassandraify where))))))
+
   (delete! [_ typ id]
     (assert id "No id!")
     (binding [cassaclient/*default-session* session]
@@ -418,7 +425,6 @@
   (items [this typ where]
     (map de-cassandraify
          (binding [cassaclient/*default-session* session]
-           (prn (apply concat (cassandraify where)))
            (cql/select (get-table typ)
                 (apply cassaquery/where (apply concat (cassandraify where)))))))
   (authorized? [_ props]

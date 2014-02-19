@@ -3,6 +3,7 @@
 
 (defprotocol Commander
   (upsert! [_ type payload])
+  (update! [_ type column payload where])
   (delete! [_ type id]))
 
 (defprotocol Querier

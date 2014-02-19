@@ -33,6 +33,7 @@
 (defn get-counter
   "Returns value of a specified counter (number)."
   [session device-id type counter]
+  (prn session)
   (binding [client/*default-session* session]
     (first (cql/select "sensors" (query/columns counter) (query/where :device_id device-id
                                                                       :type type)))))

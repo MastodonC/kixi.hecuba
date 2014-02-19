@@ -15,6 +15,7 @@
    [hiccup.core :refer (html)]
    [jig.bidi :refer (add-bidi-routes)]
    [kixi.hecuba.protocols :refer (upsert! delete! item items)]
+   [kixi.hecuba.data.validate :as validation]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    jig)
@@ -356,7 +357,6 @@
   :post! (fn [{{body :body {:keys [device-id]} :route-params} :request}]
            (doseq [measurement (-> body read-json-body ->shallow-kebab-map :measurements)]
              (let [t (tf/parse (:date-time-no-ms tf/formatters) (get measurement "timestamp"))]
-               (println "measurement is " measurement)
                (let [m2
                      {:device-id device-id
                       :type (get measurement "type")
@@ -365,8 +365,7 @@
                       :error (get measurement "error")
                       :month (get-month t)}
                      ]
-                 (prn "m2 is " m2)
-                 ;; TODO Add data validation here
+                 (validation/validate-measurement querier commander m2)
                  (upsert! commander :measurement m2))))
            (println "Measurements added!"))
   :handle-created (fn [_] (ring-response {:status 202 :body "Accepted"})))
