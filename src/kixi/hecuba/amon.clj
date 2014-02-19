@@ -256,7 +256,7 @@
   :post!
   (fn [{{body :body} :request}]
     (let [entity (-> body read-json-body ->shallow-kebab-map)]
-      (println "entity is" entity)
+     ; (println "entity is" entity)
       {:entity-id (upsert! commander :entity entity)}))
 
   :handle-created

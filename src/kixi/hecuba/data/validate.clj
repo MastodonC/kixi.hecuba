@@ -11,15 +11,6 @@
 
 (def custom-formatter (tf/formatter "yyyy-MM-dd HH:mm:ss"))
 
-(defn transform-measurements
-  "Takes measurements in the format returned from the database.
-   Returns a list of maps, with all values parsed approprietly."
-  [measurements]
-  (map (fn [m]
-         (assoc-in m [:value] (read-string (:value m))))
-       measurements))
-
-
 ;;; Data validation ;;;
 
 (defn going-up?
@@ -46,11 +37,10 @@
   "Frugal way to find the median of a stream.
   Assumes that measurement values are numbers
   and are valid."
-  [measurements]
-  (reduce (fn [n m] (cond (> (:value m) n) (inc n)
-                          (< (:value m) n) (dec n)
-                          :else n))
-          0 measurements))
+  [value median]
+  (cond (> value median) (inc median)
+        (< value median) (dec median)
+        :else median))
 
 (defn median
   "Find median of a lazy sequency of measurements.
@@ -58,22 +48,43 @@
   [measurements]
   (freq/median (frequencies (map :value measurements))))
 
-(defn larger-than-median
+(defn larger-than-median?
   "Find readings that are larger than median."
-  ([median measurements] (larger-than-median median measurements (* 200 median)))
-  ([median measurements n] (filter (fn [m] (>= (:value m) n)) measurements)))
+  ([median value] (larger-than-median? median value 200))
+  ([median value n] (>= value (* n median))))
 
-;; TODO Measurements will be converted to maps by this point. Invalid ones should already have
-;; error set to true.
+(defn update-median
+  "Updates median for a given sensor."
+  [querier commander sensor measurement]
+  (let [device-id    (-> sensor first :device-id)
+        type         (-> sensor first :type)
+        old-median   (-> sensor first :median read-string)
+        new-median   (median-stream measurement old-median)]
+    (when-not (= old-median new-median)
+      (update! commander :sensor :median new-median {:device-id device-id :type type}))
+    new-median))
+
 (defn is-errored?
-  [measurement]
-  (= "true" (:error measurement)))
+  [measurement median]
+  (let [value (-> measurement :value read-string)
+        error (-> measurement :error)]
+    (or
+     (= "true" error)
+     (not (integer? value))
+     (larger-than-median? median value))))
 
 (defn is-broken?
   "If 10% of measurements are invalid, device is broken."
   [errors events]
   (when (and (not (zero? errors)) (not (zero? events)))
     (> (/ events errors) 0.1)))
+
+;; TODO Should reset status to ok or to empty status?
+(defn reset-counters!
+  "Reset the counters and mark as ok."
+  [querier commander device-id type events]
+  (update! commander :sensor :events 0 {:device-id device-id :type type})
+  (update! commander :sensor :status "ok" {:device-id device-id :type type}))
 
 (defn validate-measurement
   "Called before inserting the measurement. Increments appropriate counters"
@@ -82,12 +93,17 @@
         type      (:type measurement)
         sensor    (items querier :sensor {:device-id device-id :type type})
         errors    (-> sensor first :errors read-string)
-        events    (-> sensor first :events read-string)]
-    (update! commander :sensor :events (inc events) {:device-id device-id :type type})
-    (when (is-errored? measurement)
-      (update! commander :sensor :errors (inc errors) {:device-id device-id :type type}))
-    (when (is-broken? errors events)
-      (update! commander :sensor :status "broken" {:device-id device-id :type type}))))
+        events    (-> sensor first :events read-string)
+        median    (update-median querier commander sensor (-> measurement :value read-string))
+        ]
+    (do
+      (when (= 1440 events)
+        (reset-counters! querier commander device-id type events))
+      (update! commander :sensor :events (inc events) {:device-id device-id :type type})
+      (when (is-errored? measurement median)
+        (update! commander :sensor :errors (inc errors) {:device-id device-id :type type}))
+      (when (is-broken? errors events)
+        (update! commander :sensor :status "broken" {:device-id device-id :type type})))))
 
 
 

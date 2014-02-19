@@ -47,7 +47,8 @@
                             :correctionFactor ""
                             :correctionFactorBreakdown ""
                             :events 0
-                            :errors 0}))))
+                            :errors 0
+                            :median 0}))))
 
 
 ;;;;;;;;;;;;;;; Generate devices ;;;;;;;;;;;;;;
@@ -73,7 +74,7 @@
 ;;;;;;;;;;;;;;;;; Generate measurements ;;;;;;;;;;;;;;;;
 
 (defn timestamps [frequency]
-  (into [] (take 50 (periodic/periodic-seq (t/now) frequency))))
+  (into [] (take 100 (periodic/periodic-seq (t/now) frequency))))
 
 (defn get-month [timestamp]
    (str (t/year timestamp) "-" (t/month timestamp)))

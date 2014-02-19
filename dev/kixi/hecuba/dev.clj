@@ -285,6 +285,7 @@
                            :correction_factor_breakdown :varchar
                            :events :int
                            :errors :int
+                           :median :int
                            :status :varchar
                            :primary-key [:device_id :type]})))
 
@@ -400,7 +401,7 @@
     (assert col "No column!")
     (assert where "No where clause!")
     (binding [cassaclient/*default-session* session]
-      (cql/update (get-table typ) {col (int payload)}
+      (cql/update (get-table typ) {col payload}
                   (apply cassaquery/where (apply concat (cassandraify where))))))
 
   (delete! [_ typ id]

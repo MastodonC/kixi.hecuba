@@ -1,6 +1,8 @@
 (ns kixi.hecuba.data-test
   (:use clojure.test)
   (:require [kixi.hecuba.data.validate :as v]
+            [kixi.hecuba.dev :refer (create-ref-store ->CassandraDirectCommander ->CassandraQuerier sha1-keyfn)]
+            [kixi.hecuba.protocols :refer (upsert! update! delete! item items)]
             [kixi.hecuba.db :as db]
             [clojurewerkz.cassaforte.client :as client]
             [clojurewerkz.cassaforte.query :as query]
@@ -13,7 +15,17 @@
             [clj-time.periodic :as periodic]
             [clojure.data.json :as json]))
 
+;; Helpers
+
 (defn uuid [] (java.util.UUID/randomUUID))
+
+(defn transform-measurements
+  "Takes measurements in the format returned from the database.
+   Returns a list of maps, with all values parsed approprietly."
+  [measurements]
+  (map (fn [m]
+         (assoc-in m [:value] (read-string (:value m))))
+       measurements))
 
 ;;;;;;;;;;;;;; Generate sensors ;;;;;;;;;;;;;;;
 
@@ -21,8 +33,8 @@
   (gen/elements ["relativeHumidity" "temperature" "electricityConsumption" "gasAsHeatingFuel"]))
 
 (defn generate-sensor-sample [device-id period n]
-  (take n (repeatedly n #(hash-map :sensor_id (str (uuid))
-                                   :device_id device-id
+  (take n (repeatedly n #(hash-map :sensor-id (str (uuid))
+                                   :device-id device-id
                                    :type (first (gen/sample (type-gen) 1)) 
                                    :unit ""
                                    :resolution ""
@@ -47,10 +59,10 @@
 (defn generate-device-sample
   [n]
   (take n (repeatedly n
-                      #(hash-map :device_id (str (uuid))
+                      #(hash-map :device-id (str (uuid))
                                  :description (first (gen/sample gen/string 1)) 
-                                 :parent_id (uuid)
-                                 :entity_id (uuid)
+                                 :parent-id (uuid)
+                                 :entity-id (uuid)
                                  :location (json/write-str (first (gen/sample location-gen 1)))
                                  :metadata ""
                                  :privacy (first (gen/sample (gen/not-empty (gen/elements ["public" "private"])) 1)) 
@@ -61,8 +73,8 @@
 (defn timestamps [frequency]
   (into [] (take 50 (periodic/periodic-seq (t/now) frequency))))
 
-(defn get-month [timestamp]
-   (str (t/year timestamp) "-" (t/month timestamp)))
+(defn get-month [t]
+  (format "%4d-%02d" (t/year t) (t/month t)))
 
 ;; Standard measurements
 
@@ -76,7 +88,7 @@
   [sensor]
     (let [timestamps (timestamps (t/minutes 5))
           type       (:type sensor)]
-    (map #(hash-map :device_id (:device_id sensor)
+    (map #(hash-map :device-id (:device-id sensor)
                     :type type
                     :month (get-month %)
                     :timestamp (tc/to-date %)
@@ -87,7 +99,7 @@
   [sensor]
   (let [timestamps (timestamps (t/hours 2))
         type       (:type sensor)]
-    (map #(hash-map :device_id (:device_id sensor) 
+    (map #(hash-map :device-id (:device-id sensor) 
                     :type type
                     :month (get-month %)
                     :timestamp (tc/to-date %)
@@ -98,7 +110,7 @@
   [sensor]
    (let [timestamps (timestamps (t/minutes 15))
          type       (:type sensor)]
-     (map-indexed (fn [i t] (hash-map :device_id (:device_id sensor) 
+     (map-indexed (fn [i t] (hash-map :device-id (:device-id sensor) 
                                       :type type
                                       :month (get-month t)
                                       :timestamp (tc/to-date t)
@@ -207,14 +219,20 @@
 
 (defn validate-and-insert
   "Updates appropriate counters and inserts data."
-  [session measurement]
-  (binding [client/*default-session* session]
-    (v/validate-measurement session measurement)
-    (cql/insert "measurements" measurement)))
+  [querier commander measurement]
+  (let [t (tf/parse (:date-time-no-ms tf/formatters (get measurement "timestamp")))
+        m {:device-id (get measurement "device-id")
+           :type (get measurement "type")
+           :timestamp (tc/to-date t)
+           :value (get measurement "value")
+           :error (get measurement "error")
+           :month (get-month t)}])
+  (v/validate-measurement querier commander  measurement)
+  (upsert! commander :measurement measurement))
 
 (defn insert-measurements
-  [session measurements]
-  (doseq [m measurements] (validate-and-insert session m)))
+  [querier commander measurements]
+  (doseq [m measurements] (validate-and-insert querier commander m)))
 
 (defn insert-sensors
   [session sensors]
@@ -243,7 +261,9 @@
 
 (deftest db-tests
   ;; TODO Should create and use separate keyspace for tests.
-  (let [session (-> user/system :cassandra :session)]
+  (let [session   (get-in user/system [:cassandra :session])
+        commander (->CassandraDirectCommander (get-in user/system [:cassandra :session]))
+        querier   (->CassandraQuerier (get-in user/system [:cassandra :session]))]
 
     (delete-schema session) ;; C* 1.2 does not support "IF (NOT) EXISTS"
     (converge-db session)
@@ -256,9 +276,9 @@
         (insert-sensors session sensors)
         (doseq [s sensors]
           (println "Inserting measurements for sensor: " (:sensor_id s))
-          (insert-measurements session (measurements s))
+          (insert-measurements querier commander (measurements s))
           (is (v/labelled-correctly? s (sort-by :timestamp (filter #(= (:type s) (:type %))
-                                                                   (v/transform-measurements
+                                                                   (transform-measurements
                                                                     (get-measurements (:device_id s) (:type s) "2014-2"))))))))) 
     (testing "Cumulative devices should be mislabelled."
       (let [devices (generate-device-sample 5)
@@ -268,11 +288,11 @@
         (insert-sensors session sensors)
         (doseq [s sensors]
           (println "Inserting measurements for sensor: " (:sensor_id s))
-          (insert-measurements session (mislabelled-measurements s "INSTANT"))
+          (insert-measurements querier commander (mislabelled-measurements s "INSTANT"))
           (is (= false (v/labelled-correctly? s 
                                               (sort-by :timestamp
                                                        (filter #(= (:type s) (:type %))
-                                                               (v/transform-measurements
+                                                               (transform-measurements
                                                                 (get-measurements (:device_id s) (:type s) "2014-2"))))))))))
 
     (testing "Should increment error counter."
@@ -283,9 +303,10 @@
         (insert-sensors session sensors)
         (doseq [s sensors]
           (println "Inserting measurements for sensor: " (:sensor_id s))
-          (insert-measurements session (generate-invalid-measurements s))
+          (insert-measurements querier commander (generate-invalid-measurements s))
           (is (= 10 (:errors (db/get-counter session (:device_id s) (:type s) "errors"))))
           (is (= "broken" (:status (db/get-sensor-status session (:type s) (:device_id s))))))))))
+
 
 ;;;;;;;;;;;; Simple check tests (no C*) ;;;;;;;;;;;;
 
@@ -303,28 +324,28 @@
       (doseq [sensor cumulative-sensors]
         (is (v/labelled-correctly? sensor
                                    (sort-by :timestamp  (filter #(= (:type sensor) (:type %))
-                                                                (v/transform-measurements (measurements sensor)))))))
+                                                                (transform-measurements (measurements sensor)))))))
      
       (doseq [sensor cumulative-sensors]
         (is (= false (v/labelled-correctly? sensor
                                             (sort-by :timestamp (filter #(= (:type sensor) (:type %))
-                                                                        (v/transform-measurements 
+                                                                        (transform-measurements 
                                                                          (mislabelled-measurements sensor "INSTANT"))))))))
 
       (doseq [sensor instant-sensors]
         (is (v/labelled-correctly? sensor 
                                    (filter #(= (:type sensor) (:type %))
-                                           (v/transform-measurements (measurements sensor))))))
+                                           (transform-measurements (measurements sensor))))))
 
       (doseq [sensor pulse-sensors]
         (is (v/labelled-correctly? sensor
                                    (filter #(= (:type sensor) (:type %))
-                                           (v/transform-measurements (measurements sensor))))))
+                                           (transform-measurements (measurements sensor))))))
 
       (doseq [sensor pulse-sensors]
         (is (= false (v/labelled-correctly? sensor
                                             (filter #(= (:type sensor) (:type %))
-                                                    (v/transform-measurements (mislabelled-measurements sensor "INSTANT"))))))))))
+                                                    (transform-measurements (mislabelled-measurements sensor "INSTANT"))))))))))
 
 ;;; 200 x median ;;;
 
@@ -349,21 +370,21 @@
 
     (testing "Should find readings that are 200 x median in a stream"
       (doseq [sensor instant-sensors]
-        (is (= false (less-than-200x-median-stream? (v/transform-measurements (generate-measurements-above-median
+        (is (= false (less-than-200x-median-stream? (transform-measurements (generate-measurements-above-median
                                                                                sensor)))))))
 
     (testing "Should find no readings that are 200 x median in a stream"
       (doseq [sensor cumulative-sensors]
-        (is (less-than-200x-median-stream? (sort-by :timestamp (v/transform-measurements (measurements sensor)))))))
+        (is (less-than-200x-median-stream? (sort-by :timestamp (transform-measurements (measurements sensor)))))))
 
     (testing "Should find readings that are 200 x median"
       (doseq [sensor instant-sensors]
-        (is (= false (less-than-200x-median? (v/transform-measurements (generate-measurements-above-median 
+        (is (= false (less-than-200x-median? (transform-measurements (generate-measurements-above-median 
                                                                         sensor)))))))
 
    (testing "Should find no readings that are 200 x median"
       (doseq [sensor cumulative-sensors]
-        (is (less-than-200x-median? (v/transform-measurements (measurements sensor))))))))
+        (is (less-than-200x-median? (transform-measurements (measurements sensor))))))))
 
 
 
