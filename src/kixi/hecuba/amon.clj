@@ -1,4 +1,4 @@
-(ns kixi.hecuba.web.amon
+(ns kixi.hecuba.amon
   (:require
    [bidi.bidi :refer (->Redirect path-for)]
    [bidi.bidi :refer (path-for)]
@@ -367,7 +367,7 @@
                       :month (get-month t)}
                      ]
                  (prn "m2 is " m2)
-                 ;; TODO Add data validation here               
+                 ;; TODO Add data validation here
                  (upsert! commander :measurement m2))))
            (println "Measurements added!"))
   :handle-created (fn [_] (ring-response {:status 202 :body "Accepted"})))

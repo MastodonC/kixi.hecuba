@@ -73,7 +73,7 @@
    }
 
   :amon/api
-  {:jig/component kixi.hecuba.web.amon/ApiServiceV3
+  {:jig/component kixi.hecuba.amon/ApiServiceV3
    :jig/dependencies []
    ;; TODO Malcolm fix the fact that this doesn't work because add-bidi-routes doesn't look for it
    ;;:jig.web/context "/3/"
