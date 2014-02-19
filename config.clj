@@ -49,21 +49,6 @@
               "auto.commit.enable" "true"}
    }
 
-  ;; Malcolm: This is fine for grabbing config and assoc it into the
-  ;; system, but problem is how to inject the system to other
-  ;; components. The fact that nothing connects with this component is a
-  ;; smell. See :hecuba.dev/cassandra-cluster,
-  ;; :hecuba.dev/cassandra-session, :hecuba.dev/cassandra-schema &
-  ;; :hecuba.dev/cassandra-store
-  #_:hecuba/db
-  #_{:jig/component kixi.hecuba.db/Database
-     :jig/project "../kixi.hecuba/project.clj"
-     :jig/dependencies []
-     :hosts ["127.0.0.1"]
-     :keyspace "m7"
-     :port 9161
-     :credentials {:username "vmfest" :password "vmfest"}}
-
   :hecuba/website
   {:jig/component kixi.hecuba.web/Website
    :jig/project "../kixi.hecuba/project.clj"

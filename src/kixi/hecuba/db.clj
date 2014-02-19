@@ -22,16 +22,6 @@
   [session query]
   (client/execute session query))
 
-(deftype Database [config]
-  Lifecycle
-  (init [_ system]
-    system)
-  (start [_ system]
-    (let [session (create-db-session config)]
-      (update-in system [(:jig/id config) ::db-session] (constantly session))))
-  (stop [_ system]
-    system))
-
 (defn select-measurements
   "Retrieves measurements for specified device, sensor and month.
    Returns vector of maps."

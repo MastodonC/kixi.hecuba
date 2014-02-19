@@ -367,6 +367,7 @@
                       :month (get-month t)}
                      ]
                  (prn "m2 is " m2)
+                 ;; TODO Add data validation here               
                  (upsert! commander :measurement m2))))
            (println "Measurements added!"))
   :handle-created (fn [_] (ring-response {:status 202 :body "Accepted"})))
