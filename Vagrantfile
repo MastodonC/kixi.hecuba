@@ -7,7 +7,7 @@ VAGRANTFILE_API_VERSION = "2"
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.box = "kixi-dev"
 
-  config.vm.box_url = "http://mc-deployments-public.s3-website-us-west-2.amazonaws.com/kixi-dev.box"
+  config.vm.box_url = "http://mc-deployments-public.s3-website-us-west-2.amazonaws.com/kixi-dev-1.0.0.box"
 
   config.vm.provider :virtualbox do |vb, override|
     # headless mode
