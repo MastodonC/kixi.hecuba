@@ -75,7 +75,7 @@
 ;;;;;;;;;;;;;;;;; Generate measurements ;;;;;;;;;;;;;;;;
 
 (defn timestamps [frequency]
-  (into [] (take 1000 (periodic/periodic-seq (t/now) frequency))))
+  (into [] (take 100 (periodic/periodic-seq (t/now) frequency))))
 
 (defn get-month [timestamp]
    (str (t/year timestamp) "-" (t/month timestamp)))
@@ -128,11 +128,9 @@
   (let [timestamps (timestamps (t/minutes 5))
         device-id  (:device-id sensor)
         type       (:type sensor)]
-    (map-indexed (fn [i t] (hash-map :device-id device-id
-                                     :type type
-                                     :month (get-month t)
-                                     :timestamp t
-                                     :value (str (if (= 0 (mod i 50)) (* 300 (rr/rand-gaussian-int)) (rr/rand-gaussian-int)))
+    (map-indexed (fn [i t] (hash-map :type type
+                                     :timestamp (tc/to-date t)
+                                     :value (str (if (= 0 (mod i 50)) (* 300 (rand 50)) (rand 50)))
                                      :error "false")) timestamps)))
 
 (defn generate-invalid-measurements
@@ -141,9 +139,7 @@
   (let [timestamps (timestamps (t/minutes 5))
         device-id  (:device-id sensor)
         type       (:type sensor)]
-    (map-indexed (fn [i t] (merge {:device-id device-id
-                                   :type type
-                                   :month (get-month t)
+    (map-indexed (fn [i t] (merge { :type type
                                    :timestamp (tc/to-date t)}
                                   (if (= 0 (mod i 5))
                                     {:value "Invalid reading"

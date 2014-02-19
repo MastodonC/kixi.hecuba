@@ -77,7 +77,7 @@
   "If 10% of measurements are invalid, device is broken."
   [errors events]
   (when (and (not (zero? errors)) (not (zero? events)))
-    (> (/ events errors) 0.1)))
+    (> (/ errors events) 0.1)))
 
 (defn reset-counters!
   "Reset the counters and mark as ok."
@@ -99,6 +99,7 @@
         (reset-counters! querier commander device-id type events))
       (update! commander :sensor :events (inc events) {:device-id device-id :type type})
       (when (is-errored? measurement median events)
+        ;; TODO large median measurement should be marked as errored
         (update! commander :sensor :errors (inc errors) {:device-id device-id :type type}))
       (if (is-broken? errors events)
         (update! commander :sensor :status "Broken" {:device-id device-id :type type})
