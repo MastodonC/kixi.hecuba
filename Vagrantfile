@@ -4,10 +4,12 @@
 # Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
 VAGRANTFILE_API_VERSION = "2"
 
-Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
-  config.vm.box = "kixi-dev"
+KIXI_DEV_VERSION="1.0.0"
 
-  config.vm.box_url = "http://mc-deployments-public.s3-website-us-west-2.amazonaws.com/kixi-dev.box"
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  config.vm.box = "kixi-dev-" + KIXI_DEV_VERSION
+
+  config.vm.box_url = "http://mc-deployments-public.s3-website-us-west-2.amazonaws.com/kixi-dev-" + KIXI_DEV_VERSION + ".box"
 
   config.vm.provider :virtualbox do |vb, override|
     # headless mode
