@@ -35,11 +35,11 @@ We are using Vagrant to manage dev environments.
 
 + Install VirtualBox v4.3.6 from [here](https://www.virtualbox.org/wiki/Downloads) or preferably via your OS's package manager.
 + Install Vagrant v. 1.4.3 from [here](http://www.vagrantup.com/) or preferably via your OS's package manager.
++ install the vbguest plugin so Virtual Box guest additions will updated
+  for you ``vagrant plugin install vagrant-vbguest``
 + ``cd ${PROJECT_HOME}``
 + ``vagrant up`` (This will download stuff the first time and will be slow, after that it will be quicker)
 + You will now have all the services required running in a virtual machine with the ports forwarded for access from your local machine
-+ install the vbguest plugin so Virtual Box guest additions will updated
-  for you ``vagrant plugin install vagrant-vbguest``
 
 ## Start an EC2 instance
 
