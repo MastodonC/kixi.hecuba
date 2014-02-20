@@ -11,4 +11,4 @@ pom.xml.asc
 /.ruby-*
 /.env
 /vagrant/tmp
-/kixi-dev.box
+/kixi-dev-*.box
