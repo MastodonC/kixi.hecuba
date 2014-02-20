@@ -20,6 +20,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     vb.customize ["modifyvm", :id, "--memory", "1024"]
     vb.customize ["modifyvm", :id, "--cpus", "2"]
     override.vm.network :forwarded_port, guest: 9092, host: 9092 #Kafka
+    override.vm.network :forwarded_port, guest: 9093, host: 9093 #Kafka
+    override.vm.network :forwarded_port, guest: 10000, host: 10000 #Kafka JMX
+    override.vm.network :forwarded_port, guest: 10001, host: 10001 #Kafka JMX
     override.vm.network :forwarded_port, guest: 2181, host: 2181 #Zookeeper
     override.vm.network :forwarded_port, guest: 9042, host: 9042 #Cassandra CQL
     override.vm.network :forwarded_port, guest: 9160, host: 9160 #Cassandra Thrift
