@@ -188,6 +188,7 @@
         (ignoring-error (cql/drop-table "entities"))
         (ignoring-error (cql/drop-table "devices"))
         (ignoring-error (cql/drop-table "sensors"))
+        (ignoring-error (cql/drop-table "sensor_metadata"))
         (ignoring-error (cql/drop-table "measurements"))
 
         (ignoring-error
@@ -285,20 +286,32 @@
                            :correction_factor_breakdown :varchar
                            :events :int
                            :errors :int
-                           :median :int
+                           :median :double
                            :status :varchar
                            :primary-key [:device_id :type]})))
+
+        (ignoring-error
+         (cql/create-table "sensor_metadata"
+                           (cassaquery/column-definitions
+                            {:device_id :varchar
+                             :type :varchar
+                             :mislabelled :varchar
+                             :median_calc_check :int
+                             :mislabelled_sensors_check :int
+                             :primary-key [:device_id :type]})))
 
         (ignoring-error
          (cql/create-table "measurements"
               (cassaquery/column-definitions
                           {:device_id :varchar
                            :type :varchar
-                           :month :varchar
+                           :month :int
                            :value :varchar
                            :error :varchar
                            :timestamp :timestamp
-                           :primary-key [[:device_id :type :month] :timestamp]})))))
+                           :metadata :varchar
+                           :primary-key [:device_id :type :month :timestamp]})))
+        ))
     system)
 
   (stop [_ system]
@@ -311,6 +324,8 @@
           (cql/drop-table "projects")
           (cql/drop-table "entities")
           (cql/drop-table "devices")
+          (cql/drop-table "sensors")
+          (cql/drop-table "sensor_metadata")
           (cql/drop-table "measurements")))
     system))
 
@@ -348,6 +363,7 @@
 (defmethod gen-key :device [typ payload] ((sha1-keyfn :location) payload))
 
 (defmethod gen-key :sensor [typ payload] nil)
+(defmethod gen-key :sensor-metadata [typ payload] nil)
 (defmethod gen-key :measurement [typ payload] nil)
 
 (defmulti get-primary-key-field (fn [typ] typ))
@@ -363,6 +379,7 @@
 (defmethod get-table :device [_] "devices")
 (defmethod get-table :entity [_] "entities")
 (defmethod get-table :sensor [_] "sensors")
+(defmethod get-table :sensor-metadata [_] "sensor_metadata")
 (defmethod get-table :measurement [_] "measurements")
 
 (defn cassandraify
@@ -427,7 +444,19 @@
     (map de-cassandraify
          (binding [cassaclient/*default-session* session]
            (cql/select (get-table typ)
-                (apply cassaquery/where (apply concat (cassandraify where)))))))
+                       (apply cassaquery/where (apply concat (cassandraify where)))))))
+  (items [_ typ where paginate-key per-page]
+    (map de-cassandraify
+         (binding [cassaclient/*default-session* session]
+           (cql/select (get-table typ)
+                       (cassaquery/paginate :key paginate-key :per-page per-page :where (cassandraify where)))))
+    )
+  (items [_ typ where paginate-key per-page last-key]
+    (map de-cassandraify
+         (binding [cassaclient/*default-session* session]
+           (cql/select (get-table typ)
+                       (cassaquery/paginate :key paginate-key :per-page per-page :last-key last-key :where (cassandraify where)))))
+    )
   (authorized? [_ props]
     true))
 

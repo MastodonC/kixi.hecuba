@@ -93,6 +93,21 @@
    :jig/dependencies [:hecuba/routing]
    :port 8000}
 
+  :hecuba/pipeline 
+  {:jig/component kixi.hecuba.pipeline/Pipeline
+   :jig/project "../kixi.hecuba/project.clj"
+   :jig/dependencies [:hecuba.dev/cassandra-session]}
+
+  :hecuba/scheduler 
+  {:jig/component kixi.hecuba.scheduler/Scheduler
+   :jig/project "../kixi.hecuba/project.clj"
+   :jig/dependencies [:hecuba/pipeline]
+   :schedule {:process-job-schedule
+              ; s m   h  d  M D
+              {"0 3  *  *  * ?" {:dest :data-quality  :type :median-calculation}}
+              }
+   }
+
   :hecuba.dev/etl
   {
    :jig/component kixi.hecuba.dev.etl/CsvLoader
