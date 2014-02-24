@@ -6,6 +6,12 @@ VAGRANTFILE_API_VERSION = "2"
 
 KIXI_DEV_VERSION="1.0.2"
 
+$extras_script = <<SCRIPT
+echo provisioning extras...
+cd /
+tar xzvf /vagrant/vagrant/extras/kafka-multi-setup.tar.gz
+SCRIPT
+
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.box = "kixi-dev-" + KIXI_DEV_VERSION
 
@@ -27,7 +33,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     override.vm.network :forwarded_port, guest: 9042, host: 9042 #Cassandra CQL
     override.vm.network :forwarded_port, guest: 9160, host: 9160 #Cassandra Thrift
     override.vm.network :forwarded_port, guest: 7199, host: 7199 #Cassandra JMX (TODO - confirm)
- 
+
   end
+
+  config.vm.provision :shell, inline: $extras_script
 
 end
