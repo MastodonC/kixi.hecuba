@@ -9,7 +9,9 @@
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [liberator "0.10.0"]
                  [cheshire "5.3.1"]
-                 ;; [com.cemerick/friend "0.2.0"]
+
+                 ;; Required for Cassandra (possibly only OSX)
+                 [org.xerial.snappy/snappy-java "1.0.5"]
 
                  ;; ClojureScript dependencies
                  [prismatic/dommy "0.1.1"]
