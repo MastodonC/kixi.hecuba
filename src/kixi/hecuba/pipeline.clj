@@ -4,7 +4,8 @@
             [clojure.tools.macro   :as mac]
             [clojure.tools.logging :as log]
             [clojure.stacktrace    :as st]
-            [kixi.hecuba.data.validate :as validate]
+            [kixi.hecuba.data.batch-checks :as checks]
+            [kixi.hecuba.data.calculate :as calculate]
             jig)
   (:import (jig Lifecycle)))
 
@@ -67,22 +68,39 @@
   (let [fanout-q              (pipe/new-queue {:name "fanout-q" :queue-size 50})
         data-quality-q        (pipe/new-queue {:name "data-quality-q" :queue-size 50})
         median-calculation-q  (pipe/new-queue {:name "median-calculation-q" :queue-size 50})
-        mislabelled-sensors-q (pipe/new-queue {:name "mislabelled-sensors-q" :queue-size 50})]
+        mislabelled-sensors-q (pipe/new-queue {:name "mislabelled-sensors-q" :queue-size 50})
+        difference-series-q   (pipe/new-queue {:name "difference-series-q" :queue-size 50})
+        spike-check-q         (pipe/new-queue {:name "spike-check-q" :queue-size 50})]
     
     (defnconsumer fanout-q [{:keys [dest type] :as item}]
       (let [item (dissoc item :dest)]
         (condp = dest
           :data-quality (condp = type
                           :median-calculation  (produce-item item median-calculation-q)
-                          :mislabelled-sensors (produce-item item mislabelled-sensors-q)))))
+                          :mislabelled-sensors (produce-item item mislabelled-sensors-q)
+                          :spike-check         (produce-item item spike-check-q))
+          :calculated-datasets (condp = type
+                                 :difference-series (produce-item item difference-series-q)))))
 
     (defnconsumer median-calculation-q [item]
       (produce-item
-       (validate/median-calculation commander querier item)))
+       (checks/median-calculation commander querier item)))
 
-    (pipe/producer-of fanout-q median-calculation-q)
+    (defnconsumer mislabelled-sensors-q [item]
+      (produce-item
+       (checks/mislabelled-sensors commander querier item)))
 
-    (list fanout-q #{median-calculation-q})))
+    (defnconsumer difference-series-q [item]
+      (produce-item
+       (calculate/difference-series commander querier item)))
+
+    (defnconsumer spike-check-q [item]
+      (produce-item
+       (checks/median-spike-batch-check commander querier item)))
+
+    (pipe/producer-of fanout-q median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q)
+
+    (list fanout-q #{median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q})))
 
 (deftype Pipeline [config]
   Lifecycle
