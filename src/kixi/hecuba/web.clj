@@ -1,7 +1,6 @@
 (ns kixi.hecuba.web
   (:require
    jig
-   kixi.hecuba.web.device
    kixi.hecuba.web.messages
    [kixi.hecuba.data :as data]
    [jig.util :refer (get-dependencies satisfying-dependency)]
@@ -31,7 +30,7 @@
 (defn readings [req]
   {:status 200 :body (slurp (io/resource "reading.html"))})
 
-(defn make-routes [producer-config {:keys [querier commander]}]
+(defn make-routes [{:keys [querier commander]}]
   ["/"
    [["" (->Redirect 307 tables)]
     ["index.html" index]
@@ -40,7 +39,6 @@
     ["counters.html" counters]
     ["map.html" maps]
 
-    (kixi.hecuba.web.device/create-routes producer-config)
     (kixi.hecuba.web.messages/create-routes querier commander)
 
     ["hecuba-js/react.js" (->Resources {:prefix "sb-admin/"})]
@@ -53,8 +51,7 @@
   (start [_ system]
     (let [commander (:commander system)
           querier (:querier system)
-          routes (make-routes (first (:kixi.hecuba.kafka/producer-config (:hecuba/kafka system)))
-                              {:querier querier :commander commander})]
+          routes (make-routes {:querier querier :commander commander})]
       (-> system
           (add-bidi-routes config routes))))
 

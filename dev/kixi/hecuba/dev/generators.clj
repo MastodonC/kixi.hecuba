@@ -42,10 +42,10 @@
                             :period (first (gen/sample (gen/elements [period])))
                             :min "0"
                             :max (str (rand-int 100))
-                            :correction ""
-                            :correctedUnit ""
-                            :correctionFactor ""
-                            :correctionFactorBreakdown ""
+                            :correction nil
+                            :correctedUnit nil
+                            :correctionFactor nil
+                            :correctionFactorBreakdown nil
                             :events 0
                             :errors 0
                             :status "Not enough data"
@@ -68,14 +68,14 @@
                                  :parent-id (uuid)
                                  :entity-id entity-id
                                  :location (location-gen)
-                                 :metadata ""
+                                 :metadata nil
                                  :privacy (first (gen/sample (gen/not-empty (gen/elements ["public" "private"])) 1))
                                  :meteringPointId (uuid)))))
 
 ;;;;;;;;;;;;;;;;; Generate measurements ;;;;;;;;;;;;;;;;
 
 (defn timestamps [frequency]
-  (into [] (take 100 (periodic/periodic-seq (t/now) frequency))))
+  (into [] (take 50 (periodic/periodic-seq (t/date-time (t/year (t/now)) (t/month (t/now))) frequency))))
 
 (defn get-month [timestamp]
    (str (t/year timestamp) "-" (t/month timestamp)))
@@ -95,7 +95,7 @@
     (map #(hash-map :type type
                     :timestamp (tc/to-date %)
                     :value (str (rand 50))
-                    :error "false") timestamps)))
+                    :error nil) timestamps)))
 
 (defmethod generate-measurements "PULSE"
   [sensor]
@@ -104,7 +104,7 @@
     (map #(hash-map :type type
                     :timestamp (tc/to-date %)
                     :value (str (rand-int 100))
-                    :error "false") timestamps)))
+                    :error nil) timestamps)))
 
 (defmethod generate-measurements "CUMULATIVE"
   [sensor]
@@ -113,7 +113,7 @@
      (map-indexed (fn [i t] (hash-map :type type
                                       :timestamp (tc/to-date t)
                                       :value (str i)
-                                      :error "false")) timestamps)))
+                                      :error nil)) timestamps)))
 
 (defn measurements
   "Iterates through all sensors and generates appropriate
@@ -131,7 +131,7 @@
     (map-indexed (fn [i t] (hash-map :type type
                                      :timestamp (tc/to-date t)
                                      :value (str (if (= 0 (mod i 50)) (* 300 (rand 50)) (rand 50)))
-                                     :error "false")) timestamps)))
+                                     :error nil)) timestamps)))
 
 (defn generate-invalid-measurements
   "Generates measurements that contain invalid readings."
@@ -145,7 +145,7 @@
                                     {:value "Invalid reading"
                                      :error "true"}
                                     {:value (str (rand-int 10))
-                                     :error "false"}))) timestamps)))
+                                     :error nil}))) timestamps)))
 
 (defn mislabelled-measurements
   "Generates mislabelled measurements

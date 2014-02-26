@@ -10,5 +10,7 @@
   (item [_ type id])
   (items
     [_ type]
-    [_ type where])
+    [_ type where]
+    [_ type where paginate-key per-page]
+    [_ type where paginate-key per-page last-key])
   (authorized? [_ props]))

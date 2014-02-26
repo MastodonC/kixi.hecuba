@@ -35,7 +35,10 @@
                  [roul "0.2.0"]
                  [com.stuartsierra/frequencies "0.1.0"]
                  [clj-time "0.6.0"]
-                 [org.clojure/data.json "0.2.4"]]
+                 [org.clojure/data.json "0.2.4"]
+
+                 [clojurewerkz/quartzite "1.1.0"]
+                 [pipejine "0.1.2" :exclusions [org.slf4j/slf4j-simple]]]
 
   :source-paths ["src" "src-cljs"]
 

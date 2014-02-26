@@ -36,23 +36,10 @@
    :doc "A store instance of Cassandra, for dev purposes"
    }
 
-  :hecuba/kafka
-  {:jig/component kixi.hecuba.kafka/Kafka
-   :jig/project "../kixi.hecuba/project.clj"
-   :jig/dependencies []
-   :producer {"metadata.broker.list" "localhost:9092"
-              "serializer.class" "kafka.serializer.DefaultEncoder"
-              "Partitioner.Class" "kafka.producer.DefaultPartitioner"}
-   :consumer {"zookeeper.connect"  "localhost:2181"
-              "group.id" "clj-kafka.consumer"
-              "auto.offset.reset" "smallest"
-              "auto.commit.enable" "true"}
-   }
-
   :hecuba/website
   {:jig/component kixi.hecuba.web/Website
    :jig/project "../kixi.hecuba/project.clj"
-   :jig/dependencies [:hecuba.dev/cassandra-store :hecuba/kafka]
+   :jig/dependencies [:hecuba.dev/cassandra-store]
    :doc "This depends on types that satisfy Commander and Querier being
    bound in the system at :querier and :commander respectively" }
 
@@ -92,6 +79,21 @@
    :jig/project "../kixi.hecuba/project.clj"
    :jig/dependencies [:hecuba/routing]
    :port 8000}
+
+  :hecuba/pipeline 
+  {:jig/component kixi.hecuba.pipeline/Pipeline
+   :jig/project "../kixi.hecuba/project.clj"
+   :jig/dependencies [:hecuba.dev/cassandra-session]}
+
+  :hecuba/scheduler 
+  {:jig/component kixi.hecuba.scheduler/Scheduler
+   :jig/project "../kixi.hecuba/project.clj"
+   :jig/dependencies [:hecuba/pipeline]
+   :schedule {:process-job-schedule
+              ; s m   h  d  M D
+              {"0 3  *  *  * ?" {:dest :data-quality  :type :median-calculation}}
+              }
+   }
 
   :hecuba.dev/etl
   {

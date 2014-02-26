@@ -15,7 +15,7 @@
    [hiccup.core :refer (html)]
    [jig.bidi :refer (add-bidi-routes)]
    [kixi.hecuba.protocols :refer (upsert! delete! item items)]
-   [kixi.hecuba.data.validate :as validation]
+   [kixi.hecuba.data.validate :as v]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    jig)
@@ -320,7 +320,8 @@
                                                    (dissoc :readings)
                                                    (update-in [:location] encode)))]
       (doseq [reading (:readings body)]
-        (upsert! commander :sensor (->shallow-kebab-map (assoc reading :device-id device-id))))
+        (upsert! commander :sensor (->shallow-kebab-map (assoc reading :device-id device-id)))
+        (upsert! commander :sensor-metadata (->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])})))
       {:device-id device-id}))
 
   :handle-created
@@ -347,8 +348,8 @@
                    (update-in [:location] decode)
                    downcast-to-json camelify encode)))
 
-(defn get-month [t]
-  (format "%4d-%02d" (t/year t) (t/month t)))
+(defn get-month-partition-key [t]
+  (Integer/parseInt (format "%4d%02d" (t/year t) (t/month t))))
 
 (defresource measurements [{:keys [commander querier]} handlers]
   :allowed-methods #{:post}
@@ -356,17 +357,20 @@
   :known-content-type? #{"application/json"}
   :post! (fn [{{body :body {:keys [device-id]} :route-params} :request}]
            (doseq [measurement (-> body read-json-body ->shallow-kebab-map :measurements)]
-             (let [t (tf/parse (:date-time-no-ms tf/formatters) (get measurement "timestamp"))]
-               (let [m2
-                     {:device-id device-id
-                      :type (get measurement "type")
-                      :timestamp (tc/to-date t)
-                      :value (get measurement "value")
-                      :error (get measurement "error")
-                      :month (get-month t)}
-                     ]
-                 (validation/validate-measurement querier commander m2)
-                 (upsert! commander :measurement m2))))
+             (let [t        (tf/parse (:date-time-no-ms tf/formatters) (get measurement "timestamp"))
+                   type     (get measurement "type")
+                   m2       {:device-id device-id
+                             :type type
+                             :timestamp (tc/to-date t)
+                             :value (get measurement "value")
+                             :error (get measurement "error")
+                             :month (get-month-partition-key t)
+                             :metadata "{}"}]
+
+               (->> m2
+                   (v/validate commander querier)
+                   (upsert! commander :measurement))
+               ))
            (println "Measurements added!"))
   :handle-created (fn [_] (ring-response {:status 202 :body "Accepted"})))
 
