@@ -69,7 +69,7 @@
   debug, to be able to check the data without too much UI logic
   involved."
   [items]
-  (let [fields (remove #{:name :id :href :type :parent :parent-href :children-href}
+  (let [fields (remove #{:href :type :parent}
                        (distinct (mapcat keys items)))]
     (let [DEBUG false]
       (html [:body
@@ -80,16 +80,12 @@
               [:thead
                [:tr
                 [:th "Name"]
-                [:th "Parent"]
-                [:th "Children"]
                 (for [k fields] [:th (string/replace (csk/->Snake_case_string k) "_" " ")])
                 (when DEBUG [:th "Debug"])]]
               [:tbody
                (for [p items]
                  [:tr
                   [:td [:a {:href (:href p)} (:name p)]]
-                  [:td [:a {:href (:parent-href p)} "Parent"]]
-                  [:td [:a {:href (:children-href p)} "Children"]]
                   (for [k fields] [:td (let [d (k p)] (if (coll? d) (apply str (interpose ", " d)) (str d)))])
                   (when DEBUG [:td (pr-str p)])])]]]))))
 
@@ -342,11 +338,26 @@
 
   :exists? (fn [{{{:keys [entity-id device-id]} :route-params} :request}]
              (when-let [item (item querier :device device-id)]
-               {::item item}))
+               ;; We need to assoc in the device-id, that's what the
+               ;; AMON API requires in the JSON body, ultimately.
+               {::item (-> item
+                           (assoc :device-id device-id)
+                           (dissoc :id))}))
   :handle-ok (fn [{item ::item}]
-               #_(prn "item is " item)
                (-> item
-                   (assoc :readings (items querier :sensor {:device-id (:id item)}))
+                   ;; These are the device's sensors.
+                   (assoc :readings (items querier :sensor (select-keys item [:device-id])))
+                   ;; Note: We are NOT showing measurements here, in
+                   ;; contradiction to the AMON API.  There is a
+                   ;; duplication (or ambiguity) in the AMON API whereby
+                   ;; measurements can be retuned from both the device
+                   ;; representation and a sub-resource
+                   ;; (measurements). We are only implementing the
+                   ;; sub-resource, since most clients requiring a
+                   ;; device's details will suffer from these resource
+                   ;; representations being bloated with measurements.
+                   ;; Specifially, we are keeping the following line commented :-
+                   ;; (assoc :measurements (items querier :measurement {:device-id (:id item)}))
                    (update-in [:location] decode)
                    downcast-to-json camelify encode)))
 
@@ -354,7 +365,7 @@
   (Integer/parseInt (format "%4d%02d" (t/year t) (t/month t))))
 
 (defresource measurements [{:keys [commander querier]} handlers]
-  :allowed-methods #{:post}
+  :allowed-methods #{:post :get}
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}
   :authorized? (authorized? querier :measurement)
@@ -374,7 +385,30 @@
                    (upsert! commander :measurement))
                ))
            (println "Measurements added!"))
+
+  :handle-ok (fn [{{{:keys [device-id]} :route-params} :request {mime :media-type} :representation}]
+               (let [measurements (items querier :measurement {:device-id device-id})]
+                 (case mime
+                   "text/html" (html
+                                [:body
+                                 [:table
+                                  (for [m measurements]
+                                    [:tr
+                                     [:td
+                                      [:pre (with-out-str (pprint m))]]])]])
+                   "application/json" (->> measurements downcast-to-json camelify encode))))
+
+
   :handle-created (fn [_] (ring-response {:status 202 :body "Accepted"})))
+
+(defresource measurements-by-reading [{:keys [commander querier]} handlers]
+  :allowed-methods #{:get}
+  :available-media-types #{"application/json"}
+  :authorized? (authorized? querier :measurement)
+
+  :handle-ok (fn [{{{:keys [device-id sensor-type timestamp]} :route-params} :request {mime :media-type} :representation}]
+               (let [measurement (first (items querier :measurement {:device-id device-id :type sensor-type :timestamp timestamp}))]
+                 (->> measurement downcast-to-json camelify encode))))
 
 ;; Handlers and Routes
 
@@ -394,6 +428,7 @@
                  :devices (devices opts p)
                  :device (device opts p)
                  :measurements (measurements opts p)
+                 :measurement (measurements-by-reading opts p)
 
                  })))
 
@@ -419,6 +454,7 @@
          [["entities/" [sha1-regex :entity-id] "/devices"] (:devices handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id]] (:device handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements"] (:measurements handlers)]
+         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements/" :reading-type "/" :timestamp] (:measurement handlers)]
          ]
         wrap-cookies)])
 

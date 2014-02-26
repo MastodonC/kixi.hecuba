@@ -188,7 +188,9 @@
         (ignoring-error (cql/drop-table "sensor_metadata"))
         (ignoring-error (cql/drop-table "measurements"))
         (ignoring-error (cql/drop-table "users"))
-        (ignoring-error (cql/drop-table "user_sessions"))
+
+        ;; While developing, it's a pain to have to keep logging in
+        ;;(ignoring-error (cql/drop-table "user_sessions"))
 
         (ignoring-error
          (cql/create-table "programmes"
@@ -289,8 +291,6 @@
                            :status :varchar
                            :primary-key [:device_id :type]})))
 
-
-
         (ignoring-error
          (cql/create-table "sensor_metadata"
                            (cassaquery/column-definitions
@@ -312,7 +312,6 @@
                            :timestamp :timestamp
                            :metadata :varchar
                            :primary-key [:device_id :type :month :timestamp]})))
-
 
         ;; This could possibly go into another component, but for now we'll hijack this one.
         (ignoring-error

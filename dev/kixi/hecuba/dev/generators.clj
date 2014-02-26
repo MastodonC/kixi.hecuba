@@ -1,4 +1,5 @@
 (ns kixi.hecuba.dev.generators
+  (:refer-clojure :exclude [rand-int])
   (:require [roul.random :as rr]
             [clj-time.core :as t]
             [clj-time.format :as tf]
@@ -11,6 +12,12 @@
             [clojurewerkz.cassaforte.query :as query]
             [clojurewerkz.cassaforte.cql :as cql])
   (:import (jig Lifecycle)))
+
+;; Malcolm says: Sorry Anna, but I really need some predicatability to
+;; work on the chart integration - so I'm seeding the randomness to it
+;; always produces the same results.
+(def rnd (java.util.Random. 1234))
+(defn rand-int [n] (.nextInt rnd n))
 
 (defn uuid [] (java.util.UUID/randomUUID))
 

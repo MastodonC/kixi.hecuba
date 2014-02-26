@@ -1,5 +1,5 @@
-(ns kixi.hecuba.web.chart
-  (:require-macros [cljs.core.async.macros :refer [go]])
+(ns kixi.hecuba.chart
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require
    [mrhyde.core :as mrhyde]
    [dommy.core :as dommy]
@@ -56,7 +56,7 @@
 
 ;;;;;;;;;;; Component 1:  Form containing list of devices for both axis plots ;;;;;;;;;;
 
-(defn device-form
+#_(defn device-form
   [cursor owner]
   (reify
     om/IRenderState
@@ -68,7 +68,7 @@
                    (for [col cols]
                      (dom/td nil
                           (dom/h4 nil (val col))
-                          (dom/form nil
+                          #_(dom/form nil
                                (into-array
                                 (for [device cursor]
                                   (let [id (str (:hecuba/name device))
@@ -103,11 +103,24 @@
                 (println "Consumed axis: " (str axis)
                          ". Id " (str id)
                          ". Checked: " (str checked))
-                (om/set-state! owner [:selected axis id] (truthy? checked)))))))
+                (om/set-state! owner [:selected axis id] (truthy? checked)))))
+
+        ))
 
     om/IRender
     (render [_]
-      (dom/div #js {:id "chart" :width 500 :height 550}))
+      (dom/div nil
+               #_(dom/h2 nil "Units")
+               #_(apply dom/div nil
+                      (for [sensor (get-in cursor [:sensors])]
+                        (apply dom/div nil
+                                 (dom/h3 nil (:type sensor))
+                                 (for [m (filter #(= (:type %) (:type sensor))
+                                                 (get-in cursor [:measurements]))]
+                                   (dom/p nil (str (:timestamp m) " - "(:value m)))
+                                   )
+                                 )))
+               (dom/div #js {:id "chart" :width 500 :height 550})))
 
     om/IDidUpdate
     (did-update [this prev-props prev-state root-node]
@@ -115,22 +128,17 @@
         (while (.hasChildNodes n)
           (.removeChild n (.-lastChild n))))
       (let [Chart (.-chart dimple)
-            svg          (.newSvg dimple "#chart" 500 500)
-            left-keys    (map first (filter second (om/get-state owner [:selected :left])))
-            right-keys   (map first (filter second (om/get-state owner [:selected :right])))
-            y1-data      (apply concat (vals (select-keys mock-data left-keys)))
-            y2-data      (apply concat (vals (select-keys mock-data right-keys)))
-            dimple-chart (.setBounds (Chart. svg) 60 30 350 350) 
-            x (.addCategoryAxis dimple-chart "x" "month")
-            y1 (.addMeasureAxis dimple-chart "y" "reading")
-            y2 (.addMeasureAxis dimple-chart "y" "reading")
-            s1 (.addSeries dimple-chart "device_id" js/dimple.plot.line (clj->js [x, y1]))
-            s2 (.addSeries dimple-chart "device_id" js/dimple.plot.line (clj->js [x, y2]))]     
-        (aset s1 "data" (clj->js y1-data))
-        (aset s2 "data" (clj->js y2-data))
-        (.addLegend dimple-chart 60 10 300 20 "right")
-      
-        (.draw dimple-chart)))))
+            svg (.newSvg dimple "#chart" 500 500)
+            #_left-keys #_(map first (filter second (om/get-state owner [:selected :left])))
+            sensor-type (:type (first (get-in cursor [:sensors])))
+            data (filter #(= (:type %) sensor-type) (get-in cursor [:measurements]))
+            dimple-chart (.setBounds (Chart. svg) 60 30 350 350)
+            x (.addCategoryAxis dimple-chart "x" "timestamp")
+            y (.addMeasureAxis dimple-chart "y" "value")
+            s (.addSeries dimple-chart (name sensor-type) js/dimple.plot.line (clj->js [x y]))]
+          (aset s "data" (clj->js data))
+          (.addLegend dimple-chart 60 10 300 20 "right")
+          (.draw dimple-chart)))))
 
 ;;;;;;;;;;; Bootstrap ;;;;;;;;;;;;
 
@@ -148,6 +156,6 @@
            (om/build chart-item cursor {:key :hecuba/name :init-state chans})
            ;; Builds table containing form components for left and right axis
            (println "Devices is" (:devices cursor))
-           (dom/div #js {:id "device-form"}
+           #_(dom/div #js {:id "device-form"}
                 (om/build device-form (:devices cursor)
                     {:key :hecuba/name :init-state chans}))))))

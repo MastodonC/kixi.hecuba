@@ -110,7 +110,7 @@
     ["login.html" (->WrapMiddleware (:login-form handlers) wrap-cookies)]
     ["auth" (->WrapMiddleware (:login-handler handlers) (comp wrap-params wrap-cookies))]
 
-    ["tables.html" (->Secure (:tables handlers) querier (:login-form handlers))]
+    ["tables" (->Secure (:tables handlers) querier (:login-form handlers))]
 
     ["chart.html" chart]
     ["counters.html" counters]
