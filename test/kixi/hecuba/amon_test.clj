@@ -2,7 +2,7 @@
   (:use clojure.test)
   (:require
    [kixi.hecuba.dev :refer (create-ref-store ->CassandraDirectCommander ->CassandraQuerier sha1-keyfn)]
-   [kixi.hecuba.web.amon :as amon]
+   [kixi.hecuba.amon :as amon]
    [kixi.hecuba.hash :refer (sha1)]
    [kixi.hecuba.protocols :refer (item items)]
    [cheshire.core :refer (generate-string parse-string)]
