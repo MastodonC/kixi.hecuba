@@ -2,6 +2,10 @@
 
 A data platform built with [Clojure][CLJ], [ClojureScript][CLJS], [core.async][CORE.ASYNC], [Om][OM], Kafka, Cassandra and other technologies.
 
+## Build Status
+
+[![Build Status](https://travis-ci.org/MastodonC/kixi.hecuba.png?branch=master)](https://travis-ci.org/MastodonC/kixi.hecuba)
+
 ## Usage
 
 Clone and install [Jig][JIG].
