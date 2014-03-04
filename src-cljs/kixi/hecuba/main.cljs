@@ -3,10 +3,10 @@
   (:require
    [om.core :as om :include-macros true]
    [om.dom :as dom :include-macros true]
-   [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map< filter<]]
+   [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map< filter< mult tap map>]]
    [ajax.core :refer (GET POST)]
    [kixi.hecuba.navigation :as nav]
-   [kixi.hecuba.web.chart :as chart]))
+   [kixi.hecuba.chart :as chart]))
 
 (enable-console-print!)
 
@@ -75,18 +75,13 @@
                                                                :value {:label "Value"}
                                                                :error {:label "Error"}}
                                                         :sort [:timestamp]}}}
-                            }
-                           {:name :charts
-                            :title "Charts"
                             :chart {:property "rad003"
-                                    :devices [{:hecuba/name "01"
-                                               :name "External temperature"}
-                                              {:hecuba/name "02"
-                                               :name "External humidity"}]}
-                            }
-                           ]}
+                                    :sensors []
+                                    :measurements []
+                                    }}
 
-    }))
+                           ]}}))
+
 
 (defn blank-tab [data owner]
   (om/component
@@ -124,8 +119,8 @@
     (when-let [url (<! in)]
       (GET url
           (-> {:handler #(put! out %)
-               :headers {"Accept" content-type
-                         "Authorization" "Basic Ym9iOnNlY3JldA=="}}
+               :headers {"Accept" content-type}
+               :response-format :text}
               (update-when (= content-type "application/json") merge {:response-format :json :keywords? true})))
 
       (recur))))
@@ -212,24 +207,14 @@
             devices-detail-pair (make-channel-pair)
             sensors-table-pair (make-channel-pair)
             measurements-table-ajax-pair (make-channel-pair)
-            measurements-table-pair (make-channel-pair)]
+            measurements-table-pair (make-channel-pair)
+            ]
 
         (ajax programmes-table-ajax-pair "application/edn")
         (ajax projects-table-ajax-pair "application/edn")
         (ajax properties-table-ajax-pair "application/json")
         (ajax devices-detail-ajax-pair "application/json")
         (ajax measurements-table-ajax-pair "application/json")
-
-        #_(go-loop []
-          (when-let [url (<! in)]
-            (println "GET" url)
-            (GET url
-                {:handler #(put! out (case content-type
-                                       "application/json" (js->clj %)
-                                       %))
-                 :headers {"Accept" content-type
-                           "Authorization" "Basic Ym9iOnNlY3JldA=="}})
-            (recur)))
 
         ;; The data coming 'out' of the programmes table ajax controller goes 'in' to the programmes table
         (pipe (:out programmes-table-ajax-pair) (:in programmes-table-pair))
@@ -262,26 +247,56 @@
                             (if (and device-id entity-id)
                               (do
                                 (println "Constructing URI to device" (str "/entities/" entity-id "/devices/" device-id))
-                                (str "/entities/" entity-id "/devices/" device-id))
+                                (str "/3/entities/" entity-id "/devices/" device-id))
                               (str "/Dummy")
                               ))
                           :row)
                     (:out devices-table-pair))
               (:in devices-detail-ajax-pair))
 
-        (pipe (map< (fn [x]
-                      ;; TODO This should really be an independent consumer on a multiplexed channel
-                      (om/transact! data [:location :name] (constantly (-> x :location :name)))
-                      (om/transact! data [:location :longitude] (constantly (-> x :location :longitude)))
-                      (om/transact! data [:location :latitude] (constantly (-> x :location :latitude)))
-                      (:readings x))
-                    (:out devices-detail-ajax-pair))
-              (:in sensors-table-pair))
+        (let [m (mult (:out devices-detail-ajax-pair))
+              detail-ch (chan)
+              new-sensors-ch (chan)
+              new-measurements-ch (chan)]
+          (tap m detail-ch)
+          (go-loop []
+            (let [x (<! detail-ch)]
+              (om/transact! data [:location :name] (constantly (-> x :location :name)))
+              (om/transact! data [:location :longitude] (constantly (-> x :location :longitude)))
+              (om/transact! data [:location :latitude] (constantly (-> x :location :latitude))))
+            (recur))
+          (go-loop []
+            (let [x (<! new-sensors-ch)]
+              (om/transact! data [:chart :sensors] (constantly x)))
+            (recur))
+          (go-loop []
+            (let [x (<! new-measurements-ch)]
+              (om/transact! data [:chart :measurements] (constantly x)))
+            (recur))
+          (tap m (map> :readings (:in sensors-table-pair)))
+          (tap m (map> :readings new-sensors-ch))
+          (tap m (map> (fn [{:keys [entityId deviceId] :as x}]
+                         (str "/3/entities/" entityId "/devices/" deviceId "/measurements"))
+                       (:in measurements-table-ajax-pair)))
+
+          (let [m2 (mult (:out measurements-table-ajax-pair))]
+            (tap m2 (:in measurements-table-pair))
+            (tap m2 new-measurements-ch)))
+
+        ;;(pipe (:out measurements-table-ajax-pair) (:in measurements-table-pair))
 
         (console-sink "devices-detail-ajax" (:out sensors-table-pair))
 
         ;; Seed programmes table
-        (put! (programmes-table-ajax-pair :in) "/programmes")
+        (put! (programmes-table-ajax-pair :in) "/3/programmes")
+
+        #_(put! (:in properties-table-ajax-pair) "/3/entities/90dcf7292857726a7594d5b239ab4822adc6df7f")
+
+        #_(put! (:in devices-table-pair)
+                [{:entity-id "90dcf7292857726a7594d5b239ab4822adc6df7f" :device-id "bb28a308b1cf01d6cc4e031878e2137d1d8d0a07"}
+                 {:entity-id "90dcf7292857726a7594d5b239ab4822adc6df7f" :device-id "d27b3c2b6a1036193d26b00c91175335f2cff31e"}
+                 {:entity-id "90dcf7292857726a7594d5b239ab4822adc6df7f" :device-id "df8267bbdf7e799ac5aae4ca299ba09507417c4a"}])
+
 
         (om/set-state! owner :programmes-table-channels programmes-table-pair)
         (om/set-state! owner :projects-table-channels projects-table-pair)
@@ -289,6 +304,18 @@
         (om/set-state! owner :devices-table-channels devices-table-pair)
         (om/set-state! owner :sensors-table-channels sensors-table-pair)
         (om/set-state! owner :measurements-table-channels measurements-table-pair)
+
+        ;; While developing, let's cheat!!
+        ;;(put! (projects-table-ajax-pair :in) "/3/programmes/20476aa870e1d17ffc6d140d24ab56bf030040fe/projects")
+
+        #_(GET "/3/entities/90dcf7292857726a7594d5b239ab4822adc6df7f"
+              (-> {:handler (fn [{:keys [id deviceIds]}]
+                              (println "id is" id)
+                              (println "deviceIds are" deviceIds)
+                              (put! (:in devices-table-pair) (vec (for [device-id deviceIds] {:entity-id id :device-id device-id}))))
+                   :headers {"Accept" "application/json"}}
+                  (update-when true merge {:response-format :json :keywords? true})))
+
 
         ))
 
@@ -308,8 +335,10 @@
                (dom/p nil (str "Latitude: " (get-in data [:location :latitude])))
                (dom/h2 nil "Sensors")
                (om/build table (get-in data [:tables :sensors]) {:opts (om/get-state owner :sensors-table-channels)})
-               (dom/h2 nil "Measurements")
-               (om/build table (get-in data [:tables :measurements]) {:opts (om/get-state owner :measurements-table-channels)})
+               #_(dom/h2 nil "Measurements")
+               #_(om/build table (get-in data [:tables :measurements]) {:opts (om/get-state owner :measurements-table-channels)})
+               (dom/h2 nil "Chart")
+               (om/build chart/chart-figure (:chart data))
                ))))
 
 

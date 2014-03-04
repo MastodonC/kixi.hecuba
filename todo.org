@@ -59,3 +59,32 @@
 ** TODO then work with Anna getting her simpletest measurement generation hooked up so it runs through the loop
 
 ** TODO then cake! (if we get that far)
+
+
+* TODO Login/Auth
+
+** DONE Login rejection screen should be have a link to go back to the login page
+** DONE Liberator resources should check basic auth
+
+- [X] start with a basic user resource
+- [X] add user etl component
+- [X] do a users post, make it fail
+- [ ] make it pass
+- [ ] get the user
+- [ ] check database for user password hashes,
+- [ ] salts https://crackstation.net/hashing-security.htm
+
+** TODO Users need to be created with a known super-user security key on boot
+
+** TODO Liberator resources should check cookie as well as basic auth
+
+** TODO Boilerplate on login
+** TODO Dev user store component
+*** TODO Read this https://crackstation.net/hashing-security.htm
+** TODO Persistent sessions
+** TODO What happens on session expiry?
+** TODO Logout?
+
+
+
+* TODO Charting

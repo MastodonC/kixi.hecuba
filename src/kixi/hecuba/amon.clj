@@ -1,10 +1,11 @@
 (ns kixi.hecuba.amon
   (:require
-   [bidi.bidi :refer (->Redirect path-for)]
-   [bidi.bidi :refer (path-for)]
+   [ring.middleware.cookies :refer (wrap-cookies)]
+   [bidi.bidi :refer (->Redirect ->WrapMiddleware path-for)]
    [camel-snake-kebab :as csk :refer (->kebab-case-keyword ->camelCaseString)]
    [cheshire.core :refer (decode decode-stream encode)]
    [clj-time.core :as t]
+   [kixi.hecuba.webutil :refer (read-edn-body read-json-body)]
    [clj-time.format :as tf]
    [clj-time.coerce :as tc]
    [clojure.edn :as edn]
@@ -16,6 +17,7 @@
    [jig.bidi :refer (add-bidi-routes)]
    [kixi.hecuba.protocols :refer (upsert! delete! item items)]
    [kixi.hecuba.data.validate :as v]
+   [kixi.hecuba.security :as sec]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    jig)
@@ -23,21 +25,11 @@
    (jig Lifecycle)
    (java.util UUID)))
 
-;; Utility
-
-(ns-publics 'camel-snake-kebab)
-
-(defprotocol Body
-  (read-edn-body [body])
-  (read-json-body [body]))
-
-(extend-protocol Body
-  String
-  (read-edn-body [body] (edn/read-string body))
-  (read-json-body [body] (decode body keyword))
-  org.httpkit.BytesInputStream
-  (read-edn-body [body] (io! (edn/read (java.io.PushbackReader. (io/reader body)))))
-  (read-json-body [body] (io! (decode-stream (io/reader body)))))
+(defn authorized? [querier typ]
+  (fn [{{route-params :route-params :as req} :request}]
+    (or
+     (sec/authorized-with-basic-auth? req querier)
+     (sec/authorized-with-cookie? req querier))))
 
 (defn downcast-to-json
   "For JSON serialization we need to widen the types contained in the structure."
@@ -77,7 +69,7 @@
   debug, to be able to check the data without too much UI logic
   involved."
   [items]
-  (let [fields (remove #{:name :id :href :type :parent :parent-href :children-href}
+  (let [fields (remove #{:href :type :parent}
                        (distinct (mapcat keys items)))]
     (let [DEBUG false]
       (html [:body
@@ -88,16 +80,12 @@
               [:thead
                [:tr
                 [:th "Name"]
-                [:th "Parent"]
-                [:th "Children"]
                 (for [k fields] [:th (string/replace (csk/->Snake_case_string k) "_" " ")])
                 (when DEBUG [:th "Debug"])]]
               [:tbody
                (for [p items]
                  [:tr
                   [:td [:a {:href (:href p)} (:name p)]]
-                  [:td [:a {:href (:parent-href p)} "Parent"]]
-                  [:td [:a {:href (:children-href p)} "Children"]]
                   (for [k fields] [:td (let [d (k p)] (if (coll? d) (apply str (interpose ", " d)) (str d)))])
                   (when DEBUG [:td (pr-str p)])])]]]))))
 
@@ -109,12 +97,14 @@
     [:h1 (:name item)]
     [:pre (with-out-str
             (pprint item))]]))
+
 ;; Resources
 
 (defresource programmes [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :post}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
+  :authorized? (authorized? querier :programme)
 
   :handle-ok
   (fn [{{mime :media-type} :representation {routes :jig.bidi/routes} :request}]
@@ -146,6 +136,7 @@
   :allowed-methods #{:get}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
+  :authorized? (authorized? querier :programme)
 
   :exists?
   (fn [{{{programme-id :programme-id} :route-params} :request}]
@@ -173,6 +164,7 @@
   :allowed-methods #{:get :post}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
+  :authorized? (authorized? querier :project)
 
   :handle-ok
   (fn [{{mime :media-type} :representation {routes :jig.bidi/routes route-params :route-params} :request}]
@@ -205,6 +197,7 @@
   :allowed-methods #{:get}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
+  :authorized? (authorized? querier :project)
 
   :exists?
   (fn [{{{project-id :project-id} :route-params} :request}]
@@ -229,6 +222,7 @@
 (defresource properties [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
   :available-media-types #{"application/json" "application/edn" "text/html"}
+  :authorized? (authorized? querier :property)
 
   :handle-ok
   (fn [{{mime :media-type} :representation {routes :jig.bidi/routes route-params :route-params} :request}]
@@ -252,11 +246,11 @@
   :allowed-methods #{:post}
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}
+  :authorized? (authorized? querier :entity)
 
   :post!
   (fn [{{body :body} :request}]
     (let [entity (-> body read-json-body ->shallow-kebab-map)]
-     ; (println "entity is" entity)
       {:entity-id (upsert! commander :entity entity)}))
 
   :handle-created
@@ -270,6 +264,7 @@
 (defresource entity [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :delete}
   :available-media-types #{"application/json"}
+  :authorized? (authorized? querier :entity)
 
   :exists?
   (fn [{{{id :entity-id} :route-params} :request}]
@@ -298,6 +293,7 @@
   :allowed-methods #{:post}
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}
+  :authorized? (authorized? querier :device)
 
   :exists?
   (fn [{{{entity-id :entity-id} :route-params} :request}]
@@ -338,13 +334,30 @@
 (defresource device [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
   :available-media-types #{"application/json"}
+  :authorized? (authorized? querier :device)
+
   :exists? (fn [{{{:keys [entity-id device-id]} :route-params} :request}]
              (when-let [item (item querier :device device-id)]
-               {::item item}))
+               ;; We need to assoc in the device-id, that's what the
+               ;; AMON API requires in the JSON body, ultimately.
+               {::item (-> item
+                           (assoc :device-id device-id)
+                           (dissoc :id))}))
   :handle-ok (fn [{item ::item}]
-               #_(prn "item is " item)
                (-> item
-                   (assoc :readings (items querier :sensor {:device-id (:id item)}))
+                   ;; These are the device's sensors.
+                   (assoc :readings (items querier :sensor (select-keys item [:device-id])))
+                   ;; Note: We are NOT showing measurements here, in
+                   ;; contradiction to the AMON API.  There is a
+                   ;; duplication (or ambiguity) in the AMON API whereby
+                   ;; measurements can be retuned from both the device
+                   ;; representation and a sub-resource
+                   ;; (measurements). We are only implementing the
+                   ;; sub-resource, since most clients requiring a
+                   ;; device's details will suffer from these resource
+                   ;; representations being bloated with measurements.
+                   ;; Specifially, we are keeping the following line commented :-
+                   ;; (assoc :measurements (items querier :measurement {:device-id (:id item)}))
                    (update-in [:location] decode)
                    downcast-to-json camelify encode)))
 
@@ -354,27 +367,50 @@
 (def custom-formatter (tf/formatter "yyyy-MM-dd'T'HH:mm:ss.SSSZ"))
 
 (defresource measurements [{:keys [commander querier]} handlers]
-  :allowed-methods #{:post}
+  :allowed-methods #{:post :get}
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}
+  :authorized? (authorized? querier :measurement)
+
   :post! (fn [{{body :body {:keys [device-id]} :route-params} :request}]
            (doseq [measurement (-> body read-json-body ->shallow-kebab-map :measurements)]
              (let [t        (tf/parse custom-formatter (get measurement "timestamp"))
-                   type     (get measurement "type")
                    m2       {:device-id device-id
-                             :type type
+                             :type (get measurement "type")
                              :timestamp (tc/to-date t)
                              :value (get measurement "value")
                              :error (get measurement "error")
                              :month (get-month-partition-key t)
                              :metadata "{}"}]
-
                (->> m2
                    (v/validate commander querier)
                    (upsert! commander :measurement))
                ))
            (println "Measurements added!"))
+
+  :handle-ok (fn [{{{:keys [device-id]} :route-params} :request {mime :media-type} :representation}]
+               (let [measurements (items querier :measurement {:device-id device-id})]
+                 (case mime
+                   "text/html" (html
+                                [:body
+                                 [:table
+                                  (for [m measurements]
+                                    [:tr
+                                     [:td
+                                      [:pre (with-out-str (pprint m))]]])]])
+                   "application/json" (->> measurements downcast-to-json camelify encode))))
+
+
   :handle-created (fn [_] (ring-response {:status 202 :body "Accepted"})))
+
+(defresource measurements-by-reading [{:keys [commander querier]} handlers]
+  :allowed-methods #{:get}
+  :available-media-types #{"application/json"}
+  :authorized? (authorized? querier :measurement)
+
+  :handle-ok (fn [{{{:keys [device-id sensor-type timestamp]} :route-params} :request {mime :media-type} :representation}]
+               (let [measurement (first (items querier :measurement {:device-id device-id :type sensor-type :timestamp timestamp}))]
+                 (->> measurement downcast-to-json camelify encode))))
 
 ;; Handlers and Routes
 
@@ -394,39 +430,46 @@
                  :devices (devices opts p)
                  :device (device opts p)
                  :measurements (measurements opts p)
+                 :measurement (measurements-by-reading opts p)
 
                  })))
 
 (def sha1-regex #"[0-9a-f]+")
-(def uuid-regex #"[0-9a-f-]+")
 
 (defn make-routes [handlers]
   ;; AMON API here
-  ["/" [
-       ["programmes/" (:programmes handlers)]
-       ["programmes" (->Redirect 307 (:programmes handlers))]
-       [["programmes/" [sha1-regex :programme-id]] (:programme handlers)]
-       [["programmes/" [sha1-regex :programme-id] "/projects"] (:projects handlers)]
+  ["/" (->WrapMiddleware
+        [
+         ["programmes/" (:programmes handlers)]
+         ["programmes" (->Redirect 307 (:programmes handlers))]
+         [["programmes/" [sha1-regex :programme-id]] (:programme handlers)]
+         [["programmes/" [sha1-regex :programme-id] "/projects"] (:projects handlers)]
 
-       ["projects/" (:allprojects handlers)]
-       ["projects" (->Redirect 307 (:allprojects handlers))]
-       [["projects/" [sha1-regex :project-id]] (:project handlers)]
-       [["projects/" [sha1-regex :project-id] "/properties"] (:properties handlers)]
+         ["projects/" (:allprojects handlers)]
+         ["projects" (->Redirect 307 (:allprojects handlers))]
+         [["projects/" [sha1-regex :project-id]] (:project handlers)]
+         [["projects/" [sha1-regex :project-id] "/properties"] (:properties handlers)]
 
-       ["entities/" (:entities handlers)]
-       ["entities" (->Redirect 307 (:entities handlers))]
-       [["entities/" [uuid-regex :entity-id]] (:entity handlers)]
-       [["entities/" [uuid-regex :entity-id] "/devices"] (:devices handlers)]
-       [["entities/" [uuid-regex :entity-id] "/devices/" [uuid-regex :device-id]] (:device handlers)]
-       [["entities/" [uuid-regex :entity-id] "/devices/" [uuid-regex :device-id] "/measurements"] (:measurements handlers)]
-       ]])
+         ["entities/" (:entities handlers)]
+         ["entities" (->Redirect 307 (:entities handlers))]
+         [["entities/" [sha1-regex :entity-id]] (:entity handlers)]
+         [["entities/" [sha1-regex :entity-id] "/devices"] (:devices handlers)]
+         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id]] (:device handlers)]
+         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements"] (:measurements handlers)]
+         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements/" :reading-type "/" :timestamp] (:measurement handlers)]
+         ]
+        wrap-cookies)])
 
 
 (deftype ApiServiceV3 [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]
-    ;; Not entirely sure whether this shouldn't be in init - it's not doing any side effects
+    ;; The reason we need to put this into the start (rather than init)
+    ;; phase is that commander and querier and sometimes not bound until
+    ;; the start phase (they in turn depend on various side-effects,
+    ;; such as C* schema creation). Eventually we won't have a different
+    ;; init and start phase.
     (let [handlers (make-handlers (select-keys system [:commander :querier]))]
       (-> system
           (assoc :amon/handlers handlers)
