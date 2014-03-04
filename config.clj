@@ -91,9 +91,12 @@
    :jig/dependencies [:hecuba/pipeline]
    :schedule {:process-job-schedule
               ; s m   h  d  M D
-              {"0 3  *  *  * ?" {:dest :data-quality  :type :median-calculation}}
-              }
-   }
+              {"0 0  10  *  * ?" {:dest :data-quality :type :median-calculation :period "INSTANT"}
+               "0 30 10  *  * ?" {:dest :data-quality :type :median-calculation :period "CUMULATIVE"}
+               "0 0  11  *  * ?" {:dest :calculated-datasets :type :difference-series}
+               "0 30 11  *  * ?" {:dest :data-quality :type :mislabelled-sensors}
+               "0 0  12  *  * ?" {:dest :data-quality :type :spike-check}}         
+              }}
 
   :hecuba.dev/etl
   {

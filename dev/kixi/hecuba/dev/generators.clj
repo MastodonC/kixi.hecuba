@@ -64,7 +64,7 @@
   [entity-id n]
   (take n (repeatedly n
                       #(hash-map :device-id (str (uuid))
-                                 :description (first (gen/sample gen/string 1))
+                                 :description (first (gen/sample (gen/not-empty gen/string) 1))
                                  :parent-id (uuid)
                                  :entity-id entity-id
                                  :location (location-gen)
@@ -126,7 +126,6 @@
   "Generates measurements that contain readings 200 x median."
   [sensor]
   (let [timestamps (timestamps (t/minutes 5))
-        device-id  (:device-id sensor)
         type       (:type sensor)]
     (map-indexed (fn [i t] (hash-map :type type
                                      :timestamp (tc/to-date t)
@@ -137,13 +136,12 @@
   "Generates measurements that contain invalid readings."
   [sensor]
   (let [timestamps (timestamps (t/minutes 5))
-        device-id  (:device-id sensor)
         type       (:type sensor)]
-    (map-indexed (fn [i t] (merge { :type type
+    (map-indexed (fn [i t] (merge {:type type
                                    :timestamp (tc/to-date t)}
                                   (if (= 0 (mod i 5))
                                     {:value "Invalid reading"
-                                     :error "true"}
+                                     :error nil}
                                     {:value (str (rand-int 10))
                                      :error nil}))) timestamps)))
 
@@ -158,7 +156,6 @@
   "Updates appropriate counters and inserts data."
   [session measurement]
   (binding [client/*default-session* session]
-   ; (v/validate-measurement session measurement)
     (cql/insert "measurements" measurement)))
 
 (defn insert-measurements

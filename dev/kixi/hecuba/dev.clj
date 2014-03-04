@@ -190,6 +190,7 @@
         (ignoring-error (cql/drop-table "sensors"))
         (ignoring-error (cql/drop-table "sensor_metadata"))
         (ignoring-error (cql/drop-table "measurements"))
+        (ignoring-error (cql/drop-table "difference_series"))
 
         (ignoring-error
          (cql/create-table "programmes"
@@ -291,26 +292,45 @@
                            :primary-key [:device_id :type]})))
 
         (ignoring-error
+         (cql/create-index "sensors" :status))
+
+        (ignoring-error
          (cql/create-table "sensor_metadata"
                            (cassaquery/column-definitions
                             {:device_id :varchar
                              :type :varchar
                              :mislabelled :varchar
                              :median_calc_check :int
+                             :bootstrapped :varchar
                              :mislabelled_sensors_check :int
+                             :difference_series :int
                              :primary-key [:device_id :type]})))
 
         (ignoring-error
+         (cql/create-index "sensor_metadata" :mislabelled))
+
+        (ignoring-error
          (cql/create-table "measurements"
-              (cassaquery/column-definitions
-                          {:device_id :varchar
-                           :type :varchar
-                           :month :int
-                           :value :varchar
-                           :error :varchar
-                           :timestamp :timestamp
-                           :metadata :varchar
-                           :primary-key [:device_id :type :month :timestamp]})))
+                           (cassaquery/column-definitions
+                            {:device_id :varchar
+                             :type :varchar
+                             :month :int
+                             :value :varchar
+                             :error :varchar
+                             :timestamp :timestamp
+                             :metadata :varchar
+                             :primary-key [:device_id :type :month :timestamp]})))
+
+        (ignoring-error
+         (cql/create-table "difference_series"
+                           (cassaquery/column-definitions
+                            {:device_id :varchar
+                             :type :varchar
+                             :month :int
+                             :timestamp :timestamp
+                             :value :varchar
+                             :primary-key [:device_id :type :month :timestamp]})))
+
         ))
     system)
 
@@ -360,11 +380,12 @@
 ;; For new properties, we'll have to decide which fields make up the property's 'value'
 (defmethod gen-key :entity [typ payload] ((sha1-keyfn :id) payload))
 ;; Again, not sure what should go into the SHA1 here, but it's unlikely for two devices to share the same exact location (which includes name), so let's use that for now
-(defmethod gen-key :device [typ payload] ((sha1-keyfn :location) payload))
+(defmethod gen-key :device [typ payload] ((sha1-keyfn :description :entity-id) payload))
 
 (defmethod gen-key :sensor [typ payload] nil)
 (defmethod gen-key :sensor-metadata [typ payload] nil)
 (defmethod gen-key :measurement [typ payload] nil)
+(defmethod gen-key :difference-series [typ payload] nil)
 
 (defmulti get-primary-key-field (fn [typ] typ))
 (defmethod get-primary-key-field :programme [typ] :id)
@@ -381,6 +402,7 @@
 (defmethod get-table :sensor [_] "sensors")
 (defmethod get-table :sensor-metadata [_] "sensor_metadata")
 (defmethod get-table :measurement [_] "measurements")
+(defmethod get-table :difference-series [_] "difference_series")
 
 (defn cassandraify
   "Cassandra has various conventions, such as forbidding hyphens in
@@ -408,7 +430,9 @@
     (assert typ "No type!")
     (debugf "type is %s, payload %s" typ payload)
     (binding [cassaclient/*default-session* session]
+      (when (= :device typ) (prn "payload: " payload))
       (let [id (gen-key typ payload)]
+        (when (= :device typ) (prn "id: " id))
         (cql/insert (get-table typ)
              (let [id-payload (if id (assoc payload :id id) payload)]
                (-> id-payload cassandraify)))

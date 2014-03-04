@@ -351,13 +351,15 @@
 (defn get-month-partition-key [t]
   (Integer/parseInt (format "%4d%02d" (t/year t) (t/month t))))
 
+(def custom-formatter (tf/formatter "yyyy-MM-dd'T'HH:mm:ss.SSSZ"))
+
 (defresource measurements [{:keys [commander querier]} handlers]
   :allowed-methods #{:post}
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}
   :post! (fn [{{body :body {:keys [device-id]} :route-params} :request}]
            (doseq [measurement (-> body read-json-body ->shallow-kebab-map :measurements)]
-             (let [t        (tf/parse (:date-time-no-ms tf/formatters) (get measurement "timestamp"))
+             (let [t        (tf/parse custom-formatter (get measurement "timestamp"))
                    type     (get measurement "type")
                    m2       {:device-id device-id
                              :type type
