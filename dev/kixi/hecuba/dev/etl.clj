@@ -192,7 +192,7 @@
                                      "application/json"
                                      (jsonify {:measurements
                                                (map
-                                                (fn [x] (update-in x [:timestamp] #(tf/unparse (:date-time-no-ms tf/formatters)  (clj-time.coerce/from-date %))))
+                                                (fn [x] (update-in x [:timestamp] #(tf/unparse custom-formatter  (clj-time.coerce/from-date %))))
                                                 (mapcat generators/measurements sensors))}))]
                   )
 
@@ -205,7 +205,7 @@
               (let [sensors (generators/generate-sensor-sample "INSTANT" 3)
 
                     response
-                    @(post-resource
+                    (post-resource
                       (format "http://%s:%d%s" host port
                               (path-for (-> system :hecuba/routing :jig.bidi/routes)
                                         (-> system :amon/handlers :devices) :entity-id entity-id))
@@ -226,7 +226,7 @@
 
                 ;; POST to URL a JSON block
                 (let [response
-                      @(post-resource (format "http://%s:%d%s" host port measurements-uri)
+                      (post-resource (format "http://%s:%d%s" host port measurements-uri)
                                       "application/json"
                                       (jsonify {:measurements
                                                 (map
@@ -241,7 +241,7 @@
               (let [sensors (generators/generate-sensor-sample "CUMULATIVE" 1)
 
                     response
-                    @(post-resource
+                    (post-resource
                       (format "http://%s:%d%s" host port
                               (path-for (-> system :hecuba/routing :jig.bidi/routes)
                                         (-> system :amon/handlers :devices) :entity-id entity-id))
@@ -261,7 +261,7 @@
 
                 ;; POST to URL a JSON block
                 (let [response
-                      @(post-resource (format "http://%s:%d%s" host port measurements-uri)
+                      (post-resource (format "http://%s:%d%s" host port measurements-uri)
                                       "application/json"
                                       (jsonify {:measurements
                                                 (map
@@ -275,7 +275,7 @@
               (let [sensors (generators/generate-sensor-sample "PULSE" 1)
 
                     response
-                    @(post-resource
+                    (post-resource
                       (format "http://%s:%d%s" host port
                               (path-for (-> system :hecuba/routing :jig.bidi/routes)
                                         (-> system :amon/handlers :devices) :entity-id entity-id))
@@ -295,7 +295,7 @@
 
                 ;; POST to URL a JSON block
                 (let [response
-                      @(post-resource (format "http://%s:%d%s" host port measurements-uri)
+                      (post-resource (format "http://%s:%d%s" host port measurements-uri)
                                       "application/json"
                                       (jsonify {:measurements
                                                 (map
@@ -307,7 +307,8 @@
                 )))
 
 
-                ))))
+                )))
+    system)
 
   (stop [_ system] system))
 
