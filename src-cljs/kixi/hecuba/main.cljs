@@ -124,8 +124,7 @@
     (when-let [url (<! in)]
       (GET url
           (-> {:handler #(put! out %)
-               :headers {"Accept" content-type
-                         "Authorization" "Basic Ym9iOnNlY3JldA=="}}
+               :headers {"Accept" content-type}}
               (update-when (= content-type "application/json") merge {:response-format :json :keywords? true})))
 
       (recur))))
@@ -262,7 +261,7 @@
                             (if (and device-id entity-id)
                               (do
                                 (println "Constructing URI to device" (str "/entities/" entity-id "/devices/" device-id))
-                                (str "/entities/" entity-id "/devices/" device-id))
+                                (str "/3/entities/" entity-id "/devices/" device-id))
                               (str "/Dummy")
                               ))
                           :row)
@@ -281,7 +280,7 @@
         (console-sink "devices-detail-ajax" (:out sensors-table-pair))
 
         ;; Seed programmes table
-        (put! (programmes-table-ajax-pair :in) "/programmes")
+        (put! (programmes-table-ajax-pair :in) "/3/programmes")
 
         (om/set-state! owner :programmes-table-channels programmes-table-pair)
         (om/set-state! owner :projects-table-channels projects-table-pair)

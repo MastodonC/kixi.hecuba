@@ -1,10 +1,11 @@
 (ns kixi.hecuba.amon
   (:require
-   [bidi.bidi :refer (->Redirect path-for)]
-   [bidi.bidi :refer (path-for)]
+   [ring.middleware.cookies :refer (wrap-cookies)]
+   [bidi.bidi :refer (->Redirect ->WrapMiddleware path-for)]
    [camel-snake-kebab :as csk :refer (->kebab-case-keyword ->camelCaseString)]
    [cheshire.core :refer (decode decode-stream encode)]
    [clj-time.core :as t]
+   [kixi.hecuba.webutil :refer (read-edn-body read-json-body)]
    [clj-time.format :as tf]
    [clj-time.coerce :as tc]
    [clojure.edn :as edn]
@@ -16,6 +17,7 @@
    [jig.bidi :refer (add-bidi-routes)]
    [kixi.hecuba.protocols :refer (upsert! delete! item items)]
    [kixi.hecuba.data.validate :as v]
+   [kixi.hecuba.security :as sec]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    jig)
@@ -23,21 +25,11 @@
    (jig Lifecycle)
    (java.util UUID)))
 
-;; Utility
-
-(ns-publics 'camel-snake-kebab)
-
-(defprotocol Body
-  (read-edn-body [body])
-  (read-json-body [body]))
-
-(extend-protocol Body
-  String
-  (read-edn-body [body] (edn/read-string body))
-  (read-json-body [body] (decode body keyword))
-  org.httpkit.BytesInputStream
-  (read-edn-body [body] (io! (edn/read (java.io.PushbackReader. (io/reader body)))))
-  (read-json-body [body] (io! (decode-stream (io/reader body)))))
+(defn authorized? [querier typ]
+  (fn [{{route-params :route-params :as req} :request}]
+    (or
+     (sec/authorized-with-basic-auth? req querier)
+     (sec/authorized-with-cookie? req querier))))
 
 (defn downcast-to-json
   "For JSON serialization we need to widen the types contained in the structure."
@@ -109,12 +101,14 @@
     [:h1 (:name item)]
     [:pre (with-out-str
             (pprint item))]]))
+
 ;; Resources
 
 (defresource programmes [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :post}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
+  :authorized? (authorized? querier :programme)
 
   :handle-ok
   (fn [{{mime :media-type} :representation {routes :jig.bidi/routes} :request}]
@@ -146,6 +140,7 @@
   :allowed-methods #{:get}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
+  :authorized? (authorized? querier :programme)
 
   :exists?
   (fn [{{{programme-id :programme-id} :route-params} :request}]
@@ -173,6 +168,7 @@
   :allowed-methods #{:get :post}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
+  :authorized? (authorized? querier :project)
 
   :handle-ok
   (fn [{{mime :media-type} :representation {routes :jig.bidi/routes route-params :route-params} :request}]
@@ -205,6 +201,7 @@
   :allowed-methods #{:get}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
+  :authorized? (authorized? querier :project)
 
   :exists?
   (fn [{{{project-id :project-id} :route-params} :request}]
@@ -229,6 +226,7 @@
 (defresource properties [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
   :available-media-types #{"application/json" "application/edn" "text/html"}
+  :authorized? (authorized? querier :property)
 
   :handle-ok
   (fn [{{mime :media-type} :representation {routes :jig.bidi/routes route-params :route-params} :request}]
@@ -252,11 +250,11 @@
   :allowed-methods #{:post}
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}
+  :authorized? (authorized? querier :entity)
 
   :post!
   (fn [{{body :body} :request}]
     (let [entity (-> body read-json-body ->shallow-kebab-map)]
-     ; (println "entity is" entity)
       {:entity-id (upsert! commander :entity entity)}))
 
   :handle-created
@@ -270,6 +268,7 @@
 (defresource entity [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :delete}
   :available-media-types #{"application/json"}
+  :authorized? (authorized? querier :entity)
 
   :exists?
   (fn [{{{id :entity-id} :route-params} :request}]
@@ -298,6 +297,7 @@
   :allowed-methods #{:post}
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}
+  :authorized? (authorized? querier :device)
 
   :exists?
   (fn [{{{entity-id :entity-id} :route-params} :request}]
@@ -338,6 +338,8 @@
 (defresource device [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
   :available-media-types #{"application/json"}
+  :authorized? (authorized? querier :device)
+
   :exists? (fn [{{{:keys [entity-id device-id]} :route-params} :request}]
              (when-let [item (item querier :device device-id)]
                {::item item}))
@@ -355,18 +357,18 @@
   :allowed-methods #{:post}
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}
+  :authorized? (authorized? querier :measurement)
+
   :post! (fn [{{body :body {:keys [device-id]} :route-params} :request}]
            (doseq [measurement (-> body read-json-body ->shallow-kebab-map :measurements)]
              (let [t        (tf/parse (:date-time-no-ms tf/formatters) (get measurement "timestamp"))
-                   type     (get measurement "type")
                    m2       {:device-id device-id
-                             :type type
+                             :type (get measurement "type")
                              :timestamp (tc/to-date t)
                              :value (get measurement "value")
                              :error (get measurement "error")
                              :month (get-month-partition-key t)
                              :metadata "{}"}]
-
                (->> m2
                    (v/validate commander querier)
                    (upsert! commander :measurement))
@@ -396,35 +398,40 @@
                  })))
 
 (def sha1-regex #"[0-9a-f]+")
-(def uuid-regex #"[0-9a-f-]+")
 
 (defn make-routes [handlers]
   ;; AMON API here
-  ["/" [
-       ["programmes/" (:programmes handlers)]
-       ["programmes" (->Redirect 307 (:programmes handlers))]
-       [["programmes/" [sha1-regex :programme-id]] (:programme handlers)]
-       [["programmes/" [sha1-regex :programme-id] "/projects"] (:projects handlers)]
+  ["/" (->WrapMiddleware
+        [
+         ["programmes/" (:programmes handlers)]
+         ["programmes" (->Redirect 307 (:programmes handlers))]
+         [["programmes/" [sha1-regex :programme-id]] (:programme handlers)]
+         [["programmes/" [sha1-regex :programme-id] "/projects"] (:projects handlers)]
 
-       ["projects/" (:allprojects handlers)]
-       ["projects" (->Redirect 307 (:allprojects handlers))]
-       [["projects/" [sha1-regex :project-id]] (:project handlers)]
-       [["projects/" [sha1-regex :project-id] "/properties"] (:properties handlers)]
+         ["projects/" (:allprojects handlers)]
+         ["projects" (->Redirect 307 (:allprojects handlers))]
+         [["projects/" [sha1-regex :project-id]] (:project handlers)]
+         [["projects/" [sha1-regex :project-id] "/properties"] (:properties handlers)]
 
-       ["entities/" (:entities handlers)]
-       ["entities" (->Redirect 307 (:entities handlers))]
-       [["entities/" [uuid-regex :entity-id]] (:entity handlers)]
-       [["entities/" [uuid-regex :entity-id] "/devices"] (:devices handlers)]
-       [["entities/" [uuid-regex :entity-id] "/devices/" [uuid-regex :device-id]] (:device handlers)]
-       [["entities/" [uuid-regex :entity-id] "/devices/" [uuid-regex :device-id] "/measurements"] (:measurements handlers)]
-       ]])
+         ["entities/" (:entities handlers)]
+         ["entities" (->Redirect 307 (:entities handlers))]
+         [["entities/" [sha1-regex :entity-id]] (:entity handlers)]
+         [["entities/" [sha1-regex :entity-id] "/devices"] (:devices handlers)]
+         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id]] (:device handlers)]
+         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements"] (:measurements handlers)]
+         ]
+        wrap-cookies)])
 
 
 (deftype ApiServiceV3 [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]
-    ;; Not entirely sure whether this shouldn't be in init - it's not doing any side effects
+    ;; The reason we need to put this into the start (rather than init)
+    ;; phase is that commander and querier and sometimes not bound until
+    ;; the start phase (they in turn depend on various side-effects,
+    ;; such as C* schema creation). Eventually we won't have a different
+    ;; init and start phase.
     (let [handlers (make-handlers (select-keys system [:commander :querier]))]
       (-> system
           (assoc :amon/handlers handlers)

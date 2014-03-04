@@ -19,15 +19,21 @@
   (-> system :jig/config :jig/components :hecuba/webserver :port))
 
 (defn post-resource [post-uri content-type data]
-  (http-request
-   {:method :post
-    :url post-uri
-    :headers {"Content-Type" content-type}
-    :basic-auth ["bob" "secret"]
-    :body (case content-type
-            "application/edn" (pr-str data)
-            "application/json" (encode data))}
-   identity))
+  (let [response
+        @(http-request
+          {:method :post
+           :url post-uri
+           :headers {"Content-Type" content-type}
+           :basic-auth ["bob" "123465"]
+           :body (case content-type
+                   "application/edn" (pr-str data)
+                   "application/json" (encode data))}
+          identity)]
+    (when (>= (:status response) 400)
+      (println "Error status returned on HTTP request")
+      (pprint response)
+      (throw (ex-info (format "Failed to post resource, status is %d" (:status response)) {})))
+    response))
 
 (defn extract-data
   [dir filename]
@@ -46,11 +52,12 @@
     (into {}
           (for [programme data]
             (let [id (:id programme)
-                  response @(post-resource
+                  response (post-resource
                              (format "http://%s:%d%s" host port path)
                              "application/edn"
                              programme)
                   location (get-in response [:headers :location])
+                  _ (assert location)
                   programme-id (get-in (match-route routes location) [:params :programme-id])]
 
               [id programme-id]
@@ -69,7 +76,7 @@
                        (path-for routes (:projects handlers) :programme-id programme-id)
                        (path-for routes (:allprojects handlers)))
 
-                response @(post-resource
+                response (post-resource
                            (format "http://%s:%d%s" host port path)
                            "application/edn"
                            ;; We have to update the simple numeric id
@@ -94,7 +101,7 @@
                        (path-for routes (:entities handlers) :project-id project-id)
                        (path-for routes (:allentities handlers)))
 
-                response @(post-resource
+                response (post-resource
                            (format "http://%s:%d%s" host port path)
                            "application/json"
                            ;; We have to update the simple numeric id
@@ -157,7 +164,7 @@
               (let [sensors (generators/generate-sensor-sample "INSTANT" 3)
 
                     response
-                    @(post-resource
+                    (post-resource
                       (format "http://%s:%d%s" host port
                               (path-for (-> system :hecuba/routing :jig.bidi/routes)
                                         (-> system :amon/handlers :devices) :entity-id entity-id))
@@ -175,11 +182,11 @@
                                             (apply concat (:params (match-route routes location))))
                     ]
 
-              ;  (println "response to creating device is" response)
+                (assert (= (:status response) 201) (format "Failed to create device, status was %d" (:status response)))
 
                 ;; POST to URL a JSON block
-                (let [response
-                      @(post-resource (format "http://%s:%d%s" host port measurements-uri)
+                #_(let [response
+                      (post-resource (format "http://%s:%d%s" host port measurements-uri)
                                       "application/json"
                                       (jsonify {:measurements
                                                 (map
@@ -272,10 +279,30 @@
                 )))
 
 
+                ))))
 
-          
+  (stop [_ system] system))
 
-)))
+;; Makes use of kixi.hecuba.users/ApiService to create some users
+(deftype UserDataLoader [config]
+  Lifecycle
+  (init [_ system] system)
+  (start [_ system]
+    (let [host "localhost"
+          port (get-port user/system)
+          routes (-> system :hecuba/routing :jig.bidi/routes)
+          ]
 
+      (doseq [{:keys [username password]} (:users config)]
+        (let [body {:username username :password password}
+              response
+              (post-resource
+               (format "http://%s:%d%s" host port "/users/")
+               "application/edn"
+               body
+               )]
+          (when (not= (:status response) 201)
+            (println "Failed to add user:" body)
+            (pprint response)))))
     system)
   (stop [_ system] system))

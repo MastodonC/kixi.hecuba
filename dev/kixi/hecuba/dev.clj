@@ -128,10 +128,7 @@
   (item [_ typ id] (get-in @r [typ id]))
   (items [_ typ]
     (vals (get @r typ)))
-  (items [this typ where] (filter #(= where (select-keys % (keys where))) (.items this typ)))
-  (authorized? [_ props]
-    ;; The master password!
-    (= (:hecuba/password props) "secret")))
+  (items [this typ where] (filter #(= where (select-keys % (keys where))) (.items this typ))))
 
 (defn create-ref-store [r keyfn]
   {:commander (->RefCommander r keyfn)
@@ -190,6 +187,8 @@
         (ignoring-error (cql/drop-table "sensors"))
         (ignoring-error (cql/drop-table "sensor_metadata"))
         (ignoring-error (cql/drop-table "measurements"))
+        (ignoring-error (cql/drop-table "users"))
+        (ignoring-error (cql/drop-table "user_sessions"))
 
         (ignoring-error
          (cql/create-table "programmes"
@@ -290,6 +289,8 @@
                            :status :varchar
                            :primary-key [:device_id :type]})))
 
+
+
         (ignoring-error
          (cql/create-table "sensor_metadata"
                            (cassaquery/column-definitions
@@ -311,7 +312,26 @@
                            :timestamp :timestamp
                            :metadata :varchar
                            :primary-key [:device_id :type :month :timestamp]})))
-        ))
+
+
+        ;; This could possibly go into another component, but for now we'll hijack this one.
+        (ignoring-error
+         (cql/create-table "users"
+              (cassaquery/column-definitions
+                          {:id :varchar
+                           ;; TODO This is weird, will clean this up after getting current task done
+                           :username :varchar ; the username and id are equal
+                           :salt :varchar
+                           :hash :varchar
+                           :primary-key [:id]})))
+
+        (ignoring-error
+         (cql/create-table "user_sessions"
+                           (cassaquery/column-definitions
+                          {:id :varchar
+                           :user :varchar
+                           :timestamp :timestamp
+                           :primary-key [:id :timestamp]})))))
     system)
 
   (stop [_ system]
@@ -366,21 +386,28 @@
 (defmethod gen-key :sensor-metadata [typ payload] nil)
 (defmethod gen-key :measurement [typ payload] nil)
 
+(defmethod gen-key :user [typ payload] (:username payload))
+(defmethod gen-key :user-session [typ payload] (:id payload))
+
 (defmulti get-primary-key-field (fn [typ] typ))
 (defmethod get-primary-key-field :programme [typ] :id)
 (defmethod get-primary-key-field :project [typ] :id)
 (defmethod get-primary-key-field :entity [typ] :id)
 (defmethod get-primary-key-field :device [typ] :id)
+(defmethod get-primary-key-field :user [typ] :id) ; TODO should be username...
+(defmethod get-primary-key-field :user-session [typ] :id)
 
 (defmulti get-table identity)
 (defmethod get-table :programme [_] "programmes")
 (defmethod get-table :project [_] "projects")
 (defmethod get-table :property [_] "entities")
-(defmethod get-table :device [_] "devices")
 (defmethod get-table :entity [_] "entities")
+(defmethod get-table :device [_] "devices")
 (defmethod get-table :sensor [_] "sensors")
 (defmethod get-table :sensor-metadata [_] "sensor_metadata")
 (defmethod get-table :measurement [_] "measurements")
+(defmethod get-table :user [_] "users")
+(defmethod get-table :user-session [_] "user_sessions")
 
 (defn cassandraify
   "Cassandra has various conventions, such as forbidding hyphens in
@@ -409,6 +436,7 @@
     (debugf "type is %s, payload %s" typ payload)
     (binding [cassaclient/*default-session* session]
       (let [id (gen-key typ payload)]
+        ;; TODO The id handling here is a bit screwed, needs a refactor
         (cql/insert (get-table typ)
              (let [id-payload (if id (assoc payload :id id) payload)]
                (-> id-payload cassandraify)))
@@ -434,8 +462,8 @@
     (de-cassandraify
      (binding [cassaclient/*default-session* session]
        (first (cql/select
-                   (get-table typ)
-                   (cassaquery/where (get-primary-key-field typ) id))))))
+               (get-table typ)
+               (cassaquery/where (get-primary-key-field typ) id))))))
   (items [_ typ]
     (map de-cassandraify
          (binding [cassaclient/*default-session* session]
@@ -449,16 +477,12 @@
     (map de-cassandraify
          (binding [cassaclient/*default-session* session]
            (cql/select (get-table typ)
-                       (cassaquery/paginate :key paginate-key :per-page per-page :where (cassandraify where)))))
-    )
+                       (cassaquery/paginate :key paginate-key :per-page per-page :where (cassandraify where))))))
   (items [_ typ where paginate-key per-page last-key]
     (map de-cassandraify
          (binding [cassaclient/*default-session* session]
            (cql/select (get-table typ)
-                       (cassaquery/paginate :key paginate-key :per-page per-page :last-key last-key :where (cassandraify where)))))
-    )
-  (authorized? [_ props]
-    true))
+                       (cassaquery/paginate :key paginate-key :per-page per-page :last-key last-key :where (cassandraify where)))))))
 
 (deftype CassandraDirectStore [config]
   Lifecycle
