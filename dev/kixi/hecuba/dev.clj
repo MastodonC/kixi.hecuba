@@ -460,7 +460,6 @@
     (assert typ "No type!")
     (debugf "type is %s, payload %s" typ payload)
     (binding [cassaclient/*default-session* session]
-      (when (= :device typ) (prn "payload: " payload))
       (let [id (gen-key typ payload)]
         (cql/insert (get-table typ)
              (let [id-payload (if id (assoc payload :id id) payload)]

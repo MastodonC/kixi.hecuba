@@ -67,7 +67,8 @@
                                                :header {:cols {:type {:label "Type"}
                                                                :unit {:label "Unit"}
                                                                :period {:label "Period"}
-                                                               :deviceId {:label "Device"}}
+                                                               :deviceId {:label "Device"}
+                                                               :status {:label "Status"}}
                                                         :sort [:type]}}
                                      :measurements {:name "Measurements"
                                                :header {:cols {:timestamp {:label "Timestamp"}

@@ -15,7 +15,9 @@
 (defn to-timestamp
   "Cassaforte returns timestamps as strings. This is not convert them back to java.util.Date."
   [t]
-  (tc/to-date (tf/parse db-date-formatter t)))
+  (.parse (java.text.SimpleDateFormat. "EEE MMM dd HH:mm:ss z yyyy") t)
+  ;(tc/to-date (tf/parse db-date-formatter t))
+  )
 
 (defmulti get-month-partition-key
   "Returns integer representation of a month part of timestamp." type)

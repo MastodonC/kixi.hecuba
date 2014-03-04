@@ -42,6 +42,8 @@
 
   :source-paths ["src" "src-cljs"]
 
+  :jvm-opts ["-Duser.timezone=UTC"]
+
   :profiles {:dev {:source-paths ["dev"]
                    :dependencies [[ring-mock "0.1.5"]]}
              :uberjar {:main kixi.hecuba :aot [kixi.hecuba]}}

@@ -17,6 +17,7 @@
    [jig.bidi :refer (add-bidi-routes)]
    [kixi.hecuba.protocols :refer (upsert! delete! item items)]
    [kixi.hecuba.data.validate :as v]
+   [kixi.hecuba.data.misc :as misc]
    [kixi.hecuba.security :as sec]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
@@ -316,8 +317,16 @@
                                                    (dissoc :readings)
                                                    (update-in [:location] encode)))]
       (doseq [reading (:readings body)]
-        (upsert! commander :sensor (->shallow-kebab-map (assoc reading :device-id device-id)))
-        (upsert! commander :sensor-metadata (->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])})))
+        ;; Initialise new sensor
+        ;; TODO Find a better place/way of doing this
+        (let [sensor (-> reading
+                         (assoc :device-id device-id)
+                         (assoc :errors 0)
+                         (assoc :events 0)
+                         (assoc :median 0)
+                         )]
+          (upsert! commander :sensor (->shallow-kebab-map sensor))
+          (upsert! commander :sensor-metadata (->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])}))))
       {:device-id device-id}))
 
   :handle-created
@@ -361,10 +370,13 @@
                    (update-in [:location] decode)
                    downcast-to-json camelify encode)))
 
-(defn get-month-partition-key [t]
-  (Integer/parseInt (format "%4d%02d" (t/year t) (t/month t))))
+(defn get-month-partition-key
+  "Returns integer representation of year and month from java.util.Date"
+  [t] (Integer/parseInt (.format (java.text.SimpleDateFormat. "yyyyMM") t)))
 
-(def custom-formatter (tf/formatter "yyyy-MM-dd'T'HH:mm:ss.SSSZ"))
+(defn db-timestamp 
+  "Returns java.util.Date from String timestamp."
+  [t] (.parse (java.text.SimpleDateFormat.  "yyyy-MM-dd'T'HH:mm:ss") t))
 
 (defresource measurements [{:keys [commander querier]} handlers]
   :allowed-methods #{:post :get}
@@ -374,10 +386,10 @@
 
   :post! (fn [{{body :body {:keys [device-id]} :route-params} :request}]
            (doseq [measurement (-> body read-json-body ->shallow-kebab-map :measurements)]
-             (let [t        (tf/parse custom-formatter (get measurement "timestamp"))
+             (let [t        (db-timestamp (get measurement "timestamp"))
                    m2       {:device-id device-id
                              :type (get measurement "type")
-                             :timestamp (tc/to-date t)
+                             :timestamp t
                              :value (get measurement "value")
                              :error (get measurement "error")
                              :month (get-month-partition-key t)
@@ -385,8 +397,7 @@
                (->> m2
                    (v/validate commander querier)
                    (upsert! commander :measurement))
-               ))
-           (println "Measurements added!"))
+               )))
 
   :handle-ok (fn [{{{:keys [device-id]} :route-params} :request {mime :media-type} :representation}]
                (let [measurements (items querier :measurement {:device-id device-id})]
@@ -434,7 +445,7 @@
 
                  })))
 
-(def sha1-regex #"[0-9a-f]+")
+(def sha1-regex #"[0-9a-f-]+")
 
 (defn make-routes [handlers]
   ;; AMON API here
