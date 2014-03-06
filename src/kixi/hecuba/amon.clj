@@ -291,25 +291,35 @@
              (delete! commander :entity id)))
 
 (defresource devices [{:keys [commander querier]} handlers]
-  :allowed-methods #{:post}
-  :available-media-types #{"application/json"}
+  :allowed-methods #{:get :post}
+  :available-media-types #{"text/html" "application/json"}
   :known-content-type? #{"application/json"}
   :authorized? (authorized? querier :device)
 
   :exists?
-  (fn [{{{entity-id :entity-id} :route-params} :request}]
-    (not (nil? (item querier :entity entity-id))))
+  (fn [{{{entity-id :entity-id} :route-params
+        method :request-method} :request}]
+    (let [{id :id :as entity} (item querier :entity entity-id)]
+      (case method
+        :post (not (nil? entity))
+        :get (let [items (items querier :device {:entity-id id})]
+               (println ":>>>:" (pr-str items))
+               {::items items}))))
 
   :malformed?
-  (fn [{{body :body {entity-id :entity-id} :route-params} :request}]
-    (let [body (-> body read-json-body ->shallow-kebab-map)]
-      ;; We need to assert a few things
-      (if
-          (or
-           (not= (:entity-id body) entity-id))
-        true                 ; it's malformed, game over
-        [false {:body body}] ; it's not malformed, return the body now we've read it
-        )))
+  (fn [{{body :body 
+        {entity-id :entity-id} :route-params
+        method :request-method} :request}]
+    (case method
+      :post (let [body (-> body read-json-body ->shallow-kebab-map)]
+              ;; We need to assert a few things
+              (if
+                  (or
+                   (not= (:entity-id body) entity-id))
+                true                    ; it's malformed, game over
+                [false {:body body}] ; it's not malformed, return the body now we've read it
+                ))
+      false))
 
   :post!
   (fn [{{{entity-id :entity-id} :route-params} :request body :body}]
@@ -328,6 +338,24 @@
           (upsert! commander :sensor (->shallow-kebab-map sensor))
           (upsert! commander :sensor-metadata (->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])}))))
       {:device-id device-id}))
+  
+  :handle-ok 
+  (fn [{items ::items {mime :media-type} :representation {routes :jig.bidi/routes route-params :route-params} :request :as request}]
+    (case mime
+      "text/html" (html
+                   [:body
+                    [:h1 "Entity: "(:name items)]
+                    [:pre (with-out-str
+                            (pprint items))]
+                    [:ul
+                     (for [{:keys [entity-id id]} items]
+                       [:li (str "#" entity-id "#" id)])]])
+      "application/json" (->> items 
+                              (map #(update-in % [:location] decode)) 
+                              downcast-to-json 
+                              camelify 
+                              encode)
+      ))
 
   :handle-created
   (fn [{{routes :jig.bidi/routes {entity-id :entity-id} :route-params} :request device-id :device-id}]

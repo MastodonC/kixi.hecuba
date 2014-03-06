@@ -1,88 +1,23 @@
 (ns kixi.hecuba.main
-  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
+  (:require-macros [cljs.core.async.macros :refer [go-loop]])
   (:require
    [om.core :as om :include-macros true]
    [om.dom :as dom :include-macros true]
    [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map< filter< mult tap map>]]
    [ajax.core :refer (GET POST)]
+   [clojure.string :as str]
    [kixi.hecuba.navigation :as nav]
-   [kixi.hecuba.chart :as chart]))
+   [kixi.hecuba.chart :as chart]
+   [kixi.hecuba.common :refer (index-of map-replace find-first)]
+   [kixi.hecuba.history :as history]
+   [kixi.hecuba.model :refer (app-model)]))
 
 (enable-console-print!)
 
-(def app-model
-  (atom
-   {:messages []
-    :nav {:active "dashboard"
-          :menuitems [{:name :dashboard :label "Dashboard" :href "/index.html" :icon "dashboard"}
-                      {:name :overview :label "Overview" :href "/charts.html" :icon "bar-chart-o"}
-                      {:name :users :label "Users"}
-                      {:name :programmes :label "Programmes" :active? true}
-                      {:name :projects :label "Project"}
-                      {:name :properties :label "Properties"}
-                      {:name :charts :label "Charts"}
-                      {:name :about :label "About"}
-                      {:name :documentation :label "Documentation"}
-                      {:name :api_users :label "API users"}
-                      ]}
+(def history (history/new-history))
 
-    :tab-container {:selected :programmes
-                    :tabs [{:name :about :title "About"}
-                           {:name :documentation :title "Documentation"}
-                           {:name :users :title "Users"}
-                           {:name :programmes
-                            :title "Programmes"
-                            :location {:name "(location name goes here)"
-                                       :longitude "0"
-                                       :latitude "0"}
-                            :tables {:programmes {:name "Programmes"
-                                                  :header {:cols {:name {:label "Name" :href :href}
-                                                                  :description {:label "Description"}
-                                                                  :created_at {:label "Created at"}
-                                                                  }
-                                                           :sort [:name :leaders]}}
-                                     :projects {:name "Projects"
-                                                :header {:cols {:name {:label "Name" :href :href}
-                                                                :type_of {:label "Type"}
-                                                                :description {:label "Description"}
-                                                                ;; TODO Why are these underscores?
-                                                                :created_at {:label "Created at"}
-                                                                :organisation {:label "Organisation"}
-                                                                :project_code {:label "Project code"}}
-                                                         :sort [:name]}}
-                                     :properties {:name "Properties"
-                                                  :header {:cols {:addressStreetTwo {:label "Address" :href "href"}
-                                                                  :addressCounty {:label "County"}
-                                                                  :addressCountry {:label "Country"}
-                                                                  :addressRegion {:label "Region"}}
-                                                           :sort [:addressStreetTwo]}}
-                                     :devices {:name "Devices"
-                                               :header {
-                                                        ;; TODO Why do keys work here? Probably a bug in the liberator resource
-                                                        :cols {:entity-id {:label "Entity"}
-                                                               :device-id {:label "Device"}
-                                                               }
-                                                        :sort [:entity-id :device-id]}}
-                                     :sensors {:name "Sensors"
-                                               :header {:cols {:type {:label "Type"}
-                                                               :unit {:label "Unit"}
-                                                               :period {:label "Period"}
-                                                               :deviceId {:label "Device"}
-                                                               :status {:label "Status"}}
-                                                        :sort [:type]}}
-                                     :measurements {:name "Measurements"
-                                               :header {:cols {:timestamp {:label "Timestamp"}
-                                                               :type {:label "Type"}
-                                                               :value {:label "Value"}
-                                                               :error {:label "Error"}}
-                                                        :sort [:timestamp]}}}
-                            :chart {:property "rad003"
-                                    :sensors []
-                                    :measurements []
-                                    }}
-
-                           ]}}))
-
+;; channel onto which history events are put
+(def history-channel (history/set-chan! history (chan)))
 
 (defn blank-tab [data owner]
   (om/component
@@ -115,62 +50,76 @@
 (defn update-when [x pred f & args]
   (if pred (apply f x args) x))
 
-(defn ajax [{:keys [in out]} content-type]
+(defn row-for [{:keys [selected data]}]
+  (find-first #(= (:id %) selected) data))
+
+(defn uri-for-selection-change 
+  "Returns the uri to load because of change of selection. Returns nil
+   if no change to selection"
+  [selected selection-key template {{ids :ids} :args}]
+  (println "ids: " ids)
+  (let [new-selected (get ids selection-key)]
+    (when (or (nil? selected)
+              (not= selected new-selected))
+      (vector new-selected 
+              (map-replace template ids)))))
+
+(defn ajax [in data {:keys [template
+                            selection-key
+                            content-type]}]
   (go-loop []
-    (when-let [url (<! in)]
-      (GET url
-          (-> {:handler #(put! out %)
-               :headers {"Accept" content-type}
-               :response-format :text}
-              (update-when (= content-type "application/json") merge {:response-format :json :keywords? true})))
+    (when-let [[new-selected uri] (uri-for-selection-change (:selected @data) 
+                                                selection-key 
+                                                template
+                                                (<! in))]
+      (println "GET " uri)
+      (GET uri
+           (-> {:handler  (fn [x] 
+                            (when  (= selection-key :sensor)
+                              (println (pr-str x)))
+                            (om/update! data :data x)
+                            (om/update! data :selected new-selected))
+                :headers {"Accept" content-type}
+                :response-format :text}
+               (cond-> (= content-type "application/json") 
+                       (merge {:response-format :json :keywords? true})))))
+    (recur)))
 
-      (recur))))
-
-(defn table [cursor owner {:keys [in out]}]
+;; TODO histkey is really id key. resolve name confusion.
+(defn table [cursor owner {:keys [histkey path]}]
   (reify
-
-    om/IWillMount
-    (will-mount [_]
-      (go-loop []
-               (when-let [data (<! in)]
-                 (om/set-state! owner :data data)
-                 (om/transact! cursor :selected (constantly (first data)))
-                 (when-let [row (first data)]
-                   (put! out {:type :row-selected :row row})
-                   ;; TODO We need to 'clear' tables below us if there's no data on this table
-                   ;;(put! out {:type :clear-table})
-                   )
-                 (recur))))
-
     om/IRender
     (render [_]
       ;; Select the first row
       ;;(put! out {:type :row-selected :row (first (om/get-state owner :data))})
-      (let [cols (get-in cursor [:header :cols])]
-        (dom/table #js {:className "table table-bordered hecuba-table"} ;; table-hover table-striped
-             (dom/thead nil
-                  (dom/tr nil
-                       (into-array
-                        (for [[_ {:keys [label]}] cols]
-                          (dom/th nil label)))))
-             (dom/tbody nil
-                  (into-array
-                   (for [row (om/get-state owner :data)]
-                     (dom/tr #js {:onClick (om/pure-bind
-                                               (fn [_ _]
-                                                 (om/transact! cursor :selected (constantly row))
-                                                 (put! out {:type :row-selected :row row})
-                                                 )
-
-                                               cursor)
-                                  :className (when (= row (:selected cursor)) "row-selected")
-                                  }
-                          (into-array
-                           (for [[k {:keys [href]}] cols]
-                             (dom/td nil (if href
-                                           (dom/a #js {:href (get row href)} (get row k))
-                                           (get row k)))))))))))
-      )))
+      (let [cols (get-in cursor [:header :cols])
+            table-id (str (name histkey) "-table")]
+        (dom/table #js {:id table-id
+                        :className "table table-bordered hecuba-table "} ;; table-hover table-stripedso, 
+                   (dom/thead nil
+                              (dom/tr nil
+                                      (into-array
+                                       (for [[_ {:keys [label]}] cols]
+                                         (dom/th nil label)))))
+                   (dom/tbody nil
+                              (into-array
+                               (for [{:keys [id href] :as row} (-> cursor :data 
+                                                                   (cond-> path path))]
+                                 (dom/tr #js {:onClick (fn [_ _ ]
+                                                         (println "click:" id)
+                                                         (om/update! cursor :selected id)
+                                                         (history/update-token-ids! history histkey id))
+                                              :className (when (= id (:selected cursor)) "row-selected")
+                                              ;; TODO use this to scroll the row into view.
+                                              ;; Possible solution here: http://stackoverflow.com/questions/1805808/how-do-i-scroll-a-row-of-a-table-into-view-element-scrollintoview-using-jquery
+                                              :id (str table-id "-selected") 
+                                              }
+                                         (into-array
+                                          (for [[k {:keys [href]}] cols]
+                                            (let [k (if (vector? k) k (vector k))]
+                                              (dom/td nil (if href
+                                                            (dom/a #js {:href (get row href)} (get-in row k))
+                                                            (get-in row k)))))))))))))))
 
 (defmulti render-content-directive (fn [itemtype _ _] itemtype))
 
@@ -192,156 +141,74 @@
   {:in (chan (sliding-buffer 1))
    :out (chan (sliding-buffer 1))})
 
+(defn device-detail [{:keys [selected data] :as cursor} owner]
+  (om/component 
+   (let [row (first (filter #(= (:id %) selected) data))]
+     (let [{:keys [description name 
+                   latitude longitude]} (:location row)]
+       (dom/div nil
+                (dom/h3 nil (apply str  "Device Detail "  (interpose \/ (remove nil? [description name])))) ;; TODO add a '-'
+                (dom/p nil (str "Latitude: " latitude))
+                (dom/p nil (str "Longitude: " longitude)))))))
+
+(defn title-for [cursor & {:keys [title-key] :or {title-key :name}}]
+  (some->> (get (row-for cursor) title-key)
+           (str " - ")))
+
 (defn programmes-tab [data owner]
-  (reify
-    om/IWillMount
-    (will-mount [_]
-
-      (let [programmes-table-ajax-pair (make-channel-pair)
-            programmes-table-pair (make-channel-pair)
-            projects-table-ajax-pair (make-channel-pair)
-            projects-table-pair (make-channel-pair)
-            properties-table-ajax-pair (make-channel-pair)
-            properties-table-pair (make-channel-pair)
-            devices-table-pair (make-channel-pair)
-            devices-detail-ajax-pair (make-channel-pair)
-            devices-detail-pair (make-channel-pair)
-            sensors-table-pair (make-channel-pair)
-            measurements-table-ajax-pair (make-channel-pair)
-            measurements-table-pair (make-channel-pair)
-            ]
-
-        (ajax programmes-table-ajax-pair "application/edn")
-        (ajax projects-table-ajax-pair "application/edn")
-        (ajax properties-table-ajax-pair "application/json")
-        (ajax devices-detail-ajax-pair "application/json")
-        (ajax measurements-table-ajax-pair "application/json")
-
-        ;; The data coming 'out' of the programmes table ajax controller goes 'in' to the programmes table
-        (pipe (:out programmes-table-ajax-pair) (:in programmes-table-pair))
-
-        ;; The row clicked coming 'out' of the programmes table, we pick
-        ;; out the uri and feed it 'in' to the projects table ajax
-        ;; controller
-        (pipe (map< (comp :projects :row) (:out programmes-table-pair))
-              (:in projects-table-ajax-pair))
-
-        ;; The data coming 'out' of the projects table ajax controller goes 'in' to the projects table
-        (pipe (:out projects-table-ajax-pair) (:in projects-table-pair))
-
-        ;; The row clicked coming 'out' of the projects table, we pick
-        ;; out the uri and feed it 'in' to the properties table ajax
-        ;; controller
-        (pipe (map< (comp :properties :row) (:out projects-table-pair))
-              (:in properties-table-ajax-pair))
-
-        ;; The data coming 'out' of the properties table ajax controller goes 'in' to the properties table
-        (pipe (:out properties-table-ajax-pair) (:in properties-table-pair))
-
-        (pipe (map< (comp
-                     (fn [{:keys [id deviceIds]}] (for [device-id deviceIds] {:entity-id id :device-id device-id}))
-                     :row)              ; stored on the property row
-                    (:out properties-table-pair))
-              (:in devices-table-pair))
-
-        (pipe (map< (comp (fn [{:keys [device-id entity-id]}]
-                            (if (and device-id entity-id)
-                              (do
-                                (println "Constructing URI to device" (str "/entities/" entity-id "/devices/" device-id))
-                                (str "/3/entities/" entity-id "/devices/" device-id))
-                              (str "/Dummy")
-                              ))
-                          :row)
-                    (:out devices-table-pair))
-              (:in devices-detail-ajax-pair))
-
-        (let [m (mult (:out devices-detail-ajax-pair))
-              detail-ch (chan)
-              new-sensors-ch (chan)
-              new-measurements-ch (chan)]
-          (tap m detail-ch)
-          (go-loop []
-            (let [x (<! detail-ch)]
-              (om/transact! data [:location :name] (constantly (-> x :location :name)))
-              (om/transact! data [:location :longitude] (constantly (-> x :location :longitude)))
-              (om/transact! data [:location :latitude] (constantly (-> x :location :latitude))))
-            (recur))
-          (go-loop []
-            (let [x (<! new-sensors-ch)]
-              (om/transact! data [:chart :sensors] (constantly x)))
-            (recur))
-          (go-loop []
-            (let [x (<! new-measurements-ch)]
-              (om/transact! data [:chart :measurements] (constantly x)))
-            (recur))
-          (tap m (map> :readings (:in sensors-table-pair)))
-          (tap m (map> :readings new-sensors-ch))
-          (tap m (map> (fn [{:keys [entityId deviceId] :as x}]
-                         (str "/3/entities/" entityId "/devices/" deviceId "/measurements"))
-                       (:in measurements-table-ajax-pair)))
-
-          (let [m2 (mult (:out measurements-table-ajax-pair))]
-            (tap m2 (:in measurements-table-pair))
-            (tap m2 new-measurements-ch)))
-
-        ;;(pipe (:out measurements-table-ajax-pair) (:in measurements-table-pair))
-
-        (console-sink "devices-detail-ajax" (:out sensors-table-pair))
-
-        ;; Seed programmes table
-        (put! (programmes-table-ajax-pair :in) "/3/programmes")
-
-        #_(put! (:in properties-table-ajax-pair) "/3/entities/90dcf7292857726a7594d5b239ab4822adc6df7f")
-
-        #_(put! (:in devices-table-pair)
-                [{:entity-id "90dcf7292857726a7594d5b239ab4822adc6df7f" :device-id "bb28a308b1cf01d6cc4e031878e2137d1d8d0a07"}
-                 {:entity-id "90dcf7292857726a7594d5b239ab4822adc6df7f" :device-id "d27b3c2b6a1036193d26b00c91175335f2cff31e"}
-                 {:entity-id "90dcf7292857726a7594d5b239ab4822adc6df7f" :device-id "df8267bbdf7e799ac5aae4ca299ba09507417c4a"}])
-
-
-        (om/set-state! owner :programmes-table-channels programmes-table-pair)
-        (om/set-state! owner :projects-table-channels projects-table-pair)
-        (om/set-state! owner :properties-table-channels properties-table-pair)
-        (om/set-state! owner :devices-table-channels devices-table-pair)
-        (om/set-state! owner :sensors-table-channels sensors-table-pair)
-        (om/set-state! owner :measurements-table-channels measurements-table-pair)
-
-        ;; While developing, let's cheat!!
-        ;;(put! (projects-table-ajax-pair :in) "/3/programmes/20476aa870e1d17ffc6d140d24ab56bf030040fe/projects")
-
-        #_(GET "/3/entities/90dcf7292857726a7594d5b239ab4822adc6df7f"
-              (-> {:handler (fn [{:keys [id deviceIds]}]
-                              (println "id is" id)
-                              (println "deviceIds are" deviceIds)
-                              (put! (:in devices-table-pair) (vec (for [device-id deviceIds] {:entity-id id :device-id device-id}))))
-                   :headers {"Accept" "application/json"}}
-                  (update-when true merge {:response-format :json :keywords? true})))
-
-
-        ))
-
-    om/IRender
-    (render [_]
-      (dom/div nil
-               (dom/h1 nil (:title data))
-               (om/build table (get-in data [:tables :programmes]) {:opts (om/get-state owner :programmes-table-channels)})
-               (dom/h2 nil "Projects")
-               (om/build table (get-in data [:tables :projects]) {:opts (om/get-state owner :projects-table-channels)})
-               (dom/h2 nil "Properties")
-               (om/build table (get-in data [:tables :properties]) {:opts (om/get-state owner :properties-table-channels)})
-               (dom/h2 nil "Devices")
-               (om/build table (get-in data [:tables :devices]) {:opts (om/get-state owner :devices-table-channels)})
-               (dom/p nil (str "Location: " (get-in data [:location :name])))
-               (dom/p nil (str "Longitude: " (get-in data [:location :longitude])))
-               (dom/p nil (str "Latitude: " (get-in data [:location :latitude])))
-               (dom/h2 nil "Sensors")
-               (om/build table (get-in data [:tables :sensors]) {:opts (om/get-state owner :sensors-table-channels)})
-               #_(dom/h2 nil "Measurements")
-               #_(om/build table (get-in data [:tables :measurements]) {:opts (om/get-state owner :measurements-table-channels)})
-               (dom/h2 nil "Chart")
-               (om/build chart/chart-figure (:chart data))
-               ))))
-
+  (let [{:keys [programmes projects properties 
+                devices sensors measurements]} (:tables data)]
+    (reify
+      om/IWillMount
+      (will-mount [_]
+        (let [m           (mult history-channel)
+              tap-history #(tap m (chan))]
+          
+          ;; attach a go-loop that fires ajax requests on history changes to each table
+          
+          ;;TODO still some cruft to tidy here:  /3 and singular/plural bunk.
+          (ajax (tap-history) programmes {:template      "/3/programmes/"
+                                          :content-type  "application/edn"
+                                          :selection-key :programme})
+          (ajax (tap-history) projects {:template      "/3/programmes/:programme/projects"
+                                        :content-type  "application/edn"
+                                        :selection-key :project})
+          (ajax (tap-history) properties {:template      "/3/projects/:project/properties"
+                                          :content-type  "application/json" 
+                                          :selection-key :property})
+          (ajax (tap-history) devices {:template      "/3/entities/:property/devices"
+                                       :content-type  "application/json"
+                                       :selection-key :device})
+          (ajax (tap-history) sensors {:template     "/3/entities/:property/devices/:device"
+                                       :content-type "application/json"
+                                       :selection-key :sensor})
+          (ajax (tap-history) measurements {:template      "/3/entities/:property/devices/:device/measurements"
+                                            :content-type  "application/json"
+                                            :selection-key :measurement})))
+      om/IRender
+      (render [_]
+        
+        ;; Note dynamic titles for each of the sections.
+        
+        ;; TODO sort out duplication here, wrap (on/build table ...) calls probably.
+        ;;      we need to decide on singular/plural for entities. I vote singular.
+        ;;
+        (dom/div nil
+                 (dom/h1 {:id "programmes"} (:title data))
+                 (om/build table programmes {:opts {:histkey :programme}})
+                 (dom/h2 {:id "projects"} (str  "Projects " (title-for programmes)))
+                 (om/build table projects {:opts {:histkey :project}})
+                 (dom/h2 {:id "properties"} (str "Properties" (title-for projects)))
+                 (om/build table properties {:opts {:histkey :property}})
+                 (dom/h2 {:id "devices"} "Devices" (title-for properties :title-key :addressStreetTwo))
+                 (om/build table devices {:opts {:histkey :device}})
+                 (om/build device-detail devices)
+                 (dom/h2 {:id "sensors"} "Sensors" (title-for devices))
+                 (om/build table sensors  {:opts {:histkey :sensor :path :readings}})
+                 #_(dom/h2 {:id "measurements"} "Measurements")
+                 #_(om/build table measurements {:opts {:histkey :measurements}})
+                 (dom/h2 {:id "chart"} "Chart")
+                 (om/build chart/chart-figure (:chart data)))))))
 
 (defn tab-container [tabs]
   (fn [data owner]
@@ -359,18 +226,25 @@
   ;; 'Programmes' tab
   (swap! app-model assoc-in [:tab-container :selected] menu-item))
 
-(om/root app-model
+(defn FOO []
+  (let [path [:tab-container :tabs 3 :tables :sensors :data]]
+    (println "AM:" (type(-> @app-model (get-in path))))  
+    (println "AM:" (pr-str (-> @app-model (get-in path))))))
+
+(om/root 
     (let [{:keys [in out] :as pair} (make-channel-pair)]
       (go-loop []
                (when-let [n (<! out)]
                  (handle-left-nav n)
                  (recur)))
       (nav/nav pair))
-    (.getElementById js/document "hecuba-nav"))
+    app-model
+    {:target (.getElementById js/document "hecuba-nav")})
 
-(om/root app-model (tab-container {:about about-tab
-                                   :programmes programmes-tab
-                                   :charts charts-tab
-                                   :documentation documentation-tab
-                                   :users users-tab})
-    (.getElementById js/document "hecuba-tabs"))
+(om/root (tab-container {:about about-tab
+                         :programmes programmes-tab
+                         :charts charts-tab
+                         :documentation documentation-tab
+                         :users users-tab}) 
+         app-model
+         {:target (.getElementById js/document "hecuba-tabs")})
