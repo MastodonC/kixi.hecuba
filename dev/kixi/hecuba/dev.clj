@@ -433,6 +433,8 @@
 (defmethod gen-key :sensor-metadata [typ payload] nil)
 (defmethod gen-key :measurement [typ payload] nil)
 (defmethod gen-key :difference-series [typ payload] nil)
+(defmethod gen-key :hourly-rollups [typ payload] nil)
+(defmethod gen-key :daily-rollups [typ payload] nil)
 
 (defmethod gen-key :user [typ payload] (:username payload))
 (defmethod gen-key :user-session [typ payload] (:id payload))
@@ -455,6 +457,8 @@
 (defmethod get-table :sensor-metadata [_] "sensor_metadata")
 (defmethod get-table :measurement [_] "measurements")
 (defmethod get-table :difference-series [_] "difference_series")
+(defmethod get-table :hourly-rollups [_] "hourly_rollups")
+(defmethod get-table :daily-rollups [_] "daily_rollups")
 (defmethod get-table :user [_] "users")
 (defmethod get-table :user-session [_] "user_sessions")
 

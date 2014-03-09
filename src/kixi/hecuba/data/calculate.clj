@@ -59,30 +59,43 @@
         (if (p/paginate commander querier s :measurement where calculate-difference-series)
           (update! commander :sensor-metadata :difference_series today {:device-id device-id :type type}))))))
 
-(defn calculate-hourly-rollups
-   "Takes a batch of measurements and calculates hourly rollups."
-  ;; calculate sum of hour and hout +1 and calcualte difference between the two
-   [commander measurements]
-  
-  
-   )
+(defn next-start [m] (m/to-timestamp (:timestamp (last m))))
 
 (defn add-hour [t] (java.util.Date. (+ (.getTime t) (* 60 60 1000))))
 
+(defn calculate-hourly-rollups
+  "Takes measurements for hour h and hour h+1 and calculates difference between both."
+  [commander m1 m2]
+  (- (reduce + (map :value m2)) (reduce + (map :value m1))))
+
+;; TODO Refactor this
 (defn hour-batch 
   [commander querier sensor where]
-  (let [measurements (items querier :measurement where)]
-    (when-not (empty? measurements)
-      (let [start     (m/to-timestamp (:timestamp (last measurements)))
-            end       (add-hour start)
-            device-id (:device-id sensor)
-            type      (:type sensor)] 
-        (calculate-hourly-rollups commander measurements)
-        (update! commander :sensor-metadata :hourly_rollups (m/last-check-int-format start) {:device-id device-id :type type})
-        [:device-id device-id :type type :month (m/get-month-partition-key start)
-         :timestamp [> start]
-         :timestamp [<= end]]))))
+  (let [measurements1 (m/decassandraify-measurements (items querier :measurement where))]
+    (when-not (empty? measurements1)
+      (let [start         (next-start measurements1)
+            end           (add-hour start)
+            device-id     (:device-id sensor)
+            type          (:type sensor)
+            measurements2 (m/decassandraify-measurements 
+                           (items querier :measurement [:device-id device-id
+                                                        :type type :month (m/get-month-partition-key start)
+                                                        :timestamp [> start] 
+                                                        :timestamp [<= end]]))] 
+        (when-not (empty? measurements2)        
+          (upsert! commander :hourly-rollups {:value (str (calculate-hourly-rollups commander measurements1 measurements2))
+                                              :timestamp end
+                                              :month (m/get-month-partition-key end)
+                                              :device-id device-id
+                                              :type type})
+          (update! commander :sensor-metadata :hourly_rollups (m/last-check-int-format start) {:device-id device-id :type type})
+          [:device-id device-id
+           :type type 
+           :month (m/get-month-partition-key start)
+           :timestamp [> start]
+           :timestamp [<= end]])))))
 
+;; TODO Check handling of nil measurements
 (defn hourly-rollups
   "Calculates hourly rollups for cumulative sensors."
   [commander querier item]
@@ -95,13 +108,11 @@
             timestamp  (if-not (= "" last-check)
                          (.parse (java.text.SimpleDateFormat. "yyyyMMddHHmmss") last-check)
                          (m/to-timestamp (:timestamp (first (items querier :measurement {:device-id device-id
-                                                                                         :type type} 1)))))
-            today      (m/last-check-int-format (t/now))]
+                                                                                         :type type} 1)))))]
 
         (loop [where  [:device-id device-id
                        :type type
                        :month (m/get-month-partition-key timestamp)
                        :timestamp [<= (add-hour timestamp)]]]
           (when-not (nil? where)
-            (recur (hour-batch commander querier s where)))))))
-  )
+            (recur (hour-batch commander querier s where))))))))
