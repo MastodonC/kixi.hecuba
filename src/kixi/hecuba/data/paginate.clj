@@ -19,7 +19,7 @@
     (if (not (empty? first-result))
       (let [last-timestamp  (m/to-timestamp (:timestamp (last first-result)))]
         (loop [last-key last-timestamp]
-          (when (not (nil? last-key))
+          (when-not (nil? last-key)
             (recur (measurement-batch commander querier table (conj where {:month (m/get-month-partition-key last-key)})
                                       :timestamp 10 last-key sensor funct))))
         true)

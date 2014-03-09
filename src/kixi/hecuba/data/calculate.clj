@@ -57,4 +57,51 @@
             where      (m/last-check-where-clause device-id type last-check)
             today      (m/last-check-int-format (t/now))]
         (if (p/paginate commander querier s :measurement where calculate-difference-series)
-          (update! commander :sensor-metadata :difference_series today {:device-id (:device-id s) :type (:type s)}))))))
+          (update! commander :sensor-metadata :difference_series today {:device-id device-id :type type}))))))
+
+(defn calculate-hourly-rollups
+   "Takes a batch of measurements and calculates hourly rollups."
+  ;; calculate sum of hour and hout +1 and calcualte difference between the two
+   [commander measurements]
+  
+  
+   )
+
+(defn add-hour [t] (java.util.Date. (+ (.getTime t) (* 60 60 1000))))
+
+(defn hour-batch 
+  [commander querier sensor where]
+  (let [measurements (items querier :measurement where)]
+    (when-not (empty? measurements)
+      (let [start     (m/to-timestamp (:timestamp (last measurements)))
+            end       (add-hour start)
+            device-id (:device-id sensor)
+            type      (:type sensor)] 
+        (calculate-hourly-rollups commander measurements)
+        (update! commander :sensor-metadata :hourly_rollups (m/last-check-int-format start) {:device-id device-id :type type})
+        [:device-id device-id :type type :month (m/get-month-partition-key start)
+         :timestamp [> start]
+         :timestamp [<= end]]))))
+
+(defn hourly-rollups
+  "Calculates hourly rollups for cumulative sensors."
+  [commander querier item]
+  (let [period  (:period item)
+        sensors (filter #(= (:period %) period) (m/sensors-to-check querier :hourly-rollups))]
+    (doseq [s sensors]
+      (let [device-id  (:device-id s)
+            type       (:type s)
+            last-check (:hourly-rollups s)
+            timestamp  (if-not (= "" last-check)
+                         (.parse (java.text.SimpleDateFormat. "yyyyMMddHHmmss") last-check)
+                         (m/to-timestamp (:timestamp (first (items querier :measurement {:device-id device-id
+                                                                                         :type type} 1)))))
+            today      (m/last-check-int-format (t/now))]
+
+        (loop [where  [:device-id device-id
+                       :type type
+                       :month (m/get-month-partition-key timestamp)
+                       :timestamp [<= (add-hour timestamp)]]]
+          (when-not (nil? where)
+            (recur (hour-batch commander querier s where)))))))
+  )

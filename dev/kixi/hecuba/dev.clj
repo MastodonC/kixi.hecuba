@@ -188,6 +188,8 @@
         (ignoring-error (cql/drop-table "sensor_metadata"))
         (ignoring-error (cql/drop-table "measurements"))
         (ignoring-error (cql/drop-table "difference_series"))
+        (ignoring-error (cql/drop-table "hourly_rollups"))
+        (ignoring-error (cql/drop-table "daily_rollups"))
         (ignoring-error (cql/drop-table "users"))
 
         ;; While developing, it's a pain to have to keep logging in
@@ -301,10 +303,12 @@
                             {:device_id :varchar
                              :type :varchar
                              :mislabelled :varchar
-                             :median_calc_check :int
+                             :median_calc_check :bigint
                              :bootstrapped :varchar
-                             :mislabelled_sensors_check :int
-                             :difference_series :int
+                             :mislabelled_sensors_check :bigint
+                             :difference_series :bigint
+                             :hourly_rollups :bigint
+                             :daily_rollups :bigint
                              :primary-key [:device_id :type]})))
 
         (ignoring-error
@@ -332,6 +336,26 @@
                              :value :varchar
                              :primary-key [:device_id :type :month :timestamp]})))
 
+        
+         (ignoring-error
+         (cql/create-table "hourly_rollups"
+                           (cassaquery/column-definitions
+                            {:device_id :varchar
+                             :type :varchar
+                             :month :int
+                             :timestamp :timestamp
+                             :value :varchar
+                             :primary-key [:device_id :type :month :timestamp]})))
+
+         (ignoring-error
+         (cql/create-table "daily_rollups"
+                           (cassaquery/column-definitions
+                            {:device_id :varchar
+                             :type :varchar
+                             :month :int
+                             :timestamp :timestamp
+                             :value :varchar
+                             :primary-key [:device_id :type :month :timestamp]})))
 
         ;; This could possibly go into another component, but for now we'll hijack this one.
         (ignoring-error
@@ -442,6 +466,11 @@
   (reduce-kv (fn [s k v] (conj s [(->snake_case_keyword k)
                                   v])) {} payload))
 
+(defn cassandraify-v
+  [payload]
+  (reduce (fn [s [k v]] (conj s [(->snake_case_keyword k)
+                                  v])) [] (partition 2 payload)))
+
 (defn de-cassandraify
   "Convert to kebab form after reading from Cassandra."
   [payload]
@@ -496,7 +525,17 @@
     (map de-cassandraify
          (binding [cassaclient/*default-session* session]
            (cql/select (get-table typ)
-                       (apply cassaquery/where (apply concat (cassandraify where)))))))
+                       ;; TODO Vectors should be used across but refactoring will take lots of time. Can't do it now.
+                       (if (instance? clojure.lang.PersistentVector where)
+                         (do (let [w (vec (apply concat (cassandraify-v where)))] 
+                               (apply cassaquery/where w)))
+                         (apply cassaquery/where (apply concat (cassandraify where))))))))
+  (items [_ typ where n]
+    (map de-cassandraify
+         (binding [cassaclient/*default-session* session]
+           (cql/select (get-table typ)
+                       (apply cassaquery/where (apply concat (cassandraify where)))
+                       (cassaquery/limit n)))))
   (items [_ typ where paginate-key per-page]
     (map de-cassandraify
          (binding [cassaclient/*default-session* session]

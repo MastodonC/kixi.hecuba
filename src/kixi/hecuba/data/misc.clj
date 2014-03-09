@@ -10,29 +10,50 @@
 (def db-date-formatter
   (tf/formatter "EEE MMM dd HH:mm:ss z yyyy"))
 
-(def int-time-formatter (tf/formatter "yyyyMMdd"))
+(def int-time-formatter (tf/formatter "yyyyMMddHHmmss"))
 
 (defn to-timestamp
   "Cassaforte returns timestamps as strings. This is not convert them back to java.util.Date."
   [t]
-  (.parse (java.text.SimpleDateFormat. "EEE MMM dd HH:mm:ss z yyyy") t)
-  ;(tc/to-date (tf/parse db-date-formatter t))
-  )
+  (.parse (java.text.SimpleDateFormat. "EEE MMM dd HH:mm:ss z yyyy") t))
+
 
 (defmulti get-month-partition-key
-  "Returns integer representation of a month part of timestamp." type)
+  "Returns integer representation of a month part of timestamp."
+  type)
 (defmethod get-month-partition-key java.util.Date
-  [t] (let [timestamp (tc/from-date t)](Integer/parseInt (format "%4d%02d" (t/year timestamp) (t/month timestamp)))))
-(defmethod get-month-partition-key org.joda.time.DateTime
-  [t](Integer/parseInt (format "%4d%02d" (t/year t) (t/month t))))
-(defmethod get-month-partition-key java.lang.String
-  [t](let [timestamp (tf/parse int-time-formatter t)](Integer/parseInt (format "%4d%02d" (t/year timestamp) (t/month timestamp)))))
+  [t] 
+  (let [timestamp (tc/from-date t)]
+    (Long/parseLong (format "%4d%02d" (t/year timestamp) (t/month timestamp)))))
 
-(defmulti last-check-int-format "Returns integer representation of last check timestamp." type)
-(defmethod last-check-int-format org.joda.time.DateTime [t] (Integer/parseInt (tf/unparse int-time-formatter t)))
-(defmethod last-check-int-format java.lang.String [t] 
+(defmethod get-month-partition-key org.joda.time.DateTime
+  [t]
+  (Long/parseLong (format "%4d%02d" (t/year t) (t/month t))))
+
+(defmethod get-month-partition-key java.lang.String
+  [t]
+  (let [timestamp (tf/parse int-time-formatter t)]
+    (Long/parseLong (format "%4d%02d" (t/year timestamp) (t/month timestamp)))))
+
+
+
+(defmulti last-check-int-format 
+  "Returns integer representation of last check timestamp." 
+  type)
+
+(defmethod last-check-int-format org.joda.time.DateTime 
+  [t] 
+  (Long/parseLong (tf/unparse int-time-formatter t)))
+
+(defmethod last-check-int-format java.lang.String 
+  [t] 
   (let [timestamp (tf/parse db-date-formatter t)]
-    (Integer/parseInt (tf/unparse int-time-formatter timestamp))))
+    (Long/parseLong (tf/unparse int-time-formatter timestamp))))
+
+(defmethod last-check-int-format java.util.Date
+  [t]
+  (let [timestamp (tc/from-date t)]
+    (Long/parseLong (tf/unparse int-time-formatter timestamp))))
 
 
 ;;;;; Last check functions ;;;;;
@@ -51,10 +72,10 @@
   "Finds sensors that needs to have data quality checked: with no check performed
   or with a check older than a week."
   [querier validation-type]
-  (let [last-week        (Integer/parseInt (tf/unparse int-time-formatter (t/minus (t/now) (t/weeks 1))))
+  (let [last-week        (Long/parseLong (tf/unparse int-time-formatter (t/minus (t/now) (t/weeks 1))))
         sensors-metadata (items querier :sensor-metadata)
         sensors          (filter #(or (= "" (validation-type %))
-                                      (<= (Integer/parseInt (validation-type %)) last-week)) sensors-metadata)]
+                                      (<= (Long/parseLong (validation-type %)) last-week)) sensors-metadata)]
     (map #(merge (first (items querier :sensor {:device-id (:device-id %) :type (:type  %)})) %) sensors)))
 
 
