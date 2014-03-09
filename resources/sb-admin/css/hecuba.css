@@ -1,7 +1,41 @@
-.hecuba-table {
-/*    height: 200px; */
+#programme-table {
+    display: block;
+    height: 300px;
+    width: 100%;
+    overflow: scroll;
+}
+
+#project-table {
+    display: block;
+    height: 100px;
+    overflow: auto;
+}
+
+#property-table {
+    display: block;
+    height: 200px;
+    overflow: auto;
+}
+
+#device-table {
+    display: block;
+    height: 100px;
+    overflow: auto;
+}
+
+#sensor-table {
+    display: block;
+    height: 200px;
+    overflow: auto;
+}
+
+#measurement-table {
+    display: block;
+    height: 100px;
+    overflow: auto;
 }
 
 .row-selected {
     background-color: #ffa !important;
 }
+

@@ -3,7 +3,7 @@
   (:require
    [om.core :as om :include-macros true]
    [om.dom :as dom :include-macros true]
-   [cljs.core.async :refer [<! chan put! sliding-buffer]]))
+   [cljs.core.async :refer [<! chan close! put! sliding-buffer]]))
 
 (defn- navbar-sidenav [data owner {:keys [in out]}]
   (reify
@@ -12,7 +12,7 @@
       (let [out (chan (sliding-buffer 1))]
         (go-loop []
                  (when-let [n (<! out)]
-                   (nav-observer n)
+                   (println n)
                    (recur)))))
 
     om/IWillUnmount

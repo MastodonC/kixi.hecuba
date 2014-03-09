@@ -18,8 +18,8 @@
 (defn index [req]
   {:status 200 :body (slurp (io/resource "sb-admin/index.html"))})
 
-(defn tables [req]
-  {:status 200 :body (slurp (io/resource "sb-admin/tables.html"))})
+(defn programmes [req]
+  {:status 200 :body (slurp (io/resource "sb-admin/programmes.html"))})
 
 (defn chart [req]
   {:status 200 :body (slurp (io/resource "hecuba/chart.html"))})
@@ -100,17 +100,17 @@
               {:index index
                :login-handler lh
                :login-form (login-form lh)
-               :tables tables})))
+               :programmes programmes})))
 
 (defn make-routes [handlers {:keys [querier commander]}]
   ["/"
-   [["" (->Redirect 307 tables)]
+   [["" (->Redirect 307 programmes)]
     ["index.html" (:index handlers)]
 
     ["login.html" (->WrapMiddleware (:login-form handlers) wrap-cookies)]
     ["auth" (->WrapMiddleware (:login-handler handlers) (comp wrap-params wrap-cookies))]
 
-    ["tables" (->Secure (:tables handlers) querier (:login-form handlers))]
+    ["programmes" (->Secure (:programmes handlers) querier (:login-form handlers))]
 
     ["chart.html" chart]
     ["counters.html" counters]

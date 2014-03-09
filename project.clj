@@ -7,17 +7,21 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
   :dependencies [[org.clojure/clojure "1.5.1"]
-                 [liberator "0.10.0"]
+                 
+                 [org.clojure/clojurescript "0.0-2173" :scope "provided"]
+                 [org.clojure/core.async "0.1.267.0-0d7780-alpha" :scope "provided"]
+
+                 [liberator "0.11.0"]
                  [cheshire "5.3.1"]
 
                  ;; Required for Cassandra (possibly only OSX)
-                 [org.xerial.snappy/snappy-java "1.0.5"]
+                 [org.xerial.snappy/snappy-java "1.1.0.1"]
 
                  ;; ClojureScript dependencies
-                 [prismatic/dommy "0.1.1"]
+                 [prismatic/dommy "0.1.2"]
                  [cljs-ajax "0.2.3"]
-                 [om "0.2.3"]
-                 [net.drib/mrhyde "0.5.2"]
+                 [om "0.5.1"]
+                 [net.drib/mrhyde "0.5.3"]
 
                  [jig/protocols ~jig-version]
                  [jig/async ~jig-version]
@@ -25,8 +29,8 @@
                  [jig/http-kit ~jig-version]
                  [jig/bidi ~jig-version]
 
-                 [clj-kafka "0.1.2-0.8" :exclusions [org.slf4j/slf4j-simple]]
-                 [camel-snake-kebab "0.1.2"]
+                 [clj-kafka "0.2.0-0.8" :exclusions [org.slf4j/slf4j-simple]]
+                 [camel-snake-kebab "0.1.4"]
                  [clojurewerkz/cassaforte "1.3.0-beta9" :exclusions [[com.datastax.cassandra/cassandra-driver-core]]]
                  [com.datastax.cassandra/cassandra-driver-core "1.0.5" :exclusions [[org.slf4j/slf4j-log4j12]
                                                                                     [log4j/log4j]]]
@@ -37,7 +41,7 @@
                  [clj-time "0.6.0"]
                  [org.clojure/data.json "0.2.4"]
 
-                 [clojurewerkz/quartzite "1.1.0"]
+                 [clojurewerkz/quartzite "1.2.0"]
                  [pipejine "0.1.2" :exclusions [org.slf4j/slf4j-simple]]]
 
   :source-paths ["src" "src-cljs"]
@@ -45,7 +49,15 @@
   :jvm-opts ["-Duser.timezone=UTC"]
 
   :profiles {:dev {:source-paths ["dev"]
-                   :dependencies [[ring-mock "0.1.5"]]}
+                   :dependencies [
+                                  [ring-mock "0.1.5"]
+                                  [com.cemerick/austin "0.1.4"]
+                                  ]
+                   }
              :uberjar {:main kixi.hecuba :aot [kixi.hecuba]}}
-
+  
+  :exclusions [[org.clojure/clojurescript]
+               [org.clojure/core.async]
+               ]
+  
   )
