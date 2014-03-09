@@ -21,71 +21,53 @@
     (doall result-seq)))
 
 
-;;;;;;;;;;; Data ;;;;;;;;;;;
-
-(def mock-data {"01"
-                [{"device_id" "01" "device_name" "External temperature" "month" "01/01/2011" "reading" 0.8}
-                 {"device_id" "01" "device_name" "External temperature" "month" "01/02/2011" "reading" 0.9}
-                 {"device_id" "01" "device_name" "External temperature" "month" "01/03/2011" "reading" 0.8}
-                 {"device_id" "01" "device_name" "External temperature" "month" "01/04/2011" "reading" 0.75}
-                 {"device_id" "01" "device_name" "External temperature" "month" "01/05/2011" "reading" 0.65}
-                 {"device_id" "01" "device_name" "External temperature" "month" "01/06/2011" "reading" 0.50}
-                 {"device_id" "01" "device_name" "External temperature" "month" "01/07/2011" "reading" 0.55}
-                 {"device_id" "01" "device_name" "External temperature" "month" "01/08/2011" "reading" 0.6}
-                 {"device_id" "01" "device_name" "External temperature" "month" "01/09/2011" "reading" 0.66}
-                 {"device_id" "01" "device_name" "External temperature" "month" "01/10/2011" "reading" 0.68}
-                 {"device_id" "01" "device_name" "External temperature" "month" "01/11/2011" "reading" 0.71}
-                 {"device_id" "01" "device_name" "External temperature" "month" "01/12/2011" "reading" 0.9}]
-                "02"
-                [{"device_id" "02" "device_name" "External humidity" "month" "01/01/2011" "reading" 6}
-                 {"device_id" "02" "device_name" "External humidity" "month" "01/02/2011" "reading" 10}
-                 {"device_id" "02" "device_name" "External humidity" "month" "01/03/2011" "reading" 12}
-                 {"device_id" "02" "device_name" "External humidity" "month" "01/04/2011" "reading" 15}
-                 {"device_id" "02" "device_name" "External humidity" "month" "01/05/2011" "reading" 18}
-                 {"device_id" "02" "device_name" "External humidity" "month" "01/06/2011" "reading" 20}
-                 {"device_id" "02" "device_name" "External humidity" "month" "01/07/2011" "reading" 25}
-                 {"device_id" "02" "device_name" "External humidity" "month" "01/08/2011" "reading" 31}
-                 {"device_id" "02" "device_name" "External humidity" "month" "01/09/2011" "reading" 20}
-                 {"device_id" "02" "device_name" "External humidity" "month" "01/10/2011" "reading" 17}
-                 {"device_id" "02" "device_name" "External humidity" "month" "01/11/2011" "reading" 12}
-                 {"device_id" "02" "device_name" "External humidity" "month" "01/12/2011" "reading" 9}]})
-
 ;;;;;;;;; Utils ;;;;;;;;;;;;;;;;;;;;;;
 
 (def truthy? (complement #{"false"}))
 
-;;;;;;;;;;; Component 1:  Form containing list of devices for both axis plots ;;;;;;;;;;
+(defn url [entity-id device-id start-date end-date]
+  (str "/3/entities/" entity-id "/devices/" device-id "/measurements?startDate=" start-date "&endDate" end-date) )
 
-#_(defn device-form
+;;;;; Date picker component ;;;;;;;
+
+(defn date-picker
   [cursor owner]
   (reify
     om/IRenderState
-    (render-state [_ {:keys [clicked]}]
-      (dom/table #js {:id "form-table" :cellSpacing "10"}
-           (let [cols {:left "Left axis plots" :right "Right axis plots"}]
-             (dom/tr nil
-                  (into-array
-                   (for [col cols]
-                     (dom/td nil
-                          (dom/h4 nil (val col))
-                          #_(dom/form nil
-                               (into-array
-                                (for [device cursor]
-                                  (let [id (str (:hecuba/name device))
-                                        name (str (:name device))
-                                        axis (first col)]
-                                    (dom/div nil
-                                         (dom/input #js
-                                              {:type "checkbox"
-                                               :onChange
-                                               (fn [e]
-                                                 (let [checked (= (.. e -target -checked) true)]
-                                                   (put! clicked
-                                                         {:id id
-                                                          :axis axis
-                                                          :checked checked})))})
-                                         (dom/label nil name)
-                                         (dom/br #js {})))))))))))))))
+    (render-state [_ {:keys [selected]}]
+      (dom/table #js {:id "date-table"}
+                 (dom/tr nil
+                         (dom/td nil 
+                                 (dom/h4 nil "Start date")
+                                 (dom/input #js
+                                            {:type "text"
+                                             :id "dateFrom"
+                                             :ref "dateFrom"}))
+                         (dom/td nil
+                                 (dom/h4 nil "End date")
+                                 (dom/input #js
+                                            {:type "text"
+                                             :id "dateTo"
+                                             :ref "dateTo"}))
+                         (dom/td nil
+                                 (dom/h4 nil)
+                                 (dom/button #js {:type "button"
+                                                  :onClick (fn [e]
+                                                             (let [start (-> (om/get-node owner "dateFrom")
+                                                                             .-value)
+                                                                   end   (-> (om/get-node owner "dateTo")
+                                                                             .-value)]
+                                                               ;; TODO this doesn't work. Can't read cursor here.
+                                                               ;; Can't read cursor in will-mount of chart-item either.
+                                                               ;; the only place where cursor can be read is render.
+                                                               ;; but this causes infinite loop because getting measurements updates
+                                                               ;; the state and triggers re-render.
+                                                               (put! selected {:entity-id (get-in cursor [:entity-id])
+                                                                               :sensor (get-in cursor [:sensor])
+                                                                               :start-date start :end-date end})
+                                                               ))}
+                                             "Select dates")))))))
+
 
 ;;;;;;;;;;;;; Component 2: Chart ;;;;;;;;;;;;;;;;
 
@@ -94,51 +76,43 @@
   (reify
     om/IWillMount
     (will-mount [_]
-      (let [clicked-items (om/get-state owner [:clicked])]
+      (let [clicked-items (om/get-state owner [:selected])]
         (go (while true
-              (let [sel (<! clicked-items)
-                    checked         (str (get sel :checked))
-                    axis            (get sel :axis)
-                    id              (str (get sel :id))]
-                (println "Consumed axis: " (str axis)
-                         ". Id " (str id)
-                         ". Checked: " (str checked))
-                (om/set-state! owner [:selected axis id] (truthy? checked)))))
-
-        ))
-
+              (let [sel        (<! clicked-items)
+                    start-date (get sel :start-date)
+                    end-date   (get sel :end-date)
+                    entity-id  (get sel :entity-id)
+                    device-id  (get-in sel [:sensor :deviceId])
+                    url        (url entity-id device-id start-date end-date)
+                    ]
+                 (GET url {:handler #(om/transact! cursor [:measurements] (constantly %))
+                                   :headers {"Accept" "application/json"}
+                                   :response-format :json
+                                   :keywords? true})
+                )))))
     om/IRender
-    (render [_]
-      (dom/div nil
-               #_(dom/h2 nil "Units")
-               #_(apply dom/div nil
-                      (for [sensor (get-in cursor [:sensors])]
-                        (apply dom/div nil
-                                 (dom/h3 nil (:type sensor))
-                                 (for [m (filter #(= (:type %) (:type sensor))
-                                                 (get-in cursor [:measurements]))]
-                                   (dom/p nil (str (:timestamp m) " - "(:value m)))
-                                   )
-                                 )))
-               (dom/div #js {:id "chart" :width 500 :height 550})))
-
+    (render [_] 
+      (prn "[I render]")
+       (dom/div nil
+                 (dom/div #js {:id "chart" :width 500 :height 550})))
     om/IDidUpdate
     (did-update [this prev-props prev-state root-node]
       (let [n (.getElementById js/document "chart")]
         (while (.hasChildNodes n)
           (.removeChild n (.-lastChild n))))
-      (let [Chart (.-chart dimple)
-            svg (.newSvg dimple "#chart" 500 500)
-            #_left-keys #_(map first (filter second (om/get-state owner [:selected :left])))
-            sensor-type (:type (first (get-in cursor [:sensors])))
-            data (filter #(= (:type %) sensor-type) (get-in cursor [:measurements]))
+      (prn "[I did update]")
+      (let [Chart      (.-chart dimple)
+            svg        (.newSvg dimple "#chart" 500 500)
+            type       (get-in cursor [:sensor :type])
+            data       (get-in cursor [:measurements])
             dimple-chart (.setBounds (Chart. svg) 60 30 350 350)
             x (.addCategoryAxis dimple-chart "x" "timestamp")
             y (.addMeasureAxis dimple-chart "y" "value")
-            s (.addSeries dimple-chart (name sensor-type) js/dimple.plot.line (clj->js [x y]))]
-          (aset s "data" (clj->js data))
-          (.addLegend dimple-chart 60 10 300 20 "right")
-          (.draw dimple-chart)))))
+            s (if (not (empty? data )) (.addSeries dimple-chart (name type) js/dimple.plot.line (clj->js [x y])))]
+        (.log js/console data)
+        (if (not (nil? s)) (aset s "data" (clj->js data)))
+        (.addLegend dimple-chart 60 10 300 20 "right")
+        (.draw dimple-chart)))))
 
 ;;;;;;;;;;; Bootstrap ;;;;;;;;;;;;
 
@@ -146,16 +120,14 @@
   (reify
     om/IInitState
     (init-state [_]
-      {:chans {:clicked (chan (sliding-buffer 1))}})
+      {:chans {:selected (chan (sliding-buffer 1))}})
     om/IRenderState
     (render-state [_ {:keys [chans]}]
       (dom/div nil
            (dom/h3 #js {:key "head"} (str "Metering data - " (get-in cursor [:property])))
            (dom/p nil "Note: When you select something to plot on a given axis, you will only be able to plot other items of the same unit on that axis.")
-           ;; Builds chart component
+           (om/build date-picker cursor {:key :hecuba/name :init-state chans})
            (om/build chart-item cursor {:key :hecuba/name :init-state chans})
-           ;; Builds table containing form components for left and right axis
-           (println "Devices is" (:devices cursor))
-           #_(dom/div #js {:id "device-form"}
-                (om/build device-form (:devices cursor)
-                    {:key :hecuba/name :init-state chans}))))))
+          ))))
+
+
