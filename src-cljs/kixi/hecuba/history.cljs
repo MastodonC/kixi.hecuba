@@ -11,7 +11,7 @@
 (enable-console-print!)
 
 (defn match-token [s]
-  (re-matches #"((?:[A-Za-z0-9]+)(?:,(?:[A-Za-z0-9]+))*)(?:/search/(.*))?" s))
+  (re-matches #"((?:[A-Za-z0-9-;]+)(?:,(?:[A-Za-z0-9;-]+))*)(?:/search/(.*))?" s))
 
 (def ^:private key-order [:programme :project :property :device :sensor :measurement]) 
 
