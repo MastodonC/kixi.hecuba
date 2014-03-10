@@ -86,30 +86,33 @@
     (recur)))
 
 (defn selected-range-change
-  [selected selection-key template {{ids :ids} :args}]
+  [selected selection-key template {{ids :ids search :search} :args}]
   (println "ids: " ids)
   (let [new-selected (get ids selection-key)]
     (when (or (nil? selected)
               (not= selected new-selected))
-      (vector new-selected ids))))
+      (vector new-selected ids search))))
 
 (defn chart-ajax [in data {:keys [template
                                   selection-key
                                   content-type]}]
   (go-loop []
-    (when-let [[new-range ids] (selected-range-change (:range @data)
+    (when-let [[new-range ids search] (selected-range-change (:range @data)
                                                       selection-key
                                                       template
                                                       (<! in))]
-      (let [[start-date end-date] (str/split (get ids selection-key) #";")
+      (let [[start-date end-date] search
             entity-id             (get ids :property)
-            device-id             (get ids :device)
-            url                   (str "/3/entities/" entity-id "/devices/" device-id "/measurements?startDate=" start-date "&endDate=" end-date)]
-        (prn "measurements url: " url)
-        (GET url {:handler #(om/transact! data [:measurements] (constantly %))
-                  :headers {"Accept" "application/json"}
-                  :response-format :json
-                  :keywords? true}))
+            [type device-id]      (str/split (get ids :sensor) #"-")
+            url                   (str "/3/entities/" entity-id "/devices/" device-id "/measurements/" type "?startDate=" start-date "&endDate=" end-date)]
+        (when (and (not= "" start-date)
+                   (not= "" end-date)
+                   (not (nil? start-date)))
+          (prn "measurements url: " url)
+          (GET url {:handler #(om/transact! data [:measurements] (constantly %))
+                    :headers {"Accept" "application/json"}
+                    :response-format :json
+                    :keywords? true})))
       )
     (recur)))
 
@@ -218,7 +221,8 @@
                                                                              .-value)
                                                                    range (str start ";" end)]
                                                                (prn "Transacting dates." start end)
-                                                               (history/update-token-ids! history histkey range)
+                                                               (history/set-token-search! history [start end])
+                                                              ; (history/update-token-ids! history histkey range)
                                                                (om/update! cursor [:chart :range] {:start-date start
                                                                                                    :end-date end})
                                                                ))}

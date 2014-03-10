@@ -406,6 +406,55 @@
   "Returns java.util.Date from String timestamp."
   [t] (.parse (java.text.SimpleDateFormat.  "yyyy-MM-dd'T'HH:mm:ss") t))
 
+(defn assoc-conj
+  "Associate a key with a value in a map. If the key already exists in the map,
+  a vector of values is associated with the key."
+  [map key val]
+  (assoc map key
+    (if-let [cur (get map key)]
+      (if (vector? cur)
+        (conj cur val)
+        [cur val])
+      val)))
+
+(defn decode-query-params
+  [params]
+  (reduce
+   (fn [m param]
+     (if-let [[k v] (string/split param #"=" 2)]
+       (assoc-conj m k v)
+       m))
+   {}
+   (string/split params #"&")))
+
+(defresource measurements-slice [{:keys [commander querier]} handlers]
+  :allowed-methods #{:get}
+  :available-media-types #{"application/json"}
+  :known-content-type? #{"application/json"}
+  :authorized? (authorized? querier :measurement)
+
+  :handle-ok (fn [{{{:keys [device-id reading-type]} :route-params query-string :query-string} 
+                   :request {mime :media-type} :representation}]
+               (prn "Getting measurement slice for: " query-string)
+               (let [decoded-params (decode-query-params query-string)
+                     formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy")                     
+                     start-date     (.parse formatter (get decoded-params "startDate"))
+                     end-date       (.parse formatter (get decoded-params "endDate"))
+                     measurements   (items querier :measurement [:device-id device-id
+                                                                 :type reading-type
+                                                                 :month (get-month-partition-key start-date)
+                                                                 :timestamp [>= start-date]
+                                                                 :timestamp [<= end-date]])]
+                 (case mime
+                   "text/html" (html
+                                [:body
+                                 [:table
+                                  (for [m measurements]
+                                    [:tr
+                                     [:td
+                                      [:pre (with-out-str (pprint m))]]])]])
+                   "application/json" (->> measurements downcast-to-json camelify encode)))))
+
 (defresource measurements [{:keys [commander querier]} handlers]
   :allowed-methods #{:post :get}
   :available-media-types #{"application/json"}
@@ -438,8 +487,7 @@
                                      [:td
                                       [:pre (with-out-str (pprint m))]]])]])
                    "application/json" (->> measurements downcast-to-json camelify encode))))
-
-
+ 
   :handle-created (fn [_] (ring-response {:status 202 :body "Accepted"})))
 
 (defresource measurements-by-reading [{:keys [commander querier]} handlers]
@@ -470,7 +518,7 @@
                  :device (device opts p)
                  :measurements (measurements opts p)
                  :measurement (measurements-by-reading opts p)
-
+                 :measurement-slice (measurements-slice opts p)
                  })))
 
 (def sha1-regex #"[0-9a-f-]+")
@@ -495,6 +543,7 @@
          [["entities/" [sha1-regex :entity-id] "/devices"] (:devices handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id]] (:device handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements"] (:measurements handlers)]
+         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements/" :reading-type] (:measurement-slice handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements/" :reading-type "/" :timestamp] (:measurement handlers)]
          ]
         wrap-cookies)])

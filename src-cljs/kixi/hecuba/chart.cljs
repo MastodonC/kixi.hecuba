@@ -1,12 +1,10 @@
 (ns kixi.hecuba.chart
-  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require
    [mrhyde.core :as mrhyde]
    [dommy.core :as dommy]
    [om.core :as om :include-macros true]
    [om.dom :as dom :include-macros true]
-   [clojure.string :as str]
-   [kixi.hecuba.history :as history])
+   [clojure.string :as str])
   (:use-macros
    [dommy.macros :only [node sel sel1 by-tag]]))
 
@@ -15,26 +13,6 @@
 (mrhyde/bootstrap)
 (enable-console-print!)
 
-(defn nodelist-to-seq
-  "Converts nodelist to (not lazy) seq."
-  [nl]
-  (let [result-seq (map #(.item nl %) (range (.-length nl)))]
-    (doall result-seq)))
-
-
-;;;;;;;;; Utils ;;;;;;;;;;;;;;;;;;;;;;
-
-(def truthy? (complement #{"false"}))
-
-(defn url [entity-id device-id start-date end-date]
-  (str "/3/entities/" entity-id "/devices/" device-id "/measurements?startDate=" start-date "&endDate" end-date) )
-
-;;;;; Date picker component ;;;;;;;
-
-
-
-
-;;;;;;;;;;;;; Component 2: Chart ;;;;;;;;;;;;;;;;
 
 (defn chart-item
   [cursor owner]
@@ -70,9 +48,7 @@
 (defn chart-figure [cursor owner]
   (reify
     om/IInitState
-    (init-state [_]
-      ;{:chans {:selected (chan (sliding-buffer 1))}}
-      )
+    (init-state [_])
     om/IRenderState
     (render-state [_ {:keys [chans]}]
       (dom/div nil

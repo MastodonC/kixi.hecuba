@@ -57,7 +57,7 @@
                                           match-token)]
      (hash-map 
       :ids    (ids->map (str/split ids #","))
-      :search (str/split search-terms #" "))))
+      :search (str/split search-terms #"@@@"))))
 
 (defn- historian->token [{:keys [ids search]}]
   (str (->> ids
@@ -102,6 +102,7 @@
   (add-navigation-chan! history ch token->historian))
 
 (defn update-token-ids! [history k v]
+  (prn "history: " history)
   (let [{:keys [ids] :as tmap} (token-as-map history)
         new-ids (reduce-kv (fn [m k' v']
                                (if (= k k')
@@ -109,11 +110,13 @@
                                  (assoc m k' v')))
                              (new-historian-map k v)
                              ids)]
-    (set-token! history (assoc tmap :ids new-ids) historian->token)))
+    (prn "tmap: " tmap)
+    (set-token! history (assoc tmap :ids new-ids) historian->token)
+    (prn "new history: " history)))
 
 (defn set-token-search! [history xs]
   (let [{:keys [search] :as tmap} (token-as-map history)]
     (set-token! history (assoc tmap :search 
-                               (str/join xs 
+                               (str/join "@@@" 
                                          (map goog.string/urlEncode xs))) 
                 historian->token)))
