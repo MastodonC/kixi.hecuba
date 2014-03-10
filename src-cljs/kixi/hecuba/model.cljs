@@ -82,6 +82,7 @@
                                                       }}
                             :chart    {:property ""
                                        :sensor ""
+                                       :range {}
                                        :measurements []
                                        }}
 

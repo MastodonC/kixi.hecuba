@@ -85,14 +85,31 @@
                        (merge {:response-format :json :keywords? true})))))
     (recur)))
 
-;; TODO it's not used
+(defn selected-range-change
+  [selected selection-key template {{ids :ids} :args}]
+  (println "ids: " ids)
+  (let [new-selected (get ids selection-key)]
+    (when (or (nil? selected)
+              (not= selected new-selected))
+      (vector new-selected ids))))
+
 (defn chart-ajax [in data {:keys [template
                                   selection-key
                                   content-type]}]
   (go-loop []
-    ;(str "/3/entities/" entity-id "/devices/" device-id "/measurements?startDate=" start-date "&endDate" end-date)
-    (when-let [new-selected (<! in)]
-      (prn "Selected chart-ajax: " new-selected)
+    (when-let [[new-range ids] (selected-range-change (:range @data)
+                                                      selection-key
+                                                      template
+                                                      (<! in))]
+      (let [[start-date end-date] (str/split (get ids selection-key) #";")
+            entity-id             (get ids :property)
+            device-id             (get ids :device)
+            url                   (str "/3/entities/" entity-id "/devices/" device-id "/measurements?startDate=" start-date "&endDate=" end-date)]
+        (prn "measurements url: " url)
+        (GET url {:handler #(om/transact! data [:measurements] (constantly %))
+                  :headers {"Accept" "application/json"}
+                  :response-format :json
+                  :keywords? true}))
       )
     (recur)))
 
@@ -155,20 +172,57 @@
 
                                  (let [id (str type "-" deviceId)]
                                    ;; TODO clojurefy ids
-                                   (dom/tr #js {:onClick (fn [_ _ ]
-                                                           (prn "Clicked sensor: " id)
-                                                           (om/update! cursor [:tables :sensor :selected] id)
-                                                           (om/update! cursor [:chart :sensor] id)
-                                                           (history/update-token-ids! history histkey id))
-                                                :className (when (= id (:selected (:sensor (:tables cursor)))) "row-selected")
-                                                :id (str table-id "-selected") 
-                                                }
+                                   (dom/tr #js
+                                           {:onClick
+                                            (fn [_ _ ]
+                                              (prn "Clicked sensor: " id)
+                                              (om/update! cursor [:tables :sensor :selected] id)
+                                              (om/update! cursor [:chart :sensor] id)
+                                              (history/update-token-ids! history histkey id))
+                                            :className (when (= id (:selected (:sensor (:tables cursor)))) "row-selected")
+                                            :id (str table-id "-selected") 
+                                            }
                                            (into-array
                                             (for [[k {:keys [href]}] cols]
                                               (let [k (if (vector? k) k (vector k))]
                                                 (dom/td nil (if href
                                                               (dom/a #js {:href (get row href)} (get-in row k))
                                                               (get-in row k))))))))))))))))
+
+(defn date-picker
+  [cursor owner {:keys [histkey]}]
+  (reify
+    om/IRender
+    (render [_]
+      (dom/table #js {:id "date-table"}
+                 (dom/tr nil
+                         (dom/td nil 
+                                 (dom/h4 nil "Start date")
+                                 (dom/input #js
+                                            {:type "text"
+                                             :id "dateFrom"
+                                             :ref "dateFrom"}))
+                         (dom/td nil
+                                 (dom/h4 nil "End date")
+                                 (dom/input #js
+                                            {:type "text"
+                                             :id "dateTo"
+                                             :ref "dateTo"}))
+                         (dom/td nil
+                                 (dom/h4 nil)
+                                 (dom/button #js {:type "button"
+                                                  :onClick (fn [e]
+                                                             (let [start (-> (om/get-node owner "dateFrom")
+                                                                             .-value)
+                                                                   end   (-> (om/get-node owner "dateTo")
+                                                                             .-value)
+                                                                   range (str start ";" end)]
+                                                               (prn "Transacting dates." start end)
+                                                               (history/update-token-ids! history histkey range)
+                                                               (om/update! cursor [:chart :range] {:start-date start
+                                                                                                   :end-date end})
+                                                               ))}
+                                             "Select dates")))))))
 
 (defmulti render-content-directive (fn [itemtype _ _] itemtype))
 
@@ -230,9 +284,9 @@
           (ajax (tap-history) data {:template "/3/entities/:property/devices/:device"
                                     :content-type "application/json"
                                     :selection-key :foo})
-          (chart-ajax (tap-history) data  {:template  "/3/entities/:property/devices/:device"
-                                           :content-type  "application/json"
-                                           :selection-key :foo})
+          (chart-ajax (tap-history) (:chart data) {:template "/3/entities/:property/devices/:device/measurements?startDate=:start-date&endDate=:end-date"
+                                         :content-type  "application/json"
+                                         :selection-key :range})
           (ajax (tap-history) measurements {:template      "/3/entities/:property/devices/:device/measurements"
                                             :content-type  "application/json"
                                             :selection-key :measurement})
@@ -257,6 +311,9 @@
                  (om/build device-detail devices)
                  (dom/h2 {:id "sensors"} "Sensors" (title-for devices))
                  (om/build sensor-table data {:opts {:histkey :sensor :path :readings}})
+                 (dom/h2 #js {:id "chart"} (str "Metering data"))
+                 (dom/p nil "Note: When you select something to plot on a given axis, you will only be able to plot other items of the same unit on that axis.")
+                 (om/build date-picker data {:opts {:histkey :range}})
                  #_(dom/h2 {:id "measurements"} "Measurements")
                  #_(om/build table measurements {:opts {:histkey :measurements}})
                  (dom/h2 {:id "chart"} "Chart")
