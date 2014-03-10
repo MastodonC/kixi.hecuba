@@ -107,7 +107,10 @@
             url                   (str "/3/entities/" entity-id "/devices/" device-id "/measurements/" type "?startDate=" start-date "&endDate=" end-date)]
         (when (and (not= "" start-date)
                    (not= "" end-date)
-                   (not (nil? start-date)))
+                   (not (nil? start-date))
+                   (not (nil? device-id))
+                   (not (nil? entity-id))
+                   (not (nil? type)))
           (prn "measurements url: " url)
           (GET url {:handler #(om/transact! data [:measurements] (constantly %))
                     :headers {"Accept" "application/json"}
@@ -197,16 +200,16 @@
   (reify
     om/IRender
     (render [_]
-      (dom/table #js {:id "date-table"}
+      (dom/table #js {:id "date-picker"}
                  (dom/tr nil
                          (dom/td nil 
-                                 (dom/h4 nil "Start date")
+                                 (dom/h4 nil "Start: ")
                                  (dom/input #js
                                             {:type "text"
                                              :id "dateFrom"
                                              :ref "dateFrom"}))
                          (dom/td nil
-                                 (dom/h4 nil "End date")
+                                 (dom/h4 nil "End: ")
                                  (dom/input #js
                                             {:type "text"
                                              :id "dateTo"
@@ -220,9 +223,7 @@
                                                                    end   (-> (om/get-node owner "dateTo")
                                                                              .-value)
                                                                    range (str start ";" end)]
-                                                               (prn "Transacting dates." start end)
                                                                (history/set-token-search! history [start end])
-                                                              ; (history/update-token-ids! history histkey range)
                                                                (om/update! cursor [:chart :range] {:start-date start
                                                                                                    :end-date end})
                                                                ))}
@@ -313,14 +314,13 @@
                  (dom/h2 {:id "devices"} "Devices" (title-for properties :title-key :addressStreetTwo))
                  (om/build table devices {:opts {:histkey :device}})
                  (om/build device-detail devices)
-                 (dom/h2 {:id "sensors"} "Sensors" (title-for devices))
+                 (dom/h2 {:id "sensors"} "Sensors")
                  (om/build sensor-table data {:opts {:histkey :sensor :path :readings}})
-                 (dom/h2 #js {:id "chart"} (str "Metering data"))
+                  (dom/h2 nil "Chart")
+                 (dom/div #js {:id "date-picker"})
                  (dom/p nil "Note: When you select something to plot on a given axis, you will only be able to plot other items of the same unit on that axis.")
                  (om/build date-picker data {:opts {:histkey :range}})
-                 #_(dom/h2 {:id "measurements"} "Measurements")
-                 #_(om/build table measurements {:opts {:histkey :measurements}})
-                 (dom/h2 {:id "chart"} "Chart")
+                 (dom/div #js {:id "chart"})
                  (om/build chart/chart-figure (:chart data)))))))
 
 (defn tab-container [tabs]
