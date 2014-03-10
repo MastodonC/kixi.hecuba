@@ -65,7 +65,7 @@
             (take-while identity)
             (interpose \,)
             (apply str)) 
-       (when (pos? (count search)) (str "/search/" search))))
+       (when (pos? (count search)) (str "/search/" (str/join "@@@" search)))))
 
 (defn- get-token [history]
    (.getToken history))
@@ -102,7 +102,6 @@
   (add-navigation-chan! history ch token->historian))
 
 (defn update-token-ids! [history k v]
-  (prn "history: " history)
   (let [{:keys [ids] :as tmap} (token-as-map history)
         new-ids (reduce-kv (fn [m k' v']
                                (if (= k k')
@@ -110,13 +109,10 @@
                                  (assoc m k' v')))
                              (new-historian-map k v)
                              ids)]
-    (prn "tmap: " tmap)
-    (set-token! history (assoc tmap :ids new-ids) historian->token)
-    (prn "new history: " history)))
+    (set-token! history (assoc tmap :ids new-ids) historian->token)))
 
 (defn set-token-search! [history xs]
   (let [{:keys [search] :as tmap} (token-as-map history)]
     (set-token! history (assoc tmap :search 
-                               (str/join "@@@" 
-                                         (map goog.string/urlEncode xs))) 
+                               (map goog.string/urlEncode xs)) 
                 historian->token)))
