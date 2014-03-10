@@ -57,8 +57,8 @@
   "Returns the uri to load because of change of selection. Returns nil
    if no change to selection"
   [selected selection-key template {{ids :ids} :args}]
-  (println "ids: " ids)
   (let [new-selected (get ids selection-key)]
+    (println "ns:" new-selected ":ids" (pr-str ids))
     (when (or (nil? selected)
               (not= selected new-selected))
       (vector new-selected
@@ -72,11 +72,8 @@
                                                 selection-key
                                                 template
                                                 (<! in))]
-      (println "GET " uri)
       (GET uri
            (-> {:handler  (fn [x]
-                            (when  (= selection-key :sensor)
-                              (println (pr-str x)))
                             (om/update! data :data x)
                             (om/update! data :selected new-selected))
                 :headers {"Accept" content-type}
@@ -105,13 +102,13 @@
             entity-id             (get ids :property)
             [type device-id]      (str/split (get ids :sensor) #"-")
             url                   (str "/3/entities/" entity-id "/devices/" device-id "/measurements/" type "?startDate=" start-date "&endDate=" end-date)]
-        (when (and (not= "" start-date)
-                   (not= "" end-date)
-                   (not (nil? start-date))
+        (prn "measurements url: " url)
+        (when (and (not (empty? start-date))
+                   (not (empty? end-date))
                    (not (nil? device-id))
                    (not (nil? entity-id))
                    (not (nil? type)))
-          (prn "measurements url: " url)
+          (prn "Hello")
           (GET url {:handler #(om/transact! data [:measurements] (constantly %))
                     :headers {"Accept" "application/json"}
                     :response-format :json
@@ -141,7 +138,6 @@
                                (for [{:keys [id href] :as row} (-> cursor :data
                                                                    (cond-> path path))]
                                  (dom/tr #js {:onClick (fn [_ _ ]
-                                                         (println "click:" id)
                                                          (om/update! cursor :selected id)
                                                          (history/update-token-ids! history histkey id))
                                               :className (when (= id (:selected cursor)) "row-selected")
@@ -156,44 +152,44 @@
                                                             (dom/a #js {:href (get row href)} (get-in row k))
                                                             (get-in row k)))))))))))))))
 
-(defn sensor-table [cursor owner {:keys [histkey path]}]
+(defn sensor-table [{:keys [tables chart]} owner {:keys [histkey path]}]
   (reify
     om/IRender
     (render [_]
       ;; Select the first row
       ;;(put! out {:type :row-selected :row (first (om/get-state owner :data))})
-      (let [cols (get-in cursor [:tables :sensors :header :cols])
-            table-id (str (name histkey) "-table")]
-        (dom/table #js {:id table-id
-                        :className "table table-bordered hecuba-table "} ;; table-hover table-stripedso,
-                   (dom/thead nil
-                              (dom/tr nil
-                                      (into-array
-                                       (for [[_ {:keys [label]}] cols]
-                                         (dom/th nil label)))))
-                   (dom/tbody nil
-                              (into-array
-                               (for [{:keys [type deviceId] :as row} (-> cursor :data
-                                                                   (cond-> path path))]
+      (let [{sensors :sensors} tables
+            cols               (get-in sensors [:header :cols])
+            table-id           (str (name histkey) "-table")]
 
-                                 (let [id (str type "-" deviceId)]
-                                   ;; TODO clojurefy ids
-                                   (dom/tr #js
-                                           {:onClick
-                                            (fn [_ _ ]
-                                              (prn "Clicked sensor: " id)
-                                              (om/update! cursor [:tables :sensor :selected] id)
-                                              (om/update! cursor [:chart :sensor] id)
-                                              (history/update-token-ids! history histkey id))
-                                            :className (when (= id (:selected (:sensor (:tables cursor)))) "row-selected")
-                                            :id (str table-id "-selected") 
-                                            }
-                                           (into-array
-                                            (for [[k {:keys [href]}] cols]
-                                              (let [k (if (vector? k) k (vector k))]
-                                                (dom/td nil (if href
-                                                              (dom/a #js {:href (get row href)} (get-in row k))
-                                                              (get-in row k))))))))))))))))
+        (dom/table
+         #js {:id table-id
+              :className "table table-bordered hecuba-table "} ;; table-hover table-stripedso,
+         (dom/thead nil
+                    (dom/tr nil
+                            (into-array
+                             (for [[_ {:keys [label]}] cols]
+                               (dom/th nil label)))))
+         (dom/tbody nil
+                    (into-array
+                     (for [{:keys [type deviceId] :as row} (-> sensors :data
+                                                               (cond-> path path))]
+                       (let [id (str type "-" deviceId)]
+                         ;; TODO clojurefy ids
+                         (dom/tr #js
+                                 {:onClick (fn [_ _ ]
+                                             (prn "Clicked sensor: " id)
+                                             (om/update! sensors :selected id)
+                                             (om/update! chart :sensor id)
+                                             (history/update-token-ids! history histkey id))
+                                  :className (when (= id (:selected sensors)) "row-selected")
+                                  :id (str table-id "-selected")}
+                                 (into-array
+                                  (for [[k {:keys [href]}] cols]
+                                    (let [k (if (vector? k) k (vector k))]
+                                      (dom/td nil (if href
+                                                    (dom/a #js {:href (get row href)} (get-in row k))
+                                                    (get-in row k))))))))))))))))
 
 (defn date-picker
   [cursor owner {:keys [histkey]}]
@@ -202,7 +198,7 @@
     (render [_]
       (dom/table #js {:id "date-picker"}
                  (dom/tr nil
-                         (dom/td nil 
+                         (dom/td nil
                                  (dom/h4 nil "Start: ")
                                  (dom/input #js
                                             {:type "text"
@@ -263,8 +259,140 @@
   (some->> (get (row-for cursor) title-key)
            (str " - ")))
 
+(defn sensor-selection-button [cursor owner]
+  (om/component
+   (dom/div nil
+            (dom/a #js {:href "#"
+                        :className (str "btn btn-primary btn-large" (when (:selected cursor) "disabled"))
+                        :data-toggle "modal"
+                        :data-target "#sensor-selection-dialog"
+                    }
+                   (dom/i {:className "icon-white icon-edit"})
+                   "Define data set"))))
+
+(def truthy? (complement #{"false"}))
+
+(defn new-checkbox [id v cursor]
+  (dom/div #js {:className "checkbox"
+                ;; TODO hack alert!!
+                :style {:margin 0}}
+           (dom/label #js {:className "checkbox-inline"}
+                      (dom/input #js {:type "checkbox"
+                                      :value v
+                                      :onClick (fn [e] (let [v (truthy? (.. e -target -checked))]
+                                                        (if v
+                                                          (do (println "adding " id)
+                                                              (om/transact! cursor :sensor-group #(conj % id)))
+                                                          (do (println "removing " id)
+                                                              (om/transact! cursor :sensor-group #(disj % id))))))}))))
+
+(defn render-row [row cols id-fn cursor]
+  (into-array
+   (for [[k {:keys [checkbox]}] cols]
+     (let [k (if (vector? k) k (vector k))
+           v (get-in row k)
+           id (id-fn row)]
+       (dom/td
+        nil
+        (if checkbox (new-checkbox id v cursor) v))))))
+
+(defn sensor-select-table [cursor owner]
+  (om/component
+   (let [cols (get-in cursor [:header :cols])]
+     (dom/table
+      #js {:id "sensor-select-table"
+           :className "table table-bordered hecuba-table "} ;; table-hover table-stripedso,
+      (dom/thead
+       nil
+       (dom/tr nil
+               (into-array
+                (for [[_ {:keys [label]}] cols]
+                  (dom/th nil label)))))
+      (dom/tbody
+       nil
+       (into-array
+        (for [row (:data cursor)]
+          (dom/tr
+           nil
+           (render-row row cols #(str (:type %) "-" (:deviceId %)) cursor)))))))))
+
+(defn button
+  ([text kind dismiss]
+     (button text kind dismiss nil))
+  ([text kind dismiss on-click]
+     (dom/button #js {:type "button"
+                      :className (str "btn btn-" kind)
+                      :data-dismiss "modal"
+                      :onClick on-click}
+                 text)))
+
+(defn primary-button
+  ([text dismiss]
+     (primary-button text dismiss nil))
+  ([text dismiss on-click]
+     (button text "primary" dismiss on-click)))
+
+(defn default-button
+  ([text dismiss]
+     (default-button text dismiss nil))
+  ([text dismiss on-click]
+     (button text "default" dismiss on-click)))
+
+(defn sensor-selection-dialog [{:keys [sensor-select properties]} owner]
+  (om/component
+   (dom/div
+    #js {:id "sensor-selection-dialog"
+         :className "modal fade"}
+    (dom/div
+     #js {:className "modal-dialog"}
+     (dom/div
+      #js {:className "modal-content"}
+      (dom/div
+       #js {:className "modal-header"}
+       (dom/button
+        #js {:type "button"
+             :className "close"
+             :data-dismiss "modal"
+             :aria-hidden "true"})
+       (dom/h3
+        #js {:className "modal-title"}
+        "Define data set"))
+      (dom/div
+       #js {:className "modal-body"}
+       (dom/label nil "Sensors")
+       (om/build sensor-select-table sensor-select)
+       (dom/div
+        #js {:className "form-group has-feedback"}
+        (dom/label nil "Data set name")
+        (dom/input
+         #js {:className "form-control"
+              :type "text"
+              :onBlur (fn [e] (println "Changed" (om/update! sensor-select :data-set-name (.. e -target -value))))})))
+      (dom/div
+       #js {:className "modal-footer"}
+       (default-button "Close" "modal")
+       (primary-button "Define" "modal" (fn [e]
+                                          (.preventDefault e)
+                                          (POST (str "/3/entities/" (:selected @properties) "/datasets")
+                                                {:params (select-keys @sensor-select [:sensor-group :data-set-name])
+                                                 :handler #(println "Yah!")
+                                                 :error-handler #(println "Error!")
+                                                 :response-format "application/edn"
+                                                 :keywords? true})))))))))
+
+(defn sensor-selection [data owner]
+  (om/component
+   (dom/div nil
+            (dom/a {:href "#"
+                    :className "btn btn-primary btn-large"
+                    }
+                   (dom/i {:className "icon-white icon-edit"})
+                   "Group Sensors"))))
+
 (defn programmes-tab [data owner]
-  (let [{:keys [programmes projects properties devices measurements]} (:tables data)]
+  (let [{:keys [programmes projects properties
+                devices sensors measurements
+                sensor-select]} (:tables data)]
     (reify
       om/IWillMount
       (will-mount [_]
@@ -286,11 +414,16 @@
           (ajax (tap-history) devices {:template      "/3/entities/:property/devices"
                                        :content-type  "application/json"
                                        :selection-key :device})
-          (ajax (tap-history) data {:template "/3/entities/:property/devices/:device"
+          (ajax (tap-history) sensors {:template "/3/entities/:property/devices/:device"
                                     :content-type "application/json"
-                                    :selection-key :foo})
+                                    :selection-key :sensor})
+          (ajax (tap-history) sensor-select {:template     "/3/entities/:property/sensors"
+                                             :content-type "application/json"})
+          (ajax (tap-history) measurements {:template      "/3/entities/:property/devices/:device/measurements"
+                                            :content-type  "application/json"
+                                            :selection-key :measurement})
           (chart-ajax (tap-history) (:chart data) {:template "/3/entities/:property/devices/:device/measurements?startDate=:start-date&endDate=:end-date"
-                                         :content-type  "application/json"
+                                                   :content-type  "application/json"
                                          :selection-key :range})
           ))
       om/IRender
@@ -311,14 +444,16 @@
                  (dom/h2 {:id "devices"} "Devices" (title-for properties :title-key :addressStreetTwo))
                  (om/build table devices {:opts {:histkey :device}})
                  (om/build device-detail devices)
-                 (dom/h2 {:id "sensors"} "Sensors")
+                 (dom/h2 {:id "sensors"} "Sensors" (title-for devices))
                  (om/build sensor-table data {:opts {:histkey :sensor :path :readings}})
-                  (dom/h2 nil "Chart")
+                 (om/build sensor-selection-button data)
+                 (dom/h2 nil "Chart")
                  (dom/div #js {:id "date-picker"})
                  (dom/p nil "Note: When you select something to plot on a given axis, you will only be able to plot other items of the same unit on that axis.")
                  (om/build date-picker data {:opts {:histkey :range}})
                  (dom/div #js {:id "chart"})
-                 (om/build chart/chart-figure (:chart data)))))))
+                 (om/build chart/chart-figure (:chart data))
+                 (om/build sensor-selection-dialog sensor-select))))))
 
 (defn tab-container [tabs]
   (fn [data owner]
@@ -337,7 +472,7 @@
   (swap! app-model assoc-in [:tab-container :selected] menu-item))
 
 (defn FOO []
-  (let [path [:tab-container :tabs 3 :tables :sensors :data]]
+  (let [path [:tab-container :tabs 3 :chart]]
     (println "AM:" (type(-> @app-model (get-in path))))
     (println "AM:" (pr-str (-> @app-model (get-in path))))))
 

@@ -376,9 +376,13 @@
                            :timestamp :timestamp
                            :primary-key [:id :timestamp]})))
 
-
-        ))
-
+        (ignoring-error
+         (cql/create-table "data_sets"
+                           (cassaquery/column-definitions
+                            {:id :varchar
+                             :data_set_name :varchar
+                             :sensor_group :varchar
+                             :primary-key :id})))))
     system)
 
   (stop [_ system]
@@ -438,6 +442,7 @@
 
 (defmethod gen-key :user [typ payload] (:username payload))
 (defmethod gen-key :user-session [typ payload] (:id payload))
+(defmethod gen-key :dataset [typ payload] (sha1-keyfn :name :entity-id))
 
 (defmulti get-primary-key-field (fn [typ] typ))
 (defmethod get-primary-key-field :programme [typ] :id)
@@ -446,6 +451,7 @@
 (defmethod get-primary-key-field :device [typ] :id)
 (defmethod get-primary-key-field :user [typ] :id) ; TODO should be username...
 (defmethod get-primary-key-field :user-session [typ] :id)
+(defmethod get-primary-key-field :dataset [typ] :id)
 
 (defmulti get-table identity)
 (defmethod get-table :programme [_] "programmes")
@@ -461,6 +467,7 @@
 (defmethod get-table :daily-rollups [_] "daily_rollups")
 (defmethod get-table :user [_] "users")
 (defmethod get-table :user-session [_] "user_sessions")
+(defmethod get-table :dataset [_] "data_sets")
 
 (defn cassandraify
   "Cassandra has various conventions, such as forbidding hyphens in

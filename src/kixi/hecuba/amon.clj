@@ -303,7 +303,6 @@
       (case method
         :post (not (nil? entity))
         :get (let [items (items querier :device {:entity-id id})]
-               (println ":>>>:" (pr-str items))
                {::items items}))))
 
   :malformed?
@@ -383,7 +382,7 @@
   :handle-ok (fn [{item ::item}]
                (-> item
                    ;; These are the device's sensors.
-                   (assoc :readings (items querier :sensor (select-keys item [:device-id])))
+                   (assoc :readings (items querier :sensor (select-keys item [:device-id])))        
                    ;; Note: We are NOT showing measurements here, in
                    ;; contradiction to the AMON API.  There is a
                    ;; duplication (or ambiguity) in the AMON API whereby
@@ -490,6 +489,25 @@
  
   :handle-created (fn [_] (ring-response {:status 202 :body "Accepted"})))
 
+(defresource sensors-by-property [{:keys [commander querier]} handlers]
+  :allowed-methods #{:get}
+  :available-media-types #{"application/json"}
+  :known-content-type? #{"application/json"}
+  :authorized? (authorized? querier :measurement)
+  :handle-ok (fn [{{{:keys [entity-id]} :route-params} :request {mime :media-type} :representation}]
+               (let [devices (items querier :device {:entity-id entity-id})
+                     sensors (mapcat (fn [{:keys [id location]}] 
+                                       (map #(assoc % :location (decode location)) (items querier :sensor {:device-id id}))) devices)]
+                 (case mime
+                   "text/html" (html
+                                [:body
+                                 [:table
+                                  (for [s sensors]
+                                    [:tr
+                                     [:td
+                                      [:pre (with-out-str (pprint s))]]])]])
+                   "application/json" (->> sensors downcast-to-json camelify encode)))))
+
 (defresource measurements-by-reading [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
   :available-media-types #{"application/json"}
@@ -498,6 +516,27 @@
   :handle-ok (fn [{{{:keys [device-id sensor-type timestamp]} :route-params} :request {mime :media-type} :representation}]
                (let [measurement (first (items querier :measurement {:device-id device-id :type sensor-type :timestamp timestamp}))]
                  (->> measurement downcast-to-json camelify encode))))
+
+(defresource datasets [{:keys [commander querier]} handlers]
+  :allowed-methods #{:get :post}
+  :available-media-types #{"application/edn"}
+  :authorized? (authorized? querier :datasets)
+  :exists? (fn [_] (println "exists?" ) true)
+  
+  :post! (fn [{{body :body {:keys [entity-id]} :route-params} :request}]
+           (upsert! commander :dataset (-> body read-edn-body ->shallow-kebab-map)))
+
+  :handle-ok (fn [{{{:keys [entity-id]} :route-params} :request {mime :media-type} :representation}]
+               (let [data-sets (items querier :data-set-id {:entity-id entity-id})]
+                 (case mime
+                   "text/html" (html
+                                [:body
+                                 [:table
+                                  (for [ds data-sets]
+                                    [:tr
+                                     [:td
+                                      [:pre (with-out-str (pprint ds))]]])]])
+                   "application/edn" (pr-str data-sets)))))
 
 ;; Handlers and Routes
 
@@ -519,7 +558,9 @@
                  :measurements (measurements opts p)
                  :measurement (measurements-by-reading opts p)
                  :measurement-slice (measurements-slice opts p)
-                 })))
+                 :sensors-by-property (sensors-by-property opts p)
+                 :datasets (datasets opts p)})))
+
 
 (def sha1-regex #"[0-9a-f-]+")
 
@@ -540,6 +581,8 @@
          ["entities/" (:entities handlers)]
          ["entities" (->Redirect 307 (:entities handlers))]
          [["entities/" [sha1-regex :entity-id]] (:entity handlers)]
+         [["entities/" [sha1-regex :entity-id] "/datasets"] (:datasets handlers)]
+         [["entities/" [sha1-regex :entity-id] "/sensors"] (:sensors-by-property handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices"] (:devices handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id]] (:device handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements"] (:measurements handlers)]

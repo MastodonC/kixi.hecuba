@@ -71,7 +71,7 @@
   [entity-id n]
   (take n (repeatedly n
                       #(hash-map :device-id (str (uuid))
-                                 :description (first (gen/sample (gen/not-empty gen/string) 1))
+                                 :description (first (gen/sample (gen/not-empty gen/string-alpha-numeric) 1))
                                  :parent-id (uuid)
                                  :entity-id entity-id
                                  :location (location-gen)

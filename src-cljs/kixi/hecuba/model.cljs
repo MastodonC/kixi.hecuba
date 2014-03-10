@@ -79,7 +79,16 @@
                                                                  :sort [:timestamp]}
                                                       :data     []
                                                       :selected nil
-                                                      }}
+                                                      }
+                                       :sensor-select {:name     "Sensors"
+                                                       :header   {:cols {[:location :name] {:label "Name"}
+                                                                         :type     {:label "Type"}
+                                                                         :unit     {:label "Unit"}
+                                                                         :select   {:label "Select" :checkbox true}}
+                                                                  :sort [:name]}
+                                                       :data     []
+                                                       :sensor-group #{}
+                                                       }}
                             :chart    {:property ""
                                        :sensor ""
                                        :range {}
