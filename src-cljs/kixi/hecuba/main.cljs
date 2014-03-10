@@ -53,7 +53,7 @@
 (defn row-for [{:keys [selected data]}]
   (find-first #(= (:id %) selected) data))
 
-(defn uri-for-selection-change 
+(defn uri-for-selection-change
   "Returns the uri to load because of change of selection. Returns nil
    if no change to selection"
   [selected selection-key template {{ids :ids} :args}]
@@ -61,29 +61,46 @@
   (let [new-selected (get ids selection-key)]
     (when (or (nil? selected)
               (not= selected new-selected))
-      (vector new-selected 
+      (vector new-selected
               (map-replace template ids)))))
 
 (defn ajax [in data {:keys [template
                             selection-key
                             content-type]}]
   (go-loop []
-    (when-let [[new-selected uri] (uri-for-selection-change (:selected @data) 
-                                                selection-key 
+    (when-let [[new-selected uri] (uri-for-selection-change (:selected @data)
+                                                selection-key
                                                 template
                                                 (<! in))]
       (println "GET " uri)
       (GET uri
-           (-> {:handler  (fn [x] 
+           (-> {:handler  (fn [x]
                             (when  (= selection-key :sensor)
                               (println (pr-str x)))
                             (om/update! data :data x)
                             (om/update! data :selected new-selected))
                 :headers {"Accept" content-type}
                 :response-format :text}
-               (cond-> (= content-type "application/json") 
+               (cond-> (= content-type "application/json")
                        (merge {:response-format :json :keywords? true})))))
     (recur)))
+
+(defn chart-ajax [in data {:keys [template
+                            content-type]}]
+  (go-loop []
+    (when-let [;(str "/3/entities/" entity-id "/devices/" device-id "/measurements?startDate=" start-date "&endDate" end-date)
+               [new-selected uri] [nil (<! in)]]
+
+      (GET uri
+           (-> {:handler  (fn [x]
+                            (om/update! data :data x)
+                            (om/update! data :selected new-selected))
+                :headers {"Accept" content-type}
+                :response-format :text}
+               (cond-> (= content-type "application/json")
+                       (merge {:response-format :json :keywords? true})))))
+    (recur)))
+
 
 ;; TODO histkey is really id key. resolve name confusion.
 (defn table [cursor owner {:keys [histkey path]}]
@@ -95,7 +112,7 @@
       (let [cols (get-in cursor [:header :cols])
             table-id (str (name histkey) "-table")]
         (dom/table #js {:id table-id
-                        :className "table table-bordered hecuba-table "} ;; table-hover table-stripedso, 
+                        :className "table table-bordered hecuba-table "} ;; table-hover table-stripedso,
                    (dom/thead nil
                               (dom/tr nil
                                       (into-array
@@ -103,7 +120,7 @@
                                          (dom/th nil label)))))
                    (dom/tbody nil
                               (into-array
-                               (for [{:keys [id href] :as row} (-> cursor :data 
+                               (for [{:keys [id href] :as row} (-> cursor :data
                                                                    (cond-> path path))]
                                  (dom/tr #js {:onClick (fn [_ _ ]
                                                          (println "click:" id)
@@ -112,7 +129,7 @@
                                               :className (when (= id (:selected cursor)) "row-selected")
                                               ;; TODO use this to scroll the row into view.
                                               ;; Possible solution here: http://stackoverflow.com/questions/1805808/how-do-i-scroll-a-row-of-a-table-into-view-element-scrollintoview-using-jquery
-                                              :id (str table-id "-selected") 
+                                              :id (str table-id "-selected")
                                               }
                                          (into-array
                                           (for [[k {:keys [href]}] cols]
@@ -120,6 +137,43 @@
                                               (dom/td nil (if href
                                                             (dom/a #js {:href (get row href)} (get-in row k))
                                                             (get-in row k)))))))))))))))
+
+(defn sensor-table [cursor owner {:keys [histkey path]}]
+  (reify
+    om/IRender
+    (render [_]
+      ;; Select the first row
+      ;;(put! out {:type :row-selected :row (first (om/get-state owner :data))})
+      (let [cols (get-in cursor [:header :cols])
+            table-id (str (name histkey) "-table")]
+        (dom/table #js {:id table-id
+                        :className "table table-bordered hecuba-table "} ;; table-hover table-stripedso,
+                   (dom/thead nil
+                              (dom/tr nil
+                                      (into-array
+                                       (for [[_ {:keys [label]}] cols]
+                                         (dom/th nil label)))))
+                   (dom/tbody nil
+                              (into-array
+                               (for [{:keys [type deviceId] :as row} (-> cursor :data
+                                                                   (cond-> path path))]
+
+                                 (let [id (str type "-" deviceId)]
+                                   ;; TODO clojurefy ids
+                                   (dom/tr #js {:onClick (fn [_ _ ]
+                                                           (om/update! cursor :selected id)
+                                                           (history/update-token-ids! history histkey id))
+                                                :className (when (= id (:selected cursor)) "row-selected")
+                                                ;; TODO use this to scroll the row into view.
+                                                ;; Possible solution here: http://stackoverflow.com/questions/1805808/how-do-i-scroll-a-row-of-a-table-into-view-element-scrollintoview-using-jquery
+                                                :id (str table-id "-selected")
+                                                }
+                                           (into-array
+                                            (for [[k {:keys [href]}] cols]
+                                              (let [k (if (vector? k) k (vector k))]
+                                                (dom/td nil (if href
+                                                              (dom/a #js {:href (get row href)} (get-in row k))
+                                                              (get-in row k))))))))))))))))
 
 (defmulti render-content-directive (fn [itemtype _ _] itemtype))
 
@@ -142,9 +196,9 @@
    :out (chan (sliding-buffer 1))})
 
 (defn device-detail [{:keys [selected data] :as cursor} owner]
-  (om/component 
+  (om/component
    (let [row (first (filter #(= (:id %) selected) data))]
-     (let [{:keys [description name 
+     (let [{:keys [description name
                    latitude longitude]} (:location row)]
        (dom/div nil
                 (dom/h3 nil (apply str  "Device Detail "  (interpose \/ (remove nil? [description name])))) ;; TODO add a '-'
@@ -156,16 +210,17 @@
            (str " - ")))
 
 (defn programmes-tab [data owner]
-  (let [{:keys [programmes projects properties 
-                devices sensors measurements]} (:tables data)]
+  (let [{:keys [programmes projects properties
+                devices sensors measurements]} (:tables data)
+                {:keys [chart]} data]
     (reify
       om/IWillMount
       (will-mount [_]
         (let [m           (mult history-channel)
               tap-history #(tap m (chan))]
-          
+
           ;; attach a go-loop that fires ajax requests on history changes to each table
-          
+
           ;;TODO still some cruft to tidy here:  /3 and singular/plural bunk.
           (ajax (tap-history) programmes {:template      "/3/programmes/"
                                           :content-type  "application/edn"
@@ -174,22 +229,25 @@
                                         :content-type  "application/edn"
                                         :selection-key :project})
           (ajax (tap-history) properties {:template      "/3/projects/:project/properties"
-                                          :content-type  "application/json" 
+                                          :content-type  "application/json"
                                           :selection-key :property})
           (ajax (tap-history) devices {:template      "/3/entities/:property/devices"
                                        :content-type  "application/json"
                                        :selection-key :device})
           (ajax (tap-history) sensors {:template     "/3/entities/:property/devices/:device"
                                        :content-type "application/json"
-                                       :selection-key :sensor})
+                                       :selection-key :foo})
           (ajax (tap-history) measurements {:template      "/3/entities/:property/devices/:device/measurements"
                                             :content-type  "application/json"
-                                            :selection-key :measurement})))
+                                            :selection-key :measurement})
+          (chart-ajax (tap-history) chart {:template      "/3/entities/:property/devices/:device/measurements"
+                                           :content-type  "application/json"})
+          ))
       om/IRender
       (render [_]
-        
+
         ;; Note dynamic titles for each of the sections.
-        
+
         ;; TODO sort out duplication here, wrap (on/build table ...) calls probably.
         ;;      we need to decide on singular/plural for entities. I vote singular.
         ;;
@@ -204,7 +262,7 @@
                  (om/build table devices {:opts {:histkey :device}})
                  (om/build device-detail devices)
                  (dom/h2 {:id "sensors"} "Sensors" (title-for devices))
-                 (om/build table sensors  {:opts {:histkey :sensor :path :readings}})
+                 (om/build sensor-table sensors  {:opts {:histkey :sensor :path :readings}})
                  #_(dom/h2 {:id "measurements"} "Measurements")
                  #_(om/build table measurements {:opts {:histkey :measurements}})
                  (dom/h2 {:id "chart"} "Chart")
@@ -228,10 +286,10 @@
 
 (defn FOO []
   (let [path [:tab-container :tabs 3 :tables :sensors :data]]
-    (println "AM:" (type(-> @app-model (get-in path))))  
+    (println "AM:" (type(-> @app-model (get-in path))))
     (println "AM:" (pr-str (-> @app-model (get-in path))))))
 
-(om/root 
+(om/root
     (let [{:keys [in out] :as pair} (make-channel-pair)]
       (go-loop []
                (when-let [n (<! out)]
@@ -245,6 +303,6 @@
                          :programmes programmes-tab
                          :charts charts-tab
                          :documentation documentation-tab
-                         :users users-tab}) 
+                         :users users-tab})
          app-model
          {:target (.getElementById js/document "hecuba-tabs")})
