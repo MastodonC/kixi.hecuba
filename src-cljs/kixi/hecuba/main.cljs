@@ -85,20 +85,15 @@
                        (merge {:response-format :json :keywords? true})))))
     (recur)))
 
+;; TODO it's not used
 (defn chart-ajax [in data {:keys [template
-                            content-type]}]
+                                  selection-key
+                                  content-type]}]
   (go-loop []
-    (when-let [;(str "/3/entities/" entity-id "/devices/" device-id "/measurements?startDate=" start-date "&endDate" end-date)
-               [new-selected uri] [nil (<! in)]]
-
-      (GET uri
-           (-> {:handler  (fn [x]
-                            (om/update! data :data x)
-                            (om/update! data :selected new-selected))
-                :headers {"Accept" content-type}
-                :response-format :text}
-               (cond-> (= content-type "application/json")
-                       (merge {:response-format :json :keywords? true})))))
+    ;(str "/3/entities/" entity-id "/devices/" device-id "/measurements?startDate=" start-date "&endDate" end-date)
+    (when-let [new-selected (<! in)]
+      (prn "Selected chart-ajax: " new-selected)
+      )
     (recur)))
 
 
@@ -144,7 +139,7 @@
     (render [_]
       ;; Select the first row
       ;;(put! out {:type :row-selected :row (first (om/get-state owner :data))})
-      (let [cols (get-in cursor [:header :cols])
+      (let [cols (get-in cursor [:tables :sensors :header :cols])
             table-id (str (name histkey) "-table")]
         (dom/table #js {:id table-id
                         :className "table table-bordered hecuba-table "} ;; table-hover table-stripedso,
@@ -161,12 +156,12 @@
                                  (let [id (str type "-" deviceId)]
                                    ;; TODO clojurefy ids
                                    (dom/tr #js {:onClick (fn [_ _ ]
-                                                           (om/update! cursor :selected id)
+                                                           (prn "Clicked sensor: " id)
+                                                           (om/update! cursor [:tables :sensor :selected] id)
+                                                           (om/update! cursor [:chart :sensor] id)
                                                            (history/update-token-ids! history histkey id))
-                                                :className (when (= id (:selected cursor)) "row-selected")
-                                                ;; TODO use this to scroll the row into view.
-                                                ;; Possible solution here: http://stackoverflow.com/questions/1805808/how-do-i-scroll-a-row-of-a-table-into-view-element-scrollintoview-using-jquery
-                                                :id (str table-id "-selected")
+                                                :className (when (= id (:selected (:sensor (:tables cursor)))) "row-selected")
+                                                :id (str table-id "-selected") 
                                                 }
                                            (into-array
                                             (for [[k {:keys [href]}] cols]
@@ -210,9 +205,7 @@
            (str " - ")))
 
 (defn programmes-tab [data owner]
-  (let [{:keys [programmes projects properties
-                devices sensors measurements]} (:tables data)
-                {:keys [chart]} data]
+  (let [{:keys [programmes projects properties devices measurements]} (:tables data)]
     (reify
       om/IWillMount
       (will-mount [_]
@@ -223,8 +216,8 @@
 
           ;;TODO still some cruft to tidy here:  /3 and singular/plural bunk.
           (ajax (tap-history) programmes {:template      "/3/programmes/"
-                                          :content-type  "application/edn"
-                                          :selection-key :programme})
+                                           :content-type  "application/edn"
+                                           :selection-key :programme})
           (ajax (tap-history) projects {:template      "/3/programmes/:programme/projects"
                                         :content-type  "application/edn"
                                         :selection-key :project})
@@ -234,14 +227,15 @@
           (ajax (tap-history) devices {:template      "/3/entities/:property/devices"
                                        :content-type  "application/json"
                                        :selection-key :device})
-          (ajax (tap-history) sensors {:template     "/3/entities/:property/devices/:device"
-                                       :content-type "application/json"
-                                       :selection-key :foo})
+          (ajax (tap-history) data {:template "/3/entities/:property/devices/:device"
+                                    :content-type "application/json"
+                                    :selection-key :foo})
+          (chart-ajax (tap-history) data  {:template  "/3/entities/:property/devices/:device"
+                                           :content-type  "application/json"
+                                           :selection-key :foo})
           (ajax (tap-history) measurements {:template      "/3/entities/:property/devices/:device/measurements"
                                             :content-type  "application/json"
                                             :selection-key :measurement})
-          (chart-ajax (tap-history) chart {:template      "/3/entities/:property/devices/:device/measurements"
-                                           :content-type  "application/json"})
           ))
       om/IRender
       (render [_]
@@ -262,7 +256,7 @@
                  (om/build table devices {:opts {:histkey :device}})
                  (om/build device-detail devices)
                  (dom/h2 {:id "sensors"} "Sensors" (title-for devices))
-                 (om/build sensor-table sensors  {:opts {:histkey :sensor :path :readings}})
+                 (om/build sensor-table data {:opts {:histkey :sensor :path :readings}})
                  #_(dom/h2 {:id "measurements"} "Measurements")
                  #_(om/build table measurements {:opts {:histkey :measurements}})
                  (dom/h2 {:id "chart"} "Chart")

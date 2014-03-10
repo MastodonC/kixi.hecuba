@@ -222,7 +222,7 @@
                                             (apply concat (:params (match-route routes location))))
                     ]
 
-                (println "response to creating device is" response)
+               ; (println "response to creating device is" response)
 
                 ;; POST to URL a JSON block
                 (let [response

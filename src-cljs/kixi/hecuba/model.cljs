@@ -80,8 +80,8 @@
                                                       :data     []
                                                       :selected nil
                                                       }}
-                            :chart    {:property "rad003"
-                                       :sensors []
+                            :chart    {:property ""
+                                       :sensor ""
                                        :measurements []
                                        }}
 

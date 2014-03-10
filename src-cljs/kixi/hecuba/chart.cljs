@@ -80,23 +80,15 @@
         (go (while true
               (let [sel        (<! clicked-items)
                     start-date (get sel :start-date)
-                    end-date   (get sel :end-date)
-                    entity-id  (get sel :entity-id)
-                    device-id  (get-in sel [:sensor :deviceId])
-                    url        (url entity-id device-id start-date end-date)
-                    ]
-                 (GET url {:handler #(om/transact! cursor [:measurements] (constantly %))
-                                   :headers {"Accept" "application/json"}
-                                   :response-format :json
-                                   :keywords? true})
-                )))))
+                    end-date   (get sel :end-date)] 
+                (om/transact! cursor [:range] {:start-date start-date :end-date end-date}))))))
     om/IRender
     (render [_] 
       (prn "[I render]")
        (dom/div nil
                  (dom/div #js {:id "chart" :width 500 :height 550})))
     om/IDidUpdate
-    (did-update [this prev-props prev-state root-node]
+    (did-update [this prev-props prev-state]
       (let [n (.getElementById js/document "chart")]
         (while (.hasChildNodes n)
           (.removeChild n (.-lastChild n))))
