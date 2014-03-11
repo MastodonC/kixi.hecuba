@@ -292,9 +292,6 @@
           (chart-ajax (tap-history) (:chart data) {:template "/3/entities/:property/devices/:device/measurements?startDate=:start-date&endDate=:end-date"
                                          :content-type  "application/json"
                                          :selection-key :range})
-          (ajax (tap-history) measurements {:template      "/3/entities/:property/devices/:device/measurements"
-                                            :content-type  "application/json"
-                                            :selection-key :measurement})
           ))
       om/IRender
       (render [_]

@@ -10,12 +10,11 @@
       (funct commander querier sensor measurements)
       (m/to-timestamp (:timestamp (last measurements))))))
 
-;; TODO batch is 10 measurements for testing purposes. Change it.
 (defn paginate
   "Given a sensor, where clause and a function, paginate through measurements applying this function to each batch.
   Returns true if there were any measurements matching where clause, and false otherwise."
   [commander querier sensor table where funct]
-  (let [first-result    (items querier table where :timestamp 10)]
+  (let [first-result    (items querier table where :timestamp 100)]
     (if (not (empty? first-result))
       (let [last-timestamp  (m/to-timestamp (:timestamp (last first-result)))]
         (loop [last-key last-timestamp]
