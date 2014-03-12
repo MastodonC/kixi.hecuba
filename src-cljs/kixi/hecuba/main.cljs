@@ -58,7 +58,6 @@
    if no change to selection"
   [selected selection-key template {{ids :ids} :args}]
   (let [new-selected (get ids selection-key)]
-    (println "ns:" new-selected ":ids" (pr-str ids))
     (when (or (nil? selected)
               (not= selected new-selected))
       (vector new-selected
@@ -84,7 +83,6 @@
 
 (defn selected-range-change
   [selected selection-key template {{ids :ids search :search} :args}]
-  (println "ids: " ids)
   (let [new-selected (get ids selection-key)]
     (when (or (nil? selected)
               (not= selected new-selected))
@@ -108,7 +106,6 @@
                    (not (nil? device-id))
                    (not (nil? entity-id))
                    (not (nil? type)))
-          (prn "Hello")
           (GET url {:handler #(om/transact! data [:measurements] (constantly %))
                     :headers {"Accept" "application/json"}
                     :response-format :json
@@ -281,10 +278,8 @@
                                       :value v
                                       :onClick (fn [e] (let [v (truthy? (.. e -target -checked))]
                                                         (if v
-                                                          (do (println "adding " id)
-                                                              (om/transact! cursor :sensor-group #(conj % id)))
-                                                          (do (println "removing " id)
-                                                              (om/transact! cursor :sensor-group #(disj % id))))))}))))
+                                                          (om/transact! cursor :sensor-group #(conj % id))
+                                                          (om/transact! cursor :sensor-group #(disj % id)))))}))))
 
 (defn render-row [row cols id-fn cursor]
   (into-array

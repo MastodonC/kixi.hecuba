@@ -25,7 +25,6 @@
                 (dom/div #js {:id "chart" :width 500 :height 550})))
     om/IDidUpdate
     (did-update [_ _ _]
-      (println "ASS:" (om/path cursor))
       (let [n (.getElementById js/document "chart")]
         (while (.hasChildNodes n)
           (.removeChild n (.-lastChild n))))

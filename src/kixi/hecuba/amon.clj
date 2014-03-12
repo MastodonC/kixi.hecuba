@@ -306,7 +306,7 @@
                {::items items}))))
 
   :malformed?
-  (fn [{{body :body 
+  (fn [{{body :body
         {entity-id :entity-id} :route-params
         method :request-method} :request}]
     (case method
@@ -337,8 +337,8 @@
           (upsert! commander :sensor (->shallow-kebab-map sensor))
           (upsert! commander :sensor-metadata (->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])}))))
       {:device-id device-id}))
-  
-  :handle-ok 
+
+  :handle-ok
   (fn [{items ::items {mime :media-type} :representation {routes :jig.bidi/routes route-params :route-params} :request :as request}]
     (case mime
       "text/html" (html
@@ -349,10 +349,10 @@
                     [:ul
                      (for [{:keys [entity-id id]} items]
                        [:li (str "#" entity-id "#" id)])]])
-      "application/json" (->> items 
-                              (map #(update-in % [:location] decode)) 
-                              downcast-to-json 
-                              camelify 
+      "application/json" (->> items
+                              (map #(update-in % [:location] decode))
+                              downcast-to-json
+                              camelify
                               encode)
       ))
 
@@ -382,7 +382,7 @@
   :handle-ok (fn [{item ::item}]
                (-> item
                    ;; These are the device's sensors.
-                   (assoc :readings (items querier :sensor (select-keys item [:device-id])))        
+                   (assoc :readings (items querier :sensor (select-keys item [:device-id])))
                    ;; Note: We are NOT showing measurements here, in
                    ;; contradiction to the AMON API.  There is a
                    ;; duplication (or ambiguity) in the AMON API whereby
@@ -401,7 +401,7 @@
   "Returns integer representation of year and month from java.util.Date"
   [t] (Integer/parseInt (.format (java.text.SimpleDateFormat. "yyyyMM") t)))
 
-(defn db-timestamp 
+(defn db-timestamp
   "Returns java.util.Date from String timestamp."
   [t] (.parse (java.text.SimpleDateFormat.  "yyyy-MM-dd'T'HH:mm:ss") t))
 
@@ -432,11 +432,11 @@
   :known-content-type? #{"application/json"}
   :authorized? (authorized? querier :measurement)
 
-  :handle-ok (fn [{{{:keys [device-id reading-type]} :route-params query-string :query-string} 
+  :handle-ok (fn [{{{:keys [device-id reading-type]} :route-params query-string :query-string}
                    :request {mime :media-type} :representation}]
                (prn "Getting measurement slice for: " query-string)
                (let [decoded-params (decode-query-params query-string)
-                     formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy")                     
+                     formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy")
                      start-date     (.parse formatter (get decoded-params "startDate"))
                      end-date       (.parse formatter (get decoded-params "endDate"))
                      measurements   (items querier :measurement [:device-id device-id
@@ -486,7 +486,7 @@
                                      [:td
                                       [:pre (with-out-str (pprint m))]]])]])
                    "application/json" (->> measurements downcast-to-json camelify encode))))
- 
+
   :handle-created (fn [_] (ring-response {:status 202 :body "Accepted"})))
 
 (defresource sensors-by-property [{:keys [commander querier]} handlers]
@@ -496,7 +496,7 @@
   :authorized? (authorized? querier :measurement)
   :handle-ok (fn [{{{:keys [entity-id]} :route-params} :request {mime :media-type} :representation}]
                (let [devices (items querier :device {:entity-id entity-id})
-                     sensors (mapcat (fn [{:keys [id location]}] 
+                     sensors (mapcat (fn [{:keys [id location]}]
                                        (map #(assoc % :location (decode location)) (items querier :sensor {:device-id id}))) devices)]
                  (case mime
                    "text/html" (html
@@ -521,8 +521,6 @@
   :allowed-methods #{:get :post}
   :available-media-types #{"application/edn"}
   :authorized? (authorized? querier :datasets)
-  :exists? (fn [_] (println "exists?" ) true)
-  
   :post! (fn [{{body :body {:keys [entity-id]} :route-params} :request}]
            (upsert! commander :dataset (-> body read-edn-body ->shallow-kebab-map)))
 
