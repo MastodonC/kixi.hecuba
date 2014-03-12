@@ -102,6 +102,7 @@
             [type device-id]      (str/split sensor-id #"-")
             url                   (str "/3/entities/" entity-id "/devices/" device-id "/measurements/" type "?startDate=" start-date "&endDate=" end-date)]
         (om/update! data :sensor sensor-id)
+        (om/update! data :range {:start-date start-date :end-date end-date})
         (when (and (not (empty? start-date))
                    (not (empty? end-date))
                    (not (nil? device-id))
@@ -175,7 +176,6 @@
                          ;; TODO clojurefy ids
                          (dom/tr #js
                                  {:onClick (fn [_ _ ]
-                                             (prn "Clicked sensor: " id)
                                              (om/update! sensors :selected id)
                                              (om/update! chart :sensor id)
                                              (history/update-token-ids! history histkey id))
@@ -204,7 +204,10 @@
                                                                :ref "dateFrom"
                                                                :data-format "DD-MM-YYYY HH:mm"
                                                                :className "form-control"
-                                                               :placeholder "Start date"})
+                                                               :placeholder "Start date"
+                                                               :value (if (empty? (get-in cursor [:chart :range]))
+                                                                        ""
+                                                                        (get-in cursor [:chart :range :start-date]))})
                                                    (dom/span #js {:className "input-group-addon"}
                                                              (dom/span #js {:className "glyphicon glyphicon-calendar"})))))
                         (dom/div #js {:className "col-sm-3"}
@@ -216,7 +219,10 @@
                                                                :data-format "DD-MM-YYYY HH:mm"
                                                                :ref "dateTo"
                                                                :className "form-control"
-                                                               :placeholder "End date"})
+                                                               :placeholder "End date"
+                                                               :value (if (empty? (get-in cursor [:chart :range]))
+                                                                        ""
+                                                                        (get-in cursor [:chart :range :end-date]))})
                                                    (dom/span #js {:className "input-group-addon"}
                                                              (dom/span #js {:className "glyphicon glyphicon-calendar"})))))
                         (dom/button #js {:type "button"
