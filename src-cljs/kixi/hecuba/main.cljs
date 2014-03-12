@@ -98,19 +98,19 @@
                                                       (<! in))]
       (let [[start-date end-date] search
             entity-id             (get ids :property)
-            [type device-id]      (str/split (get ids :sensor) #"-")
+            sensor-id             (get ids :sensor) 
+            [type device-id]      (str/split sensor-id #"-")
             url                   (str "/3/entities/" entity-id "/devices/" device-id "/measurements/" type "?startDate=" start-date "&endDate=" end-date)]
-        (prn "measurements url: " url)
+        (om/update! data :sensor sensor-id)
         (when (and (not (empty? start-date))
                    (not (empty? end-date))
                    (not (nil? device-id))
                    (not (nil? entity-id))
                    (not (nil? type)))
-          (GET url {:handler #(om/transact! data [:measurements] (constantly %))
+          (GET url {:handler #(om/update! data :measurements %)
                     :headers {"Accept" "application/json"}
                     :response-format :json
-                    :keywords? true})))
-      )
+                    :keywords? true}))))
     (recur)))
 
 
@@ -419,7 +419,7 @@
                                             :selection-key :measurement})
           (chart-ajax (tap-history) (:chart data) {:template "/3/entities/:property/devices/:device/measurements?startDate=:start-date&endDate=:end-date"
                                                    :content-type  "application/json"
-                                         :selection-key :range})
+                                                   :selection-key :range})
           ))
       om/IRender
       (render [_]
