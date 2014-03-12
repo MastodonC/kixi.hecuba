@@ -193,34 +193,44 @@
   (reify
     om/IRender
     (render [_]
-      (dom/table #js {:id "date-picker"}
-                 (dom/tr nil
-                         (dom/td nil
-                                 (dom/h4 nil "Start: ")
-                                 (dom/input #js
-                                            {:type "text"
-                                             :id "dateFrom"
-                                             :ref "dateFrom"}))
-                         (dom/td nil
-                                 (dom/h4 nil "End: ")
-                                 (dom/input #js
-                                            {:type "text"
-                                             :id "dateTo"
-                                             :ref "dateTo"}))
-                         (dom/td nil
-                                 (dom/h4 nil)
-                                 (dom/button #js {:type "button"
-                                                  :onClick (fn [e]
-                                                             (let [start (-> (om/get-node owner "dateFrom")
-                                                                             .-value)
-                                                                   end   (-> (om/get-node owner "dateTo")
-                                                                             .-value)
-                                                                   range (str start ";" end)]
-                                                               (history/set-token-search! history [start end])
-                                                               (om/update! cursor [:chart :range] {:start-date start
-                                                                                                   :end-date end})
-                                                               ))}
-                                             "Select dates")))))))
+      (dom/div nil 
+               (dom/div #js {:className "container"}
+                        (dom/div #js {:className "col-sm-3"}
+                                 (dom/div #js {:className "form-group"}
+                                          (dom/div #js {:className "input-group date"
+                                                        :id "dateFrom" }
+                                                   (dom/input #js
+                                                              {:type "text"
+                                                               :ref "dateFrom"
+                                                               :data-format "DD-MM-YYYY HH:mm"
+                                                               :className "form-control"
+                                                               :placeholder "Start date"})
+                                                   (dom/span #js {:className "input-group-addon"}
+                                                             (dom/span #js {:className "glyphicon glyphicon-calendar"})))))
+                        (dom/div #js {:className "col-sm-3"}
+                                 (dom/div #js {:className "form-group"}
+                                          (dom/div #js {:className "input-group date" 
+                                                        :id "dateTo"}
+                                                   (dom/input #js
+                                                              {:type "text"
+                                                               :data-format "DD-MM-YYYY HH:mm"
+                                                               :ref "dateTo"
+                                                               :className "form-control"
+                                                               :placeholder "End date"})
+                                                   (dom/span #js {:className "input-group-addon"}
+                                                             (dom/span #js {:className "glyphicon glyphicon-calendar"})))))
+                        (dom/button #js {:type "button"
+                                         :className  "btn btn-primary btn-large"
+                                         :onClick (fn [e]
+                                                    (let [start (-> (om/get-node owner "dateFrom")
+                                                                    .-value)
+                                                          end   (-> (om/get-node owner "dateTo")
+                                                                    .-value)
+                                                          range (str start ";" end)]
+                                                      (history/set-token-search! history [start end])
+                                                      (om/update! cursor [:chart :range] {:start-date start
+                                                                                          :end-date end})))}
+                                    "Select dates"))))))
 
 (defmulti render-content-directive (fn [itemtype _ _] itemtype))
 
@@ -244,7 +254,7 @@
 
 (defn device-detail [{:keys [selected data] :as cursor} owner]
   (om/component
-   (let [row (first (filter #(= (:id %) selected) data))]
+   (let [row      (first (filter #(= (:id %) selected) data))]
      (let [{:keys [description name
                    latitude longitude]} (:location row)]
        (dom/div nil
@@ -385,9 +395,7 @@
                    "Group Sensors"))))
 
 (defn programmes-tab [data owner]
-  (let [{:keys [programmes projects properties
-                devices sensors measurements
-                sensor-select]} (:tables data)]
+  (let [{:keys [programmes projects properties devices sensors measurements sensor-select]} (:tables data)]
     (reify
       om/IWillMount
       (will-mount [_]

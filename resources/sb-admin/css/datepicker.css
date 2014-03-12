@@ -1,6 +1,55 @@
 .ui-datepicker {
-	font-size: 80%;
-	background-color:  white;
-	border-style: solid;
-	border-width: thin;
+  padding: 6px 12px;
+  font-size: 14px;
+  border-radius: 6px;
+  display: inline-block;
+  margin-bottom: 0;
+  font-weight: normal;
+  line-height: normal !important;
+  text-align: center;
+  background-color:  white; 
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: pointer;
+  background-image: none;
+  border: 1px solid;
+  
+  -webkit-user-select: none;
+     -moz-user-select: none;
+      -ms-user-select: none;
+       -o-user-select: none;
+          user-select: none;
+
+}
+
+.date-picker-btn {
+  padding: 6px 12px;
+  font-size: 14px;
+  border-radius: 6px;
+  display: inline-block;
+  margin-bottom: 0;
+  font-weight: normal;
+  line-height: normal !important;
+  text-align: center;
+  background-color: #ffffff;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: pointer;
+  background-image: none;
+  border: 1px solid transparent;
+  
+  -webkit-user-select: none;
+     -moz-user-select: none;
+      -ms-user-select: none;
+       -o-user-select: none;
+          user-select: none;
+	  
+  color: #333333;
+  border-color: #cccccc;
+}
+
+.date-picker-btn::-moz-focus-inner,
+ui-datepicker::-moz-focus-inner {
+    border: 0;
+    padding: 0;
 }

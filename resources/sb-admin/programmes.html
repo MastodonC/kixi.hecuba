@@ -15,7 +15,7 @@
     <link href="/css/sb-admin.css" rel="stylesheet">
     <link href="/font-awesome/css/font-awesome.min.css" rel="stylesheet">
     <link href="/css/hecuba.css" rel="stylesheet">
-    <link href="css/datepicker.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/bootstrap-datetimepicker.css" />
   </head>
 
   <body>
@@ -60,17 +60,15 @@
     <script type="text/javascript" src="/js/dimple.v1.1.4.min.js"></script>
     
     <!-- Date picker -->
-    <script src="http://code.jquery.com/jquery-1.9.1.js"></script>
-    <script src="http://code.jquery.com/ui/1.10.4/jquery-ui.js"></script>
-
+    <script type="text/javascript" src="/js/moment.min.js"></script>
+    <script src="/js/bootstrap-datetimepicker.min.js"></script>
+   
       <script>
         $(function() {
-          $( "#dateFrom" ).datepicker({ dateFormat: 'dd-mm-yy',
-                                        defaultDate: new Date() });
+          $( "#dateFrom" ).datetimepicker();
         });
           $(function() {
-          $( "#dateTo" ).datepicker({ dateFormat: 'dd-mm-yy',
-                                      defaultDate: new Date() });
+          $( "#dateTo" ).datetimepicker();
         });
       </script>
 

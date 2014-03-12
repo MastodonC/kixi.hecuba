@@ -397,6 +397,24 @@
                    (update-in [:location] decode)
                    downcast-to-json camelify encode)))
 
+(defresource sensor-metadata [{:keys [commander querier]} handlers]
+  :allowed-methods #{:get}
+  :available-media-types #{"text/html" "application/json"}
+  :known-content-type? #{"application/json"}
+  :authorized? (authorized? querier :device)
+
+  :exists? (fn [{{{:keys [entity-id device-id]} :route-params} :request}]
+             (when-let [items (items querier :sensor-metadata {:device-id device-id})]
+               {::items items}))
+
+  :handle-ok 
+  (fn [{items ::items {mime :media-type} :representation {routes :jig.bidi/routes route-params :route-params} :request :as request}]
+    items 
+         ;downcast-to-json 
+         ;camelify 
+         ;encode
+         ))
+
 (defn get-month-partition-key
   "Returns integer representation of year and month from java.util.Date"
   [t] (Integer/parseInt (.format (java.text.SimpleDateFormat. "yyyyMM") t)))
@@ -434,11 +452,10 @@
 
   :handle-ok (fn [{{{:keys [device-id reading-type]} :route-params query-string :query-string}
                    :request {mime :media-type} :representation}]
-               (prn "Getting measurement slice for: " query-string)
                (let [decoded-params (decode-query-params query-string)
-                     formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy")
-                     start-date     (.parse formatter (get decoded-params "startDate"))
-                     end-date       (.parse formatter (get decoded-params "endDate"))
+                     formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")                     
+                     start-date     (.parse formatter (string/replace (get decoded-params "startDate") "%20" " "))
+                     end-date       (.parse formatter (string/replace (get decoded-params "endDate") "%20" " "))
                      measurements   (items querier :measurement [:device-id device-id
                                                                  :type reading-type
                                                                  :month (get-month-partition-key start-date)
@@ -553,6 +570,7 @@
 
                  :devices (devices opts p)
                  :device (device opts p)
+                 :sensor-metadata (sensor-metadata opts p)
                  :measurements (measurements opts p)
                  :measurement (measurements-by-reading opts p)
                  :measurement-slice (measurements-slice opts p)
@@ -583,6 +601,7 @@
          [["entities/" [sha1-regex :entity-id] "/sensors"] (:sensors-by-property handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices"] (:devices handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id]] (:device handlers)]
+         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/metadata"] (:sensor-metadata handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements"] (:measurements handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements/" :reading-type] (:measurement-slice handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements/" :reading-type "/" :timestamp] (:measurement handlers)]

@@ -1,12 +1,9 @@
 (ns kixi.hecuba.chart
   (:require
-   [mrhyde.core :as mrhyde]
-   [dommy.core :as dommy]
+   [mrhyde.core :as mrhyde]  
    [om.core :as om :include-macros true]
    [om.dom :as dom :include-macros true]
-   [clojure.string :as str])
-  (:use-macros
-   [dommy.macros :only [node sel sel1 by-tag]]))
+   [clojure.string :as str]))
 
 (def dimple (this-as ct (aget ct "dimple")))
 
@@ -36,6 +33,7 @@
             x (.addCategoryAxis dimple-chart "x" "timestamp")
             y (.addMeasureAxis dimple-chart "y" "value")
             s (.addSeries dimple-chart (name type) js/dimple.plot.line (clj->js [x y]))]
+       ; (.-attr (.selectAll (.-shapes x) "text") "transform" (fn [d] .select ))
         (aset s "data" (clj->js data))
         (.addLegend dimple-chart "5%" "10%" "20%" "10%" "right")
         (.draw dimple-chart)))))
