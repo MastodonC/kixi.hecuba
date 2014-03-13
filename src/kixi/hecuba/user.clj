@@ -1,14 +1,11 @@
 (ns kixi.hecuba.user
   (:require
-   jig
    [liberator.core :refer (defresource)]
    [bidi.bidi :refer (->Redirect)]
+   [modular.bidi :refer (new-bidi-routes)]
    [kixi.hecuba.protocols :refer (upsert!)]
    [kixi.hecuba.webutil :refer (read-edn-body)]
-   [jig.bidi :refer (add-bidi-routes)]
-   [kixi.hecuba.security :refer (create-hash authorized-with-basic-auth? make-rng)])
-  (:import
-   (jig Lifecycle)))
+   [kixi.hecuba.security :refer (create-hash authorized-with-basic-auth? make-rng)]))
 
 (defn get-upsert-properties-from-body [rng body]
   (assert (:password body))
@@ -49,19 +46,9 @@
        [["users/" [username-regex :username] "/profile"] (:user-profile handlers)]
        ]])
 
-(deftype ApiService [config]
-  Lifecycle
-  (init [_ system] system)
-  (start [_ system]
-    ;; The reason we need to put this into the start (rather than init)
-    ;; phase is that commander and querier and sometimes not bound until
-    ;; the start phase (they in turn depend on various side-effects,
-    ;; such as C* schema creation). Eventually we won't have a different
-    ;; init and start phase.
-    (let [handlers (make-handlers (merge config
-                                         (select-keys system [:commander :querier])
-                                         {:rng (make-rng)}))]
-      (-> system
-          (add-bidi-routes config (make-routes handlers)))))
-  (stop [_ system] system)
-  )
+(defn new-api-service [opts]
+  (-> (merge (select-keys opts [:commander :querier])
+             {:rng (make-rng)})
+      make-handlers
+      make-routes
+      new-bidi-routes))

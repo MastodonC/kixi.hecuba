@@ -10,12 +10,9 @@
    [org.httpkit.client :refer (request) :rename {request http-request}]
    [cheshire.core :refer (encode)]
    [kixi.hecuba.dev.generators :as generators]
-   [camel-snake-kebab :refer (->camelCaseString)]
-   jig)
-  (:import (jig Lifecycle)))
+   [camel-snake-kebab :refer (->camelCaseString)]))
 
 (def custom-formatter (tf/formatter "yyyy-MM-dd'T'HH:mm:ss.SSSZ"))
-
 
 (defn get-port [system]
   (-> system :jig/config :jig/components :hecuba/webserver :port))
@@ -124,7 +121,7 @@
             v]))
    {} x))
 
-(deftype CsvLoader [config]
+#_(deftype CsvLoader [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]
@@ -249,7 +246,7 @@
                                         (-> system :amon/handlers :devices) :entity-id entity-id))
                                   "application/json"
                                   (jsonify (-> device
-                                   (assoc :readings (map jsonify sensors1)) 
+                                   (assoc :readings (map jsonify sensors1))
                                    (dissoc :device-id))))
                     location1 (get-in response1 [:headers :location])
                     measurements-uri1 (apply path-for routes (-> system :amon/handlers :measurements)
@@ -262,8 +259,8 @@
                                               "application/json"
                                               (jsonify (-> device
                                                            (assoc :readings (map jsonify sensors2))
-                                                           (dissoc :device-id))))                  
-                    location2 (get-in response2 [:headers :location])                   
+                                                           (dissoc :device-id))))
+                    location2 (get-in response2 [:headers :location])
                     measurements-uri2 (apply path-for routes (-> system :amon/handlers :measurements)
                                             (apply concat (:params (match-route routes location2))))
 
@@ -274,8 +271,8 @@
                                               "application/json"
                                               (jsonify (-> device
                                                            (assoc :readings (map jsonify sensors3))
-                                                           (dissoc :device-id))))                  
-                    location3 (get-in response3 [:headers :location])                   
+                                                           (dissoc :device-id))))
+                    location3 (get-in response3 [:headers :location])
                     measurements-uri3 (apply path-for routes (-> system :amon/handlers :measurements)
                                             (apply concat (:params (match-route routes location3))))
 
@@ -304,14 +301,14 @@
                                                 (map
                                                  (fn [x] (update-in x [:timestamp] #(tf/unparse custom-formatter (clj-time.coerce/from-date %))))
                                                  (mapcat generators/measurements sensors3))}))
-                      
+
                       ])))))))
     system)
 
   (stop [_ system] system))
 
 ;; Makes use of kixi.hecuba.users/ApiService to create some users
-(deftype UserDataLoader [config]
+#_(deftype UserDataLoader [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]

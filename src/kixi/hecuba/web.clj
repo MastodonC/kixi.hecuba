@@ -1,10 +1,10 @@
 (ns kixi.hecuba.web
   (:require
-   jig
+   [modular.bidi :refer (new-bidi-routes)]
+
    kixi.hecuba.web.messages
    [kixi.hecuba.data :as data]
-   [jig.util :refer (get-dependencies satisfying-dependency)]
-   [jig.bidi :refer (add-bidi-routes)]
+
    [bidi.bidi :refer (match-route path-for ->WrapMiddleware ->Resources ->ResourcesMaybe ->Redirect ->Alternates Matched resolve-handler unresolve-handler)]
    [ring.middleware.params :refer (wrap-params)]
    [ring.middleware.cookies :refer (wrap-cookies)]
@@ -12,8 +12,8 @@
    [hiccup.core :refer (html)]
    [kixi.hecuba.security :as sec]
    [clojure.tools.logging :refer :all]
-   [liberator.core :refer (resource defresource)])
-  (:import (jig Lifecycle)))
+   [liberator.core :refer (resource defresource)]
+   [com.stuartsierra.component :as component]))
 
 (defn index [req]
   {:status 200 :body (slurp (io/resource "sb-admin/index.html"))})
@@ -123,15 +123,17 @@
     [#".*" (fn [req] {:status 404 :body "Not Found (Hecuba)"})] ; need a template!
     ]])
 
-(deftype Website [config]
-  Lifecycle
-  (init [_ system] system)
-  (start [_ system]
-    (let [commander (:commander system)
-          querier (:querier system)
-          routes (make-routes (make-handlers {:querier querier :commander commander})
-                              {:querier querier :commander commander})]
-      (-> system
-          (add-bidi-routes config routes))))
+(defrecord MainRoutes [context]
+  component/Lifecycle
+  (start [this]
+    (if-let [store (get-in this [:store])]
+      (assoc this :routes (make-routes (make-handlers store) store))
+      (throw (ex-info "No store!" {:this this}))))
+  (stop [this] this)
 
-  (stop [_ system] system))
+  modular.bidi/RoutesContributor
+  (routes [this] (:routes this))
+  (context [this] context))
+
+(defn new-main-routes []
+  (->MainRoutes ""))

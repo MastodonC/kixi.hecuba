@@ -8,7 +8,6 @@
    [cheshire.core :refer (generate-string parse-string)]
    [bidi.bidi :as bidi]
    [clojure.edn :as edn]
-   [jig.bidi :refer (wrap-routes)]
    [ring.mock.request :refer (request header)]
    [camel-snake-kebab :refer (->camelCaseString)]
    [clojure.walk :refer (postwalk)])
@@ -43,6 +42,7 @@
 
 (def example-programme {:name "America" :leaders "Bush"})
 
+;; FileNotFoundException Could not locate jig/bidi__init.class or jig/bidi.clj on classpath:
 (defn create-programme [store]
   (let [handlers (-> store amon/make-handlers)
         routes (-> handlers amon/make-routes)

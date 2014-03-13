@@ -14,16 +14,13 @@
    [clojure.string :as string]
    [clojure.walk :refer (postwalk)]
    [hiccup.core :refer (html)]
-   [jig.bidi :refer (add-bidi-routes)]
    [kixi.hecuba.protocols :refer (upsert! delete! item items)]
    [kixi.hecuba.data.validate :as v]
    [kixi.hecuba.data.misc :as misc]
    [kixi.hecuba.security :as sec]
    [liberator.core :refer (defresource)]
-   [liberator.representation :refer (ring-response)]
-   jig)
+   [liberator.representation :refer (ring-response)])
   (:import
-   (jig Lifecycle)
    (java.util UUID)))
 
 (defn authorized? [querier typ]
@@ -407,11 +404,11 @@
              (when-let [items (items querier :sensor-metadata {:device-id device-id})]
                {::items items}))
 
-  :handle-ok 
+  :handle-ok
   (fn [{items ::items {mime :media-type} :representation {routes :jig.bidi/routes route-params :route-params} :request :as request}]
-    items 
-         ;downcast-to-json 
-         ;camelify 
+    items
+         ;downcast-to-json
+         ;camelify
          ;encode
          ))
 
@@ -453,7 +450,7 @@
   :handle-ok (fn [{{{:keys [device-id reading-type]} :route-params query-string :query-string}
                    :request {mime :media-type} :representation}]
                (let [decoded-params (decode-query-params query-string)
-                     formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")                     
+                     formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")
                      start-date     (.parse formatter (string/replace (get decoded-params "startDate") "%20" " "))
                      end-date       (.parse formatter (string/replace (get decoded-params "endDate") "%20" " "))
                      measurements   (items querier :measurement [:device-id device-id
@@ -609,7 +606,7 @@
         wrap-cookies)])
 
 
-(deftype ApiServiceV3 [config]
+#_(deftype ApiServiceV3 [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]

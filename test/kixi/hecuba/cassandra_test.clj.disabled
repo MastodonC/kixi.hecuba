@@ -8,7 +8,8 @@
 
 (defn uuid [] (java.util.UUID/randomUUID))
 
-(let [session
+;; #<CompilerException java.lang.RuntimeException: No such namespace: user, compiling:(kixi/hecuba/cassandra_test.clj:13:12)>
+#_(let [session
       (db/create-db-session
        (-> (-> user/system :hecuba/db ::db/cluster )
            (dissoc :credentials)))
