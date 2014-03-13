@@ -5,9 +5,7 @@
             [clojure.tools.logging :as log]
             [clojure.stacktrace    :as st]
             [kixi.hecuba.data.batch-checks :as checks]
-            [kixi.hecuba.data.calculate :as calculate]
-            jig)
-  (:import (jig Lifecycle)))
+            [kixi.hecuba.data.calculate :as calculate]))
 
 (defn submit-item [pipe job]
   (pipe/produce pipe job))
@@ -71,7 +69,7 @@
         mislabelled-sensors-q (pipe/new-queue {:name "mislabelled-sensors-q" :queue-size 50})
         difference-series-q   (pipe/new-queue {:name "difference-series-q" :queue-size 50})
         spike-check-q         (pipe/new-queue {:name "spike-check-q" :queue-size 50})]
-    
+
     (defnconsumer fanout-q [{:keys [dest type] :as item}]
       (let [item (dissoc item :dest)]
         (condp = dest
@@ -102,7 +100,7 @@
 
     (list fanout-q #{median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q})))
 
-(deftype Pipeline [config]
+#_(deftype Pipeline [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]
