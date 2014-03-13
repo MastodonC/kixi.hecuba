@@ -417,6 +417,10 @@
   "Returns integer representation of year and month from java.util.Date"
   [t] (Integer/parseInt (.format (java.text.SimpleDateFormat. "yyyyMM") t)))
 
+(defn get-year-partition-key
+  "Returns integer representation of year from java.util.Date"
+  [t] (Integer/parseInt (.format (java.text.SimpleDateFormat. "yyyy") t)))
+
 (defn db-timestamp
   "Returns java.util.Date from String timestamp."
   [t] (.parse (java.text.SimpleDateFormat.  "yyyy-MM-dd'T'HH:mm:ss") t))
@@ -442,6 +446,43 @@
    {}
    (string/split params #"&")))
 
+(defresource hourly-rollups [{:keys [commander querier]} handlers]
+  :allowed-methods #{:get}
+  :available-media-types #{"application/json"}
+  :known-content-type? #{"application/json"}
+  :authorized? (authorized? querier :measurement) ;; TODO authorization for hourly-rollups
+
+  :handle-ok (fn [{{{:keys [device-id reading-type]} :route-params query-string :query-string}
+                   :request {mime :media-type} :representation}]
+               (let [decoded-params (decode-query-params query-string)
+                     formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")                     
+                     start-date     (.parse formatter (string/replace (get decoded-params "startDate") "%20" " "))
+                     end-date       (.parse formatter (string/replace (get decoded-params "endDate") "%20" " "))
+                     measurements   (items querier :hourly-rollups [:device-id device-id
+                                                                    :type reading-type
+                                                                    :year (get-year-partition-key start-date)
+                                                                    :timestamp [>= start-date]
+                                                                    :timestamp [<= end-date]])]
+                 (->> measurements downcast-to-json camelify encode))))
+
+(defresource daily-rollups [{:keys [commander querier]} handlers]
+  :allowed-methods #{:get}
+  :available-media-types #{"application/json"}
+  :known-content-type? #{"application/json"}
+  :authorized? (authorized? querier :measurement) ;;TODO authorization for daily-rollups
+
+  :handle-ok (fn [{{{:keys [device-id reading-type]} :route-params query-string :query-string}
+                   :request {mime :media-type} :representation}]
+               (let [decoded-params (decode-query-params query-string)
+                     formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")                     
+                     start-date     (.parse formatter (string/replace (get decoded-params "startDate") "%20" " "))
+                     end-date       (.parse formatter (string/replace (get decoded-params "endDate") "%20" " "))
+                     measurements   (items querier :daily-rollups [:device-id device-id
+                                                                   :type reading-type
+                                                                   :timestamp [>= start-date]
+                                                                   :timestamp [<= end-date]])]
+                 (->> measurements downcast-to-json camelify encode))))
+
 (defresource measurements-slice [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
   :available-media-types #{"application/json"}
@@ -459,15 +500,7 @@
                                                                  :month (get-month-partition-key start-date)
                                                                  :timestamp [>= start-date]
                                                                  :timestamp [<= end-date]])]
-                 (case mime
-                   "text/html" (html
-                                [:body
-                                 [:table
-                                  (for [m measurements]
-                                    [:tr
-                                     [:td
-                                      [:pre (with-out-str (pprint m))]]])]])
-                   "application/json" (->> measurements downcast-to-json camelify encode)))))
+                 (->> measurements downcast-to-json camelify encode))))
 
 (defresource measurements [{:keys [commander querier]} handlers]
   :allowed-methods #{:post :get}
@@ -572,6 +605,8 @@
                  :measurements (measurements opts p)
                  :measurement (measurements-by-reading opts p)
                  :measurement-slice (measurements-slice opts p)
+                 :hourly-rollups (hourly-rollups opts p)
+                 :daily-rollups (daily-rollups opts p)
                  :sensors-by-property (sensors-by-property opts p)
                  :datasets (datasets opts p)})))
 
@@ -603,6 +638,8 @@
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements"] (:measurements handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements/" :reading-type] (:measurement-slice handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements/" :reading-type "/" :timestamp] (:measurement handlers)]
+         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/hourly_rollups/" :reading-type] (:hourly-rollups handlers)]
+         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/daily_rollups/" :reading-type] (:daily-rollups handlers)]
          ]
         wrap-cookies)])
 

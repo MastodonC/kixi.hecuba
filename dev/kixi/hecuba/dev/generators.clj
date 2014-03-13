@@ -81,7 +81,7 @@
 ;;;;;;;;;;;;;;;;; Generate measurements ;;;;;;;;;;;;;;;;
 
 (defn timestamps [frequency]
-  (into [] (take 200 (periodic/periodic-seq (t/date-time (t/year (t/now)) (t/month (t/now))) frequency))))
+  (into [] (take 300 (periodic/periodic-seq (t/date-time (t/year (t/now)) (t/month (t/now))) frequency))))
 
 (defn get-month [timestamp]
    (str (t/year timestamp) "-" (t/month timestamp)))
@@ -96,7 +96,7 @@
 
 (defmethod generate-measurements "INSTANT"
   [sensor]
-    (let [timestamps (timestamps (t/hours 2))
+    (let [timestamps (timestamps (t/minutes 15))
           type       (:type sensor)]
     (map #(hash-map :type type
                     :timestamp (tc/to-date %)
@@ -105,7 +105,7 @@
 
 (defmethod generate-measurements "PULSE"
   [sensor]
-  (let [timestamps (timestamps (t/hours 2))
+  (let [timestamps (timestamps (t/minutes 15))
         type       (:type sensor)]
     (map #(hash-map :type type
                     :timestamp (tc/to-date %)
@@ -114,7 +114,7 @@
 
 (defmethod generate-measurements "CUMULATIVE"
   [sensor]
-   (let [timestamps (timestamps (t/hours 2))
+   (let [timestamps (timestamps (t/minutes 15))
          type       (:type sensor)]
      (map-indexed (fn [i t] (hash-map :type type
                                       :timestamp (tc/to-date t)
@@ -131,7 +131,7 @@
 (defn generate-measurements-above-median
   "Generates measurements that contain readings 200 x median."
   [sensor]
-  (let [timestamps (timestamps (t/hours 2))
+  (let [timestamps (timestamps (t/minutes 15))
         type       (:type sensor)]
     (map-indexed (fn [i t] (hash-map :type type
                                      :timestamp (tc/to-date t)
@@ -141,7 +141,7 @@
 (defn generate-invalid-measurements
   "Generates measurements that contain invalid readings."
   [sensor]
-  (let [timestamps (timestamps (t/hours 2))
+  (let [timestamps (timestamps (t/minutes 15))
         type       (:type sensor)]
     (map-indexed (fn [i t] (merge {:type type
                                    :timestamp (tc/to-date t)}

@@ -228,20 +228,19 @@
                            (cassaquery/column-definitions
                             {:device_id :varchar
                              :type :varchar
-                             :month :int
+                             :year :int
                              :timestamp :timestamp
                              :value :varchar
-                             :primary-key [:device_id :type :month :timestamp]})))
+                             :primary-key [:device_id :type :year :timestamp]})))
 
         (ignoring-error
          (cql/create-table "daily_rollups"
                            (cassaquery/column-definitions
                             {:device_id :varchar
                              :type :varchar
-                             :month :int
                              :timestamp :timestamp
                              :value :varchar
-                             :primary-key [:device_id :type :month :timestamp]})))
+                             :primary-key [:device_id :type :timestamp]})))
 
         ;; This could possibly go into another component, but for now we'll hijack this one.
         (ignoring-error
@@ -358,6 +357,6 @@
           :store [:session :schema]
           :schema [:session]
           :user-data-loader [:bidi-ring-handler :web-server :user-api]
-          :csv-loader [:bidi-ring-handler :amon-api :web-server :user-data-loader]
+          :csv-loader [:bidi-ring-handler :amon-api :web-server :user-data-loader :store]
           ;;:cljs-routes [:cljs-builder]
           :session [:cluster]}))))

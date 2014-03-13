@@ -49,7 +49,7 @@
             where      (m/last-check-where-clause device-id type last-check)
             today      (m/last-check-int-format (t/now))]
         (if (p/paginate commander querier s :measurement where mislabelled-check)
-          (update! commander :sensor-metadata :mislabelled_sensors_check today {:device-id (:device-id s) :type (:type s)}))))))
+          (update! commander :sensor-metadata :mislabelled-sensors-check today {:device-id (:device-id s) :type (:type s)}))))))
 
 ;;;;;;;;;;;; Batch check for spiked measurements ;;;;;;;;;
 
@@ -128,4 +128,4 @@
             where      (m/last-check-where-clause device-id type last-check)
             today      (m/last-check-int-format (t/now))]
         (when (p/paginate commander querier sensor table where update-median)
-          (update! commander :sensor-metadata :median_calc_check today {:device-id device-id :type type}))))))
+          (update! commander :sensor-metadata :median-calc-check today {:device-id device-id :type type}))))))

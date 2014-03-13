@@ -13,7 +13,7 @@
 (def int-time-formatter (tf/formatter "yyyyMMddHHmmss"))
 
 (defn to-timestamp
-  "Cassaforte returns timestamps as strings. This is not convert them back to java.util.Date."
+  "Cassaforte returns timestamps as strings. This is to convert them back to java.util.Date."
   [t]
   (.parse (java.text.SimpleDateFormat. "EEE MMM dd HH:mm:ss z yyyy") t))
 

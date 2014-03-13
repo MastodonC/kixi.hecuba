@@ -31,6 +31,7 @@
                  [cljs-ajax "0.2.3"]
                  [om "0.5.1"]
                  [net.drib/mrhyde "0.5.3"]
+                 [com.andrewmcveigh/cljs-time "0.1.1"]
 
                  [clj-kafka "0.2.0-0.8" :exclusions [org.slf4j/slf4j-simple]]
                  [camel-snake-kebab "0.1.4"]

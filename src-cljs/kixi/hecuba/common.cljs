@@ -1,5 +1,7 @@
 (ns kixi.hecuba.common
-  (:require [clojure.string :as str])
+  (:require [clojure.string   :as str]
+            [cljs-time.core   :as t]
+            [cljs-time.format :as tf])
   )
 
 (defn find-first [pred coll]
@@ -29,3 +31,14 @@
                           v))
            template m)]
     (when (not (index-of \: s)) s)))
+
+(defn interval
+  [start-date end-date]
+  (let [formatter (tf/formatter "dd-MM-yyyy hh:mm")
+        start     (tf/parse formatter start-date)
+        end       (tf/parse formatter end-date)
+        interval  (t/in-minutes (t/interval start end))]
+    (cond
+     (<= interval 1440) :raw
+     (and (> interval 1440) (< interval 20160)) :hourly-rollups
+     (>= interval 20160) :daily-rollups)))

@@ -1,0 +1,24 @@
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.chart {
+  margin: 0 auto;
+  font-size: 8px;
+}
+
+.line {
+  fill: none;
+  stroke: #428bca;
+  stroke-width: 2;
+}
+
+.tooltip {
+    opacity: 0.95;
+}
+
+
+
