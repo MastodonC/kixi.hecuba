@@ -9,9 +9,10 @@
    [modular.http-kit :refer (new-webserver)]
    [modular.ring :refer (resolve-handler-provider)]
    [modular.bidi :refer (new-bidi-ring-handler-provider resolve-routes-contributors)]
+   [modular.cassandra :refer (new-session new-cluster)]
 
    [kixi.hecuba.dev :refer (->CassandraDirectCommander ->CassandraQuerier)]
-   [kixi.hecuba.cassandra :refer (new-session new-cluster)]
+
 
    [kixi.hecuba.web :refer (new-main-routes)]
    [kixi.hecuba.cljs :refer (new-cljs-routes)]
