@@ -4,7 +4,7 @@
 # Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
 VAGRANTFILE_API_VERSION = "2"
 
-KIXI_DEV_VERSION="1.0.2"
+KIXI_DEV_VERSION="1.0.3"
 
 $extras_script = <<SCRIPT
 echo provisioning extras...
