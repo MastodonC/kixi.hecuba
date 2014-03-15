@@ -123,11 +123,11 @@
     [#".*" (fn [req] {:status 404 :body "Not Found (Hecuba)"})] ; need a template!
     ]])
 
-(defrecord MainRoutes [context]
+(defrecord MainRoutes [routes context]
   component/Lifecycle
   (start [this]
     (if-let [store (get-in this [:store])]
-      (assoc this :routes (make-routes (make-handlers store) store))
+      (deliver routes (make-routes (make-handlers store) store))
       (throw (ex-info "No store!" {:this this}))))
   (stop [this] this)
 
@@ -136,4 +136,4 @@
   (context [this] context))
 
 (defn new-main-routes []
-  (->MainRoutes ""))
+  (->MainRoutes (promise) ""))

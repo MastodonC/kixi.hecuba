@@ -278,9 +278,11 @@
          :web-server (new-webserver (:web-server cfg))
          :bidi-ring-handler (new-bidi-ring-handler-provider)
          :main-routes (new-main-routes)
-         :cljs-routes (new-cljs-routes (:cljs-builder cfg)))
-        (resolve-handler-provider)
+         :cljs-routes (new-cljs-routes (:cljs-builder cfg))
+         )
         (resolve-routes-contributors)
+        (resolve-handler-provider)
+
         (component/system-using {:session [:cluster]
                                  :store [:session :schema]
                                  :schema [:session]
