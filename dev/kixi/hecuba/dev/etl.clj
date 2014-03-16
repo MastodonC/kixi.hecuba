@@ -1,5 +1,6 @@
 (ns kixi.hecuba.dev.etl
   (:require
+   [com.stuartsierra.component :as component]
    [clojure.pprint :refer (pprint)]
    [clojure.java.io :as io]
    [clojure.data.csv :as csv]
@@ -13,9 +14,6 @@
    [camel-snake-kebab :refer (->camelCaseString)]))
 
 (def custom-formatter (tf/formatter "yyyy-MM-dd'T'HH:mm:ss.SSSZ"))
-
-(defn get-port [system]
-  (-> system :jig/config :jig/components :hecuba/webserver :port))
 
 (defn post-resource [post-uri content-type data]
   (let [response
@@ -308,14 +306,12 @@
   (stop [_ system] system))
 
 ;; Makes use of kixi.hecuba.users/ApiService to create some users
-#_(deftype UserDataLoader [config]
-  Lifecycle
-  (init [_ system] system)
-  (start [_ system]
+(defrecord UserDataLoader [config]
+  component/Lifecycle
+  (start [this]
     (let [host "localhost"
-          port (get-port user/system)
-          routes (-> system :hecuba/routing :jig.bidi/routes)
-          ]
+          port (or (get-in config [:webserver :port]) 8000) ; TODO coupling!
+          routes (-> this :bidi-ring-handler :routes)]
 
       (doseq [{:keys [username password]} (:users config)]
         (let [body {:username username :password password}
@@ -327,6 +323,8 @@
                )]
           (when (not= (:status response) 201)
             (println "Failed to add user:" body)
-            (pprint response)))))
-    system)
-  (stop [_ system] system))
+            (pprint response))))))
+  (stop [this] this))
+
+(defn new-user-data-loader [config]
+  (->UserDataLoader config))

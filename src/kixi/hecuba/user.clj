@@ -5,7 +5,8 @@
    [modular.bidi :refer (new-bidi-routes)]
    [kixi.hecuba.protocols :refer (upsert!)]
    [kixi.hecuba.webutil :refer (read-edn-body)]
-   [kixi.hecuba.security :refer (create-hash authorized-with-basic-auth? make-rng)]))
+   [kixi.hecuba.security :refer (create-hash authorized-with-basic-auth? make-rng)]
+   [com.stuartsierra.component :as component]))
 
 (defn get-upsert-properties-from-body [rng body]
   (assert (:password body))
@@ -46,9 +47,18 @@
        [["users/" [username-regex :username] "/profile"] (:user-profile handlers)]
        ]])
 
-(defn new-api-service [opts]
-  (-> (merge (select-keys opts [:commander :querier])
-             {:rng (make-rng)})
-      make-handlers
-      make-routes
-      new-bidi-routes))
+(defrecord UserApiRoutes [context]
+  component/Lifecycle
+  (start [this]
+    (if-let [store (get-in this [:store])]
+      (assoc this :routes (make-routes (make-handlers (merge store {:rng (make-rng)}))))
+      (throw (ex-info "No store!" {:this this}))))
+  (stop [this] this)
+
+  modular.bidi/BidiRoutesContributor
+  (routes [this] (:routes this))
+  (context [this] context))
+
+(defn new-user-api-routes
+  ([] (new-user-api-routes ""))
+  ([context] (->UserApiRoutes context)))

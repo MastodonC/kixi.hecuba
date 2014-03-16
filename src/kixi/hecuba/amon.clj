@@ -20,8 +20,7 @@
    [kixi.hecuba.security :as sec]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
-   [com.stuartsierra.component :as component]
-   [modular.bidi :refer (new-bidi-routes)])
+   [com.stuartsierra.component :as component])
   (:import
    (java.util UUID)))
 
