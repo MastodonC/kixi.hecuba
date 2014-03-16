@@ -15,10 +15,10 @@
 
 
    [kixi.hecuba.web :refer (new-main-routes)]
-   [kixi.hecuba.amon :refer (new-amon-api-routes)]
-   [kixi.hecuba.user :refer (new-user-api-routes)]
+   [kixi.hecuba.amon :refer (new-amon-api)]
+   [kixi.hecuba.user :refer (new-user-api)]
    [kixi.hecuba.cljs :refer (new-cljs-routes)]
-   [kixi.hecuba.dev.etl :refer (new-user-data-loader)]
+   [kixi.hecuba.dev.etl :refer (new-user-data-loader new-csv-loader)]
 
    [clojurewerkz.cassaforte.client :as cassaclient]
    [clojurewerkz.cassaforte.query :as cassaquery]
@@ -345,19 +345,19 @@
          :web-server (new-webserver (:web-server cfg))
          :bidi-ring-handler (new-bidi-ring-handler-provider)
          :main-routes (new-main-routes)
-         :amon-api-routes (new-amon-api-routes "/3")
-         :user-api-routes (new-user-api-routes)
+         :amon-api (new-amon-api "/3")
+         :user-api (new-user-api)
          :cljs-routes (new-cljs-routes (:cljs-builder cfg))
-
          :user-data-loader (new-user-data-loader cfg)
+         :csv-loader (new-csv-loader cfg))
 
-         )
-
-        (mod/system-using {:main-routes [:store]
-                           :amon-api-routes [:store]
-                           :user-api-routes [:store]
-                           :store [:session :schema]
-                           :schema [:session]
-                           :user-data-loader [:bidi-ring-handler]
-                           ;;:cljs-routes [:cljs-builder]
-                           :session [:cluster]}))))
+        (mod/system-using
+         {:main-routes [:store]
+          :amon-api [:store]
+          :user-api [:store]
+          :store [:session :schema]
+          :schema [:session]
+          :user-data-loader [:bidi-ring-handler :web-server :user-api]
+          :csv-loader [:bidi-ring-handler :amon-api :web-server :user-data-loader]
+          ;;:cljs-routes [:cljs-builder]
+          :session [:cluster]}))))

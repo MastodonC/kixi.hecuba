@@ -38,7 +38,7 @@
     (if (sec/authorized-with-cookie? req querier)
       (h req)
       {:status 302
-       :headers {"Location" (path-for (:jig.bidi/routes req) login-form)}
+       :headers {"Location" (path-for (:modular.bidi/routes req) login-form)}
        :body "Not authorized"
        :cookies {"requested-uri" (:uri req)}}
       )))
@@ -61,7 +61,7 @@
 
 (defn login-handler [{:keys [querier commander] :as opts} handlers]
   (fn [{{user "user" password "password" requested-uri "requested-uri"} :form-params
-        routes :jig.bidi/routes
+        routes :modular.bidi/routes
         {{attempts :value} "login-attempts"} :cookies}]
     (if (and user (not-empty user) (sec/authorized? (.trim user) password querier))
       {:status 302
@@ -78,7 +78,7 @@
 (defn login-form [login-handler]
   (fn [{{{requested-uri :value} "requested-uri"
          {attempts :value} "login-attempts" :as cookies} :cookies
-         routes :jig.bidi/routes :as req}]
+         routes :modular.bidi/routes :as req}]
     {:status 200
      :body (html
             [:body

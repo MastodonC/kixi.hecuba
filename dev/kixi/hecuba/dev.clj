@@ -27,16 +27,6 @@
     :body [data]}
    identity))
 
-(defn get-port [system]
-  (-> system :jig/config :jig/components :hecuba/webserver :port))
-
-(defn get-routes [system]
-  (-> system :hecuba/routing :jig.bidi/routes))
-
-(defn get-id-from-path [system path]
-  (assert path)
-  (get-in (match-route (get-routes system) path) [:params :hecuba/id]))
-
 ;; This is going over HTTP, kixi.hecuba.amon-test goes over ring-mock, so they're a bit different.
 
 (def dummy-data

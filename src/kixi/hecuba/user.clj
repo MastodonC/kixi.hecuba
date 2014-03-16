@@ -47,11 +47,12 @@
        [["users/" [username-regex :username] "/profile"] (:user-profile handlers)]
        ]])
 
-(defrecord UserApiRoutes [context]
+(defrecord UserApi [context]
   component/Lifecycle
   (start [this]
     (if-let [store (get-in this [:store])]
-      (assoc this :routes (make-routes (make-handlers (merge store {:rng (make-rng)}))))
+      (let [handlers (make-handlers (merge store {:rng (make-rng)}))]
+        (assoc this :handlers handlers :routes (make-routes handlers)))
       (throw (ex-info "No store!" {:this this}))))
   (stop [this] this)
 
@@ -59,6 +60,6 @@
   (routes [this] (:routes this))
   (context [this] context))
 
-(defn new-user-api-routes
-  ([] (new-user-api-routes ""))
-  ([context] (->UserApiRoutes context)))
+(defn new-user-api
+  ([] (new-user-api ""))
+  ([context] (->UserApi context)))
