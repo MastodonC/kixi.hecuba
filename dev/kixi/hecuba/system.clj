@@ -15,6 +15,7 @@
 
 
    [kixi.hecuba.web :refer (new-main-routes)]
+   [kixi.hecuba.amon :refer (new-amon-api-routes)]
    [kixi.hecuba.cljs :refer (new-cljs-routes)]
 
    [clojurewerkz.cassaforte.client :as cassaclient]
@@ -306,7 +307,6 @@
                   )]
 
     (-> state
-        (message "HERE")
         (cljs/step-compile-modules)
         (cljs/flush-unoptimized)))
 
@@ -343,10 +343,12 @@
          :web-server (new-webserver (:web-server cfg))
          :bidi-ring-handler (new-bidi-ring-handler-provider)
          :main-routes (new-main-routes)
+         :amon-api-routes (new-amon-api-routes "/3")
          :cljs-routes (new-cljs-routes (:cljs-builder cfg))
          )
 
         (mod/system-using {:main-routes [:store]
+                           :amon-api-routes [:store]
                            :store [:session :schema]
                            :schema [:session]
                            ;;:cljs-routes [:cljs-builder]

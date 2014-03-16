@@ -19,7 +19,9 @@
    [kixi.hecuba.data.misc :as misc]
    [kixi.hecuba.security :as sec]
    [liberator.core :refer (defresource)]
-   [liberator.representation :refer (ring-response)])
+   [liberator.representation :refer (ring-response)]
+   [com.stuartsierra.component :as component]
+   [modular.bidi :refer (new-bidi-routes)])
   (:import
    (java.util UUID)))
 
@@ -605,6 +607,20 @@
          ]
         wrap-cookies)])
 
+(defrecord AmonApiRoutes [context]
+  component/Lifecycle
+  (start [this]
+    (if-let [store (get-in this [:store])]
+      (assoc this :routes (make-routes (make-handlers store)))
+      (throw (ex-info "No store!" {:this this}))))
+  (stop [this] this)
+
+  modular.bidi/BidiRoutesContributor
+  (routes [this] (:routes this))
+  (context [this] context))
+
+(defn new-amon-api-routes [context]
+  (->AmonApiRoutes context))
 
 #_(deftype ApiServiceV3 [config]
   Lifecycle
