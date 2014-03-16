@@ -5,8 +5,8 @@
   )
 
 (defn make-routes [config]
-  (let [output-dir (str (:output-dir config) "out/")]
-    ["" (->Files {:dir output-dir
+  (let [output-dir (:output-dir config)]
+    ["" (->Files {:dir "target/cljs"
                   :mime-types {"map" "application/javascript"}})]))
 
 (defn new-cljs-routes [config]

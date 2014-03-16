@@ -123,17 +123,17 @@
     [#".*" (fn [req] {:status 404 :body "Not Found (Hecuba)"})] ; need a template!
     ]])
 
-(defrecord MainRoutes [routes context]
+(defrecord MainRoutes [context]
   component/Lifecycle
   (start [this]
     (if-let [store (get-in this [:store])]
-      (deliver routes (make-routes (make-handlers store) store))
+      (assoc this :routes (make-routes (make-handlers store) store))
       (throw (ex-info "No store!" {:this this}))))
   (stop [this] this)
 
-  modular.bidi/RoutesContributor
+  modular.bidi/BidiRoutesContributor
   (routes [this] (:routes this))
   (context [this] context))
 
 (defn new-main-routes []
-  (->MainRoutes (promise) ""))
+  (->MainRoutes ""))

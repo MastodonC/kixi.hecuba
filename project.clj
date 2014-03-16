@@ -1,5 +1,3 @@
-(def jig-version "2.0.3")
-
 (defproject hecuba "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
@@ -52,7 +50,11 @@
 
                  [clojurewerkz/quartzite "1.2.0"]
 
-                 [pipejine "0.1.2" :exclusions [org.slf4j/slf4j-simple]]]
+                 [pipejine "0.1.2" :exclusions [org.slf4j/slf4j-simple]]
+
+
+                 [thheller/shadow-build "0.5.0" :exclusions [org.clojure/clojurescript]]
+                 ]
 
   :source-paths ["src" "src-cljs"]
 

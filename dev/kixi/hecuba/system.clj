@@ -7,8 +7,8 @@
    ;; Modular reusable components
    [modular.core :as mod]
    [modular.http-kit :refer (new-webserver)]
-   [modular.ring :refer (resolve-handler-provider)]
-   [modular.bidi :refer (new-bidi-ring-handler-provider resolve-routes-contributors)]
+   #_[modular.ring :refer (resolve-handler-provider)]
+   [modular.bidi :refer (new-bidi-ring-handler-provider #_resolve-routes-contributors)]
    [modular.cassandra :refer (new-session new-cluster)]
 
    [kixi.hecuba.dev :refer (->CassandraDirectCommander ->CassandraQuerier)]
@@ -21,8 +21,11 @@
    [clojurewerkz.cassaforte.query :as cassaquery]
    [clojurewerkz.cassaforte.cql :as cql]
 
+   [shadow.cljs.build :as cljs]
+
    ;; Misc
    clojure.tools.reader
+   [clojure.pprint :refer (pprint)]
    [clojure.tools.reader.reader-types :refer (indexing-push-back-reader source-logging-push-back-reader)]
    [clojure.java.io :as io]))
 
@@ -40,7 +43,9 @@
     (if-let [session (get-in this [:session :session])]
       (assoc this
         :commander (->CassandraDirectCommander session)
-        :querier (->CassandraQuerier session))))
+        :querier (->CassandraQuerier session))
+      (throw (ex-info "Store needs a session" {}))
+      ))
   (stop [this] this))
 
 (defn new-direct-store []
@@ -268,6 +273,65 @@
 (defn new-schema []
   (->CassandraSchema))
 
+(defn define-modules [state]
+  (-> state
+      (cljs/step-configure-module
+       :cljs ;; module name
+       ['cljs.core] ;; module mains, a main usually contains exported functions or code that just runs
+       #{}) ;; module dependencies
+      (cljs/step-configure-module :hecuba ['kixi.hecuba.main] #{:cljs})
+      ))
+
+(defn message [state message]
+  (println message)
+  state
+)
+
+(defn compile-cljs
+  "build the project, wait for file changes, repeat"
+  [& args]
+  (let [state (-> (cljs/init-state)
+                  (cljs/enable-source-maps)
+                  (assoc :optimizations :none
+                         :pretty-print true
+                         :work-dir (io/file "target/cljs-work") ;; temporary output path, not really needed
+                         :public-dir (io/file "target/cljs") ;; where should the output go
+                         :public-path "/cljs") ;; whats the path the html has to use to get the js?
+                  (cljs/step-find-resources-in-jars) ;; finds cljs,js in jars from the classpath
+                  (cljs/step-find-resources "lib/js-closure" {:reloadable false})
+                  (cljs/step-find-resources "src-cljs") ;; find cljs in this path
+                  (cljs/step-finalize-config) ;; shouldn't be needed but is at the moment
+                  (cljs/step-compile-core) ;; compile cljs.core
+                  (define-modules)
+                  )]
+
+    (-> state
+        (message "HERE")
+        (cljs/step-compile-modules)
+        (cljs/flush-unoptimized)))
+
+  :done)
+
+(defn spy [x]
+  (println "System map is now")
+  (pprint x)
+  x)
+
+(defrecord ClojureScriptBuilder []
+  component/Lifecycle
+  (start [this]
+    (try
+      (compile-cljs)
+      this
+      (catch Exception e
+        (println "ClojureScript build failed:" e)
+        (assoc this :error e))))
+  (stop [this] this))
+
+
+(defn new-cljs-builder []
+  (->ClojureScriptBuilder))
+
 (defn new-system []
   (let [cfg (config)]
     (-> (component/system-map
@@ -275,15 +339,15 @@
          :session (new-session (:cassandra-session cfg))
          :schema (new-schema)
          :store (new-direct-store)
+         :cljs-builder (new-cljs-builder)
          :web-server (new-webserver (:web-server cfg))
          :bidi-ring-handler (new-bidi-ring-handler-provider)
          :main-routes (new-main-routes)
          :cljs-routes (new-cljs-routes (:cljs-builder cfg))
          )
-        (resolve-routes-contributors)
-        (resolve-handler-provider)
 
-        (component/system-using {:session [:cluster]
-                                 :store [:session :schema]
-                                 :schema [:session]
-                                 :main-routes [:store]}))))
+        (mod/system-using {:main-routes [:store]
+                           :store [:session :schema]
+                           :schema [:session]
+                           ;;:cljs-routes [:cljs-builder]
+                           :session [:cluster]}))))
