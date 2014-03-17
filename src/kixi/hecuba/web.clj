@@ -1,10 +1,10 @@
 (ns kixi.hecuba.web
   (:require
-   jig
+   [modular.bidi :refer (new-bidi-routes)]
+
    kixi.hecuba.web.messages
    [kixi.hecuba.data :as data]
-   [jig.util :refer (get-dependencies satisfying-dependency)]
-   [jig.bidi :refer (add-bidi-routes)]
+
    [bidi.bidi :refer (match-route path-for ->WrapMiddleware ->Resources ->ResourcesMaybe ->Redirect ->Alternates Matched resolve-handler unresolve-handler)]
    [ring.middleware.params :refer (wrap-params)]
    [ring.middleware.cookies :refer (wrap-cookies)]
@@ -12,8 +12,8 @@
    [hiccup.core :refer (html)]
    [kixi.hecuba.security :as sec]
    [clojure.tools.logging :refer :all]
-   [liberator.core :refer (resource defresource)])
-  (:import (jig Lifecycle)))
+   [liberator.core :refer (resource defresource)]
+   [com.stuartsierra.component :as component]))
 
 (defn index [req]
   {:status 200 :body (slurp (io/resource "sb-admin/index.html"))})
@@ -38,7 +38,7 @@
     (if (sec/authorized-with-cookie? req querier)
       (h req)
       {:status 302
-       :headers {"Location" (path-for (:jig.bidi/routes req) login-form)}
+       :headers {"Location" (path-for (:modular.bidi/routes req) login-form)}
        :body "Not authorized"
        :cookies {"requested-uri" (:uri req)}}
       )))
@@ -61,7 +61,7 @@
 
 (defn login-handler [{:keys [querier commander] :as opts} handlers]
   (fn [{{user "user" password "password" requested-uri "requested-uri"} :form-params
-        routes :jig.bidi/routes
+        routes :modular.bidi/routes
         {{attempts :value} "login-attempts"} :cookies}]
     (if (and user (not-empty user) (sec/authorized? (.trim user) password querier))
       {:status 302
@@ -78,7 +78,7 @@
 (defn login-form [login-handler]
   (fn [{{{requested-uri :value} "requested-uri"
          {attempts :value} "login-attempts" :as cookies} :cookies
-         routes :jig.bidi/routes :as req}]
+         routes :modular.bidi/routes :as req}]
     {:status 200
      :body (html
             [:body
@@ -123,15 +123,17 @@
     [#".*" (fn [req] {:status 404 :body "Not Found (Hecuba)"})] ; need a template!
     ]])
 
-(deftype Website [config]
-  Lifecycle
-  (init [_ system] system)
-  (start [_ system]
-    (let [commander (:commander system)
-          querier (:querier system)
-          routes (make-routes (make-handlers {:querier querier :commander commander})
-                              {:querier querier :commander commander})]
-      (-> system
-          (add-bidi-routes config routes))))
+(defrecord MainRoutes [context]
+  component/Lifecycle
+  (start [this]
+    (if-let [store (get-in this [:store])]
+      (assoc this :routes (make-routes (make-handlers store) store))
+      (throw (ex-info "No store!" {:this this}))))
+  (stop [this] this)
 
-  (stop [_ system] system))
+  modular.bidi/BidiRoutesContributor
+  (routes [this] (:routes this))
+  (context [this] context))
+
+(defn new-main-routes []
+  (->MainRoutes ""))

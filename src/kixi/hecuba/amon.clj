@@ -14,16 +14,14 @@
    [clojure.string :as string]
    [clojure.walk :refer (postwalk)]
    [hiccup.core :refer (html)]
-   [jig.bidi :refer (add-bidi-routes)]
    [kixi.hecuba.protocols :refer (upsert! delete! item items)]
    [kixi.hecuba.data.validate :as v]
    [kixi.hecuba.data.misc :as misc]
    [kixi.hecuba.security :as sec]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
-   jig)
+   [com.stuartsierra.component :as component])
   (:import
-   (jig Lifecycle)
    (java.util UUID)))
 
 (defn authorized? [querier typ]
@@ -108,7 +106,7 @@
   :authorized? (authorized? querier :programme)
 
   :handle-ok
-  (fn [{{mime :media-type} :representation {routes :jig.bidi/routes} :request}]
+  (fn [{{mime :media-type} :representation {routes :modular.bidi/routes} :request}]
     (let [items (->> (items querier :programme)
                     (map #(-> %
                               (assoc :projects (path-for routes (:projects @handlers) :programme-id (:id %)))
@@ -129,7 +127,7 @@
     {:programme-id (upsert! commander :programme (-> body read-edn-body ->shallow-kebab-map))})
 
   :handle-created
-  (fn [{id :programme-id {routes :jig.bidi/routes} :request}]
+  (fn [{id :programme-id {routes :modular.bidi/routes} :request}]
     (let [location (path-for routes (:programme @handlers) :programme-id id)]
       (ring-response {:headers {"Location" location}}))))
 
@@ -147,7 +145,7 @@
       {::item item}))
 
   :handle-ok
-  (fn [{item ::item {mime :media-type} :representation {routes :jig.bidi/routes} :request}]
+  (fn [{item ::item {mime :media-type} :representation {routes :modular.bidi/routes} :request}]
     (let [item (assoc item :projects (path-for routes (:projects @handlers) :programme-id (:id item)))]
       (case mime
         "text/html" (html
@@ -168,7 +166,7 @@
   :authorized? (authorized? querier :project)
 
   :handle-ok
-  (fn [{{mime :media-type} :representation {routes :jig.bidi/routes route-params :route-params} :request}]
+  (fn [{{mime :media-type} :representation {routes :modular.bidi/routes route-params :route-params} :request}]
     (let [coll (->> (if (:programme-id route-params)
                        (items querier :project route-params)
                        (items querier :project))
@@ -190,7 +188,7 @@
     {:project-id (upsert! commander :project (-> body read-edn-body ->shallow-kebab-map))})
 
   :handle-created
-  (fn [{id :project-id {routes :jig.bidi/routes} :request}]
+  (fn [{id :project-id {routes :modular.bidi/routes} :request}]
     (let [location (path-for routes (:project @handlers) :project-id id)]
       (ring-response {:headers {"Location" location}}))))
 
@@ -206,7 +204,7 @@
       {::item item}))
 
   :handle-ok
-  (fn [{item ::item {mime :media-type} :representation {routes :jig.bidi/routes} :request}]
+  (fn [{item ::item {mime :media-type} :representation {routes :modular.bidi/routes} :request}]
     (let [item (assoc item :properties (path-for routes (:properties @handlers) :project-id (:id item)))]
       (case mime
         "text/html" (html
@@ -226,7 +224,7 @@
   :authorized? (authorized? querier :property)
 
   :handle-ok
-  (fn [{{mime :media-type} :representation {routes :jig.bidi/routes route-params :route-params} :request}]
+  (fn [{{mime :media-type} :representation {routes :modular.bidi/routes route-params :route-params} :request}]
       (let [coll (->> (if (:project-id route-params)
                       (items querier :entity route-params)
                       (items querier :entity))
@@ -255,7 +253,7 @@
       {:entity-id (upsert! commander :entity entity)}))
 
   :handle-created
-  (fn [{{routes :jig.bidi/routes} :request id :entity-id}]
+  (fn [{{routes :modular.bidi/routes} :request id :entity-id}]
     (let [location (path-for routes (:entity @handlers) :entity-id id)]
       (when-not location
         (throw (ex-info "No path resolved for Location header"
@@ -274,7 +272,7 @@
       #_(throw (ex-info (format "Cannot find item of id %s")))))
 
   :handle-ok
-  (fn [{item ::item {mime :media-type} :representation {routes :jig.bidi/routes route-params :route-params} :request}]
+  (fn [{item ::item {mime :media-type} :representation {routes :modular.bidi/routes route-params :route-params} :request}]
     (let [item (assoc item :device-ids (map :id (items querier :device route-params)))]
       (case mime
         "text/html" (html
@@ -339,7 +337,7 @@
       {:device-id device-id}))
 
   :handle-ok
-  (fn [{items ::items {mime :media-type} :representation {routes :jig.bidi/routes route-params :route-params} :request :as request}]
+  (fn [{items ::items {mime :media-type} :representation {routes :modular.bidi/routes route-params :route-params} :request :as request}]
     (case mime
       "text/html" (html
                    [:body
@@ -357,7 +355,7 @@
       ))
 
   :handle-created
-  (fn [{{routes :jig.bidi/routes {entity-id :entity-id} :route-params} :request device-id :device-id}]
+  (fn [{{routes :modular.bidi/routes {entity-id :entity-id} :route-params} :request device-id :device-id}]
     (let [location
           (path-for routes (:device @handlers)
                     :entity-id entity-id
@@ -407,11 +405,11 @@
              (when-let [items (items querier :sensor-metadata {:device-id device-id})]
                {::items items}))
 
-  :handle-ok 
-  (fn [{items ::items {mime :media-type} :representation {routes :jig.bidi/routes route-params :route-params} :request :as request}]
-    items 
-         ;downcast-to-json 
-         ;camelify 
+  :handle-ok
+  (fn [{items ::items {mime :media-type} :representation {routes :modular.bidi/routes route-params :route-params} :request :as request}]
+    items
+         ;downcast-to-json
+         ;camelify
          ;encode
          ))
 
@@ -453,7 +451,7 @@
   :handle-ok (fn [{{{:keys [device-id reading-type]} :route-params query-string :query-string}
                    :request {mime :media-type} :representation}]
                (let [decoded-params (decode-query-params query-string)
-                     formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")                     
+                     formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")
                      start-date     (.parse formatter (string/replace (get decoded-params "startDate") "%20" " "))
                      end-date       (.parse formatter (string/replace (get decoded-params "endDate") "%20" " "))
                      measurements   (items querier :measurement [:device-id device-id
@@ -608,21 +606,23 @@
          ]
         wrap-cookies)])
 
+(defrecord AmonApi [context]
+  component/Lifecycle
+  (start [this]
+    (if-let [store (get-in this [:store])]
+      (let [handlers  (make-handlers store)]
+        (assoc this
+          :handlers handlers
+          :routes (make-routes handlers)))
+      (throw (ex-info "No store!" {:this this}))))
+  (stop [this] this)
 
-(deftype ApiServiceV3 [config]
-  Lifecycle
-  (init [_ system] system)
-  (start [_ system]
-    ;; The reason we need to put this into the start (rather than init)
-    ;; phase is that commander and querier and sometimes not bound until
-    ;; the start phase (they in turn depend on various side-effects,
-    ;; such as C* schema creation). Eventually we won't have a different
-    ;; init and start phase.
-    (let [handlers (make-handlers (select-keys system [:commander :querier]))]
-      (-> system
-          (assoc :amon/handlers handlers)
-          (add-bidi-routes config (make-routes handlers)))))
-  (stop [_ system] system))
+  modular.bidi/BidiRoutesContributor
+  (routes [this] (:routes this))
+  (context [this] context))
+
+(defn new-amon-api [context]
+  (->AmonApi context))
 
 
 ;; TODO Entity PUTs

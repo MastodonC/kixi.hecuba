@@ -7,9 +7,7 @@
             [clojurewerkz.quartzite.triggers      :as trig]
             [clojure.walk                         :as walk]
             [kixi.hecuba.pipeline                 :refer [submit-item]]
-            jig)
-  
-  (:import (jig Lifecycle)))
+            ))
 
 (j/defjob SubmitToPipeJob
   [ctx]
@@ -41,7 +39,7 @@
                                        (build-trigger cron-str id)))
                         process-job-schedule))))
 
-(deftype Scheduler [config]
+#_(deftype Scheduler [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]
@@ -49,6 +47,6 @@
       (configure-scheduler config pipeline)
       (qs/start))
     (assoc-in system [(:jig/id config) ::scheduler] (constantly @qs/*scheduler*)))
-  (stop [_ system] 
+  (stop [_ system]
     (qs/shutdown)
     system))
