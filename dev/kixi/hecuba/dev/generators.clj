@@ -10,8 +10,7 @@
 
             [clojurewerkz.cassaforte.client :as client]
             [clojurewerkz.cassaforte.query :as query]
-            [clojurewerkz.cassaforte.cql :as cql])
-  (:import (jig Lifecycle)))
+            [clojurewerkz.cassaforte.cql :as cql]))
 
 ;; Malcolm says: Sorry Anna, but I really need some predicatability to
 ;; work on the chart integration - so I'm seeding the randomness to it
@@ -189,7 +188,7 @@
 ;;   (doseq [s sensors] (insert-measurements session (measurements s))))
 
 
-(deftype DataGenerator [config]
+#_(deftype DataGenerator [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system] system)

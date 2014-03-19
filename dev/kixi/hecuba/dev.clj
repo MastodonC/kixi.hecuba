@@ -1,10 +1,8 @@
 ;; Some utilities that help speed up development
-
 (ns kixi.hecuba.dev
   (:require
    clojure.edn
    clojure.set
-   jig
    kixi.hecuba.protocols
    [bidi.bidi :refer (path-for match-route)]
    [clojure.pprint :refer (pprint)]
@@ -19,7 +17,6 @@
    [org.httpkit.client :refer (request) :rename {request http-request}]
    [camel-snake-kebab :refer (->snake_case_keyword ->kebab-case-keyword)])
   (:import
-   (jig Lifecycle)
    (kixi.hecuba.protocols Commander Querier)))
 
 (defn post-resource [post-uri data]
@@ -29,16 +26,6 @@
     :basic-auth ["bob" "secret"]
     :body [data]}
    identity))
-
-(defn get-port [system]
-  (-> system :jig/config :jig/components :hecuba/webserver :port))
-
-(defn get-routes [system]
-  (-> system :hecuba/routing :jig.bidi/routes))
-
-(defn get-id-from-path [system path]
-  (assert path)
-  (get-in (match-route (get-routes system) path) [:params :hecuba/id]))
 
 ;; This is going over HTTP, kixi.hecuba.amon-test goes over ring-mock, so they're a bit different.
 
@@ -86,7 +73,7 @@
                      :rooms 13
                      }]}]}]})
 
-(deftype ExampleDataLoader [config]
+#_(deftype ExampleDataLoader [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]
@@ -134,7 +121,7 @@
   {:commander (->RefCommander r keyfn)
    :querier (->RefQuerier r)})
 
-(deftype RefStore [config]
+#_(deftype RefStore [config]
   Lifecycle
   (init [_ system]
     ;; Note, this may overwrite an existing store
@@ -142,7 +129,7 @@
   (start [_ system] system)
   (stop [_ system] system))
 
-(deftype CassandraCluster [config]
+#_(deftype CassandraCluster [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]
@@ -154,7 +141,7 @@
       (.shutdown cluster))
     system))
 
-(deftype CassandraSession [config]
+#_(deftype CassandraSession [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]
@@ -172,7 +159,7 @@
     (catch Exception e# nil)))
 
 ;; Perhaps this schema can make it's way into the config
-(deftype CassandraSchema [config]
+#_(deftype CassandraSchema [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]
@@ -336,7 +323,7 @@
                              :value :varchar
                              :primary-key [:device_id :type :month :timestamp]})))
 
-        
+
          (ignoring-error
          (cql/create-table "hourly_rollups"
                            (cassaquery/column-definitions
@@ -538,7 +525,7 @@
            (cql/select (get-table typ)
                        ;; TODO Vectors should be used across but refactoring will take lots of time. Can't do it now.
                        (if (instance? clojure.lang.PersistentVector where)
-                         (do (let [w (vec (apply concat (cassandraify-v where)))] 
+                         (do (let [w (vec (apply concat (cassandraify-v where)))]
                                (apply cassaquery/where w)))
                          (apply cassaquery/where (apply concat (cassandraify where))))))))
   (items [_ typ where n]
@@ -558,7 +545,7 @@
            (cql/select (get-table typ)
                        (cassaquery/paginate :key paginate-key :per-page per-page :last-key last-key :where (cassandraify where)))))))
 
-(deftype CassandraDirectStore [config]
+#_(deftype CassandraDirectStore [config]
   Lifecycle
   (init [_ system] system)
   (start [_ system]
