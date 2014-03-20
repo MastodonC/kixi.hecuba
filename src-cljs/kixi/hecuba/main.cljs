@@ -59,29 +59,32 @@
 (defn uri-for-selection-change
   "Returns the uri to load because of change of selection. Returns nil
    if no change to selection"
-  [selected selection-key template {{ids :ids} :args}]
+  [current-selected selection-key template {{ids :ids} :args}]
   (let [new-selected (get ids selection-key)]
-    (when (or (nil? selected)
-              (not= selected new-selected))
+    (when (or (nil? current-selected)
+              (nil? new-selected)
+              (not= current-selected 
+                    new-selected))
       (vector new-selected
               (map-replace template ids)))))
 
-(defn ajax [in data {:keys [template
-                            selection-key
-                            content-type]}]
+(defn ajax [in data path {:keys [template
+                                 selection-key
+                                 content-type]}]
   (go-loop []
     (when-let [[new-selected uri] (uri-for-selection-change (:selected @data)
-                                                selection-key
-                                                template
-                                                (<! in))]
-      (GET uri
-           (-> {:handler  (fn [x]
-                            (om/update! data :data x)
-                            (om/update! data :selected new-selected))
-                :headers {"Accept" content-type}
-                :response-format :text}
-               (cond-> (= content-type "application/json")
-                       (merge {:response-format :json :keywords? true})))))
+                                                            selection-key
+                                                            template
+                                                            (<! in))]
+      (when uri
+        (GET uri
+             (-> {:handler  (fn [x]
+                              (om/update! data (conj path :data) x)
+                              (om/update! data (conj path :selected) new-selected))
+                  :headers {"Accept" content-type}
+                  :response-format :text}
+                 (cond-> (= content-type "application/json")
+                         (merge {:response-format :json :keywords? true}))))))
     (recur)))
 
 (defn selected-range-change
@@ -101,6 +104,7 @@
                                                       selection-key
                                                       template
                                                       (<! in))]
+      (println "path:" (om/path data))
       (let [[start-date end-date] search
             entity-id             (get ids :property)
             sensor-id             (get ids :sensor)
@@ -215,6 +219,7 @@
                                                    (dom/span #js {:className "input-group-addon"}
                                                              (dom/span #js {:className "glyphicon glyphicon-calendar"})))))
                         (dom/button #js {:type "button"
+                                         :id "select-dates-btn" 
                                          :className  "btn btn-primary btn-large"
                                          :onClick 
                                          (fn [e]
@@ -259,11 +264,11 @@
                 (dom/p nil (str "Longitude: " longitude)))))))
 
 (defn title-for [cursor & {:keys [title-key] :or {title-key :name}}]
-  (some->> (get (row-for cursor) title-key)
+  (some->> (get-in (row-for cursor) (if (vector? title-key) title-key (vector title-key)))
            (str " - ")))
 
 (defn programmes-tab [data owner]
-  (let [{:keys [programmes projects properties devices sensors measurements sensor-select]} (:tables data)]
+  (let [{tables :tables} data]
     (reify
       om/IWillMount
       (will-mount [_]
@@ -273,39 +278,37 @@
           ;; attach a go-loop that fires ajax requests on history changes to each table
 
           ;;TODO still some cruft to tidy here:  /3 and singular/plural bunk.
-          (ajax (tap-history) programmes {:template      "/3/programmes/"
-                                           :content-type  "application/edn"
-                                           :selection-key :programme})
-          (ajax (tap-history) projects {:template      "/3/programmes/:programme/projects"
-                                        :content-type  "application/edn"
-                                        :selection-key :project})
-          (ajax (tap-history) properties {:template      "/3/projects/:project/properties"
-                                          :content-type  "application/json"
-                                          :selection-key :property})
-          (ajax (tap-history) devices {:template      "/3/entities/:property/devices"
-                                       :content-type  "application/json"
-                                       :selection-key :device})
-          (ajax (tap-history) sensors {:template "/3/entities/:property/devices/:device"
-                                    :content-type "application/json"
-                                    :selection-key :sensor})
-          (ajax (tap-history) sensor-select {:template     "/3/entities/:property/sensors"
-                                             :content-type "application/json"})
-          (ajax (tap-history) measurements {:template      "/3/entities/:property/devices/:device/measurements"
-                                            :content-type  "application/json"
-                                            :selection-key :measurement})
+          (ajax (tap-history) tables [:programmes] {:template      "/3/programmes/"
+                                                    :content-type  "application/edn"
+                                                    :selection-key :programme})
+          (ajax (tap-history) tables [:projects] {:template      "/3/programmes/:programme/projects"
+                                                  :content-type  "application/edn"
+                                                  :selection-key :project})
+          (ajax (tap-history) tables [:properties] {:template      "/3/projects/:project/properties"
+                                                    :content-type "application/json"
+                                                    :selection-key :property})
+          (ajax (tap-history) tables [:devices] {:template      "/3/entities/:property/devices"
+                                                 :content-type  "application/json"
+                                                 :selection-key :device})
+          (ajax (tap-history) tables [:sensors] {:template "/3/entities/:property/devices/:device"
+                                                 :content-type "application/json"
+                                                 :selection-key :sensor})
+          (ajax (tap-history) tables [:sensor-select] {:template     "/3/entities/:property/sensors"
+                                                       :content-type "application/json"
+                                                       :selection-key :property})
           (chart-ajax (tap-history) (:chart data) {:template "/3/entities/:property/devices/:device/measurements?startDate=:start-date&endDate=:end-date"
                                                    :content-type  "application/json"
                                                    :selection-key :range})
           ))
       om/IRender
       (render [_]
-
         ;; Note dynamic titles for each of the sections.
 
         ;; TODO sort out duplication here, wrap (on/build table ...) calls probably.
         ;;      we need to decide on singular/plural for entities. I vote singular.
         ;;
-        (dom/div nil
+        (let [{:keys [programmes projects properties devices sensor-select]} tables]
+          (dom/div nil
                  (dom/h1 {:id "programmes"} (:title data))
                  (om/build table programmes {:opts {:histkey :programme}})
                  (dom/h2 {:id "projects"} (str  "Projects " (title-for programmes)))
@@ -315,8 +318,10 @@
                  (dom/h2 {:id "devices"} "Devices" (title-for properties :title-key :addressStreetTwo))
                  (om/build table devices {:opts {:histkey :device}})
                  (om/build device-detail devices)
-                 (dom/h2 {:id "sensors"} "Sensors" (title-for devices))
-                 (om/build sensor/table data {:opts {:history history :histkey :sensor :path :readings}})
+                 (dom/h2 {:id "sensors"} "Sensors" (title-for devices :title-key [:location :name]))
+                 (om/build sensor/table data {:opts {:history history 
+                                                     :histkey :sensor 
+                                                     :path    :readings}})
                  (om/build sensor/define-data-set-button data)
                  (dom/h2 nil "Chart")
                  (dom/div #js {:id "date-picker"})
@@ -325,16 +330,16 @@
                  (om/build chart-feedback-box (get-in data [:chart :message]))
                  (dom/div #js {:id "chart"})
                  (om/build chart/chart-figure (:chart data))
-                 ;; (om/build sensor/selection-dialog sensor-select
-                 ;;           {:opts {:handler (fn [e]
-                 ;;                             (.preventDefault e)
-                 ;;                              (POST (str "/3/entities/" (:selected @properties) "/datasets")
-                 ;;                                    {:params (select-keys @sensor-select [:sensor-group :data-set-name])
-                 ;;                                     :handler #(println "Yah!")
-                 ;;                                     :error-handler #(println "Error!")
-                 ;;                                    :response-format "application/edn"
-                 ;;                                     :keywords? true}))}})
-                 )))))
+                 (om/build sensor/selection-dialog (:tables data)
+                           {:opts {:id "sensor-selection-dialog"
+                                   :handler (fn [e]
+                                              (.preventDefault e)
+                                              (POST (str "/3/entities/" (:selected @properties) "/datasets")
+                                                    {:params (select-keys @sensor-select [:sensor-group :data-set-name])
+                                                     :handler #(println "Yah!")
+                                                     :error-handler #(println "Error!")
+                                                     :response-format "application/edn"
+                                                     :keywords? true}))}})))))))
 
 (defn tab-container [tabs]
   (fn [data owner]
@@ -353,7 +358,7 @@
   (swap! app-model assoc-in [:tab-container :selected] menu-item))
 
 (defn FOO []
-  (let [path [:tab-container :tabs 3 :tables :sensors]]
+  (let [path [:tab-container :tabs 3 :chart]]
     (println "AM:" (type(-> @app-model (get-in path))))
     (println "AM:" (pr-str (-> @app-model (get-in path))))))
 

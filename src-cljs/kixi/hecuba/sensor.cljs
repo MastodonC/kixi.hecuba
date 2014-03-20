@@ -1,6 +1,7 @@
 (ns kixi.hecuba.sensor
     (:require [om.core :as om :include-macros true]
               [om.dom :as dom :include-macros true]
+              [ajax.core :refer (POST)]
               [kixi.hecuba.bootstrap :as bs]
               [kixi.hecuba.history :as history]))
 
@@ -22,12 +23,10 @@
       ;; Select the first row
       ;;(put! out {:type :row-selected :row (first (om/get-state owner :data))})
       (let [{sensors :sensors} tables
-            cols               (get-in sensors [:header :cols])
-            table-id           (str (name histkey) "-table")]
+            cols               (get-in sensors [:header :cols])]
 
         (dom/table
-         #js {:id table-id
-              :className "table table-bordered hecuba-table "} ;; table-hover table-stripedso,
+         #js {:className "table table-bordered hecuba-table "} ;; table-hover table-stripedso,
          (dom/thead nil
                     (dom/tr nil
                             (into-array
@@ -45,8 +44,7 @@
                                              (om/update! chart :sensor id)
                                              (history/update-token-ids! history histkey id)
                                              )
-                                  :className (when (= id (:selected sensors)) "row-selected")
-                                  :id (str table-id "-selected")}
+                                  :className (when (= id (:selected sensors)) "row-selected")}
                                  (into-array
                                   (for [[k {:keys [href]}] cols]
                                     (let [k (if (vector? k) k (vector k))]
@@ -55,10 +53,38 @@
                                                     (get-in row k))))))))))))))))
 
 
-(defn selection-dialog [{:keys [sensor-select properties]} owner {:keys [on-click]}]
+(defn sensors-select-table [cursor owner {:keys [path]}]
+  (reify
+    om/IRender
+    (render [_]
+      (let [cols               (get-in cursor [:header :cols])]
+        (dom/table
+         #js {:className "table table-bordered hecuba-table "} ;; table-hover table-stripedso,
+         (dom/thead nil
+                    (dom/tr nil
+                            (into-array
+                             (for [[_ {:keys [label]}] cols]
+                               (dom/th nil label)))))
+         (dom/tbody nil
+                    (into-array
+                     (for [{:keys [type deviceId] :as row} (-> cursor :data
+                                                               (cond-> path path))]
+                       (let [id (str type "-" deviceId)]
+                         ;; TODO clojurefy ids
+                         (dom/tr nil
+                                 (into-array
+                                  (for [[k {:keys [checkbox]}] cols]
+                                    (let [k (if (vector? k) k (vector k))]
+                                      (dom/td nil (if checkbox
+                                                    (bs/checkbox type (get-in row k) cursor)
+                                                    (get-in row k))))))))))))))))
+
+
+
+(defn selection-dialog [{:keys [sensor-select properties]} owner {:keys [id on-click]}]
   (om/component
    (dom/div
-    #js {:id "sensor-selection-dialog"
+    #js {:id id
          :className "modal fade"}
     (dom/div
      #js {:className "modal-dialog"}
@@ -77,7 +103,7 @@
       (dom/div
        #js {:className "modal-body"}
        (dom/label nil "Sensors")
-       (om/build table sensor-select)
+       (om/build sensors-select-table sensor-select)
        (dom/div
         #js {:className "form-group has-feedback"}
         (dom/label nil "Data set name")
@@ -88,7 +114,14 @@
       (dom/div
        #js {:className "modal-footer"}
        (bs/default-button "Close" "modal")
-       (bs/primary-button "Define" "modal" )))))))
+       (bs/primary-button "Define" "modal" (fn [e]
+                                             (.preventDefault e)
+                                             (POST (str "/3/entities/" (:selected @properties) "/datasets")
+                                                   {:params (select-keys @sensor-select [:sensor-group :data-set-name])
+                                                    :handler #(println "Yah!")
+                                                    :error-handler #(println "Error!")
+                                                    :response-format "application/edn"
+                                                    :keywords? true})))))))))
 
 (defn define-data-set-button [cursor owner]
   (om/component
