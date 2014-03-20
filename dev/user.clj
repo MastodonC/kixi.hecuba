@@ -29,8 +29,10 @@
   "Initializes the current development system and starts it running."
   []
   (init)
-  (start))
+  (start)
+  nil)
 
 (defn reset []
   (stop)
-  (refresh :after 'user/go))
+  (refresh :after 'user/go)
+  nil)
