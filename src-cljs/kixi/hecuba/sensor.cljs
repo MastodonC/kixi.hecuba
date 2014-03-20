@@ -41,7 +41,6 @@
                          ;; TODO clojurefy ids
                          (dom/tr #js
                                  {:onClick (fn [_ _ ]
-                                             (prn "Clicked sensor: " id)
                                              (om/update! sensors :selected id)
                                              (om/update! chart :sensor id)
                                              (history/update-token-ids! history histkey id)

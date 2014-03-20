@@ -93,6 +93,7 @@
                                        :sensor ""
                                        :range {}
                                        :measurements []
+                                       :message ""
                                        }}
 
                            ]}}))

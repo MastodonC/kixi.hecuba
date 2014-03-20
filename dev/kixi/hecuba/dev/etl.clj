@@ -11,6 +11,7 @@
    [org.httpkit.client :refer (request) :rename {request http-request}]
    [cheshire.core :refer (encode)]
    [kixi.hecuba.dev.generators :as generators]
+   [kixi.hecuba.data.calculate :as calc]
    [camel-snake-kebab :refer (->camelCaseString)]))
 
 (def custom-formatter (tf/formatter "yyyy-MM-dd'T'HH:mm:ss.SSSZ"))
@@ -179,7 +180,7 @@
                       ;; Take location, parse out entity-id and device-id
                       location (get-in response [:headers :location])
                       ;; Use entity-id and device-id to get measurements URL
-                      measurements-uri (apply path-for routes (-> this :amon:api :handlers :measurements)
+                      measurements-uri (apply path-for routes (-> this :amon-api :handlers :measurements)
                                               (apply concat (:params (match-route routes location))))
                       ]
 
@@ -304,7 +305,16 @@
                                                   (fn [x] (update-in x [:timestamp] #(tf/unparse custom-formatter (clj-time.coerce/from-date %))))
                                                   (mapcat generators/measurements sensors3))}))
 
-                        ])))))))
+                        ]))))))
+        (let [commander (-> this :store :commander)
+              querier   (-> this :store :querier)]
+          (prn "Rollin up measurements.")
+          (prn "store: " (-> this :store))
+          (prn "querier: " querier)
+          (prn "commander: " commander)
+          
+          (calc/difference-series-batch commander querier {})
+          (calc/rollups commander querier {})))
       this
       (catch Exception e
         (println "ETL failed:" e)

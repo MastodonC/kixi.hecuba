@@ -329,20 +329,19 @@
                            (cassaquery/column-definitions
                             {:device_id :varchar
                              :type :varchar
-                             :month :int
+                             :year :int
                              :timestamp :timestamp
                              :value :varchar
-                             :primary-key [:device_id :type :month :timestamp]})))
+                             :primary-key [:device_id :type :year :timestamp]})))
 
          (ignoring-error
          (cql/create-table "daily_rollups"
                            (cassaquery/column-definitions
                             {:device_id :varchar
                              :type :varchar
-                             :month :int
                              :timestamp :timestamp
                              :value :varchar
-                             :primary-key [:device_id :type :month :timestamp]})))
+                             :primary-key [:device_id :type :timestamp]})))
 
         ;; This could possibly go into another component, but for now we'll hijack this one.
         (ignoring-error
@@ -485,7 +484,6 @@
   (upsert! [_ typ payload]
     (assert session "No session!")
     (assert typ "No type!")
-    (debugf "type is %s, payload %s" typ payload)
     (binding [cassaclient/*default-session* session]
       (let [id (gen-key typ payload)]
         (cql/insert (get-table typ)
@@ -497,8 +495,9 @@
     (assert col "No column!")
     (assert where "No where clause!")
     (binding [cassaclient/*default-session* session]
-      (cql/update (get-table typ) {col payload}
-                  (apply cassaquery/where (apply concat (cassandraify where))))))
+      (let [column (->snake_case_keyword col)]
+        (cql/update (get-table typ) {column payload}
+                    (apply cassaquery/where (apply concat (cassandraify where)))))))
 
   (delete! [_ typ id]
     (assert id "No id!")
