@@ -13,7 +13,8 @@
 
    [kixi.hecuba.dev :refer (->CassandraDirectCommander ->CassandraQuerier)]
 
-
+   [kixi.hecuba.pipeline :refer (new-pipeline)]
+   [kixi.hecuba.scheduler :refer (new-scheduler)]
    [kixi.hecuba.web :refer (new-main-routes)]
    [kixi.hecuba.amon :refer (new-amon-api)]
    [kixi.hecuba.user :refer (new-user-api)]
@@ -340,6 +341,8 @@
          :session (new-session (:cassandra-session cfg))
          :schema (new-schema)
          :store (new-direct-store)
+         :pipeline (new-pipeline)
+         :scheduler (new-scheduler (:schedule cfg))
          :cljs-builder (new-cljs-builder)
          :web-server (new-webserver (:web-server cfg))
          :bidi-ring-handler (new-bidi-ring-handler-provider)
@@ -348,7 +351,8 @@
          :user-api (new-user-api)
          :cljs-routes (new-cljs-routes (:cljs-builder cfg))
          :user-data-loader (new-user-data-loader cfg)
-         :csv-loader (new-csv-loader cfg))
+         :csv-loader (new-csv-loader cfg)
+         )
 
         (mod/system-using
          {:main-routes [:store]
@@ -356,6 +360,8 @@
           :user-api [:store]
           :store [:session :schema]
           :schema [:session]
+          :pipeline [:store]
+          :scheduler [:pipeline]
           :user-data-loader [:bidi-ring-handler :web-server :user-api]
           :csv-loader [:bidi-ring-handler :amon-api :web-server :user-data-loader :store]
           ;;:cljs-routes [:cljs-builder]

@@ -7,10 +7,12 @@
             [clojurewerkz.quartzite.triggers      :as trig]
             [clojure.walk                         :as walk]
             [kixi.hecuba.pipeline                 :refer [submit-item]]
+            [com.stuartsierra.component           :as component]
             ))
 
 (j/defjob SubmitToPipeJob
   [ctx]
+  (prn "ctx: " ctx)
   (let [item (walk/keywordize-keys (qc/from-job-data ctx))
         pipeline (:pipeline item)
         item (dissoc item :pipeline)]
@@ -31,22 +33,23 @@
                       (cron/cron-schedule cron-str)))))
 
 (defn configure-scheduler [config pipeline]
-  (let [schedule             (:schedule config)
-        process-job-schedule (:process-job-schedule schedule)]
+  (let [process-job-schedule (:process-job-schedule config)]
     (qs/initialize)
     (dorun (map-indexed (fn [id [cron-str item]]
                           (qs/schedule (build-job pipeline item id)
                                        (build-trigger cron-str id)))
                         process-job-schedule))))
 
-#_(deftype Scheduler [config]
-  Lifecycle
-  (init [_ system] system)
-  (start [_ system]
-    (let [pipeline (get-in system [:hecuba/pipeline :kixi.hecuba.pipeline/pipeline])]
+(defrecord Scheduler [config]
+  component/Lifecycle
+  (start [this]
+    (let [pipeline (get-in this [:pipeline])]
       (configure-scheduler config pipeline)
       (qs/start))
-    (assoc-in system [(:jig/id config) ::scheduler] (constantly @qs/*scheduler*)))
-  (stop [_ system]
+    (assoc this :scheduler (constantly @qs/*scheduler*)))
+  (stop [this]
     (qs/shutdown)
-    system))
+    this))
+
+(defn new-scheduler [config]
+  (->Scheduler config))

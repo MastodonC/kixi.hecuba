@@ -1,13 +1,16 @@
 (ns kixi.hecuba.pipeline
   "Pipeline for scheduled jobs."
-  (:require [pipejine.core         :as pipe]
-            [clojure.tools.macro   :as mac]
-            [clojure.tools.logging :as log]
-            [clojure.stacktrace    :as st]
+  (:require [pipejine.core                 :as pipe]
+            [clojure.tools.macro           :as mac]
+            [clojure.tools.logging         :as log]
+            [clojure.stacktrace            :as st]
             [kixi.hecuba.data.batch-checks :as checks]
-            [kixi.hecuba.data.calculate :as calculate]))
+            [kixi.hecuba.data.calculate    :as calculate]
+            [com.stuartsierra.component    :as component]))
 
 (defn submit-item [pipe job]
+  (prn "pipe: " pipe)
+  (prn "job: " job)
   (pipe/produce pipe job))
 
 (defn shutdown-pipe [pipe]
@@ -100,14 +103,16 @@
 
     (list fanout-q #{median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q})))
 
-#_(deftype Pipeline [config]
-  Lifecycle
-  (init [_ system] system)
-  (start [_ system]
-    (let [commander (-> system :commander)
-          querier   (-> system :querier)
+(defrecord Pipeline []
+  component/Lifecycle
+  (start [this]
+    (let [commander (-> this :store :commander)
+          querier   (-> this :store :querier)
           [head others] (build-pipeline commander querier)]
-      (-> system
-          (assoc-in [(:jig/id config) ::pipeline] {:head head})
-          (assoc-in [(:jig/id config) :pipeline] {:others others}))))
-  (stop [_ system] system))
+      (-> this
+          (assoc :head head)
+          (assoc :others others))))
+  (stop [this] this))
+
+(defn new-pipeline []
+  (->Pipeline))
