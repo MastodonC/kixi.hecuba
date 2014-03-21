@@ -15,6 +15,8 @@
 
    [kixi.hecuba.pipeline :refer (new-pipeline)]
    [kixi.hecuba.scheduler :refer (new-scheduler)]
+   [kixi.hecuba.queue :refer (new-queue)]
+   [kixi.hecuba.data :refer (new-queue-worker)]
    [kixi.hecuba.web :refer (new-main-routes)]
    [kixi.hecuba.amon :refer (new-amon-api)]
    [kixi.hecuba.user :refer (new-user-api)]
@@ -192,12 +194,11 @@
                             {:device_id :varchar
                              :type :varchar
                              :mislabelled :varchar
-                             :median_calc_check :bigint
-                             :bootstrapped :varchar
-                             :mislabelled_sensors_check :bigint
-                             :difference_series :bigint
-                             :hourly_rollups :bigint
-                             :daily_rollups :bigint
+                             :median_calc_check :varchar
+                             :spike_check :varchar
+                             :mislabelled_sensors_check :varchar
+                             :difference_series :varchar
+                             :rollups :varchar
                              :primary-key [:device_id :type]})))
 
         (ignoring-error
@@ -345,6 +346,8 @@
          :store (new-direct-store)
          :pipeline (new-pipeline)
          :scheduler (new-scheduler (:schedule cfg))
+         :queue (new-queue (:queue cfg))
+         :queue-worker (new-queue-worker)
          :cljs-builder (new-cljs-builder)
          :web-server (new-webserver (:web-server cfg))
          :bidi-ring-handler (new-bidi-ring-handler-provider)
@@ -358,10 +361,11 @@
 
         (mod/system-using
          {:main-routes [:store]
-          :amon-api [:store]
+          :amon-api [:store :queue :queue-worker]
           :user-api [:store]
           :store [:session :schema]
           :schema [:session]
+          :queue-worker [:queue :store]
           :pipeline [:store]
           :scheduler [:pipeline]
           :user-data-loader [:bidi-ring-handler :web-server :user-api]

@@ -7,14 +7,52 @@
    clj-time.coerce
    [clj-time.format :as tf]
    [clj-time.core :as t]
+   [clj-time.coerce :as tc]
    [bidi.bidi :refer (path-for match-route)]
    [org.httpkit.client :refer (request) :rename {request http-request}]
    [cheshire.core :refer (encode)]
    [kixi.hecuba.dev.generators :as generators]
    [kixi.hecuba.data.calculate :as calc]
+   [kixi.hecuba.data.misc :as m]
+   [kixi.hecuba.protocols :refer (items)]
    [camel-snake-kebab :refer (->camelCaseString)]))
 
 (def custom-formatter (tf/formatter "yyyy-MM-dd'T'HH:mm:ss.SSSZ"))
+
+(defn difference-series-batch
+  "Retrieves all sensors that need to have difference series calculated and performs calculations."
+  [commander querier item]
+  (let [sensors (m/all-sensors querier)]
+    (doseq [s sensors]
+      (let [device-id (:device-id s)
+            type      (:type s)
+            period    (:period s)
+            where     {:device-id device-id :type type}
+            range     (m/start-end-dates querier :measurement :difference-series s where)
+            new-item  (assoc item :sensor s :range range)]
+        (when range
+          (calc/difference-series commander querier new-item)
+          (m/reset-date-range querier commander s :difference-series (:start-date range) (:end-date range)))))))
+
+(defn rollups
+  "Retrieves all sensors that need to have hourly measurements rolled up and performs calculations."
+  [commander querier item]
+  (let [sensors (m/all-sensors querier)]
+    (doseq [s sensors]
+      (let [device-id  (:device-id s)
+            type       (:type s)
+            period     (:period s)
+            table      (case period
+                         "CUMULATIVE" :difference-series
+                         "INSTANT"    :measurement
+                         "PULSE"      :measurement)
+            where      {:device-id device-id :type type}
+            range      (m/start-end-dates querier table :rollups s where)
+            new-item   (assoc item :sensor s :range range)]
+        (when range
+          (calc/hourly-rollups commander querier new-item)
+          (calc/daily-rollups commander querier new-item)
+          (m/reset-date-range querier commander s :rollups (:start-date range) (:end-date range)))))))
 
 (defn post-resource [post-uri content-type data]
   (let [response
@@ -234,11 +272,11 @@
                                                   (mapcat generators/generate-measurements-above-median sensors))}))]))))
 
 
-          ;;;;; Insert mislabelled measurements ;;;;;;
+          ;;;;; Insert  measurements ;;;;;;
 
             (let [entity-id (get entity-map "38")] ;; Willow Cottage
               (doseq [device (generators/generate-device-sample entity-id 1)]
-                (let [sensors1 (generators/generate-sensor-sample "CUMULATIVE" 1)
+                (let [sensors1 (generators/generate-sensor-sample "CUMULATIVE" 2)
                       sensors2 (generators/generate-sensor-sample "PULSE" 1)
                       sensors3 (generators/generate-sensor-sample "INSTANT" 3)
 
@@ -288,7 +326,7 @@
                                        (jsonify {:measurements
                                                  (map
                                                   (fn [x] (update-in x [:timestamp] #(tf/unparse custom-formatter (clj-time.coerce/from-date %))))
-                                                  (mapcat generators/generate-measurements-above-median sensors1))}))
+                                                  (mapcat generators/mislabelled-measurements sensors1))}))
                         response2
                         (post-resource (format "http://%s:%d%s" host port measurements-uri2)
                                        "application/json"
@@ -308,8 +346,10 @@
                         ]))))))
         (let [commander (-> this :store :commander)
               querier   (-> this :store :querier)]
-          (calc/difference-series-batch commander querier {})
-          (calc/rollups commander querier {})))
+          
+          (difference-series-batch commander querier {})
+          (rollups commander querier {})
+          ))
       this
       (catch Exception e
         (println "ETL failed:" e)

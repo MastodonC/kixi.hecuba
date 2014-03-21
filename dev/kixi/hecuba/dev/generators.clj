@@ -55,7 +55,8 @@
                             :events 0
                             :errors 0
                             :status "Not enough data"
-                            :median 0}))))
+                           ; :median nil
+                            }))))
 
 
 ;;;;;;;;;;;;;;; Generate devices ;;;;;;;;;;;;;;
@@ -81,7 +82,7 @@
 ;;;;;;;;;;;;;;;;; Generate measurements ;;;;;;;;;;;;;;;;
 
 (defn timestamps [frequency]
-  (into [] (take 300 (periodic/periodic-seq (t/date-time (t/year (t/now)) (t/month (t/now))) frequency))))
+  (into [] (take 50 (periodic/periodic-seq (t/date-time (t/year (t/now)) (t/month (t/now))) frequency))))
 
 (defn get-month [timestamp]
    (str (t/year timestamp) "-" (t/month timestamp)))
@@ -152,10 +153,10 @@
                                      :error nil}))) timestamps)))
 
 (defn mislabelled-measurements
-  "Generates mislabelled measurements
-   for a given sensor."
-  [sensor period]
-  (let [sensor (assoc-in sensor [:period] period)]
+  "Generates instant measurements
+   for a cumulative sensor."
+  [sensor]
+  (let [sensor (assoc-in sensor [:period] "INSTANT")]
     (generate-measurements sensor)))
 
 (defn validate-and-insert

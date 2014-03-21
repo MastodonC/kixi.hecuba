@@ -4,7 +4,6 @@
             [com.stuartsierra.frequencies :as freq]
             [kixi.hecuba.protocols :refer (upsert! update! delete! item items)]
             [kixi.hecuba.data.misc :as m]
-            [kixi.hecuba.data.paginate :as p]
             [kixi.hecuba.data.validate :as v]))
 
 ;;; Check for mislabelled sensors ;;;
@@ -30,58 +29,57 @@
 (defmethod labelled-correctly? "PULSE" [sensor measurements] (empty? (filter neg-or-not-int? measurements)))
 
 (defn mislabelled-check
-  ""
-  [commander querier sensor measurements]
-  (let [errors (-> sensor :errors read-string)
-        where  {:device-id (:device-id sensor) :type (:type sensor)}
-        m      (filter #(m/numbers-as-strings? (:value %)) measurements)]
-    (update! commander :sensor-metadata :mislabelled 
-             (if (labelled-correctly? sensor (m/decassandraify-measurements m)) "false" "true") where)))
+  "Takes an hour worth of measurements and checks if the sensor is labelled correctly according to
+  rules in labelled-correctly?"
+  [commander querier {:keys [device-id type period] :as sensor} start-date]
+  (let [end-date     (m/add-hour start-date)
+        month        (m/get-month-partition-key start-date)
+        where        [:device-id device-id :type type :month month :timestamp [>= start-date] :timestamp [< end-date]]
+        measurements (filter #(number? (:value %)) (m/decassandraify-measurements (items querier :measurement where)))]
+    (when-not (empty? measurements)
+      (update! commander :sensor-metadata {:mislabelled 
+                                           (if (labelled-correctly? sensor measurements)
+                                             "false" 
+                                             "true")} 
+               {:device-id device-id :type type}))
+    end-date))
 
 (defn mislabelled-sensors
-  "Checks for mislabelled sensors in batches."
-  [commander querier item]
-  (let [sensors (m/sensors-to-check querier :mislabelled-sensors-check)]
-    (doseq [s sensors]
-      (let [device-id  (:device-id s)
-            type       (:type s)
-            last-check (:mislabelled-sensors-check s)
-            where      (m/last-check-where-clause device-id type last-check)
-            today      (m/last-check-int-format (t/now))]
-        (if (p/paginate commander querier s :measurement where mislabelled-check)
-          (update! commander :sensor-metadata :mislabelled-sensors-check today {:device-id (:device-id s) :type (:type s)}))))))
+  "Checks for mislabelled sensors."
+  [commander querier {:keys [sensor range]}]
+  (let [start  (m/int-format-to-timestamp (:start-date range))
+        end    (m/int-format-to-timestamp (:end-date range))]
+    (loop [start-date start]
+      (when-not (.before end start-date)
+        (recur (mislabelled-check commander querier sensor start-date))))))
 
 ;;;;;;;;;;;; Batch check for spiked measurements ;;;;;;;;;
 
 (defn label-spikes
   "Checks a sequence of measurement against the most recent recorded median. Overwrites the measurement with updated
   metadata."
-  [commander querier sensor measurements]
-  (let [median (-> sensor :median read-string)]
+  [commander querier {:keys [device-id type median] :as sensor} start-date]
+  (let [end-date     (m/add-hour start-date)
+        month        (m/get-month-partition-key start-date)
+        where        [:device-id device-id :type type :month month :timestamp [>= start-date] :timestamp [< end-date]]
+        measurements (filter #(number? (:value %)) (m/decassandraify-measurements (items querier :measurement where)))]
     (doseq [m measurements]
-      (let [spike (str (v/larger-than-median median (m/parse-value m)))
+      (let [spike    (str (v/larger-than-median (read-string median) m))
             metadata (-> m :metadata)]
         (upsert! commander :measurement (m/cassandraify-measurement (assoc-in m [:metadata] 
                                                                               (m/update-metadata 
-                                                                               metadata
-                                                                               {:median-spike spike}))))))))
+                                                                               (str metadata)
+                                                                               {:median-spike spike}))))))
+    end-date))
 
-(defn median-spike-batch-check
-  "Batch check of median spikes. It re-checks all measurements that have had median calculated
-  and marks sensors as bootstrapped."
-  [commander querier item]
-  (let [sensor-metadata  (items querier :sensor-metadata)
-        sensors          (filter #(and (not= "" (:median-calc-check %))
-                                       (= "" (:bootstrapped %))) sensor-metadata)
-        sensors-to-check (map #(merge (first (items querier :sensor {:device-id (:device-id %) :type (:type %)})) %) sensors)]
-    (doseq [sensor sensors-to-check]
-      (let [device-id  (:device-id sensor)
-            type       (:type sensor)
-            where      (m/last-check-where-clause device-id type "")]
-        (when (p/paginate commander querier sensor :measurement where label-spikes)
-          (update! commander :sensor-metadata :bootstrapped "true" {:device-id device-id :type type}))))))
-
-
+(defn median-spike-check
+  "Check of median spikes. It re-checks all measurements that have had median calculated."
+  [commander querier {:keys [sensor range]}]
+  (let [start  (m/int-format-to-timestamp (:start-date range))
+        end    (m/int-format-to-timestamp (:end-date range))]
+    (loop [start-date start]
+      (when-not (.before end start-date)
+        (recur (label-spikes commander querier sensor start-date))))))
 
 ;;;;;;;;;;;;; Batch median calculation ;;;;;;;;;;;;;;;;;
 
@@ -101,31 +99,26 @@
 
 (defn update-median
   "Calculates and updates median for a given sensor."
-  [commander querier sensor measurements]
-  (let [errors   (-> sensor :errors read-string)
-        period   (-> sensor :period)
-        where    {:device-id (:device-id sensor) :type (:type sensor)}
-        median   (cond
-                  (= "CUMULATIVE" period) (median (filter #(number? (:value %)) (m/decassandraify-measurements measurements)))
-                  (= "INSTANT" period) (median (filter #(remove-bad-readings %) (m/decassandraify-measurements measurements))))]
+  [commander querier table {:keys [device-id type period]} start-date]
+  (let [end-date     (m/add-hour start-date)
+        month        (m/get-month-partition-key start-date)
+        where        [:device-id device-id :type type :month month :timestamp [>= start-date] :timestamp [< end-date]]
+        measurements (m/decassandraify-measurements (items querier table where))
+        median       (cond
+                      (= "CUMULATIVE" period) (median (filter #(number? (:value %)) measurements))
+                      (= "INSTANT" period) (median (filter #(remove-bad-readings %) measurements)))]
     (when (number? median)
-      (update! commander :sensor :median median where))))
+      (update! commander :sensor {:median median} {:device-id device-id :type type}))
+    end-date))
 
 (defn median-calculation
   "Retrieves all sensors that either have not had median calculated or the calculation took place over a week ago.
   It iterates over the list of sensors, returns measurements for each and performs calculation.
   Measurements are retrieved in batches."
-  [commander querier item]
-  (let [period  (-> item :period)
-        sensors (filter #(= period (:period %)) (m/sensors-to-check querier :median-calc-check))
-        table   (cond
-                 (= "CUMULATIVE" period) :difference-series
-                 (= "INSTANT" period) :measurement)]
-    (doseq [sensor sensors]
-      (let [device-id  (:device-id sensor)
-            type       (:type sensor)
-            last-check (:median-calc-check sensor)
-            where      (m/last-check-where-clause device-id type last-check)
-            today      (m/last-check-int-format (t/now))]
-        (when (p/paginate commander querier sensor table where update-median)
-          (update! commander :sensor-metadata :median-calc-check today {:device-id device-id :type type}))))))
+  [commander querier table {:keys [sensor range]}]
+  (let [period  (-> sensor :period)
+        start   (m/int-format-to-timestamp (:start-date range))
+        end     (m/int-format-to-timestamp (:end-date range))]
+    (loop [start-date start]
+      (when-not (.before end start-date)
+        (recur (update-median commander querier table sensor start-date))))))

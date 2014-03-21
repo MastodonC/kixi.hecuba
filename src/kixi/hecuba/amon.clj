@@ -15,6 +15,7 @@
    [clojure.walk :refer (postwalk)]
    [hiccup.core :refer (html)]
    [kixi.hecuba.protocols :refer (upsert! delete! item items)]
+   [kixi.hecuba.queue :as q]
    [kixi.hecuba.data.validate :as v]
    [kixi.hecuba.data.misc :as misc]
    [kixi.hecuba.security :as sec]
@@ -332,7 +333,6 @@
                          (assoc :device-id device-id)
                          (assoc :errors 0)
                          (assoc :events 0)
-                         (assoc :median 0)
                          )]
           (upsert! commander :sensor (->shallow-kebab-map sensor))
           (upsert! commander :sensor-metadata (->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])}))))
@@ -504,26 +504,28 @@
                                                                  :timestamp [<= end-date]])]
                  (->> measurements downcast-to-json camelify encode))))
 
-(defresource measurements [{:keys [commander querier]} handlers]
+(defresource measurements [{:keys [commander querier]} queue handlers]
   :allowed-methods #{:post :get}
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}
   :authorized? (authorized? querier :measurement)
 
   :post! (fn [{{body :body {:keys [device-id]} :route-params} :request}]
-           (doseq [measurement (-> body read-json-body ->shallow-kebab-map :measurements)]
-             (let [t        (db-timestamp (get measurement "timestamp"))
-                   m2       {:device-id device-id
-                             :type (get measurement "type")
-                             :timestamp t
-                             :value (get measurement "value")
-                             :error (get measurement "error")
-                             :month (get-month-partition-key t)
-                             :metadata "{}"}]
-               (->> m2
-                   (v/validate commander querier)
-                   (upsert! commander :measurement))
-               )))
+           (let [topic (get-in queue ["measurements"])]
+             (doseq [measurement (-> body read-json-body ->shallow-kebab-map :measurements)]
+               (let [t        (db-timestamp (get measurement "timestamp"))
+                     m2       {:device-id device-id
+                               :type (get measurement "type")
+                               :timestamp t
+                               :value (get measurement "value")
+                               :error (get measurement "error")
+                               :month (get-month-partition-key t)
+                               :metadata "{}"}]
+                 (->> m2
+                      (v/validate commander querier)
+                      (upsert! commander :measurement))
+                 (q/put-on-queue topic m2) 
+                 ))))
 
   :handle-ok (fn [{{{:keys [device-id]} :route-params} :request {mime :media-type} :representation}]
                (let [measurements (items querier :measurement {:device-id device-id})]
@@ -663,7 +665,7 @@
 
 ;; Handlers and Routes
 
-(defn make-handlers [opts]
+(defn make-handlers [opts queue]
   (let [p (promise)]
     @(deliver p {:programmes (programmes opts p)
                  :programme (programme opts p)
@@ -679,7 +681,7 @@
                  :devices (devices opts p)
                  :device (device opts p)
                  :sensor-metadata (sensor-metadata opts p)
-                 :measurements (measurements opts p)
+                 :measurements (measurements opts queue p)
                  :measurement (measurements-by-reading opts p)
                  :measurement-slice (measurements-slice opts p)
                  :hourly-rollups (hourly-rollups opts p)
@@ -727,7 +729,7 @@
   component/Lifecycle
   (start [this]
     (if-let [store (get-in this [:store])]
-      (let [handlers  (make-handlers store)]
+      (let [handlers  (make-handlers store (get-in this [:queue :queue]))]
         (assoc this
           :handlers handlers
           :routes (make-routes handlers)))

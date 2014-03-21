@@ -12,7 +12,6 @@
 
 (j/defjob SubmitToPipeJob
   [ctx]
-  (prn "ctx: " ctx)
   (let [item (walk/keywordize-keys (qc/from-job-data ctx))
         pipeline (:pipeline item)
         item (dissoc item :pipeline)]

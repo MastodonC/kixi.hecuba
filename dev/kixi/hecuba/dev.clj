@@ -221,13 +221,9 @@
                (-> id-payload cassandraify)))
         id)))
 
-  (update! [_ typ col payload where]
-    (assert col "No column!")
-    (assert where "No where clause!")
+  (update! [_ typ payload where]
     (binding [cassaclient/*default-session* session]
-      (let [column (->snake_case_keyword col)]
-        (cql/update (get-table typ) {column payload}
-                    (apply cassaquery/where (apply concat (cassandraify where)))))))
+      (cql/update (get-table typ) (cassandraify payload) (apply cassaquery/where (apply concat (cassandraify where))))))
 
   (delete! [_ typ id]
     (assert id "No id!")
@@ -248,7 +244,7 @@
     (map de-cassandraify
          (binding [cassaclient/*default-session* session]
            (cql/select (get-table typ)))))
-  (items [this typ where]
+  (items [_ typ where]
     (map de-cassandraify
          (binding [cassaclient/*default-session* session]
            (cql/select (get-table typ)
