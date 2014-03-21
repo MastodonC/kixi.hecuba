@@ -12,10 +12,10 @@
                  [org.clojure/core.async "0.1.267.0-0d7780-alpha" :scope "provided"]
 
                  ;; Modular
-                 [juxt/modular "0.2.0-SNAPSHOT"]
-                 [juxt.modular/http-kit "0.1.0-SNAPSHOT"]
-                 [juxt.modular/bidi "0.1.0-SNAPSHOT"]
-                 [juxt.modular/cassandra "0.1.0-SNAPSHOT"]
+                 [juxt/modular "0.2.0"]
+                 [juxt.modular/http-kit "0.2.0"]
+                 [juxt.modular/bidi "0.2.0"]
+                 [juxt.modular/cassandra "0.2.0"]
 
                  ;; EDN reader with location metadata - for configuration
                  [org.clojure/tools.reader "0.8.3"]
