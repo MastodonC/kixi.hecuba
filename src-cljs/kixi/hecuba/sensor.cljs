@@ -57,7 +57,8 @@
   (reify
     om/IRender
     (render [_]
-      (let [cols               (get-in cursor [:header :cols])]
+      (let [cols    (get-in cursor [:header :cols])
+            members (get-in cursor [:sensor-group :members])]
         (dom/table
          #js {:className "table table-bordered hecuba-table "} ;; table-hover table-stripedso,
          (dom/thead nil
@@ -76,10 +77,12 @@
                                   (for [[k {:keys [checkbox]}] cols]
                                     (let [k (if (vector? k) k (vector k))]
                                       (dom/td nil (if checkbox
-                                                    (bs/checkbox type (get-in row k) cursor)
+                                                    (bs/checkbox (get-in row k) 
+                                                                 cursor 
+                                                                 (fn [e] (if (.. e -target -checked)
+                                                                          (om/transact! members #(conj % id))
+                                                                          (om/transact! members #(disj % id)))))
                                                     (get-in row k))))))))))))))))
-
-
 
 (defn selection-dialog [{:keys [sensor-select properties]} owner {:keys [id on-click]}]
   (om/component
@@ -110,16 +113,15 @@
         (dom/input
          #js {:className "form-control"
               :type "text"
-              :onBlur (fn [e] (println "Changed" (om/update! sensor-select :data-set-name (.. e -target -value))))})))
+              :onBlur (fn [e] (om/update! sensor-select [:sensor-group :name] (.. e -target -value)))})))
       (dom/div
        #js {:className "modal-footer"}
        (bs/default-button "Close" "modal")
        (bs/primary-button "Define" "modal" (fn [e]
-                                             (.preventDefault e)
                                              (POST (str "/3/entities/" (:selected @properties) "/datasets")
-                                                   {:params (select-keys @sensor-select [:sensor-group :data-set-name])
+                                                   {:params (:sensor-group @sensor-select)
                                                     :handler #(println "Yah!")
-                                                    :error-handler #(println "Error!")
+                                                    :error-handler #(println "Error!" %)
                                                     :response-format "application/edn"
                                                     :keywords? true})))))))))
 

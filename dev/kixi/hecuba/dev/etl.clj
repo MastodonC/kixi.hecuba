@@ -308,11 +308,6 @@
                         ]))))))
         (let [commander (-> this :store :commander)
               querier   (-> this :store :querier)]
-          (prn "Rollin up measurements.")
-          (prn "store: " (-> this :store))
-          (prn "querier: " querier)
-          (prn "commander: " commander)
-          
           (calc/difference-series-batch commander querier {})
           (calc/rollups commander querier {})))
       this

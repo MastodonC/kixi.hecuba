@@ -2,11 +2,8 @@
       (:require [om.core :as om :include-macros true]
               [om.dom :as dom :include-macros true]))
 
-;; TODO WTF?
-(def ^:private truthy? (complement #{"false"}))
 
-
-(defn checkbox [id v cursor]
+(defn checkbox [v cursor on-click]
   (dom/div 
    #js {:className "checkbox"
         ;; TODO hack alert!!
@@ -14,10 +11,7 @@
    (dom/label #js {:className "checkbox-inline"}
               (dom/input #js {:type "checkbox"
                               :value v
-                              :onClick (fn [e] (let [v (truthy? (.. e -target -checked))]
-                                                (if v
-                                                  (om/transact! cursor :sensor-group #(conj % id))
-                                                  (om/transact! cursor :sensor-group #(disj % id)))))}))))
+                              :onClick on-click}))))
 (defn button
   ([text kind dismiss]
      (button text kind dismiss nil))

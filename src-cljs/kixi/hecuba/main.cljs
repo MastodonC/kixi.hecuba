@@ -104,7 +104,6 @@
                                                       selection-key
                                                       template
                                                       (<! in))]
-      (println "path:" (om/path data))
       (let [[start-date end-date] search
             entity-id             (get ids :property)
             sensor-id             (get ids :sensor)
@@ -335,7 +334,7 @@
                                    :handler (fn [e]
                                               (.preventDefault e)
                                               (POST (str "/3/entities/" (:selected @properties) "/datasets")
-                                                    {:params (select-keys @sensor-select [:sensor-group :data-set-name])
+                                                    {:params (:sensor-group @sensor-select)
                                                      :handler #(println "Yah!")
                                                      :error-handler #(println "Error!")
                                                      :response-format "application/edn"
@@ -358,7 +357,7 @@
   (swap! app-model assoc-in [:tab-container :selected] menu-item))
 
 (defn FOO []
-  (let [path [:tab-container :tabs 3 :chart]]
+  (let [path [:tab-container :tabs 3 :tables :sensor-select :sensor-group]]
     (println "AM:" (type(-> @app-model (get-in path))))
     (println "AM:" (pr-str (-> @app-model (get-in path))))))
 

@@ -78,6 +78,8 @@
         (ignoring-error (cql/drop-table "hourly_rollups"))
         (ignoring-error (cql/drop-table "daily_rollups"))
         (ignoring-error (cql/drop-table "users"))
+        (ignoring-error (cql/drop-table "data_sets"))
+
 
         ;; While developing, it's a pain to have to keep logging in
         ;;(ignoring-error (cql/drop-table "user_sessions"))
@@ -265,10 +267,10 @@
         (ignoring-error
          (cql/create-table "data_sets"
                            (cassaquery/column-definitions
-                            {:id :varchar
-                             :data_set_name :varchar
-                             :sensor_group :varchar
-                             :primary-key :id}))))
+                            {:entity_id :varchar
+                             :name :varchar
+                             :members :varchar
+                             :primary-key [:entity_id :name]}))))
 
       this))
   (stop [this] this))

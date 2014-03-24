@@ -29,7 +29,7 @@
                  ;; ClojureScript dependencies
                  [prismatic/dommy "0.1.2"]
                  [cljs-ajax "0.2.3"]
-                 [om "0.5.1"]
+                 [om "0.5.2"]
                  [net.drib/mrhyde "0.5.3"]
                  [com.andrewmcveigh/cljs-time "0.1.1"]
 
@@ -40,7 +40,7 @@
                                                                                     [log4j/log4j]]]
 
 
-                 [org.clojure/tools.macro "0.1.2"]
+                 [org.clojure/tools.macro "0.1.5"]
 
 
                  [reiddraper/simple-check "0.5.6"]

@@ -36,7 +36,6 @@
       (let [n (.getElementById js/document "chart")]
         (while (.hasChildNodes n)
           (.removeChild n (.-lastChild n))))
-      (println "Hello!")
       (let [Chart            (.-chart dimple)
             svg              (.newSvg dimple "#chart" "100%" 600)
             data             (get-in cursor [:measurements])

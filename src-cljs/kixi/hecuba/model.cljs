@@ -87,7 +87,8 @@
                                                                          :select   {:label "Select" :checkbox true}}
                                                                   :sort [:name]}
                                                        :data     []
-                                                       :sensor-group #{}
+                                                       :sensor-group {:members #{}
+                                                                      :name nil}
                                                        }}
                             :chart    {:property ""
                                        :sensor ""

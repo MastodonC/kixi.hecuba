@@ -542,7 +542,8 @@
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}
   :authorized? (authorized? querier :measurement)
-  :handle-ok (fn [{{{:keys [entity-id]} :route-params} :request {mime :media-type} :representation}]
+  :handle-ok (fn [{{{:keys [entity-id]} :route-params} :request 
+                  {mime :media-type} :representation}]
                (let [devices (items querier :device {:entity-id entity-id})
                      sensors (mapcat (fn [{:keys [id location]}]
                                        (map #(assoc % :location (decode location)) (items querier :sensor {:device-id id}))) devices)]
@@ -567,13 +568,20 @@
 
 (defresource datasets [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :post}
-  :available-media-types #{"application/edn"}
+  :available-media-types #{"application/edn" "text/html"}
   :authorized? (authorized? querier :datasets)
   :post! (fn [{{body :body {:keys [entity-id]} :route-params} :request}]
-           (upsert! commander :dataset (-> body read-edn-body ->shallow-kebab-map)))
-
+           (let [{:keys [members name]} (-> body read-edn-body ->shallow-kebab-map)
+                 ds {:entity_id entity-id
+                     :name name
+                     :members (string/join \, members)}
+                 ]
+             (upsert! commander :dataset ds)
+             {:name name
+              :entity-id entity-id}))
+  
   :handle-ok (fn [{{{:keys [entity-id]} :route-params} :request {mime :media-type} :representation}]
-               (let [data-sets (items querier :data-set-id {:entity-id entity-id})]
+               (let [data-sets (items querier :dataset {:entity-id entity-id})]
                  (case mime
                    "text/html" (html
                                 [:body
@@ -582,7 +590,43 @@
                                     [:tr
                                      [:td
                                       [:pre (with-out-str (pprint ds))]]])]])
-                   "application/edn" (pr-str data-sets)))))
+                   "application/edn" (pr-str data-sets))))
+  :handle-created (fn [{name :name {routes :modular.bidi/routes {entity-id :entity-id} :route-params} 
+                       :request device-id :device-id}]
+                    (let [location
+                          (path-for routes 
+                                    (:dataset @handlers)
+                                    :entity-id entity-id
+                                    :name name)]
+                      (when-not location 
+                        (throw (ex-info "No path resolved for Location header"
+                                        {:entity-id entity-id
+                                         :name :name})))
+                      (ring-response {:headers {"Location" location}}))))
+
+(defresource dataset [{:keys [commander querier]} handlers]
+  :allowed-methods #{:get :post}
+  :available-media-types #{"application/edn" "text/html"}
+  :authorized? (authorized? querier :datasets)
+  :exists?
+  (fn [{{{id :entity-id name :name} :route-params} :request}]
+    (when-let [item (first (items querier :dataset {:entity-id id 
+                                                    :name name}))]
+      {::item item}
+      #_(throw (ex-info (format "Cannot find item of id %s")))))
+  :post! (fn [{{body :body {:keys [entity-id name]} :route-params} :request}]
+           (let [{:keys [members name]} (-> body read-edn-body ->shallow-kebab-map)
+                 ds {:entity_id entity-id
+                     :name name
+                     :members (string/join \, members)}]
+             (upsert! commander :dataset ds )))
+  
+  :handle-ok (fn [{item ::item {mime :media-type} :representation}]
+               (case mime
+                 "text/html" (html
+                              [:body
+                               [:pre (with-out-str (pprint item))]])
+                 "application/edn" (pr-str item))))
 
 ;; Handlers and Routes
 
@@ -608,7 +652,9 @@
                  :hourly-rollups (hourly-rollups opts p)
                  :daily-rollups (daily-rollups opts p)
                  :sensors-by-property (sensors-by-property opts p)
-                 :datasets (datasets opts p)})))
+                 :datasets (datasets opts p)
+                 :dataset (dataset opts p)
+                 })))
 
 
 (def sha1-regex #"[0-9a-f-]+")
@@ -631,6 +677,7 @@
          ["entities" (->Redirect 307 (:entities handlers))]
          [["entities/" [sha1-regex :entity-id]] (:entity handlers)]
          [["entities/" [sha1-regex :entity-id] "/datasets"] (:datasets handlers)]
+         [["entities/" [sha1-regex :entity-id] "/datasets/" :name] (:dataset handlers)]
          [["entities/" [sha1-regex :entity-id] "/sensors"] (:sensors-by-property handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices"] (:devices handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id]] (:device handlers)]
