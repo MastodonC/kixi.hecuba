@@ -92,7 +92,7 @@
        (checks/mislabelled-sensors commander querier item)))
 
     (defnconsumer difference-series-q [item]
-      (produce-item
+      (produce-item 
        (calculate/difference-series commander querier item)))
 
     (defnconsumer spike-check-q [item]

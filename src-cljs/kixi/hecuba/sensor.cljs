@@ -77,8 +77,8 @@
                                   (for [[k {:keys [checkbox]}] cols]
                                     (let [k (if (vector? k) k (vector k))]
                                       (dom/td nil (if checkbox
-                                                    (bs/checkbox (get-in row k) 
-                                                                 cursor 
+                                                    (bs/checkbox (get-in row k)
+                                                                 cursor
                                                                  (fn [e] (if (.. e -target -checked)
                                                                           (om/transact! members #(conj % id))
                                                                           (om/transact! members #(disj % id)))))
@@ -120,7 +120,7 @@
        (bs/primary-button "Define" "modal" (fn [e]
                                              (POST (str "/3/entities/" (:selected @properties) "/datasets")
                                                    {:params (:sensor-group @sensor-select)
-                                                    :handler #(println "Yah!")
+                                                    :handler #(println "TODO: Refresh the devices table somehow!")
                                                     :error-handler #(println "Error!" %)
                                                     :response-format "application/edn"
                                                     :keywords? true})))))))))

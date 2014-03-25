@@ -24,6 +24,8 @@
   (:import
    (java.util UUID)))
 
+(defn uuid [] (java.util.UUID/randomUUID))
+
 (defn authorized? [querier typ]
   (fn [{{route-params :route-params :as req} :request}]
     (or
@@ -455,7 +457,7 @@
   :handle-ok (fn [{{{:keys [device-id reading-type]} :route-params query-string :query-string}
                    :request {mime :media-type} :representation}]
                (let [decoded-params (decode-query-params query-string)
-                     formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")                     
+                     formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")
                      start-date     (.parse formatter (string/replace (get decoded-params "startDate") "%20" " "))
                      end-date       (.parse formatter (string/replace (get decoded-params "endDate") "%20" " "))
                      measurements   (items querier :hourly-rollups [:device-id device-id
@@ -474,7 +476,7 @@
   :handle-ok (fn [{{{:keys [device-id reading-type]} :route-params query-string :query-string}
                    :request {mime :media-type} :representation}]
                (let [decoded-params (decode-query-params query-string)
-                     formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")                     
+                     formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")
                      start-date     (.parse formatter (string/replace (get decoded-params "startDate") "%20" " "))
                      end-date       (.parse formatter (string/replace (get decoded-params "endDate") "%20" " "))
                      measurements   (items querier :daily-rollups [:device-id device-id
@@ -542,7 +544,7 @@
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}
   :authorized? (authorized? querier :measurement)
-  :handle-ok (fn [{{{:keys [entity-id]} :route-params} :request 
+  :handle-ok (fn [{{{:keys [entity-id]} :route-params} :request
                   {mime :media-type} :representation}]
                (let [devices (items querier :device {:entity-id entity-id})
                      sensors (mapcat (fn [{:keys [id location]}]
@@ -566,20 +568,51 @@
                (let [measurement (first (items querier :measurement {:device-id device-id :type sensor-type :timestamp timestamp}))]
                  (->> measurement downcast-to-json camelify encode))))
 
+(defn synthetic-device [entity-id description]
+  (hash-map :description     description
+            :parent-id       (str (uuid))
+            :entity-id       entity-id
+            :location        "{\"name\": \"Synthetic\", \"latitude\": \"0\", \"longitude\": \"0\"}"
+            :metadata        nil
+            :privacy         "private"
+            :meteringPointId (str (uuid))))
+
+(defn synthetic-sensor [device-id]
+  {:device-id                 device-id
+   :type                      "Synthetic"
+   :unit                      "TBD"
+   :resolution                "0" ;; TODO
+   :accuracy                  "0" ;; TODO
+   :period                    "CUMULATIVE"
+   :min                       "0"
+   :max                       "100"
+   :correction                nil
+   :correctedUnit             nil
+   :correctionFactor          nil
+   :correctionFactorBreakdown nil
+   :events                    0
+   :errors                    0
+   :status                    "Not enough data"
+   :median                    0.0})
+
 (defresource datasets [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :post}
   :available-media-types #{"application/edn" "text/html"}
   :authorized? (authorized? querier :datasets)
   :post! (fn [{{body :body {:keys [entity-id]} :route-params} :request}]
            (let [{:keys [members name]} (-> body read-edn-body ->shallow-kebab-map)
-                 ds {:entity_id entity-id
-                     :name name
-                     :members (string/join \, members)}
-                 ]
+                 members-str            (string/join \, members)
+                 ds                     {:entity_id entity-id
+                                         :name name
+                                         :members members-str}
+                 device-id              (upsert! commander
+                                                 :device
+                                                 (synthetic-device entity-id "Synthetic"))]
+             (upsert! commander :sensor (synthetic-sensor device-id))
              (upsert! commander :dataset ds)
-             {:name name
-              :entity-id entity-id}))
-  
+             (hash-map :name name
+                       :entity-id entity-id)))
+
   :handle-ok (fn [{{{:keys [entity-id]} :route-params} :request {mime :media-type} :representation}]
                (let [data-sets (items querier :dataset {:entity-id entity-id})]
                  (case mime
@@ -591,14 +624,14 @@
                                      [:td
                                       [:pre (with-out-str (pprint ds))]]])]])
                    "application/edn" (pr-str data-sets))))
-  :handle-created (fn [{name :name {routes :modular.bidi/routes {entity-id :entity-id} :route-params} 
+  :handle-created (fn [{name :name {routes :modular.bidi/routes {entity-id :entity-id} :route-params}
                        :request device-id :device-id}]
                     (let [location
-                          (path-for routes 
+                          (path-for routes
                                     (:dataset @handlers)
                                     :entity-id entity-id
                                     :name name)]
-                      (when-not location 
+                      (when-not location
                         (throw (ex-info "No path resolved for Location header"
                                         {:entity-id entity-id
                                          :name :name})))
@@ -610,7 +643,7 @@
   :authorized? (authorized? querier :datasets)
   :exists?
   (fn [{{{id :entity-id name :name} :route-params} :request}]
-    (when-let [item (first (items querier :dataset {:entity-id id 
+    (when-let [item (first (items querier :dataset {:entity-id id
                                                     :name name}))]
       {::item item}
       #_(throw (ex-info (format "Cannot find item of id %s")))))
@@ -620,7 +653,7 @@
                      :name name
                      :members (string/join \, members)}]
              (upsert! commander :dataset ds )))
-  
+
   :handle-ok (fn [{item ::item {mime :media-type} :representation}]
                (case mime
                  "text/html" (html
