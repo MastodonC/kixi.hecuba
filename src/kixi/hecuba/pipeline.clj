@@ -71,7 +71,8 @@
         mislabelled-sensors-q (pipe/new-queue {:name "mislabelled-sensors-q" :queue-size 50})
         difference-series-q   (pipe/new-queue {:name "difference-series-q" :queue-size 50})
         rollups-q             (pipe/new-queue {:name "rollups-q" :queue-size 50})
-        spike-check-q         (pipe/new-queue {:name "spike-check-q" :queue-size 50})]
+        spike-check-q         (pipe/new-queue {:name "spike-check-q" :queue-size 50})
+        calculated-datasets-q (pipe/new-queue {:name "calculated-datasets-q" :queue-size 50})]
 
     (defnconsumer fanout-q [{:keys [dest type] :as item}]
       (let [item (dissoc item :dest)]
@@ -158,9 +159,13 @@
               (checks/median-spike-check commander querier new-item)
               (misc/reset-date-range querier commander s :spike-check (:start-date range) (:end-date range)))))))
 
-    (pipe/producer-of fanout-q median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q rollups-q)
+    (defnconsumer calculated-datasets-q [item]
+      (produce-item
+       (calculate/generate-datasets commander querier item)))
 
-    (list fanout-q #{median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q rollups-q})))
+    (pipe/producer-of fanout-q median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q rollups-q calculated-datasets-q)
+
+    (list fanout-q #{median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q rollups-q calculated-datasets-q})))
 
 (defrecord Pipeline []
   component/Lifecycle

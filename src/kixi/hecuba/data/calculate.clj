@@ -124,3 +124,5 @@
     (loop [start-date  start]
       (when-not (.before end start-date)
         (recur (hour-batch commander querier sensor start-date table))))))
+
+(defn generate-datasets [commander querier item])
