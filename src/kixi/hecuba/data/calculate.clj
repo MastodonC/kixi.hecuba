@@ -29,7 +29,7 @@
           month     (Integer/parseInt (:month first-coll))]
       (upsert! commander :difference-series {:timestamp timestamp
                                              :value d
-                                             :device-id device-id 
+                                             :device-id device-id
                                              :type type
                                              :month month})))
   rest-coll)
@@ -42,7 +42,7 @@
         month        (m/get-month-partition-key start-date)
         where        [:device-id device-id :type type :month month :timestamp [>= start-date] :timestamp [< end-date]]
         measurements (m/decassandraify-measurements (items querier :measurement where))]
-    (when-not (empty? measurements) 
+    (when-not (empty? measurements)
       (loop [m measurements]
         (when-not (empty? m)
           (recur (diff-and-insert commander (first m) (rest m))))))
@@ -87,7 +87,7 @@
       (when-not (.before end start-date)
         (recur (daily-batch commander querier sensor start-date))))))
 
-(defn hour-batch 
+(defn hour-batch
   [commander querier {:keys [device-id type period]} start-date table]
   (let [end-date     (m/add-hour start-date)
         month        (m/get-month-partition-key start-date)
@@ -111,7 +111,7 @@
 (defn hourly-rollups
   "Calculates hourly rollups for given sensor and date range.
   Example of item: {:sensor {:device-id \"f11a21b8e5e6b97eacba2632db4a2037a43f4791\" :type \"temperatureGround\"
-                   :period \"CUMULATIVE\"} :range {:start-date \"Sat Mar 01 00:00:00 UTC 2014\" 
+                   :period \"CUMULATIVE\"} :range {:start-date \"Sat Mar 01 00:00:00 UTC 2014\"
                    :end-date \"Sun Mar 02 23:00:00 UTC 2014\"}}"
   [commander querier {:keys [sensor range]}]
   (let [start         (m/int-format-to-timestamp (:start-date range))

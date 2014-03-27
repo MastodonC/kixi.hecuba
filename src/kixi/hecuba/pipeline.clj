@@ -143,7 +143,7 @@
             (when range
               (calculate/hourly-rollups commander querier new-item)
               (calculate/daily-rollups commander querier new-item)
-              (misc/reset-date-range querier commander s :rollups (:start-date range) (:end-date range)))))))     
+              (misc/reset-date-range querier commander s :rollups (:start-date range) (:end-date range)))))))
 
     (defnconsumer spike-check-q [item]
       (let [sensors (misc/all-sensors querier)]
