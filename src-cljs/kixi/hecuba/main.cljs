@@ -17,11 +17,6 @@
 
 (enable-console-print!)
 
-(def history (history/new-history))
-
-;; channel onto which history events are put
-(def history-channel (history/set-chan! history (chan)))
-
 (defn blank-tab [data owner]
   (om/component
       (dom/p nil "This page is unintentionally left blank")))
@@ -63,7 +58,7 @@
   (let [new-selected (get ids selection-key)]
     (when (or (nil? current-selected)
               (nil? new-selected)
-              (not= current-selected 
+              (not= current-selected
                     new-selected))
       (vector new-selected
               (map-replace template ids)))))
@@ -117,7 +112,7 @@
           (om/update! data :range {:start-date start-date :end-date end-date})
           (om/update! data :sensor sensor-id)
           (let [url (case (interval start-date end-date)
-                      :raw (str "/3/entities/" entity-id "/devices/" device-id "/measurements/" 
+                      :raw (str "/3/entities/" entity-id "/devices/" device-id "/measurements/"
                                 type "?startDate=" start-date "&endDate=" end-date)
                       :hourly-rollups (str "/3/entities/" entity-id "/devices/" device-id "/hourly_rollups/"
                                            type "?startDate=" start-date "&endDate=" end-date)
@@ -137,36 +132,38 @@
       ;; Select the first row
       ;;(put! out {:type :row-selected :row (first (om/get-state owner :data))})
       (let [cols (get-in cursor [:header :cols])
-            table-id (str (name histkey) "-table")]
-        (dom/table
-         #js {:id table-id
-              :className "table table-bordered hecuba-table "} ;; table-hover table-stripedso,
-         (dom/thead
-          nil
-          (dom/tr
+            table-id (str (name histkey) "-table")
+            history (om/get-shared owner :history)]
+        (dom/div #js {:id (str table-id "-container")}
+         (dom/table
+          #js {:id table-id
+               :className "table hecuba-table"} ;; table-hover table-stripedso,
+          (dom/thead
+           nil
+           (dom/tr
+            nil
+            (into-array
+             (for [[_ {:keys [label]}] cols]
+               (dom/th nil label)))))
+          (dom/tbody
            nil
            (into-array
-            (for [[_ {:keys [label]}] cols]
-              (dom/th nil label)))))
-         (dom/tbody
-          nil
-          (into-array
-           (for [{:keys [id href] :as row} (-> cursor :data
-                                               (cond-> path path))]
-             (dom/tr
-              #js {:onClick (fn [_ _ ]
-                              (om/update! cursor :selected id)
-                              (history/update-token-ids! history histkey id))
-                   :className (when (= id (:selected cursor)) "row-selected")
-                   ;; TODO use this to scroll the row into view.
-                   ;; Possible solution here: http://stackoverflow.com/questions/1805808/how-do-i-scroll-a-row-of-a-table-into-view-element-scrollintoview-using-jquery
-                   :id (str table-id "-selected")}
-              (into-array
-               (for [[k {:keys [href]}] cols]
-                 (let [k (if (vector? k) k (vector k))]
-                   (dom/td nil (if href
-                                 (dom/a #js {:href (get row href)} (get-in row k))
-                                 (get-in row k)))))))))))))))
+            (for [{:keys [id href ] :as row} (-> cursor :data
+                                                (cond-> path path))]
+              (dom/tr
+               #js {:onClick (fn [_ _ ]
+                               (om/update! cursor :selected id)
+                               (history/update-token-ids! history histkey id))
+                    :className (if (= id (:selected cursor)) "row-selected")
+                    ;; TODO use this to scroll the row into view.
+                    ;; Possible solution here: http://stackoverflow.com/questions/1805808/how-do-i-scroll-a-row-of-a-table-into-view-element-scrollintoview-using-jquery
+                    :id (str table-id "-selected")}
+               (into-array
+                (for [[k {:keys [href]}] cols]
+                  (let [k (if (vector? k) k (vector k))]
+                    (dom/td nil (if href
+                                  (dom/a #js {:href (get row href)} (get-in row k))
+                                  (get-in row k))))))))))))))))
 
 ;; TODO datepicker's min and max functions don't work as expected.
 ;; Might be an issue with using jQuery for reading selected dates.
@@ -187,56 +184,57 @@
   (reify
     om/IRender
     (render [_]
-      (dom/div nil
-               (dom/div #js {:className "container"}
-                        (dom/div #js {:className "col-sm-3"}
-                                 (dom/div #js {:className "form-group"}
-                                          (dom/div #js {:className "input-group date" :id "dateFrom" }
-                                                   (dom/input #js
-                                                              {:type "text"
-                                                               :ref "dateFrom"
-                                                               :data-format "DD-MM-YYYY HH:mm"
-                                                               :className "form-control"
-                                                               :placeholder "Start date"
-                                                               :value (if (empty? (get-in cursor [:chart :range]))
-                                                                        ""
-                                                                        (get-in cursor [:chart :range :start-date]))})
-                                                   (dom/span #js {:className "input-group-addon"}
-                                                             (dom/span #js {:className "glyphicon glyphicon-calendar"})))))
-                        (dom/div #js {:className "col-sm-3"}
-                                 (dom/div #js {:className "form-group"}
-                                          (dom/div #js {:className "input-group date" :id "dateTo"}
-                                                   (dom/input #js
-                                                              {:type "text"
-                                                               :data-format "DD-MM-YYYY HH:mm"
-                                                               :ref "dateTo"
-                                                               :className "form-control"
-                                                               :placeholder "End date"
-                                                               :value (if (empty? (get-in cursor [:chart :range]))
-                                                                        ""
-                                                                        (get-in cursor [:chart :range :end-date]))})
-                                                   (dom/span #js {:className "input-group-addon"}
-                                                             (dom/span #js {:className "glyphicon glyphicon-calendar"})))))
-                        (dom/button #js {:type "button"
-                                         :id "select-dates-btn" 
-                                         :className  "btn btn-primary btn-large"
-                                         :onClick 
-                                         (fn [e]
-                                           (let [start     (-> (om/get-node owner "dateFrom")
-                                                               .-value)
-                                                 end       (-> (om/get-node owner "dateTo")
-                                                               .-value)
-                                                 formatter (tf/formatter "dd-MM-yyyy HH:mm")]
-                                             (if (= :valid (evaluate-dates start end))
-                                                (do
-                                                  (history/set-token-search! history [start end])
-                                                  (om/update! cursor [:chart :range] {:start-date start :end-date end})
-                                                  (om/update! cursor [:chart :message] ""))
-                                                (do
-                                                  (om/update! cursor [:chart :range] {:start-date start :end-date end})
-                                                  (om/update! cursor [:chart :message] "End date must be later than start date."))
-                                              )))}
-                                    "Select dates"))))))
+      (let [history (om/get-shared owner :history)]
+        (dom/div nil
+                 (dom/div #js {:className "container"}
+                          (dom/div #js {:className "col-sm-3"}
+                                   (dom/div #js {:className "form-group"}
+                                            (dom/div #js {:className "input-group date" :id "dateFrom" }
+                                                     (dom/input #js
+                                                                {:type "text"
+                                                                 :ref "dateFrom"
+                                                                 :data-format "DD-MM-YYYY HH:mm"
+                                                                 :className "form-control"
+                                                                 :placeholder "Start date"
+                                                                 :value (if (empty? (get-in cursor [:chart :range]))
+                                                                          ""
+                                                                          (get-in cursor [:chart :range :start-date]))})
+                                                     (dom/span #js {:className "input-group-addon"}
+                                                               (dom/span #js {:className "glyphicon glyphicon-calendar"})))))
+                          (dom/div #js {:className "col-sm-3"}
+                                   (dom/div #js {:className "form-group"}
+                                            (dom/div #js {:className "input-group date" :id "dateTo"}
+                                                     (dom/input #js
+                                                                {:type "text"
+                                                                 :data-format "DD-MM-YYYY HH:mm"
+                                                                 :ref "dateTo"
+                                                                 :className "form-control"
+                                                                 :placeholder "End date"
+                                                                 :value (if (empty? (get-in cursor [:chart :range]))
+                                                                          ""
+                                                                          (get-in cursor [:chart :range :end-date]))})
+                                                     (dom/span #js {:className "input-group-addon"}
+                                                               (dom/span #js {:className "glyphicon glyphicon-calendar"})))))
+                          (dom/button #js {:type "button"
+                                           :id "select-dates-btn"
+                                           :className  "btn btn-primary btn-large"
+                                           :onClick
+                                           (fn [e]
+                                             (let [start     (-> (om/get-node owner "dateFrom")
+                                                                 .-value)
+                                                   end       (-> (om/get-node owner "dateTo")
+                                                                 .-value)
+                                                   formatter (tf/formatter "dd-MM-yyyy HH:mm")]
+                                               (if (= :valid (evaluate-dates start end))
+                                                 (do
+                                                   (history/set-token-search! history [start end])
+                                                   (om/update! cursor [:chart :range] {:start-date start :end-date end})
+                                                   (om/update! cursor [:chart :message] ""))
+                                                 (do
+                                                   (om/update! cursor [:chart :range] {:start-date start :end-date end})
+                                                   (om/update! cursor [:chart :message] "End date must be later than start date."))
+                                                 )))}
+                                      "Select dates")))))))
 
 (defmulti render-content-directive (fn [itemtype _ _] itemtype))
 
@@ -271,7 +269,7 @@
     (reify
       om/IWillMount
       (will-mount [_]
-        (let [m           (mult history-channel)
+        (let [m           (mult (history/set-chan! (om/get-shared owner :history) (chan)))
               tap-history #(tap m (chan))]
 
           ;; attach a go-loop that fires ajax requests on history changes to each table
@@ -318,8 +316,7 @@
                  (om/build table devices {:opts {:histkey :device}})
                  (om/build device-detail devices)
                  (dom/h2 {:id "sensors"} "Sensors" (title-for devices :title-key [:location :name]))
-                 (om/build sensor/table data {:opts {:history history 
-                                                     :histkey :sensor 
+                 (om/build sensor/table data {:opts {:histkey :sensor
                                                      :path    :readings}})
                  (om/build sensor/define-data-set-button data)
                  (dom/h2 nil "Chart")
@@ -377,4 +374,5 @@
                          :documentation documentation-tab
                          :users users-tab})
          app-model
-         {:target (.getElementById js/document "hecuba-tabs")})
+         {:target (.getElementById js/document "hecuba-tabs")
+          :shared {:history (history/new-history [:programme :project :property :device :sensor :measurement])}})

@@ -13,19 +13,20 @@
 (defn match-token [s]
   (re-matches #"((?:[A-Za-z0-9-;]+)(?:,(?:[A-Za-z0-9;-]+))*)(?:/search/(.*))?" s))
 
-(def ^:private key-order [:programme :project :property :device :sensor :measurement]) 
+;; TODO let's not use an atom for this.
+(def ^:private key-order (atom []))
 
 (defn- add-navigation-chan!
   [history ch f]
   (do (event/listen history "navigate"
                     (fn [e]
                       (let [token (.-token e)]
-                        (if-let [args (if (pos? (count token)) 
-                                          (f token)
-                                          {})]
+                        (if-let [args (if (pos? (count token))
+                                        (f token)
+                                        {})]
                           (put! ch {:args args
-                                      :type (.-type e)
-                                      :navigation? (.-isNavigation e)})))))
+                                    :type (.-type e)
+                                    :navigation? (.-isNavigation e)})))))
       (.setEnabled history true)
       ch))
 
@@ -49,13 +50,13 @@
   (into (new-historian-map)
         (map vector key-order ids)))
 
-(defn- token->historian 
+(defn- token->historian
   "parse a token in a map for the historian"
   [s]
   (when-let [[_ & [ids search-terms]] (-> s
                                           goog.string/urlDecode
                                           match-token)]
-     (hash-map 
+     (hash-map
       :ids    (ids->map (str/split ids #","))
       :search (str/split search-terms #"@@@"))))
 
@@ -64,7 +65,7 @@
             vals
             (take-while identity)
             (interpose \,)
-            (apply str)) 
+            (apply str))
        (when (pos? (count search)) (str "/search/" (str/join "@@@" search)))))
 
 (defn- get-token [history]
@@ -90,13 +91,15 @@
 ;;
 ;; API
 
-(defn new-history 
+(defn new-history
   "Create a history object."
-  [] (if (history5/isSupported)
-       (goog.history.Html5History. false)
-       (goog.History. false)))
+  [order]
+  (set! key-order order) ;; TODO don't use atom for this.
+  (if (history5/isSupported)
+    (goog.history.Html5History. false)
+    (goog.History. false)))
 
-(defn set-chan! 
+(defn set-chan!
   "Set a channel onto which history should be put"
   [history ch]
   (add-navigation-chan! history ch token->historian))
@@ -113,6 +116,6 @@
 
 (defn set-token-search! [history xs]
   (let [{:keys [search] :as tmap} (token-as-map history)]
-    (set-token! history (assoc tmap :search 
-                               (map goog.string/urlEncode xs)) 
+    (set-token! history (assoc tmap :search
+                               (map goog.string/urlEncode xs))
                 historian->token)))

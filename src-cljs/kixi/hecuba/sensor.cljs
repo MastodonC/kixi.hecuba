@@ -16,14 +16,15 @@
         nil
         (if checkbox (bs/checkbox id v cursor) v))))))
 
-(defn table [{:keys [tables chart]} owner {:keys [history histkey path]}]
+(defn table [{:keys [tables chart]} owner {:keys [histkey path]}]
   (reify
     om/IRender
     (render [_]
       ;; Select the first row
       ;;(put! out {:type :row-selected :row (first (om/get-state owner :data))})
       (let [{sensors :sensors} tables
-            cols               (get-in sensors [:header :cols])]
+            cols               (get-in sensors [:header :cols])
+            history            (om/get-shared owner :history)]
 
         (dom/table
          #js {:className "table table-bordered hecuba-table "} ;; table-hover table-stripedso,
@@ -122,7 +123,6 @@
                                                    {:params (:sensor-group @sensor-select)
                                                     :handler #(println "TODO: Refresh the devices table somehow!")
                                                     :error-handler #(println "Error!" %)
-                                                    :response-format "application/edn"
                                                     :keywords? true})))))))))
 
 (defn define-data-set-button [cursor owner]
