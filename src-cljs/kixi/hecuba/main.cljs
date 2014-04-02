@@ -112,11 +112,11 @@
           (om/update! data :range {:start-date start-date :end-date end-date})
           (om/update! data :sensor sensor-id)
           (let [url (case (interval start-date end-date)
-                      :raw (str "/3/entities/" entity-id "/devices/" device-id "/measurements/"
+                      :raw (str "/4/entities/" entity-id "/devices/" device-id "/measurements/"
                                 type "?startDate=" start-date "&endDate=" end-date)
-                      :hourly-rollups (str "/3/entities/" entity-id "/devices/" device-id "/hourly_rollups/"
+                      :hourly-rollups (str "/4/entities/" entity-id "/devices/" device-id "/hourly_rollups/"
                                            type "?startDate=" start-date "&endDate=" end-date)
-                      :daily-rollups (str "/3/entities/" entity-id "/devices/" device-id "/daily_rollups/"
+                      :daily-rollups (str "/4/entities/" entity-id "/devices/" device-id "/daily_rollups/"
                                           type "?startDate=" start-date "&endDate=" end-date))]
             (GET url {:handler #(om/update! data :measurements %)
                       :headers {"Accept" "application/json"}
@@ -275,25 +275,25 @@
           ;; attach a go-loop that fires ajax requests on history changes to each table
 
           ;;TODO still some cruft to tidy here:  /3 and singular/plural bunk.
-          (ajax (tap-history) tables [:programmes] {:template      "/3/programmes/"
+          (ajax (tap-history) tables [:programmes] {:template      "/4/programmes/"
                                                     :content-type  "application/edn"
                                                     :selection-key :programme})
-          (ajax (tap-history) tables [:projects] {:template      "/3/programmes/:programme/projects"
+          (ajax (tap-history) tables [:projects] {:template      "/4/programmes/:programme/projects"
                                                   :content-type  "application/edn"
                                                   :selection-key :project})
-          (ajax (tap-history) tables [:properties] {:template      "/3/projects/:project/properties"
+          (ajax (tap-history) tables [:properties] {:template      "/4/projects/:project/properties"
                                                     :content-type "application/json"
                                                     :selection-key :property})
-          (ajax (tap-history) tables [:devices] {:template      "/3/entities/:property/devices"
+          (ajax (tap-history) tables [:devices] {:template      "/4/entities/:property/devices"
                                                  :content-type  "application/json"
                                                  :selection-key :device})
-          (ajax (tap-history) tables [:sensors] {:template "/3/entities/:property/devices/:device"
+          (ajax (tap-history) tables [:sensors] {:template "/4/entities/:property/devices/:device"
                                                  :content-type "application/json"
                                                  :selection-key :sensor})
-          (ajax (tap-history) tables [:sensor-select] {:template     "/3/entities/:property/sensors"
+          (ajax (tap-history) tables [:sensor-select] {:template     "/4/entities/:property/sensors"
                                                        :content-type "application/json"
                                                        :selection-key :property})
-          (chart-ajax (tap-history) (:chart data) {:template "/3/entities/:property/devices/:device/measurements?startDate=:start-date&endDate=:end-date"
+          (chart-ajax (tap-history) (:chart data) {:template "/4/entities/:property/devices/:device/measurements?startDate=:start-date&endDate=:end-date"
                                                    :content-type  "application/json"
                                                    :selection-key :range})
           ))
@@ -330,7 +330,7 @@
                            {:opts {:id "sensor-selection-dialog"
                                    :handler (fn [e]
                                               (.preventDefault e)
-                                              (POST (str "/3/entities/" (:selected @properties) "/datasets")
+                                              (POST (str "/4/entities/" (:selected @properties) "/datasets")
                                                     {:params (:sensor-group @sensor-select)
                                                      :handler #(println "Yah!")
                                                      :error-handler #(println "Error!")

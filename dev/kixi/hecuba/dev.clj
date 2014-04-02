@@ -15,7 +15,7 @@
    [clojurewerkz.cassaforte.query :as cassaquery]
    [clojurewerkz.cassaforte.cql :as cql]
    [org.httpkit.client :refer (request) :rename {request http-request}]
-   [camel-snake-kebab :refer (->snake_case_keyword ->kebab-case-keyword)])
+   [camel-snake-kebab :refer (->snake_case_keyword ->kebab-case-keyword ->camelCaseString)])
   (:import
    (kixi.hecuba.protocols Commander Querier)))
 
@@ -79,7 +79,7 @@
   (fn [payload]
     (assert (every? payload (set types))
             (format "Cannot form a SHA1 because required types (%s) are missing from the payload: %s"
-                    (apply str (interpose "," (clojure.set/difference (set types) (set (keys payload)))))
+                    (apply str (interpose ", " (map ->camelCaseString (clojure.set/difference (set types) (set (keys payload))))))
                     payload))
     (-> payload ((apply juxt types)) pr-str sha1)))
 
@@ -145,7 +145,7 @@
 
 ;; From the CSV files, we actually have an id we can SHA1 from
 ;; For new properties, we'll have to decide which fields make up the property's 'value'
-(defmethod gen-key :entity [typ payload] ((sha1-keyfn :id) payload))
+(defmethod gen-key :entity [typ payload] ((sha1-keyfn :property-code :project-id) payload))
 ;; Again, not sure what should go into the SHA1 here, but it's unlikely for two devices to share the same exact location (which includes name), so let's use that for now
 (defmethod gen-key :device [typ payload] ((sha1-keyfn :description :entity-id) payload))
 

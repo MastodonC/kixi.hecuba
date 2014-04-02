@@ -109,7 +109,7 @@
                            (cassaquery/column-definitions
                             {:id :varchar
                              :project_id :varchar
-
+                             :property_code :varchar
                              :name :varchar
                              :user_id :varchar
                              :documents :list<text>
@@ -337,7 +337,7 @@
          :web-server (new-webserver (:web-server cfg))
          :bidi-ring-handler (new-bidi-ring-handler-provider)
          :main-routes (new-main-routes)
-         :amon-api (new-amon-api "/3")
+         :amon-api (new-amon-api "/4")
          :user-api (new-user-api)
          :cljs-routes (new-cljs-routes (:cljs-builder cfg))
          :user-data-loader (new-user-data-loader cfg)
