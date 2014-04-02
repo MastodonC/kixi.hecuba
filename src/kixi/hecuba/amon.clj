@@ -252,7 +252,9 @@
 
   :post!
   (fn [{{body :body} :request}]
-    (let [entity (-> body read-json-body ->shallow-kebab-map)]
+    (let [payload (-> body read-json-body ->shallow-kebab-map)
+          id      (-> payload :entity-id)
+          entity  (-> payload (assoc-in [:id] id) (dissoc :entity-id))]
       {:entity-id (upsert! commander :entity entity)}))
 
   :handle-created
