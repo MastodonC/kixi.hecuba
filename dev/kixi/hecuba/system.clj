@@ -21,8 +21,7 @@
    [kixi.hecuba.amon :refer (new-amon-api)]
    [kixi.hecuba.user :refer (new-user-api)]
    [kixi.hecuba.cljs :refer (new-cljs-routes)]
-   [kixi.hecuba.dev.etl :refer (new-user-data-loader new-csv-loader)]
-
+   [kixi.hecuba.dev.etl :refer (new-user-data-loader)]
    [clojurewerkz.cassaforte.client :as cassaclient]
    [clojurewerkz.cassaforte.query :as cassaquery]
    [clojurewerkz.cassaforte.cql :as cql]
@@ -68,20 +67,6 @@
     (let [session (get-in this [:session :session])]
       (assert session "No session found in system")
       (binding [cassaclient/*default-session* session]
-
-        (ignoring-error (cql/drop-table "programmes"))
-        (ignoring-error (cql/drop-table "projects"))
-        (ignoring-error (cql/drop-table "entities"))
-        (ignoring-error (cql/drop-table "devices"))
-        (ignoring-error (cql/drop-table "sensors"))
-        (ignoring-error (cql/drop-table "sensor_metadata"))
-        (ignoring-error (cql/drop-table "measurements"))
-        (ignoring-error (cql/drop-table "difference_series"))
-        (ignoring-error (cql/drop-table "hourly_rollups"))
-        (ignoring-error (cql/drop-table "daily_rollups"))
-        (ignoring-error (cql/drop-table "users"))
-        (ignoring-error (cql/drop-table "data_sets"))
-
 
         ;; While developing, it's a pain to have to keep logging in
         ;;(ignoring-error (cql/drop-table "user_sessions"))
@@ -356,7 +341,6 @@
          :user-api (new-user-api)
          :cljs-routes (new-cljs-routes (:cljs-builder cfg))
          :user-data-loader (new-user-data-loader cfg)
-         :csv-loader (new-csv-loader cfg)
          )
 
         (mod/system-using
@@ -369,6 +353,5 @@
           :pipeline [:store]
           :scheduler [:pipeline]
           :user-data-loader [:bidi-ring-handler :web-server :user-api]
-          :csv-loader [:bidi-ring-handler :amon-api :web-server :user-data-loader :store]
           ;;:cljs-routes [:cljs-builder]
           :session [:cluster]}))))
