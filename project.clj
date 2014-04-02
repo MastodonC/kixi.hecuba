@@ -14,8 +14,9 @@
                  ;; Modular
                  [juxt/modular "0.2.0"]
                  [juxt.modular/http-kit "0.2.0"]
-                 [juxt.modular/bidi "0.2.0"]
+                 [juxt.modular/bidi "0.2.1"]
                  [juxt.modular/cassandra "0.2.0"]
+                 [cylon "0.1.0"]
 
                  ;; EDN reader with location metadata - for configuration
                  [org.clojure/tools.reader "0.8.3"]
@@ -49,10 +50,7 @@
                  [clj-time "0.6.0"]
                  [org.clojure/data.json "0.2.4"]
 
-                 [clojurewerkz/quartzite "1.2.0"]
-
-                 [pipejine "0.1.2" :exclusions [org.slf4j/slf4j-simple]]
-
+                 [kixi/pipe "0.15.0"]
 
                  [thheller/shadow-build "0.5.0" :exclusions [org.clojure/clojurescript]]
                  ]
@@ -67,7 +65,7 @@
                                   [com.cemerick/austin "0.1.4"]
                                   [org.clojure/tools.namespace "0.2.4"]
                                   ]}
-             :uberjar {:main kixi.hecuba :aot [kixi.hecuba]}}
+             :uberjar {:main kixi.hecuba.controller.main :aot [kixi.hecuba.controller.main]}}
 
   :exclusions [[org.clojure/clojurescript]
                [org.clojure/core.async]]

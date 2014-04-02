@@ -1,4 +1,4 @@
-(ns kixi.hecuba.scheduler
+(ns kixi.hecuba.controller.scheduler
   "Scheduling functions"
   (:require [clojurewerkz.quartzite.conversion    :as qc]
             [clojurewerkz.quartzite.jobs          :as j]
@@ -6,7 +6,7 @@
             [clojurewerkz.quartzite.schedule.cron :as cron]
             [clojurewerkz.quartzite.triggers      :as trig]
             [clojure.walk                         :as walk]
-            [kixi.hecuba.pipeline                 :refer [submit-item]]
+            [kixipipe.pipeline                    :refer [submit-item]]
             [com.stuartsierra.component           :as component]
             ))
 

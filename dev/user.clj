@@ -2,7 +2,7 @@
   (:require
    [com.stuartsierra.component :as component]
    [clojure.tools.namespace.repl :refer [refresh refresh-all]]
-   [kixi.hecuba.system :refer (new-system)]
+   [kixi.hecuba.application.system :refer (new-system)]
    [clojure.pprint :refer (pprint)]
    [clojure.reflect :refer (reflect)]
    [clojure.repl :refer (apropos dir doc find-doc pst source)]

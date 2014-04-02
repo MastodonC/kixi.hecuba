@@ -47,7 +47,8 @@
   ([median measurement] (larger-than-median median measurement 200))
   ([median measurement n] (when (and
                                  (not (zero? median))
-                                 (not (nil? median))) (>= (:value measurement) (* n median)))))
+                                 (not (nil? median))
+                                 (number? (:value measurement))) (>= (-> measurement :value read-string) (* n median)))))
 
 (defn median-check
   "Checks if a measurement is 200x median. If so, increments error counter.

@@ -1,4 +1,4 @@
-(ns kixi.hecuba.dev.generators
+(ns generators
   (:refer-clojure :exclude [rand-int])
   (:require [roul.random :as rr]
             [clj-time.core :as t]

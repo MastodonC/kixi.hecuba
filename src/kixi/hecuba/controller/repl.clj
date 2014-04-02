@@ -1,8 +1,8 @@
-(ns kixi.hecuba.repl
+(ns kixi.hecuba.controller.repl
   "Useful functions for interacting with the pipeline from the repl."
-  (:require [kixi.hecuba.scheduler :as s]
-            [kixi.hecuba.pipeline  :refer [submit-item]]
-            [modular               :refer (system)]))
+  (:require [kixipipe.scheduler       :as s]
+            [kixipipe.pipeline        :refer [submit-item shutdown-pipe]]
+            [modular                  :refer (system)]))
 
 (defmacro defreplmethods
   [name & options]
