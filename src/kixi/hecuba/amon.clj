@@ -132,7 +132,11 @@
 
   :post!
   (fn [{request :request}]
-    {:programme-id (upsert! commander :programme (decode-body request))})
+    (let [body          (-> request :body)
+          [username _]  (sec/get-username-password request querier)
+          user-id       (-> (items querier :user {:username username}) first :id)
+          programme     (-> request decode-body)]
+      {:programme-id (upsert! commander :programme (assoc programme :user-id user-id))}))
 
   :handle-created
   (fn [{id :programme-id {routes :modular.bidi/routes} :request}]
@@ -197,7 +201,11 @@
 
   :post!
   (fn [{request :request}]
-    {:project-id (upsert! commander :project (decode-body request))})
+    (let [body          (-> request :body)
+          [username _]  (sec/get-username-password request querier)
+          user-id       (-> (items querier :user {:username username}) first :id)
+          project       (-> request decode-body)]
+      {:project-id (upsert! commander :project (assoc project :user-id user-id))}))
 
   :handle-created
   (fn [{id :project-id {routes :modular.bidi/routes} :request}]
@@ -266,12 +274,14 @@
   :post!
   (fn [{request :request}]
     (let [body          (-> request :body)
-          entity        (-> body read-json-body ->shallow-kebab-map)
+          entity        (-> request decode-body)
           project-id    (-> entity :project-id)
-          property-code (-> entity :property-code)]
+          property-code (-> entity :property-code)
+          [username _]  (sec/get-username-password request querier)
+          user-id       (-> (items querier :user {:username username}) first :id)]
       (when (and project-id property-code)
         (when-not (empty? (first (items querier :project {:id project-id})))
-          {:entity-id (upsert! commander :entity entity)}))))
+          {:entity-id (upsert! commander :entity (assoc entity :user-id user-id))}))))
 
   :handle-created
   (fn [{{routes :modular.bidi/routes} :request id :entity-id}]
@@ -306,7 +316,7 @@
                       [:ul
                        (for [id (:devices-ids item)]
                          [:li id])]])
-        "application/json" (-> item downcast-to-json camelify encode))))
+        "application/json" (-> item (dissoc :user-id) downcast-to-json camelify encode))))
 
   :delete! (fn [{{id :id :as i} ::item}]
              (delete! commander :entity id)))
@@ -342,10 +352,14 @@
       false))
 
   :post!
-  (fn [{{{entity-id :entity-id} :route-params} :request body :body}]
-    (let [device-id (upsert! commander :device (-> body
-                                                   (dissoc :readings)
-                                                   (update-in [:location] encode)))]
+  (fn [{request :request body :body}]
+    (let [entity-id     (-> request :route-params :entity-id)
+          [username _]  (sec/get-username-password request querier)
+          user-id       (-> (items querier :user {:username username}) first :id)
+          device-id     (upsert! commander :device (-> body
+                                                       (assoc :user-id user-id)
+                                                       (dissoc :readings)
+                                                       (update-in [:location] encode)))]
       (doseq [reading (:readings body)]
         ;; Initialise new sensor
         ;; TODO Find a better place/way of doing this
@@ -370,6 +384,7 @@
                      (for [{:keys [entity-id id]} items]
                        [:li (str "#" entity-id "#" id)])]])
       "application/json" (->> items
+                              (map #(dissoc % :user-id))
                               (map #(update-in % [:location] decode))
                               downcast-to-json
                               camelify
@@ -415,6 +430,7 @@
                    ;; Specifially, we are keeping the following line commented :-
                    ;; (assoc :measurements (items querier :measurement {:device-id (:id item)}))
                    (update-in [:location] decode)
+                   (dissoc :user-id)
                    downcast-to-json camelify encode)))
 
 (defresource sensor-metadata [{:keys [commander querier]} handlers]
