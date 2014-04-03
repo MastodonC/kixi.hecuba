@@ -265,7 +265,7 @@
           (throw (ex-info "No path resolved for Location header"
                           {:entity-id id})))
         (ring-response {:headers {"Location" location}}))
-      (ring-response {:status 404 :body "Provided projectId not found."}))))
+      (ring-response {:status 422 :body "Provided projectId not found."}))))
 
 (defresource entity [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :delete}
