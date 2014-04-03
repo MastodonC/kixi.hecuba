@@ -251,12 +251,14 @@
   :authorized? (authorized? querier :entity)
 
   :post!
-  (fn [{{body :body} :request}]
-    (let [entity        (-> body read-json-body ->shallow-kebab-map)
+  (fn [{request :request}]
+    (let [body          (-> request :body)
+          entity        (-> body read-json-body ->shallow-kebab-map)
           project-id    (-> entity :project-id)
-          property-code (-> entity :property-d)]
-      (when-not (empty? (first (items querier :project {:id project-id})))
-        {:entity-id (upsert! commander :entity entity)})))
+          property-code (-> entity :property-code)]
+      (when (and project-id property-code)
+        (when-not (empty? (first (items querier :project {:id project-id})))
+          {:entity-id (upsert! commander :entity entity)}))))
 
   :handle-created
   (fn [{{routes :modular.bidi/routes} :request id :entity-id}]
@@ -266,7 +268,7 @@
           (throw (ex-info "No path resolved for Location header"
                           {:entity-id id})))
         (ring-response {:headers {"Location" location}}))
-      (ring-response {:status 422 :body "Provided projectId has not been found."}))))
+      (ring-response {:status 422 :body "Provide valid projectId and propertyCode."}))))
 
 (defresource entity [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :delete}
