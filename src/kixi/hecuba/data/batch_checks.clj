@@ -62,7 +62,7 @@
   (let [end-date     (m/add-hour start-date)
         month        (m/get-month-partition-key start-date)
         where        [:device-id device-id :type type :month month :timestamp [>= start-date] :timestamp [< end-date]]
-        measurements (filter #(number? (:value %)) (m/decassandraify-measurements (items querier :measurement where)))]
+        measurements (filter #(number? (:value %)) (items querier :measurement where))]
     (doseq [m measurements]
       (let [spike    (str (v/larger-than-median (read-string median) m))
             metadata (-> m :metadata)]
