@@ -252,16 +252,20 @@
 
   :post!
   (fn [{{body :body} :request}]
-    (let [entity (-> body read-json-body ->shallow-kebab-map)]
-      {:entity-id (upsert! commander :entity entity)}))
+    (let [entity     (-> body read-json-body ->shallow-kebab-map)
+          project-id (-> entity :project-id)]
+      (when-not (empty? (item querier :project project-id))
+        {:entity-id (upsert! commander :entity entity)})))
 
   :handle-created
   (fn [{{routes :modular.bidi/routes} :request id :entity-id}]
-    (let [location (path-for routes (:entity @handlers) :entity-id id)]
-      (when-not location
-        (throw (ex-info "No path resolved for Location header"
-                        {:entity-id id})))
-      (ring-response {:headers {"Location" location}}))))
+    (if-not (empty? id)
+      (let [location (path-for routes (:entity @handlers) :entity-id id)]
+        (when-not location
+          (throw (ex-info "No path resolved for Location header"
+                          {:entity-id id})))
+        (ring-response {:headers {"Location" location}}))
+      (ring-response {:status 404 :body "Provided projectId not found."}))))
 
 (defresource entity [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :delete}
