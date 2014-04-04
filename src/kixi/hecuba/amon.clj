@@ -127,7 +127,7 @@
 
   :post!
   (fn [{{body :body} :request}]
-    {:programme-id (upsert! commander :programme (-> body read-edn-body ->shallow-kebab-map))})
+    {:programme-id (upsert! commander :programme (-> body read-json-body ->shallow-kebab-map))})
 
   :handle-created
   (fn [{id :programme-id {routes :modular.bidi/routes} :request}]
@@ -165,7 +165,7 @@
 (defresource projects [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :post}
   :available-media-types ["text/html" "application/json" "application/edn"]
-  :known-content-type? #{"application/edn"}
+  :known-content-type? #{"application/json"}
   :authorized? (authorized? querier :project)
 
   :handle-ok
@@ -202,7 +202,7 @@
 (defresource project [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
   :available-media-types ["text/html" "application/json" "application/edn"]
-  :known-content-type? #{"application/edn"}
+  :known-content-type? #{"application/json"}
   :authorized? (authorized? querier :project)
 
   :exists?
