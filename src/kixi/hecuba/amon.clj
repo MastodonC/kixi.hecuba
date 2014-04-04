@@ -188,7 +188,7 @@
 
   :post!
   (fn [{{body :body} :request}]
-    {:project-id (upsert! commander :project (-> body read-edn-body ->shallow-kebab-map))})
+    {:project-id (upsert! commander :project (-> body read-json-body ->shallow-kebab-map))})
 
   :handle-created
   (fn [{id :project-id {routes :modular.bidi/routes} :request}]
