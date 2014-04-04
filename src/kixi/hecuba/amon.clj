@@ -178,6 +178,10 @@
                               (assoc :href (path-for routes (:project @handlers) :project-id (:id %))))))]
 
       (case mime
+        "application/json" (-> coll
+                               downcast-to-json
+                               camelify
+                               encode)
         "text/html" (render-items-html coll)
         ;; Liberator's default rendering of application/edn seems wrong
         ;; (it wraps the data in 'clojure.lang.PersistentArrayMap', so
@@ -210,6 +214,10 @@
   (fn [{item ::item {mime :media-type} :representation {routes :modular.bidi/routes} :request}]
     (let [item (assoc item :properties (path-for routes (:properties @handlers) :project-id (:id item)))]
       (case mime
+        "application/json" (-> item
+                               downcast-to-json
+                               camelify
+                               encode)
         "text/html" (html
                      [:body
                       [:h1 (:name item)]
@@ -699,7 +707,7 @@
                  })))
 
 
-(def sha1-regex #"[0-9a-f-]+")
+(def sha1-regex #"[0-9a-z-]+")
 
 (defn make-routes [handlers]
   ;; AMON API here
