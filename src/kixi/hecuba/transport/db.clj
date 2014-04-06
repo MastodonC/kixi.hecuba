@@ -12,6 +12,7 @@
   "From a given payload, compute an id that is a SHA1 dependent on the given types."
   [& types]
   (fn [payload]
+    (assert payload "payload cannot be nil")
     (assert (every? payload (set types))
             (format "Cannot form a SHA1 because required types (%s) are missing from the payload: %s"
                     (apply str (interpose ", " (map ->camelCaseString (clojure.set/difference (set types) (set (keys payload))))))
