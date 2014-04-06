@@ -100,6 +100,11 @@
     [:pre (with-out-str
             (pprint item))]]))
 
+(defmulti decode-body :content-type :default "application/json")
+
+(defmethod decode-body "application/json" [{body :body}] (some-> body read-json-body ->shallow-kebab-map))
+(defmethod decode-body "application/edn" [{body :body}] (some-> body read-edn-body ->shallow-kebab-map))
+
 ;; Resources
 
 (defresource programmes [{:keys [commander querier]} handlers]
@@ -126,8 +131,8 @@
         items)))
 
   :post!
-  (fn [{{body :body} :request}]
-    {:programme-id (upsert! commander :programme (-> body read-json-body ->shallow-kebab-map))})
+  (fn [{request :request}]
+    {:programme-id (upsert! commander :programme (decode-body request))})
 
   :handle-created
   (fn [{id :programme-id {routes :modular.bidi/routes} :request}]
@@ -191,8 +196,8 @@
         coll)))
 
   :post!
-  (fn [{{body :body} :request}]
-    {:project-id (upsert! commander :project (-> body read-json-body ->shallow-kebab-map))})
+  (fn [request]
+    {:project-id (upsert! commander :project (decode-body request))})
 
   :handle-created
   (fn [{id :project-id {routes :modular.bidi/routes} :request}]
