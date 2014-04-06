@@ -539,7 +539,7 @@
                  (->> m2
                       (v/validate commander querier)
                       (upsert! commander :measurement))
-                 (q/put-on-queue topic m2) 
+                 (q/put-on-queue topic m2)
                  ))))
 
   :handle-ok (fn [{{{:keys [device-id]} :route-params} :request {mime :media-type} :representation}]
@@ -610,7 +610,9 @@
    :events                    0
    :errors                    0
    :status                    "Not enough data"
-   :median                    0.0})
+   :median                    0.0
+   :synthetic                 boolean
+   })
 
 (defresource datasets [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :post}

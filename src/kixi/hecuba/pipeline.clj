@@ -72,7 +72,7 @@
         difference-series-q   (pipe/new-queue {:name "difference-series-q" :queue-size 50})
         rollups-q             (pipe/new-queue {:name "rollups-q" :queue-size 50})
         spike-check-q         (pipe/new-queue {:name "spike-check-q" :queue-size 50})
-        calculated-datasets-q (pipe/new-queue {:name "calculated-datasets-q" :queue-size 50})]
+        synthetic-readings-q  (pipe/new-queue {:name "synthetic-readings-q" :queue-size 50})]
 
     (defnconsumer fanout-q [{:keys [dest type] :as item}]
       (let [item (dissoc item :dest)]
@@ -82,8 +82,9 @@
                           :mislabelled-sensors (produce-item item mislabelled-sensors-q)
                           :spike-check         (produce-item item spike-check-q))
           :calculated-datasets (condp = type
-                                 :difference-series (produce-item item difference-series-q)
-                                 :rollups           (produce-item item rollups-q)))))
+                                 :difference-series  (produce-item item difference-series-q)
+                                 :rollups            (produce-item item rollups-q)
+                                 :synthetic-readings (produce-item item synthetic-readings-q)))))
 
     (defnconsumer median-calculation-q [item]
       (let [sensors (misc/all-sensors querier)]
@@ -159,13 +160,13 @@
               (checks/median-spike-check commander querier new-item)
               (misc/reset-date-range querier commander s :spike-check (:start-date range) (:end-date range)))))))
 
-    (defnconsumer calculated-datasets-q [item]
+    (defnconsumer synthetic-readings-q [item]
       (produce-item
-       (calculate/generate-datasets commander querier item)))
+       (calculate/generate-synthetic-readings commander querier item)))
 
-    (pipe/producer-of fanout-q median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q rollups-q calculated-datasets-q)
+    (pipe/producer-of fanout-q median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q rollups-q synthetic-readings-q)
 
-    (list fanout-q #{median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q rollups-q calculated-datasets-q})))
+    (list fanout-q #{median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q rollups-q synthetic-readings-q})))
 
 (defrecord Pipeline []
   component/Lifecycle
