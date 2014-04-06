@@ -137,7 +137,7 @@
         (dom/div #js {:id (str table-id "-container")}
          (dom/table
           #js {:id table-id
-               :className "table hecuba-table"} ;; table-hover table-stripedso,
+               :className "table table-hover hecuba-table"} ;; table-hover table-stripedso,
           (dom/thead
            nil
            (dom/tr
@@ -154,7 +154,7 @@
                #js {:onClick (fn [_ _ ]
                                (om/update! cursor :selected id)
                                (history/update-token-ids! history histkey id))
-                    :className (if (= id (:selected cursor)) "row-selected")
+                    :className (if (= id (:selected cursor)) "success")
                     ;; TODO use this to scroll the row into view.
                     ;; Possible solution here: http://stackoverflow.com/questions/1805808/how-do-i-scroll-a-row-of-a-table-into-view-element-scrollintoview-using-jquery
                     :id (str table-id "-selected")}

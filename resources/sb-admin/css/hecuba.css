@@ -35,7 +35,6 @@
     overflow: auto;
 }
 
-.row-selected {
-    background-color: #ffa !important;
+#sensor-select-table {
+    overflow-y: scroll;
 }
-

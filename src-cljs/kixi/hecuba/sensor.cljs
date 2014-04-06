@@ -61,7 +61,9 @@
       (let [cols    (get-in cursor [:header :cols])
             members (get-in cursor [:sensor-group :members])]
         (dom/table
-         #js {:className "table table-bordered hecuba-table "} ;; table-hover table-stripedso,
+         #js {:className "table table-condensed hecuba-table col-lg-10"
+              :id "sensor-select-table"
+              } ;; table-hover table-stripedso,
          (dom/thead nil
                     (dom/tr nil
                             (into-array
@@ -73,7 +75,7 @@
                                                                (cond-> path path))]
                        (let [id (str type "-" deviceId)]
                          ;; TODO clojurefy ids
-                         (dom/tr nil
+                         (dom/tr #js {:className (if (> (rand) 0.5) "has-error" "")}
                                  (into-array
                                   (for [[k {:keys [checkbox]}] cols]
                                     (let [k (if (vector? k) k (vector k))]
@@ -94,6 +96,7 @@
      #js {:className "modal-dialog"}
      (dom/div
       #js {:className "modal-content"}
+
       (dom/div
        #js {:className "modal-header"}
        (dom/button
@@ -106,24 +109,28 @@
         "Define data set"))
       (dom/div
        #js {:className "modal-body"}
-       (dom/label nil "Sensors")
-       (om/build sensors-select-table sensor-select)
-       (dom/div
-        #js {:className "form-group has-feedback"}
-        (dom/label nil "Data set name")
-        (dom/input
-         #js {:className "form-control"
-              :type "text"
-              :onBlur (fn [e] (om/update! sensor-select [:sensor-group :name] (.. e -target -value)))})))
+       (bs/form-horizontal-with-validation
+        (dom/div
+         #js {:className "col-lg-12"}
+         (om/build sensors-select-table sensor-select))
+        (dom/div
+         #js {:className "form-group"}
+         (bs/with-control-label "Name"
+           (bs/text-field (fn [e] (om/update! sensor-select
+                                             [:sensor-group :name]
+                                             (.. e -target -value)))))
+         (bs/with-control-label "Type"
+           (bs/dropdown "type" ["One" "Two" "Three"])))))
       (dom/div
        #js {:className "modal-footer"}
        (bs/default-button "Close" "modal")
        (bs/primary-button "Define" "modal" (fn [e]
-                                             (POST (str "/3/entities/" (:selected @properties) "/datasets")
+                                             (POST (str "/4/entities/" (:selected @properties) "/datasets")
                                                    {:params (:sensor-group @sensor-select)
                                                     :handler #(println "TODO: Refresh the devices table somehow!")
                                                     :error-handler #(println "Error!" %)
-                                                    :keywords? true})))))))))
+                                                    :keywords? true}))))
+      )))))
 
 (defn define-data-set-button [cursor owner]
   (om/component

@@ -4,7 +4,7 @@
 
 
 (defn checkbox [v cursor on-click]
-  (dom/div 
+  (dom/div
    #js {:className "checkbox"
         ;; TODO hack alert!!
         :style {:margin 0}}
@@ -34,3 +34,52 @@
   ([text dismiss on-click]
      (button text "default" dismiss on-click)))
 
+(defn select [opts]
+  (apply dom/select #js {:className "form-control"}
+         (map #(dom/option nil %) opts)))
+
+(defn text-field [on-blur]
+  (dom/input
+   #js {:className "form-control"
+        :type "text"
+        :onBlur on-blur}))
+
+(defn text-field-with-button [{:keys [onBlur opts]}]
+  (dom/div #js {:className "input-group"}
+           (dom/div #js {:className "input-group-btn"}
+                    (dom/button #js {:type "button"
+                                     :className "btn btn-default dropdown-toggle"
+                                     :data-toggle "dropdown"}
+                                "Type"
+                                (dom/span #js {:className "caret"}))
+                    (apply dom/ul #js {:className "dropdown-menu"}
+                           (map #(dom/li nil (dom/a #js {:href "#"} %)) opts)))
+           (dom/input #js {:type "text"
+                           :className "form-control"
+                           :onBlur onBlur})))
+
+(defn with-control-label  [label el]
+  (dom/div #js {:className "col-lg-12 form-group"}
+           (dom/label #js {:className "col-lg-2 control-label"} label)
+           (dom/div #js {:className "col-lg-10"} el)))
+
+(defn form-horizontal-with-validation [& xs]
+  (apply dom/form
+         #js {:className "form-horizontal has-validation"}
+         xs))
+
+(defn form-group-with-feedback [ & xs]
+  (apply dom/div #js {:className "form-group has-feedback"}
+         xs))
+
+(defn dropdown [id opts]
+  (dom/div #js {:className "dropdown"}
+           (dom/button #js {:id id :className "btn dropdown-toggle sr-only"
+                            :type "button" :data-toggle "dropdown"}
+                       "Dropdown"
+                       (dom/span #js {:className "caret"}))
+           (apply dom/ul #js {:className "dropdown-menu"
+                              :role "menu"
+                              :aria-labelledby "dropdownMenu1"}
+                  (map #(dom/li nil (dom/a #js {:role "menuitem" :tabIndex "-1" :href "#"} %)) opts)
+  )))
