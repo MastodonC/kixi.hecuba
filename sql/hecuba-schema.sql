@@ -242,6 +242,7 @@ CREATE TABLE sensors (
   resolution text,
   status text,
   unit text,
+  synthetic boolean,
   PRIMARY KEY (device_id, type)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
