@@ -623,15 +623,15 @@
    :errors                    0
    :status                    "Not enough data"
    :median                    0.0
-   :synthetic                 boolean
+   :synthetic                 true
    })
 
 (defresource datasets [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :post}
   :available-media-types #{"application/edn" "text/html"}
   :authorized? (authorized? querier :datasets)
-  :post! (fn [{{body :body {:keys [entity-id]} :route-params} :request}]
-           (let [{:keys [members name]} (-> body read-edn-body ->shallow-kebab-map)
+  :post! (fn [{{{:keys [entity-id]} :route-params :as request} :request}]
+           (let [{:keys [members name]} (decode-body request)
                  members-str            (string/join \, members)
                  ds                     {:entity_id entity-id
                                          :name name
@@ -678,8 +678,8 @@
                                                     :name name}))]
       {::item item}
       #_(throw (ex-info (format "Cannot find item of id %s")))))
-  :post! (fn [{{body :body {:keys [entity-id name]} :route-params} :request}]
-           (let [{:keys [members name]} (-> body read-edn-body ->shallow-kebab-map)
+  :post! (fn [{{{:keys [entity-id name]} :route-params :as request} :request}]
+           (let [{:keys [members name]} (decode-body request)
                  ds {:entity_id entity-id
                      :name name
                      :members (string/join \, members)}]
