@@ -257,6 +257,7 @@ CREATE TABLE sensors (
   compression={'sstable_compression': 'SnappyCompressor'};
 
 CREATE INDEX sensors_status_idx ON sensors (status);
+CREATE INDEX synthetic_sensors_idx ON sensors (synthetic);
 
 CREATE TABLE user_sessions (
   id text,
