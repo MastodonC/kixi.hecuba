@@ -531,21 +531,26 @@
   :authorized? (authorized? querier :measurement)
 
   :post! (fn [{{body :body {:keys [device-id]} :route-params} :request}]
-           (let [topic (get-in queue ["measurements"])]
-             (doseq [measurement (-> body read-json-body ->shallow-kebab-map :measurements)]
-               (let [t        (db-timestamp (get measurement "timestamp"))
-                     m2       {:device-id device-id
-                               :type (get measurement "type")
-                               :timestamp t
-                               :value (get measurement "value")
-                               :error (get measurement "error")
-                               :month (get-month-partition-key t)
-                               :metadata "{}"}]
-                 (->> m2
-                      (v/validate commander querier)
-                      (upsert! commander :measurement))
-                 (q/put-on-queue topic m2)
-                 ))))
+           (let [topic         (get-in queue ["measurements"])
+                 measurements  (-> body read-json-body ->shallow-kebab-map :measurements)
+                 type          (get (first  measurements) "type")]
+             (if (and device-id type (not (empty? (first (items querier :sensor {:device-id device-id :type type})))))
+               (do
+                 (doseq [measurement measurements]
+                   (let [t        (db-timestamp (get measurement "timestamp"))
+                         m2       {:device-id device-id
+                                   :type type
+                                   :timestamp t
+                                   :value (get measurement "value")
+                                   :error (get measurement "error")
+                                   :month (get-month-partition-key t)
+                                   :metadata "{}"}]
+                     (->> m2
+                          (v/validate commander querier)
+                          (upsert! commander :measurement))
+                     (q/put-on-queue topic m2)))
+                 {:response {:status 202 :body "Accepted"}})
+               {:response {:status 400 :body "Provide valid deviceId and type."}})))
 
   :handle-ok (fn [{{{:keys [device-id]} :route-params} :request {mime :media-type} :representation}]
                (let [measurements (items querier :measurement {:device-id device-id})]
@@ -559,7 +564,9 @@
                                       [:pre (with-out-str (pprint m))]]])]])
                    "application/json" (->> measurements downcast-to-json camelify encode))))
 
-  :handle-created (fn [_] (ring-response {:status 202 :body "Accepted"})))
+  :handle-created
+  (fn [{response :response {routes :modular.bidi/routes} :request}]
+    (ring-response response)))
 
 (defresource sensors-by-property [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
