@@ -100,6 +100,7 @@
     [:pre (with-out-str
             (pprint item))]]))
 
+;; TODO move to webutil - how to handle call to ->shallow-kebab-map?
 (defmulti decode-body :content-type :default "application/json")
 
 (defmethod decode-body "application/json" [{body :body}] (some-> body read-json-body ->shallow-kebab-map))
@@ -265,8 +266,7 @@
 
   :post!
   (fn [{request :request}]
-    (let [body          (-> request :body)
-          entity        (-> body read-json-body ->shallow-kebab-map)
+    (let [entity        (decode-body request)
           project-id    (-> entity :project-id)
           property-code (-> entity :property-code)]
       (when (and project-id property-code)
@@ -327,11 +327,11 @@
                {::items items}))))
 
   :malformed?
-  (fn [{{body :body
-        {entity-id :entity-id} :route-params
-        method :request-method} :request}]
+  (fn [{{{entity-id :entity-id} :route-params
+        method :request-method
+        :as request} :request}]
     (case method
-      :post (let [body (-> body read-json-body ->shallow-kebab-map)]
+      :post (let [body (decode-body request)]
               ;; We need to assert a few things
               (if
                   (or
@@ -530,9 +530,9 @@
   :known-content-type? #{"application/json"}
   :authorized? (authorized? querier :measurement)
 
-  :post! (fn [{{body :body {:keys [device-id]} :route-params} :request}]
+  :post! (fn [{{{:keys [device-id]} :route-params :as request} :request}]
            (let [topic (get-in queue ["measurements"])]
-             (doseq [measurement (-> body read-json-body ->shallow-kebab-map :measurements)]
+             (doseq [measurement (:measurements (decode-body request))]
                (let [t        (db-timestamp (get measurement "timestamp"))
                      m2       {:device-id device-id
                                :type (get measurement "type")
@@ -623,8 +623,8 @@
   :allowed-methods #{:get :post}
   :available-media-types #{"application/edn" "text/html"}
   :authorized? (authorized? querier :datasets)
-  :post! (fn [{{body :body {:keys [entity-id]} :route-params} :request}]
-           (let [{:keys [members name]} (-> body read-edn-body ->shallow-kebab-map)
+  :post! (fn [{{{:keys [entity-id]} :route-params :as request} :request}]
+           (let [{:keys [members name]} (decode-body request)
                  members-str            (string/join \, members)
                  ds                     {:entity_id entity-id
                                          :name name
@@ -671,8 +671,8 @@
                                                     :name name}))]
       {::item item}
       #_(throw (ex-info (format "Cannot find item of id %s")))))
-  :post! (fn [{{body :body {:keys [entity-id name]} :route-params} :request}]
-           (let [{:keys [members name]} (-> body read-edn-body ->shallow-kebab-map)
+  :post! (fn [{{{:keys [entity-id name]} :route-params :as request} :request}]
+           (let [{:keys [members name]} (decode-body request)
                  ds {:entity_id entity-id
                      :name name
                      :members (string/join \, members)}]
