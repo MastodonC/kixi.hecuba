@@ -197,7 +197,7 @@
         coll)))
 
   :post!
-  (fn [request]
+  (fn [{request :request}]
     {:project-id (upsert! commander :project (decode-body request))})
 
   :handle-created
