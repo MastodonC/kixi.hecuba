@@ -11,6 +11,7 @@
    [modular.bidi :refer (new-bidi-ring-handler-provider #_resolve-routes-contributors)]
    [modular.cassandra :refer (new-session new-cluster)]
 
+   kixi.hecuba.application.safe
    [kixi.hecuba.controller.pipeline :refer (new-pipeline)]
    [kixipipe.scheduler]
    [kixi.hecuba.queue :refer (new-queue)]
