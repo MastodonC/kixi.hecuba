@@ -769,6 +769,8 @@
 
          [["entities/" [sha1-regex :entity-id] "/datasets/" :name] (:dataset handlers)]
          [["entities/" [sha1-regex :entity-id] "/sensors/"] (:sensors-by-property handlers)]
+         [["entities/" [sha1-regex :entity-id] "/sensors"] (:sensors-by-property handlers)] ;;TODO redirect after https://github.com/juxt/bidi/issues/14
+
          [["entities/" [sha1-regex :entity-id] "/devices/"] (:devices handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices"] (:devices handlers)] ;;TODO redirect after https://github.com/juxt/bidi/issues/14
 
