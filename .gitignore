@@ -13,3 +13,6 @@ pom.xml.asc
 /.env
 /vagrant/tmp
 /kixi-dev-*.box
+*#
+.#*
+*~
