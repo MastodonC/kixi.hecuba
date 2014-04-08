@@ -33,6 +33,9 @@
      (sec/authorized-with-basic-auth? req querier)
      (sec/authorized-with-cookie? req querier))))
 
+(defn stringify-values [m]
+  (into {} (for [[k v] m] [k (str v)])))
+
 (defn downcast-to-json
   "For JSON serialization we need to widen the types contained in the structure."
   [x]
@@ -356,15 +359,16 @@
     (let [entity-id     (-> request :route-params :entity-id)
           [username _]  (sec/get-username-password request querier)
           user-id       (-> (items querier :user {:username username}) first :id)
-          device-id     (upsert! commander :device (-> body
+          device        (stringify-values body)
+          device-id     (upsert! commander :device (-> device
                                                        (assoc :user-id user-id)
                                                        (dissoc :readings)
-                                                       (update-in [:metadata] str)
                                                        (update-in [:location] encode)))]
       (doseq [reading (:readings body)]
         ;; Initialise new sensor
         ;; TODO Find a better place/way of doing this
         (let [sensor (-> reading
+                         (stringify-values)
                          (assoc :device-id device-id)
                          (assoc :errors 0)
                          (assoc :events 0)
