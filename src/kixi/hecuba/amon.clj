@@ -359,6 +359,7 @@
           device-id     (upsert! commander :device (-> body
                                                        (assoc :user-id user-id)
                                                        (dissoc :readings)
+                                                       (update-in [:metadata] str)
                                                        (update-in [:location] encode)))]
       (doseq [reading (:readings body)]
         ;; Initialise new sensor
