@@ -138,7 +138,7 @@
     (let [body          (-> request :body)
           [username _]  (sec/get-username-password request querier)
           user-id       (-> (items querier :user {:username username}) first :id)
-          programme     (-> request decode-body)]
+          programme     (-> request decode-body stringify-values)]
       {:programme-id (upsert! commander :programme (assoc programme :user-id user-id))}))
 
   :handle-created
@@ -207,7 +207,7 @@
     (let [body          (-> request :body)
           [username _]  (sec/get-username-password request querier)
           user-id       (-> (items querier :user {:username username}) first :id)
-          project       (-> request decode-body)]
+          project       (-> request decode-body stringify-values)]
       {:project-id (upsert! commander :project (assoc project :user-id user-id))}))
 
   :handle-created
@@ -277,7 +277,7 @@
   :post!
   (fn [{request :request}]
     (let [body          (-> request :body)
-          entity        (-> request decode-body)
+          entity        (-> request decode-body stringify-values)
           project-id    (-> entity :project-id)
           property-code (-> entity :property-code)
           [username _]  (sec/get-username-password request querier)
@@ -359,20 +359,17 @@
     (let [entity-id     (-> request :route-params :entity-id)
           [username _]  (sec/get-username-password request querier)
           user-id       (-> (items querier :user {:username username}) first :id)
-          device        (stringify-values body)
-          device-id     (upsert! commander :device (-> device
+          device-id     (upsert! commander :device (-> body
+                                                       stringify-values
                                                        (assoc :user-id user-id)
                                                        (dissoc :readings)
                                                        (update-in [:location] encode)))]
       (doseq [reading (:readings body)]
-        ;; Initialise new sensor
-        ;; TODO Find a better place/way of doing this
         (let [sensor (-> reading
-                         (stringify-values)
+                         stringify-values
                          (assoc :device-id device-id)
                          (assoc :errors 0)
-                         (assoc :events 0)
-                         )]
+                         (assoc :events 0))]
           (upsert! commander :sensor (->shallow-kebab-map sensor))
           (upsert! commander :sensor-metadata (->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])}))))
       {:device-id device-id}))
@@ -559,11 +556,12 @@
                (do
                  (doseq [measurement measurements]
                    (let [t        (db-timestamp (get measurement "timestamp"))
+                         m        (stringify-values measurement)
                          m2       {:device-id device-id
                                    :type type
                                    :timestamp t
-                                   :value (str (get measurement "value"))
-                                   :error (get measurement "error")
+                                   :value (get m "value")
+                                   :error (get m "error")
                                    :month (get-month-partition-key t)
                                    :metadata "{}"}]
                      (->> m2
