@@ -110,7 +110,8 @@
     ["login.html" (->WrapMiddleware (:login-form handlers) wrap-cookies)]
     ["auth" (->WrapMiddleware (:login-handler handlers) (comp wrap-params wrap-cookies))]
 
-    ["programmes" (->Secure (:programmes handlers) querier (:login-form handlers))]
+    ["programmes/" (->Secure (:programmes handlers) querier (:login-form handlers))]
+    ["programmes" (->Redirect 307 programmes)]
 
     ["chart.html" chart]
     ["counters.html" counters]
