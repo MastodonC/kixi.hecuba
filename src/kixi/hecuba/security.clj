@@ -38,6 +38,13 @@ http://adambard.com/blog/3-wrong-ways-to-store-a-password/"
 (defn verify-password [password {:keys [hash salt]}]
   (= (pbkdf2 password salt) hash))
 
+(defn get-username-password
+  [{headers :headers :as request} querier]
+  (when-let [auth (get headers "authorization")]
+    (when-let [basic-creds (second (re-matches #"\QBasic\E\s+(.*)" auth))]
+      (->> (String. (DatatypeConverter/parseBase64Binary basic-creds) "UTF-8")
+           (re-matches #"(.*):(.*)")
+           rest))))
 
 ;; END_BLOCK
 
@@ -49,13 +56,9 @@ http://adambard.com/blog/3-wrong-ways-to-store-a-password/"
     (verify-password password stored-user)))
 
 (defn authorized-with-basic-auth?
-  [{headers :headers :as request} querier]
-  (when-let [auth (get headers "authorization")]
-    (when-let [basic-creds (second (re-matches #"\QBasic\E\s+(.*)" auth))]
-      (let [[username password] (->> (String. (DatatypeConverter/parseBase64Binary basic-creds) "UTF-8")
-                                 (re-matches #"(.*):(.*)")
-                                 rest)]
-        (authorized? username password querier)))))
+  [req querier]
+  (when-let [[username password] (get-username-password req querier)]
+           (authorized? username password querier)))
 
 (def session-expiry-in-secs (* 6 60 60 1000))
 

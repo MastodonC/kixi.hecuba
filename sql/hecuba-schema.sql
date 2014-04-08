@@ -51,6 +51,7 @@ CREATE TABLE devices (
   parent_id text,
   privacy text,
   synthetic boolean
+  user_id text
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
   caching='KEYS_ONLY' AND
@@ -165,7 +166,8 @@ CREATE TABLE programmes (
   leaders text,
   name text,
   public_access text,
-  updated_at text
+  updated_at text,
+  user_id text
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
   caching='KEYS_ONLY' AND
@@ -188,7 +190,8 @@ CREATE TABLE projects (
   project_code text,
   project_type text,
   type_of text,
-  updated_at text
+  updated_at text,
+  user_id text
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
   caching='KEYS_ONLY' AND
@@ -245,6 +248,7 @@ CREATE TABLE sensors (
   status text,
   unit text,
   synthetic boolean,
+  user_id text,
   PRIMARY KEY (device_id, type)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
@@ -294,3 +298,5 @@ CREATE TABLE users (
   populate_io_cache_on_flush='false' AND
   compaction={'class': 'SizeTieredCompactionStrategy'} AND
   compression={'sstable_compression': 'SnappyCompressor'};
+
+CREATE INDEX users_idx ON users (username);
