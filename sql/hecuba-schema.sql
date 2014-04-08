@@ -49,7 +49,8 @@ CREATE TABLE devices (
   metering_point_id text,
   name text,
   parent_id text,
-  privacy text
+  privacy text,
+  synthetic boolean
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
   caching='KEYS_ONLY' AND
@@ -63,6 +64,7 @@ CREATE TABLE devices (
   compression={'sstable_compression': 'SnappyCompressor'};
 
 CREATE INDEX devices_entity_id_idx_1 ON devices (entity_id);
+CREATE INDEX synthetic_devices_idx ON devices (synthetic);
 
 CREATE TABLE difference_series (
   device_id text,

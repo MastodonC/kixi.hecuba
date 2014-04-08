@@ -604,7 +604,9 @@
             :location        "{\"name\": \"Synthetic\", \"latitude\": \"0\", \"longitude\": \"0\"}"
             :metadata        nil
             :privacy         "private"
-            :meteringPointId (str (uuid))))
+            :meteringPointId (str (uuid))
+            :synthetic       true
+            ))
 
 (defn synthetic-sensor [device-id]
   {:device-id                 device-id

@@ -126,5 +126,8 @@
         (recur (hour-batch commander querier sensor start-date table))))))
 
 (defn generate-synthetic-readings [commander querier item]
-
+  (let [synthetics (items querier :sensor [:synthetic true])]
+    (println "AA:")
+    (prn synthetics)
+    )
   )
