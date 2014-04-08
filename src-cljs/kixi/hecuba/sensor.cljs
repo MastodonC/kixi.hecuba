@@ -45,7 +45,7 @@
                                              (om/update! chart :sensor id)
                                              (history/update-token-ids! history histkey id)
                                              )
-                                  :className (when (= id (:selected sensors)) "row-selected")}
+                                  :className (when (= id (:selected sensors)) "success")}
                                  (into-array
                                   (for [[k {:keys [href]}] cols]
                                     (let [k (if (vector? k) k (vector k))]
