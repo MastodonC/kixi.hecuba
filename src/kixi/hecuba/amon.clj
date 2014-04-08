@@ -541,7 +541,7 @@
                          m2       {:device-id device-id
                                    :type type
                                    :timestamp t
-                                   :value (get measurement "value")
+                                   :value (str (get measurement "value"))
                                    :error (get measurement "error")
                                    :month (get-month-partition-key t)
                                    :metadata "{}"}]
