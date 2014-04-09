@@ -439,9 +439,9 @@
                    response  (delete! commander :device device-id)]
                (if (empty? response) true false)))
 
-  :respond-with-entity? (fn [ctx] (constantly true)) ;; the only way to return 200 ok
-  :new? (fn [ctx] (constantly false))
-  :can-put-to-missing? (fn [_] (constantly false))
+  :respond-with-entity? (constantly true) ;; the only way to return 200 ok
+  :new? (constantly false)
+  :can-put-to-missing? (constantly false)
 
   :put! (fn [{item ::item request :request}]
           (if-not (nil? item)
