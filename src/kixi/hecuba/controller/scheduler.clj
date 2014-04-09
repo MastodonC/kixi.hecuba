@@ -42,13 +42,14 @@
 
 (defrecord Scheduler [config]
   component/Lifecycle
-  (log/info "Scheduler starting")
   (start [this]
+    (log/info "Scheduler starting")
     (let [pipeline (get-in this [:pipeline])]
       (configure-scheduler config pipeline)
       (qs/start))
     (assoc this :scheduler (constantly @qs/*scheduler*)))
   (stop [this]
+    (log/info "Scheduler stopping")
     (qs/shutdown)
     this))
 
