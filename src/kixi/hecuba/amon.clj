@@ -333,7 +333,7 @@
                                      (assoc :id entity-id)
                                      (dissoc :device-ids)))))
 
-  :respond-with-entity? (fn [ctx] (constantly true))
+  :respond-with-entity? (constantly true)
 
   :delete! (fn [{{id :id :as i} ::item}]
              (delete! commander :entity id)))
@@ -463,10 +463,10 @@
                                  (assoc :errors 0)
                                  (assoc :events 0))]
                   (upsert! commander :sensor (->shallow-kebab-map sensor))
-                  (upsert! commander :sensor-metadata 
+                  (upsert! commander :sensor-metadata
                            (->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])})))))
             (ring-response {:status 404 :body "Please provide valid entityId and deviceId"})))
-  
+
   :handle-ok (fn [{item ::item}]
                (-> item
                    ;; These are the device's sensors.
