@@ -427,12 +427,12 @@
   :authorized? (authorized? querier :device)
 
   :exists? (fn [{{{:keys [entity-id device-id]} :route-params} :request}]
-            (when-let [item (item querier :device device-id)]
-               ;; We need to assoc in the device-id, that's what the
-               ;; AMON API requires in the JSON body, ultimately.
-               {::item (-> item
-                           (assoc :device-id device-id)
-                           (dissoc :id))}))
+            (let [item (item querier :device device-id)]
+              (if-not (empty? item)
+                {::item (-> item
+                            (assoc :device-id device-id)
+                            (dissoc :id))}
+                false)))
 
   :delete-enacted? (fn [{item ::item}]
              (let [device-id (:device-id item)
@@ -441,27 +441,31 @@
 
   :respond-with-entity? (fn [ctx] (constantly true)) ;; the only way to return 200 ok
   :new? (fn [ctx] (constantly false))
+  :can-put-to-missing? (fn [_] (constantly false))
 
   :put! (fn [{item ::item request :request}]
-         (let [body          (-> (:body request) read-json-body ->shallow-kebab-map)
-               entity-id     (-> item :entity-id)
-               [username _]  (sec/get-username-password request querier)
-               user-id       (-> (items querier :user {:username username}) first :id)
-               device-id     (-> item :device-id)]
-           (upsert! commander :device (-> body
-                                          stringify-values
-                                          (assoc :id device-id)
-                                          (assoc :user-id user-id)
-                                          (dissoc :readings)
-                                          (update-in [:location] encode)))
-           (doseq [reading (:readings body)]
-             (let [sensor (-> reading
-                              stringify-values
-                              (assoc :device-id device-id)
-                              (assoc :errors 0)
-                              (assoc :events 0))]
-               (upsert! commander :sensor (->shallow-kebab-map sensor))
-               (upsert! commander :sensor-metadata (->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])}))))))
+          (if-not (nil? item)
+            (let [body          (-> (:body request) read-json-body ->shallow-kebab-map)
+                  entity-id     (-> item :entity-id)
+                  [username _]  (sec/get-username-password request querier)
+                  user-id       (-> (items querier :user {:username username}) first :id)
+                  device-id     (-> item :device-id)]
+              (upsert! commander :device (-> body
+                                             stringify-values
+                                             (assoc :id device-id)
+                                             (assoc :user-id user-id)
+                                             (dissoc :readings)
+                                             (update-in [:location] encode)))
+              (doseq [reading (:readings body)]
+                (let [sensor (-> reading
+                                 stringify-values
+                                 (assoc :device-id device-id)
+                                 (assoc :errors 0)
+                                 (assoc :events 0))]
+                  (upsert! commander :sensor (->shallow-kebab-map sensor))
+                  (upsert! commander :sensor-metadata 
+                           (->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])})))))
+            (ring-response {:status 404 :body "Please provide valid entityId and deviceId"})))
   
   :handle-ok (fn [{item ::item}]
                (-> item
