@@ -86,8 +86,8 @@
 (defn remove-bad-readings
   "Filters out errored measurements."
   [m]
-  (and (not (zero? (get-in m [:value])))
-       (= "true" (get-in m [:metadata :is-number]))
+  (and (= "true" (get-in m [:metadata :is-number]))
+       (not (zero? (get-in m [:value])))
        (not= "true" (get-in m [:metadata :median-spike]))))
 
 (defn median
