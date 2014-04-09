@@ -11,7 +11,7 @@
    [clojure.java.io :as io]
    [hiccup.core :refer (html)]
    [kixi.hecuba.security :as sec]
-   [clojure.tools.logging :refer :all]
+   [clojure.tools.logging :as log]
    [liberator.core :refer (resource defresource)]
    [com.stuartsierra.component :as component]))
 
@@ -127,10 +127,13 @@
 (defrecord MainRoutes [context]
   component/Lifecycle
   (start [this]
+    (log/info "MainRoutes starting")
     (if-let [store (get-in this [:store])]
       (assoc this :routes (make-routes (make-handlers store) store))
       (throw (ex-info "No store!" {:this this}))))
-  (stop [this] this)
+  (stop [this]
+    (log/info "MainRoutes starting")
+    this)
 
   modular.bidi/BidiRoutesContributor
   (routes [this] (:routes this))

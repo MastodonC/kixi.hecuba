@@ -1,6 +1,7 @@
 (ns kixi.hecuba.queue
   "Messaging queue."
   (:require [com.stuartsierra.component :as component]
+            [clojure.tools.logging :as log]
             [clojure.core.async :refer [<! >! chan put! sliding-buffer close! go]]))
 
 (defn put-on-queue [q message]
@@ -13,8 +14,10 @@
 (defrecord Queue [config]
   component/Lifecycle
   (start [this]
+    (log/info "Queue starting")
     (assoc this :queue (create-channels config)))
   (stop [this]
+    (log/info "Queue stopping")
     this))
 
 (defn new-queue [config]

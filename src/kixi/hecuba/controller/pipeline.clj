@@ -116,6 +116,7 @@
 (defrecord Pipeline []
   component/Lifecycle
   (start [this]
+    (log/info "Pipeline starting")
     (let [commander (-> this :store :commander)
           querier   (-> this :store :querier)
           [head others] (build-pipeline commander querier)]

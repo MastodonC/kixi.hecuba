@@ -1,6 +1,7 @@
 (ns kixi.hecuba.application.system
   (:require
    [com.stuartsierra.component :as component]
+   [clojure.tools.logging :as log]
 
    ;; Hecuba custom components
 
@@ -131,6 +132,7 @@
 (defrecord ClojureScriptBuilder []
   component/Lifecycle
   (start [this]
+    (log/info "ClojureScriptBuilder starting")
     (try
       (compile-cljs)
       this

@@ -6,7 +6,9 @@
    [kixi.hecuba.protocols :refer (upsert!)]
    [kixi.hecuba.webutil :refer (read-edn-body)]
    [kixi.hecuba.security :refer (create-hash authorized-with-basic-auth? make-rng)]
-   [com.stuartsierra.component :as component]))
+   [com.stuartsierra.component :as component]
+   [clojure.tools.logging :as log]
+   ))
 
 (defn get-upsert-properties-from-body [rng body]
   (assert (:password body))
@@ -50,11 +52,14 @@
 (defrecord UserApi [context]
   component/Lifecycle
   (start [this]
+    (log/info "UserApi starting")
     (if-let [store (get-in this [:store])]
       (let [handlers (make-handlers (merge store {:rng (make-rng)}))]
         (assoc this :handlers handlers :routes (make-routes handlers)))
       (throw (ex-info "No store!" {:this this}))))
-  (stop [this] this)
+  (stop [this]
+    (log/info "CassandraDirectStore stopping")
+    this)
 
   modular.bidi/BidiRoutesContributor
   (routes [this] (:routes this))

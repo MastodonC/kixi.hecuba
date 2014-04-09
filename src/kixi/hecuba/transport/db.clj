@@ -6,7 +6,9 @@
              [clojurewerkz.cassaforte.cql :as cql]
              [kixi.hecuba.hash :refer (sha1)]
              [kixi.hecuba.protocols :as proto]
-             [com.stuartsierra.component :as component]))
+             [com.stuartsierra.component :as component]
+             [clojure.tools.logging :as log]
+             ))
 
 (defn sha1-keyfn
   "From a given payload, compute an id that is a SHA1 dependent on the given types."
@@ -153,13 +155,16 @@
 (defrecord CassandraDirectStore []
   component/Lifecycle
   (start [this]
+    (log/info "CassandraDirectStore starting")
     (if-let [session (get-in this [:session :session])]
       (assoc this
         :commander (->CassandraDirectCommander session)
         :querier (->CassandraQuerier session))
       (throw (ex-info "Store needs a session" {}))
       ))
-  (stop [this] this))
+  (stop [this]
+    (log/info "CassandraDirectStore stopping")
+    this))
 
 (defn new-direct-store []
   (->CassandraDirectStore))

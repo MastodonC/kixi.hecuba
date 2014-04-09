@@ -2,6 +2,7 @@
   "Component that reads messages off the queue
   and performs appropriate validation/updates metadata."
   (:require [com.stuartsierra.component :as component]
+            [clojure.tools.logging :as log]
             [clojure.core.async :refer [<! >! chan put! sliding-buffer close! go]]
             [kixi.hecuba.data.validate :as v]))
 
@@ -17,15 +18,15 @@
 (defrecord QueueWorker []
   component/Lifecycle
   (start [this]
+    (log/info "QueueWorker starting")
     (let [queue     (get-in this [:queue :queue])
           commander (get-in this [:store :commander])
           querier   (get-in this [:store :querier])]
       (configure-triggers queue commander querier)
       this))
   (stop [this]
+    (log/info "QueueWorker stopping")
     this))
 
 (defn new-queue-worker []
   (->QueueWorker))
-
-

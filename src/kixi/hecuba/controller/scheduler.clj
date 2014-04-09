@@ -8,6 +8,7 @@
             [clojure.walk                         :as walk]
             [kixipipe.pipeline                    :refer [submit-item]]
             [com.stuartsierra.component           :as component]
+            [clojure.tools.logging :as log]
             ))
 
 (j/defjob SubmitToPipeJob
@@ -41,6 +42,7 @@
 
 (defrecord Scheduler [config]
   component/Lifecycle
+  (log/info "Scheduler starting")
   (start [this]
     (let [pipeline (get-in this [:pipeline])]
       (configure-scheduler config pipeline)
