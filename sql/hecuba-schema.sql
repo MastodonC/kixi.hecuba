@@ -1,6 +1,6 @@
 CREATE KEYSPACE test WITH replication = {
-  'class': 'NetworkTopologyStrategy',
-  'datacenter1': '1'
+  'class': 'SimpleStrategy',
+  'replication_factor' : "1"
 };
 
 USE test;
@@ -50,7 +50,7 @@ CREATE TABLE devices (
   name text,
   parent_id text,
   privacy text,
-  synthetic boolean
+  synthetic boolean,
   user_id text
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
@@ -101,6 +101,7 @@ CREATE TABLE entities (
   property_code text,
   property_data text,
   retrofit_completion_date text,
+  metering_point_ids text,
   user_id text
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
