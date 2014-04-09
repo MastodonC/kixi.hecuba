@@ -405,7 +405,7 @@
       (ring-response {:headers {"Location" location}}))))
 
 (defresource device [{:keys [commander querier]} handlers]
-  :allowed-methods #{:get}
+  :allowed-methods #{:get :delete}
   :available-media-types #{"application/json"}
   :authorized? (authorized? querier :device)
 
@@ -416,6 +416,14 @@
                {::item (-> item
                            (assoc :device-id device-id)
                            (dissoc :id))}))
+
+  :delete-enacted? (fn [{item ::item}]
+             (let [device-id (:device-id item)
+                   response  (delete! commander :device device-id)]
+               (if (empty? response) true false)))
+
+  :respond-with-entity? (fn [ctx] (constantly true)) ;; the only way to return 200 ok
+
   :handle-ok (fn [{item ::item}]
                (-> item
                    ;; These are the device's sensors.
