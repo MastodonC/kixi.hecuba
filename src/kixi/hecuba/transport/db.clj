@@ -96,10 +96,10 @@
     (assert session "No session!")
     (assert typ "No type!")
     (binding [cassaclient/*default-session* session]
-      (let [id (gen-key typ payload)]
+      (let [id (if-let [i (:id payload)] i (gen-key typ payload))]
         (cql/insert (get-table typ)
-             (let [id-payload (if id (assoc payload :id id) payload)]
-               (-> id-payload cassandraify)))
+                    (let [id-payload (if id (assoc payload :id id) payload)]
+                      (-> id-payload cassandraify)))
         id)))
 
   (update! [_ typ payload where]

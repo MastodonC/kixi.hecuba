@@ -284,7 +284,9 @@
           user-id       (-> (items querier :user {:username username}) first :id)]
       (when (and project-id property-code)
         (when-not (empty? (first (items querier :project {:id project-id})))
-          {:entity-id (upsert! commander :entity (assoc entity :user-id user-id))}))))
+          {:entity-id (upsert! commander :entity (-> entity
+                                                    (assoc :user-id user-id)
+                                                    (dissoc :device-ids)))}))))
 
   :handle-created
   (fn [{{routes :modular.bidi/routes} :request id :entity-id}]
@@ -297,15 +299,14 @@
       (ring-response {:status 422 :body "Provide valid projectId and propertyCode."}))))
 
 (defresource entity [{:keys [commander querier]} handlers]
-  :allowed-methods #{:get :delete}
+  :allowed-methods #{:get :delete :put}
   :available-media-types #{"application/json"}
   :authorized? (authorized? querier :entity)
 
   :exists?
   (fn [{{{id :entity-id} :route-params} :request}]
     (when-let [item (item querier :entity id)]
-      {::item item}
-      #_(throw (ex-info (format "Cannot find item of id %s")))))
+      {::item item}))
 
   :handle-ok
   (fn [{item ::item {mime :media-type} :representation {routes :modular.bidi/routes route-params :route-params} :request}]
@@ -320,6 +321,19 @@
                        (for [id (:devices-ids item)]
                          [:li id])]])
         "application/json" (-> item (dissoc :user-id) downcast-to-json camelify encode))))
+
+  :put!
+  (fn [{request :request}]
+    (let [entity        (-> request :body read-json-body ->shallow-kebab-map stringify-values)
+          entity-id     (-> entity :entity-id)
+          [username _]  (sec/get-username-password request querier)
+          user-id       (-> (items querier :user {:username username}) first :id)]
+      (upsert! commander :entity (-> entity
+                                     (assoc :user-id user-id)
+                                     (assoc :id entity-id)
+                                     (dissoc :device-ids)))))
+
+  :respond-with-entity? (fn [ctx] (constantly true))
 
   :delete! (fn [{{id :id :as i} ::item}]
              (delete! commander :entity id)))
@@ -364,15 +378,16 @@
                                                        (assoc :user-id user-id)
                                                        (dissoc :readings)
                                                        (update-in [:location] encode)))]
-      (doseq [reading (:readings body)]
-        (let [sensor (-> reading
-                         stringify-values
-                         (assoc :device-id device-id)
-                         (assoc :errors 0)
-                         (assoc :events 0))]
-          (upsert! commander :sensor (->shallow-kebab-map sensor))
-          (upsert! commander :sensor-metadata (->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])}))))
-      {:device-id device-id}))
+      (when-not (empty? (first (items querier :entity {:id entity-id})))
+        (doseq [reading (:readings body)]
+          (let [sensor (-> reading
+                           stringify-values
+                           (assoc :device-id device-id)
+                           (assoc :errors 0)
+                           (assoc :events 0))]
+            (upsert! commander :sensor (->shallow-kebab-map sensor))
+            (upsert! commander :sensor-metadata (->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])}))))
+        {:device-id device-id})))
 
   :handle-ok
   (fn [{items ::items {mime :media-type} :representation {routes :modular.bidi/routes route-params :route-params} :request :as request}]
@@ -395,14 +410,16 @@
 
   :handle-created
   (fn [{{routes :modular.bidi/routes {entity-id :entity-id} :route-params} :request device-id :device-id}]
-    (let [location
-          (path-for routes (:device @handlers)
-                    :entity-id entity-id
-                    :device-id device-id)]
-      (when-not location (throw (ex-info "No path resolved for Location header"
-                                         {:entity-id entity-id
-                                          :device-id device-id})))
-      (ring-response {:headers {"Location" location}}))))
+    (if-not (empty? device-id)
+      (let [location
+            (path-for routes (:device @handlers)
+                      :entity-id entity-id
+                      :device-id device-id)]
+        (when-not location (throw (ex-info "No path resolved for Location header"
+                                           {:entity-id entity-id
+                                            :device-id device-id})))
+        (ring-response {:headers {"Location" location}}))
+      (ring-response {:status 422 :body "Provide valid entityId."}))))
 
 (defresource device [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :delete :put}
@@ -423,7 +440,7 @@
                (if (empty? response) true false)))
 
   :respond-with-entity? (fn [ctx] (constantly true)) ;; the only way to return 200 ok
-
+  :new? (fn [ctx] (constantly false))
 
   :put! (fn [{item ::item request :request}]
          (let [body          (-> (:body request) read-json-body ->shallow-kebab-map)
@@ -431,11 +448,12 @@
                [username _]  (sec/get-username-password request querier)
                user-id       (-> (items querier :user {:username username}) first :id)
                device-id     (-> item :device-id)]
-           (update! commander :device (-> body
+           (upsert! commander :device (-> body
                                           stringify-values
+                                          (assoc :id device-id)
                                           (assoc :user-id user-id)
                                           (dissoc :readings)
-                                          (update-in [:location] encode)) {:id device-id})
+                                          (update-in [:location] encode)))
            (doseq [reading (:readings body)]
              (let [sensor (-> reading
                               stringify-values
@@ -443,8 +461,7 @@
                               (assoc :errors 0)
                               (assoc :events 0))]
                (upsert! commander :sensor (->shallow-kebab-map sensor))
-               (upsert! commander :sensor-metadata (->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])}))))
-           {:device-id device-id}))
+               (upsert! commander :sensor-metadata (->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])}))))))
   
   :handle-ok (fn [{item ::item}]
                (-> item
