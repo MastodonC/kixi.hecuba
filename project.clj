@@ -21,7 +21,9 @@
                  ;; EDN reader with location metadata - for configuration
                  [org.clojure/tools.reader "0.8.3"]
 
-                 [liberator "0.11.0"]
+                 ;; using a patched liberator pending
+                 ;; https://github.com/clojure-liberator/liberator/pull/120
+                 [kixi/liberator "0.12.0-p1"]
                  [cheshire "5.3.1"]
 
                  ;; Required for Cassandra (possibly only OSX)
