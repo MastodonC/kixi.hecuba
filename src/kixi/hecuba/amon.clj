@@ -144,7 +144,7 @@
   :handle-created
   (fn [{id :programme-id {routes :modular.bidi/routes} :request}]
     (let [location (path-for routes (:programme @handlers) :programme-id id)]
-      (ring-response {:headers {"Location" location}}))))
+      (ring-response {:headers {"Location" location} :body (encode {:location location :status "OK" :version "4"})}))))
 
 (defresource programme [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
@@ -213,7 +213,7 @@
   :handle-created
   (fn [{id :project-id {routes :modular.bidi/routes} :request}]
     (let [location (path-for routes (:project @handlers) :project-id id)]
-      (ring-response {:headers {"Location" location}}))))
+      (ring-response {:headers {"Location" location} :body (encode {:location location :status "OK" :version "4"})}))))
 
 (defresource project [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
@@ -295,7 +295,7 @@
         (when-not location
           (throw (ex-info "No path resolved for Location header"
                           {:entity-id id})))
-        (ring-response {:headers {"Location" location}}))
+        (ring-response {:headers {"Location" location} :body (encode {:location location :status "OK" :version "4"})}))
       (ring-response {:status 422 :body "Provide valid projectId and propertyCode."}))))
 
 (defresource entity [{:keys [commander querier]} handlers]
@@ -418,7 +418,7 @@
         (when-not location (throw (ex-info "No path resolved for Location header"
                                            {:entity-id entity-id
                                             :device-id device-id})))
-        (ring-response {:headers {"Location" location}}))
+        (ring-response {:headers {"Location" location} :body (encode {:location location :status "OK" :version "4"})}))
       (ring-response {:status 422 :body "Provide valid entityId."}))))
 
 (defresource device [{:keys [commander querier]} handlers]
