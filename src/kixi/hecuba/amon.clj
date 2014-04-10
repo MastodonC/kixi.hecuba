@@ -800,38 +800,38 @@
   ["/" (->WrapMiddleware
         [
          ["programmes/" (:programmes handlers)]
-         ["programmes" (->Redirect 307 (:programmes handlers))]
+         ["programmes" (->Redirect 301 (:programmes handlers))]
          [["programmes/" [sha1-regex :programme-id]] (:programme handlers)]
          [["programmes/" [sha1-regex :programme-id] "/projects/"] (:projects handlers)]
-         [["programmes/" [sha1-regex :programme-id] "/projects"] (:projects handlers)] ;;TODO redirect after https://github.com/juxt/bidi/issues/14
+         [["programmes/" [sha1-regex :programme-id] "/projects"] (->Redirect 301 (:projects handlers))]
 
          ["projects/" (:allprojects handlers)]
-         ["projects" (->Redirect 307 (:allprojects handlers))]
+         ["projects" (->Redirect 301 (:allprojects handlers))]
          [["projects/" [sha1-regex :project-id]] (:project handlers)]
          [["projects/" [sha1-regex :project-id] "/properties/"] (:properties handlers)]
-         [["projects/" [sha1-regex :project-id] "/properties"] (:properties handlers)] ;;TODO redirect after https://github.com/juxt/bidi/issues/14
+         [["projects/" [sha1-regex :project-id] "/properties"] (->Redirect 301 (:properties handlers))]
 
 
          ["entities/" (:entities handlers)]
-         ["entities" (->Redirect 307 (:entities handlers))]
+         ["entities" (->Redirect 301 (:entities handlers))]
          [["entities/" [sha1-regex :entity-id]] (:entity handlers)]
          [["entities/" [sha1-regex :entity-id] "/datasets/"] (:datasets handlers)]
-         [["entities/" [sha1-regex :entity-id] "/datasets"] (:datasets handlers)] ;;TODO redirect after https://github.com/juxt/bidi/issues/14
+         [["entities/" [sha1-regex :entity-id] "/datasets"] (->Redirect 301 (:datasets handlers))]
 
          [["entities/" [sha1-regex :entity-id] "/datasets/" :name] (:dataset handlers)]
          [["entities/" [sha1-regex :entity-id] "/sensors/"] (:sensors-by-property handlers)]
-         [["entities/" [sha1-regex :entity-id] "/sensors"] (:sensors-by-property handlers)] ;;TODO redirect after https://github.com/juxt/bidi/issues/14
+         [["entities/" [sha1-regex :entity-id] "/sensors"] (->Redirect 301 (:sensors-by-property handlers))]
 
          [["entities/" [sha1-regex :entity-id] "/devices/"] (:devices handlers)]
-         [["entities/" [sha1-regex :entity-id] "/devices"] (:devices handlers)] ;;TODO redirect after https://github.com/juxt/bidi/issues/14
+         [["entities/" [sha1-regex :entity-id] "/devices"] (->Redirect 301 (:devices handlers))]
 
 
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id]] (:device handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/metadata/"] (:sensor-metadata handlers)]
-         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/metadata/"] (:sensor-metadata handlers)] ;;TODO redirect after https://github.com/juxt/bidi/issues/14
+         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/metadata/"] (->Redirect 301 (:sensor-metadata handlers))]
 
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements/"] (:measurements handlers)]
-         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements/"] (:measurements handlers)] ;;TODO redirect after https://github.com/juxt/bidi/issues/14
+         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements"] (->Redirect 301 (:measurements handlers))]
 
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements/" :reading-type] (:measurement-slice handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements/" :reading-type "/" :timestamp] (:measurement handlers)]

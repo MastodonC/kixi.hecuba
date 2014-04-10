@@ -11,6 +11,8 @@
                  [org.clojure/clojurescript "0.0-2173" :scope "provided"]
                  [org.clojure/core.async "0.1.267.0-0d7780-alpha" :scope "provided"]
 
+                 [kixi/bidi "1.10.3-p0-b569a50"]
+
                  ;; Modular
                  [juxt/modular "0.2.0"]
                  [juxt.modular/http-kit "0.2.0"]
@@ -70,7 +72,9 @@
              :uberjar {:main kixi.hecuba.controller.main :aot [kixi.hecuba.controller.main]}}
 
   :exclusions [[org.clojure/clojurescript]
-               [org.clojure/core.async]]
+               [org.clojure/core.async]
+               [bidi]
+               ]
 
   :cljsbuild {
     :builds [{:id "dev"
