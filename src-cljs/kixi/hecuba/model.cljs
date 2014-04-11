@@ -48,7 +48,8 @@
                                                     :header   {:cols {:addressStreetTwo {:label "Address" :href "href"}
                                                                       :addressCounty    {:label "County"}
                                                                       :addressCountry   {:label "Country"}
-                                                                      :addressRegion    {:label "Region"}}
+                                                                      :addressRegion    {:label "Region"}
+                                                                      :propertyCode     {:label "Property Code"}}
                                                                :sort [:addressStreetTwo]}
                                                     :data     []
                                                     :selected nil
