@@ -207,13 +207,18 @@
     (let [body          (-> request :body)
           [username _]  (sec/get-username-password request querier)
           user-id       (-> (items querier :user {:username username}) first :id)
-          project       (-> request decode-body stringify-values)]
-      {:project-id (upsert! commander :project (assoc project :user-id user-id))}))
+          project       (-> request decode-body stringify-values)
+          programme-id  (-> project :programme-id)]
+      
+      (when (and programme-id (not (empty? (item querier :programme programme-id))))
+        {:project-id (upsert! commander :project (assoc project :user-id user-id))})))
 
   :handle-created
   (fn [{id :project-id {routes :modular.bidi/routes} :request}]
-    (let [location (path-for routes (:project @handlers) :project-id id)]
-      (ring-response {:headers {"Location" location} :body (encode {:location location :status "OK" :version "4"})}))))
+    (if id
+      (let [location (path-for routes (:project @handlers) :project-id id)]
+        (ring-response {:headers {"Location" location} :body (encode {:location location :status "OK" :version "4"})}))
+      (ring-response {:status 404 :body "Please provide valid project name and programmeId."}))))
 
 (defresource project [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}

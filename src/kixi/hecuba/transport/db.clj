@@ -24,7 +24,7 @@
 
 (defmulti gen-key (fn [typ payload] typ))
 (defmethod gen-key :programme [typ payload] ((sha1-keyfn :name) payload))
-(defmethod gen-key :project [typ payload] ((sha1-keyfn :name) payload))
+(defmethod gen-key :project [typ payload] ((sha1-keyfn :name :programme-id) payload))
 (defmethod gen-key :entity [typ payload] ((sha1-keyfn :property-code :project-id) payload))
 (defmethod gen-key :device [typ payload] ((sha1-keyfn :description :entity-id) payload))
 
