@@ -103,7 +103,7 @@
   [m]
   (map (fn [m]
          (-> m
-             (assoc-in [:value] (when-let [value (:value m)] (read-string value)))
+             (assoc-in [:value] (let [value (:value m)] (if-not (empty? value) (read-string value) nil)))
              (assoc-in [:metadata] (when-let [metadata (:metadata m)] (read-string metadata)))))
        m))
 
