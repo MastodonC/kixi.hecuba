@@ -98,7 +98,7 @@
                        "CUMULATIVE" (fn [measurements] (reduce + measurements))
                        "INSTANT"    (fn [measurements] (/ (reduce + measurements) (count measurements)))
                        "PULSE"      (fn [measurements] (reduce + measurements)))]
-    (when-not (and (empty? measurements) (empty? filtered))
+    (when-not (empty? filtered)
       (let [invalid (/ (count filtered) (count measurements))]
         (when-not (and (not= invalid 1) (> invalid 0.10))
           (upsert! commander :hourly-rollups {:value (str (funct filtered))
