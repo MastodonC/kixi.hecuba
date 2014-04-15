@@ -82,7 +82,7 @@
 ;;;;;;;;;;;;;;;;; Generate measurements ;;;;;;;;;;;;;;;;
 
 (defn timestamps [frequency]
-  (into [] (take 50 (periodic/periodic-seq (t/date-time (t/year (t/now)) (t/month (t/now))) frequency))))
+  (into [] (take 500 (periodic/periodic-seq (t/date-time (t/year (t/now)) (t/month (t/now))) frequency))))
 
 (defn get-month [timestamp]
    (str (t/year timestamp) "-" (t/month timestamp)))

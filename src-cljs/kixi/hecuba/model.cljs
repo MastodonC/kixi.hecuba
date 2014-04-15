@@ -93,6 +93,7 @@
                                                        }}
                             :chart    {:property ""
                                        :sensor ""
+                                       :unit ""
                                        :range {}
                                        :measurements []
                                        :message ""

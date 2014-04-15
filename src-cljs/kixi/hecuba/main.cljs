@@ -63,9 +63,7 @@
       (vector new-selected
               (map-replace template ids)))))
 
-(defn ajax [in data path {:keys [template
-                                 selection-key
-                                 content-type]}]
+(defn ajax [in data path {:keys [template selection-key content-type]} & [chart]]
   (go-loop []
     (when-let [[new-selected uri] (uri-for-selection-change (:selected @data)
                                                             selection-key
@@ -74,6 +72,10 @@
       (when uri
         (GET uri
              (-> {:handler  (fn [x]
+                              (when (= selection-key :sensor)
+                                (let [[type _] (str/split new-selected #"-")
+                                      unit     (:unit (first (filter #(= (:type %) type) (:readings x))))]
+                                  (om/update! chart :unit unit)))
                               (om/update! data (conj path :data) x)
                               (om/update! data (conj path :selected) new-selected))
                   :headers {"Accept" content-type}
@@ -100,8 +102,8 @@
                                                       template
                                                       (<! in))]
       (let [[start-date end-date] search
-            entity-id             (get ids :property)
-            sensor-id             (get ids :sensor)
+            entity-id                  (get ids :property)
+            sensor-id                  (get ids :sensor)
             [type device-id]      (str/split sensor-id #"-")]
         ;; TODO ajax call should not be made on each change, only on this particular cursor update.
         (when (and (not (empty? start-date))
@@ -289,7 +291,7 @@
                                                  :selection-key :device})
           (ajax (tap-history) tables [:sensors] {:template "/4/entities/:property/devices/:device"
                                                  :content-type "application/json"
-                                                 :selection-key :sensor})
+                                                 :selection-key :sensor} (:chart data))
           (ajax (tap-history) tables [:sensor-select] {:template     "/4/entities/:property/sensors"
                                                        :content-type "application/json"
                                                        :selection-key :property})
