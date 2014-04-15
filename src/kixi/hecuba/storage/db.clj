@@ -120,7 +120,6 @@
     (alia/execute session
      (hayt/delete (get-table typ) (hayt/columns columns) (hayt/where (cassandraify-v where))))))
 
-;; TODO de-cassandraify on exit?
 (deftype CassandraQuerier [session]
   proto/Querier
   (item [_ typ id]

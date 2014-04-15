@@ -10,6 +10,8 @@
    [cljs-time.format :as tf]
    [kixi.hecuba.navigation :as nav]
    [kixi.hecuba.chart :as chart]
+   [kixi.hecuba.mult-charts :as mchart]
+   [kixi.hecuba.properties :as properties]
    [kixi.hecuba.common :refer (index-of map-replace find-first interval)]
    [kixi.hecuba.history :as history]
    [kixi.hecuba.model :refer (app-model)]
@@ -20,6 +22,55 @@
 (defn blank-tab [data owner]
   (om/component
       (dom/p nil "This page is unintentionally left blank")))
+
+(defn get-properties [projects data]
+  (doseq [project projects]
+    (GET (str "/4/projects/" (:id project) "/properties")
+         {:handler #(om/update! data [:properties :properties] (concat (-> @data :properties :properties) %))
+          :headers {"Accept" "application/json"}
+          :response-format :json
+          :keywords? true})))
+
+(defn properties-tab [data owner]
+  (reify
+    om/IInitState
+    (init-state [_]
+      {:chan {:clicked (chan (sliding-buffer 1))}})
+    om/IWillMount
+    (will-mount [this]
+      (GET "/4/projects/" {:handler #(get-properties % data)
+                           :headers {"Accept" "application/json"}
+                           :response-format :json
+                           :keywords? true}))
+    om/IRenderState
+    (render-state [_ {:keys [chan]}]
+      (dom/div nil
+         (dom/div #js {:className "panel-group" :id "accordion"}
+           (dom/div #js {:className "panel panel-default"}
+              (dom/div #js {:className "panel-heading"}
+                (dom/h3 #js {:className "panel-title"}
+                  (dom/a #js {:data-toggle "collapse" :data-parent "#accordion" :href "#collapseOne"}
+                         "Properties")))
+              (dom/div #js {:id "collapseOne" :className "panel-collapse collapse in"}
+                (dom/div #js {:className "panel-body"}
+                  (om/build properties/properties-select-table (:properties data) {:init-state chan}))))
+           (dom/div #js {:className "panel panel-default"}
+             (dom/div #js {:className "panel-heading"}
+               (dom/h3 #js {:className "panel-title"}
+                  (dom/a #js {:data-toggle "collapse" :data-parent "#accordion" :href "#collapseTwo"}
+                          "Devices")))
+             (dom/div #js {:id "collapseTwo" :className "panel-collapse collapse in"}
+                (dom/div #js {:className "panel-body"}
+                   (om/build properties/devices-select-table (:devices data) {:init-state chan})))))
+         (dom/br nil)
+         (dom/div #js {:className "panel-group"}
+           (dom/div #js {:className "panel panel-default"}
+              (dom/div #js {:className "panel-heading"}
+                (dom/h3 #js {:className "panel-title"} "Chart"))
+              (dom/div #js {:className "panel-body"}
+                ;;build chart component
+                                    )))
+         ))))
 
 (defn charts-tab [data owner]
   (om/component
@@ -374,6 +425,7 @@
 
 (om/root (tab-container {:about about-tab
                          :programmes programmes-tab
+                         :properties properties-tab
                          :charts charts-tab
                          :documentation documentation-tab
                          :users users-tab})

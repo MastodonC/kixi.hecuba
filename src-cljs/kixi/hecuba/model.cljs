@@ -20,6 +20,11 @@
                     :tabs [{:name :about :title "About"}
                            {:name :documentation :title "Documentation"}
                            {:name :users :title "Users"}
+                           {:name :properties
+                            :title "Properties"
+                            :properties {:properties []}
+                            :devices {:devices []}
+                            }
                            {:name     :programmes
                             :title    "Programmes"
                             :tables   {:programmes {:name     "Programmes"
@@ -97,6 +102,7 @@
                                        :range {}
                                        :measurements []
                                        :message ""
-                                       }}
+                                       }
+                            }
 
                            ]}}))

@@ -30,8 +30,9 @@
                           #js {:className "active"})
                         (dom/a #js {:href "#"
                                     :onClick (fn [e]
-                                               (om/transact! data :active (constantly (:name (om/read item om/value))))
-                                               (put! out (:name (om/read item om/value))))}
+                                               (let [name (:name @item)]
+                                                 (om/transact! data :active (constantly name))
+                                                 (put! out name)))}
                              (:label item))))))))))
 
 
