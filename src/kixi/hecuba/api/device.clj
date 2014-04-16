@@ -67,7 +67,11 @@
   (fn [{items ::items {mime :media-type} :representation {routes :modular.bidi/routes route-params :route-params} :request :as req}]
     (util/render-items req (->> items
                                 (map #(dissoc % :user-id))
-                                (map #(update-in % [:location] json/decode)))))
+                                (map #(update-in % [:location] json/decode))
+                                (map #(update-in % [:metadata] json/decode))
+                                (map util/downcast-to-json)
+                                (map util/camelify)
+                                json/encode)))
 
   :handle-created
   (fn [{{routes :modular.bidi/routes {entity-id :entity-id} :route-params} :request device-id :device-id}]
@@ -144,5 +148,8 @@
                    ;; Specifially, we are keeping the following line commented :-
                    ;; (assoc :measurements (hecuba/items querier :measurement {:device-id (:id item)}))
                    (update-in [:location] json/decode)
+                   (update-in [:metadata] json/decode)
                    (dissoc :user-id)
-                   util/downcast-to-json util/camelify json/encode)))
+                   util/downcast-to-json
+                   util/camelify
+                   json/encode)))
