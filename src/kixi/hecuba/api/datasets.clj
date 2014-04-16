@@ -6,7 +6,7 @@
    [kixi.hecuba.queue :as q]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid)]
+   [kixi.hecuba.webutil :refer (decode-body authorized? uuid routes-from)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]))
 
@@ -65,10 +65,9 @@
 
 (defn index-handle-created [handlers req]
   (let [route-params (:route-params req)
-        routes       (:modular.bidi/routes route-params)
         {:keys [name entity-id]} route-params
         name         (:name route-params)
-        location     (bidi/path-for routes
+        location     (bidi/path-for (routes-from ctx)
                                (:dataset @handlers)
                                :entity-id entity-id
                                :name name)]
