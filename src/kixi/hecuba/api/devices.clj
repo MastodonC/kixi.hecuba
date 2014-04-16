@@ -166,4 +166,4 @@
   :new? (constantly false)
   :can-put-to-missing? (constantly false)
   :put! (partial resource-put! querier commander)
-  :handle-ok resource-handle-ok)
+  :handle-ok (partial resource-handle-ok querier))

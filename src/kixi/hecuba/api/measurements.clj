@@ -29,10 +29,12 @@
     (util/render-items request measurements)))
 
 (defn index-post! [commander querier queue ctx]
-  (let [{{{:keys [device-id]} :route-params} :request :as req} ctx
-        topic         (get-in queue ["measurements"])
-        measurements  (:measurements (decode-body req))
-        type          (get (first  measurements) "type")]
+  (let [request      (:request ctx)
+        route-params (:route-params request)
+        device-id    (:device-id route-params)
+        topic        (get-in queue ["measurements"])
+        measurements (:measurements (decode-body request))
+        type         (get (first  measurements) "type")]
     (if (and device-id type (not (empty? (first (hecuba/items querier :sensor {:device-id device-id :type type})))))
       (do
         (doseq [measurement measurements]
