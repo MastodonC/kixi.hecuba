@@ -10,32 +10,45 @@
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]))
 
+(defn- entity-id-from [ctx]
+  (get-in ctx [:request :route-params :entity-id]))
+
+(defn- device-id-from [ctx]
+  (get-in ctx [:request :route-params :device-id]))
+
+(defn metadata-exists? [querier ctx]
+  (when-let [items (hecuba/items querier :sensor-metadata {:device-id (device-id-from ctx)})]
+    {::items items}))
+
+(defn metadata-handle-ok []
+    {::items items}
+         ;downcast-to-json
+         ;camelify
+         ;encode
+         )
+
+(defn index-by-property-handle-ok [querier ctx]
+  (let [devices (hecuba/items querier
+                              :device
+                              {:entity-id (entity-id-from ctx)})
+        sensors (mapcat (fn [{:keys [id location]}]
+                          (map #(assoc % :location (json/decode location))
+                               (hecuba/items querier
+                                             :sensor {:device-id id})))
+                        devices)]
+    (util/render-items request sensors)))
+
 (defresource metadata [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
   :available-media-types #{"text/html" "application/json"}
   :known-content-type? #{"application/json"}
   :authorized? (authorized? querier :device)
-
-  :exists? (fn [{{{:keys [entity-id device-id]} :route-params} :request}]
-             (when-let [items (hecuba/items querier :sensor-metadata {:device-id device-id})]
-               {::items items}))
-
-  :handle-ok
-  (fn [{items ::items {mime :media-type} :representation {routes :modular.bidi/routes route-params :route-params} :request :as request}]
-    items
-         ;downcast-to-json
-         ;camelify
-         ;encode
-         ))
+  :exists? (partial metadata-exists? querier)
+  :handle-ok (partial metadata-handle-ok))
 
 (defresource index-by-property [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}
   :authorized? (authorized? querier :measurement)
-  :handle-ok (fn [{{{:keys [entity-id]} :route-params} :request
-                  {mime :media-type} :representation :as req}]
-               (let [devices (hecuba/items querier :device {:entity-id entity-id})
-                     sensors (mapcat (fn [{:keys [id location]}]
-                                       (map #(assoc % :location (json/decode location)) (hecuba/items querier :sensor {:device-id id}))) devices)]
-                 (util/render-items req sensors))))
+  :handle-ok (index-by-property-handle-ok ))
