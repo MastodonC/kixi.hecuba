@@ -363,7 +363,7 @@
         {entity-id :entity-id} :route-params
         method :request-method} :request}]
     (case method
-      :post (let [body (-> body read-json-body ->shallow-kebab-map)]
+      :post (let [body (-> body read-json-body ->shallow-kebab-map)] ;; This turns json into a clojure map
               ;; We need to assert a few things
               (if
                   (or
@@ -379,10 +379,11 @@
           [username _]  (sec/get-username-password request querier)
           user-id       (-> (items querier :user {:username username}) first :id)
           device-id     (upsert! commander :device (-> body
-                                                       stringify-values
                                                        (assoc :user-id user-id)
+                                                       (update-in [:metadata] encode)
+                                                       (update-in [:location] encode)
                                                        (dissoc :readings)
-                                                       (update-in [:location] encode)))]
+                                                       stringify-values))]
       (when-not (empty? (first (items querier :entity {:id entity-id})))
         (doseq [reading (:readings body)]
           (let [sensor (-> reading
