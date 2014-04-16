@@ -107,7 +107,7 @@
       camelify
       encode))
 
-(defmulti render-item (comp first :content-type) :default :unknown)
+(defmulti render-item :content-type :default :unknown)
 (defmethod render-item :unknown [_ item]
    ;; If content type is unknown return it to liberator unchanged and
   ;; liberator may render it
@@ -121,6 +121,8 @@
             (pprint item))]]))
 
 (defmethod render-item "application/edn" [_ item] (pr-str item))
+
+(defmethod render-item "application/json" [_ item] (-> item downcast-to-json camelify encode))
 
 (defn assoc-conj
   "Associate a key with a value in a map. If the key already exists in the map,

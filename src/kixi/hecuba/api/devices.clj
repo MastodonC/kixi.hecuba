@@ -94,8 +94,10 @@
 (defn resource-delete-enacted? [commander ctx]
   (let [{item ::item} ctx
         device-id (:device-id item)
-        response  (hecuba/delete! commander :device device-id)]
-    (if (empty? response) true false)))
+        response1 (hecuba/delete! commander :device {:id device-id})
+        response2 (hecuba/delete! commander :sensor {:device-id device-id})
+        response3 (hecuba/delete! commander :sensor-metadata {:device-id device-id})]
+    (every? empty? [response1 response2 response3])))
 
 (defn resource-put! [querier commander ctx]
   (let [{request :request} ctx]
@@ -106,11 +108,12 @@
             user-id       (-> (hecuba/items querier :user {:username username}) first :id)
             device-id     (-> item :device-id)]
         (hecuba/upsert! commander :device (-> body
-                                              stringify-values
                                               (assoc :id device-id)
                                               (assoc :user-id user-id)
                                               (dissoc :readings)
-                                              (update-in [:location] json/encode)))
+                                              (update-in [:location] json/encode)
+                                              (update-in [:metadata] json/encode)
+                                              stringify-values))
         (doseq [reading (:readings body)]
           (let [sensor (-> reading
                            stringify-values

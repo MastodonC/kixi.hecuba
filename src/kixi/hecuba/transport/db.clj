@@ -106,12 +106,12 @@
     (binding [cassaclient/*default-session* session]
       (cql/update (get-table typ) (cassandraify payload) (apply cassaquery/where (apply concat (cassandraify where))))))
 
-  (delete! [_ typ id]
-    (assert id "No id!")
+  (delete! [_ typ where]
+    (assert where "No where clause!")
     (binding [cassaclient/*default-session* session]
       (cql/delete
        (get-table typ)
-       (cassaquery/where :hecuba/id id)))))
+       (apply cassaquery/where (apply concat (cassandraify where)))))))
 
 
 (deftype CassandraQuerier [session]

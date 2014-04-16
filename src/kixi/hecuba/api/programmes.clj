@@ -45,12 +45,11 @@
     {::item item}))
 
 (defn resource-handle-ok [handlers ctx]
-  (let [request (:request ctx)
-        routes (:modular.bidi/routes request)]
+  (let [request (:request ctx)]
       (util/render-item request
                         (as-> (::item ctx) item
                               (assoc item
-                                :projects (bidi/path-for routes (:projects @handlers)
+                                :projects (bidi/path-for (routes-from ctx) (:projects @handlers)
                                                          :programme-id (:id item)))))))
 
 (defresource index [{:keys [commander querier]} handlers]

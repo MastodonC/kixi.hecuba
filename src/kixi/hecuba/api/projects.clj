@@ -57,7 +57,8 @@
                         (as-> (::item ctx) item
                               (assoc item
                                 :properties (bidi/path-for (routes-from ctx)
-                                                           (:properties @handlers) :project-id (:id item)))))))
+                                                           (:properties @handlers) :project-id (:id item)))
+                              (dissoc item :user-id)))))
 
 (defresource index [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :post}

@@ -48,8 +48,10 @@
   (let [request      (:request ctx)
         route-params (:route-params request)
         ids          (map :id (hecuba/items querier :device route-params))
-        item         (assoc (::item ctx) :device-ids ids)]
-      (util/render-item request item)))
+        item         (assoc (::item ctx))]
+    (util/render-item request (-> item
+                                  (assoc :device-ids (map :id (hecuba/items querier :device route-params)))
+                                  (dissoc :user-id)))))
 
 (defn resource-put! [commander querier ctx]
   (let [request      (:request ctx)
@@ -62,8 +64,8 @@
                                                    :id entity-id)
                                             (dissoc :device-ids)))))
 
-(defn [commander ctx]
-  (hecuba/delete! commander :entity (get-in ctx [::item :id])))
+(defn resource-delete! [commander ctx]
+  (hecuba/delete! commander :entity {:id (get-in ctx [::item :id])}))
 
 (defresource index [{:keys [commander querier]} handlers]
   :allowed-methods #{:post}
