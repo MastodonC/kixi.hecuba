@@ -25,7 +25,7 @@
 
                  ;; using a patched liberator pending
                  ;; https://github.com/clojure-liberator/liberator/pull/120
-                 [kixi/liberator "0.12.0-p1"]
+                 [kixi/liberator "0.12.0-p2-413ee59"]
                  [cheshire "5.3.1"]
 
                  ;; Required for Cassandra (possibly only OSX)

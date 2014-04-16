@@ -104,14 +104,14 @@
 
 (defn make-routes [handlers {:keys [querier commander]}]
   ["/"
-   [["" (->Redirect 307 programmes)]
+   [["" (->Redirect 301 programmes)]
     ["index.html" (:index handlers)]
 
     ["login.html" (->WrapMiddleware (:login-form handlers) wrap-cookies)]
     ["auth" (->WrapMiddleware (:login-handler handlers) (comp wrap-params wrap-cookies))]
 
     ["programmes/" (->Secure (:programmes handlers) querier (:login-form handlers))]
-    ["programmes" (->Redirect 307 programmes)]
+    ["programmes" (->Redirect 301 programmes)]
 
     ["chart.html" chart]
     ["counters.html" counters]
