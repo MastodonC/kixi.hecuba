@@ -10,52 +10,63 @@
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]))
 
+(defn index-handle-ok [querier handlers ctx]
+  (let [request (:request ctx)
+        routes (:modular.bidi/routes request)
+        {:keys [projects programme]} @handlers
+        items (->> (hecuba/items querier :programme)
+                   (map #(-> %
+                             (assoc :projects (bidi/path-for routes projects :programme-id (:id %))
+                                    :href (bidi/path-for routes programme :programme-id (:id %))))))]
+    (util/render-items request items)))
+
+
+(defn index-post! [querier commander ctx]
+  (let [request (:request ctx)
+        [username _]  (sec/get-username-password request querier)
+        user-id       (-> (hecuba/items querier :user {:username username}) first :id)
+        programme     (-> request decode-body stringify-values)]
+    {::programme-id (hecuba/upsert! commander
+                                   :programme (assoc programme :user-id user-id))}))
+
+(defn index-handle-created [handlers ctx]
+    (let [request (:request ctx)
+          routes (:modular.bidi/routes request)
+          location (bidi/path-for routes (:programme @handlers)
+                                  :programme-id (::programme-id ctx))]
+      (ring-response {:headers {"Location" location}
+                      :body (json/encode {:location location
+                                          :status "OK" :version "4"})})))
+
+
+(defn resource-exists? [querier ctx]
+  (when-let [item (hecuba/item querier
+                               :programme (get-in ctx [:request :route-params :programme-id]))]
+    {::item item}))
+
+(defn resource-handle-ok [handlers ctx]
+  (let [request (:request ctx)
+        routes (:modular.bidi/routes request)]
+      (util/render-item request
+                        (as-> (::item ctx) item
+                              (assoc item
+                                :projects (bidi/path-for routes (:projects @handlers)
+                                                         :programme-id (:id item)))))))
+
 (defresource index [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :post}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
   :authorized? (authorized? querier :programme)
-  :handle-ok
-  (fn [{{mime :media-type} :representation {routes :modular.bidi/routes} :request :as req}]
-    (let [{:keys [projects programme]} @handlers
-          _ (log/info "projects:" projects)
-          _ (log/info "programme:" programme)
-          _ (log/info "FOO:"  (hecuba/items querier :programme))
-          items (->> (hecuba/items querier :programme)
-                     (map #(-> %
-                              (assoc :projects (bidi/path-for routes projects :programme-id (:id %)))
-                              ;; TODO Rename :href to :self
-                              (assoc :href (bidi/path-for routes programme :programme-id (:id %)))))
-                    )]
-      (util/render-items req items)))
-
-  :post!
-  (fn [{request :request}]
-    (let [body          (-> request :body)
-          [username _]  (sec/get-username-password request querier)
-          user-id       (-> (hecuba/items querier :user {:username username}) first :id)
-          programme     (-> request decode-body stringify-values)]
-      {:programme-id (hecuba/upsert! commander :programme (assoc programme :user-id user-id))}))
-
-  :handle-created
-  (fn [{id :programme-id {routes :modular.bidi/routes} :request}]
-    (let [location (bidi/path-for routes (:programme @handlers) :programme-id id)]
-      (ring-response {:headers {"Location" location} :body (json/encode {:location location :status "OK" :version "4"})}))))
+  :handle-ok (partial index-handle-ok querier handlers)
+  :post! (partial index-post! querier commander)
+  :handle-created (partial index-handle-created handlers))
 
 (defresource resource [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
   :authorized? (authorized? querier :programme)
-
-  :exists?
-  (fn [{{{programme-id :programme-id} :route-params} :request}]
-    (when-let [item (hecuba/item querier :programme programme-id)]
-      (prn "Programme id for looking up programme: " programme-id)
-      (prn "Programme found: " item)
-      {::item item}))
-
-  :handle-ok
-  (fn [{item ::item {mime :media-type} :representation {routes :modular.bidi/routes} :request :as req}]
-    (let [item (assoc item :projects (bidi/path-for routes (:projects @handlers) :programme-id (:id item)))]
-      (util/render-item req item))))
+  :exists? (partial resource-exists? querier)
+  :handle-ok (partial resource-handle-ok handlers)
+)
