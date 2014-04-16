@@ -14,14 +14,14 @@
    [com.stuartsierra.component :as component]
    [hiccup.core :refer (html)]
    [kixi.hecuba.api.datasets :as datasets]
-   [kixi.hecuba.api.device :as device]
-   [kixi.hecuba.api.entity :as entity]
-   [kixi.hecuba.api.measurement :as measurement]
-   [kixi.hecuba.api.programme :as programme]
-   [kixi.hecuba.api.project :as project]
-   [kixi.hecuba.api.property :as property]
-   [kixi.hecuba.api.rollup :as rollup]
-   [kixi.hecuba.api.sensor :as sensor]
+   [kixi.hecuba.api.devices :as devices]
+   [kixi.hecuba.api.entities :as entities]
+   [kixi.hecuba.api.measurements :as measurements]
+   [kixi.hecuba.api.programmes :as programmes]
+   [kixi.hecuba.api.projects :as projects]
+   [kixi.hecuba.api.properties :as properties]
+   [kixi.hecuba.api.rollups :as rollups]
+   [kixi.hecuba.api.sensors :as sensors]
    [kixi.hecuba.data.misc :as misc]
    [kixi.hecuba.data.validate :as v]
    [kixi.hecuba.protocols :refer (upsert! delete! update! item items)]
@@ -42,27 +42,27 @@
 
 (defn make-handlers [opts queue]
   (let [p (promise)]
-    @(deliver p {:programmes (programme/programmes opts p)
-                 :programme (programme/programme opts p)
+    @(deliver p {:programmes          (programmes/index opts p)
+                 :programme           (programmes/resource opts p)
 
-                 :projects (project/projects opts p)
-                 :allprojects (project/projects opts p)
-                 :project (project/project opts p)
+                 :projects            (projects/index opts p)
+                 :allprojects         (projects/index opts p)
+                 :project             (projects/resource opts p)
 
-                 :properties (property/properties opts p)
-                 :entities (entity/entities opts p)
-                 :entity (entity/entity opts p)
+                 :properties          (properties/index opts p)
+                 :entities            (entities/index opts p)
+                 :entity              (entities/resource opts p)
 
-                 :devices (device/devices opts p)
-                 :device (device/device opts p)
-                 :sensor-metadata (sensor/sensor-metadata opts p)
-                 :measurements (measurement/measurements opts queue p)
-                 :measurement (measurement/measurements-by-reading opts p)
-                 :measurement-slice (measurement/measurements-slice opts p)
-                 :hourly-rollups (rollup/hourly-rollups opts p)
-                 :sensors-by-property (sensor/sensors-by-property opts p)
-                 :datasets (datasets/items opts p)
-                 :dataset (datasets/item opts p)
+                 :devices             (devices/index opts p)
+                 :device              (devices/resource opts p)
+                 :sensor-metadata     (sensors/metadata opts p)
+                 :measurements        (measurements/index opts queue p)
+                 :measurement         (measurements/measurements-by-reading opts p)
+                 :measurement-slice   (measurements/measurements-slice opts p)
+                 :hourly-rollups      (rollups/hourly-rollups opts p)
+                 :sensors-by-property (sensors/index-by-property opts p)
+                 :datasets            (datasets/index opts p)
+                 :dataset             (datasets/resource opts p)
                  })))
 
 

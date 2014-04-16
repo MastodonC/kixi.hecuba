@@ -1,4 +1,4 @@
-(ns kixi.hecuba.api.sensor
+(ns kixi.hecuba.api.sensors
   (:require
    [bidi.bidi :as bidi]
    [cheshire.core :as json]
@@ -10,7 +10,7 @@
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]))
 
-(defresource sensor-metadata [{:keys [commander querier]} handlers]
+(defresource metadata [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
   :available-media-types #{"text/html" "application/json"}
   :known-content-type? #{"application/json"}
@@ -28,7 +28,7 @@
          ;encode
          ))
 
-(defresource sensors-by-property [{:keys [commander querier]} handlers]
+(defresource index-by-property [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}

@@ -1,4 +1,4 @@
-(ns kixi.hecuba.api.measurement
+(ns kixi.hecuba.api.measurements
   (:require
    [bidi.bidi :as bidi]
    [clojure.string :as string]
@@ -31,7 +31,7 @@
                                                                  :timestamp [<= end-date]])]
                  (util/render-items req measurements))))
 
-(defresource measurements [{:keys [commander querier]} queue handlers]
+(defresource index [{:keys [commander querier]} queue handlers]
   :allowed-methods #{:post :get}
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}

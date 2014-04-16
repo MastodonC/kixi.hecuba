@@ -41,7 +41,7 @@
    :synthetic                 true
    })
 
-(defn items-post! [commander req]
+(defn index-post! [commander req]
   (let [route-params           (:route-params req)
         entity-id              (:entity-id route-params)
         {:keys [members name]} (decode-body req)
@@ -57,13 +57,13 @@
     (hash-map :name name
               :entity-id entity-id)))
 
-(defn items-handle-ok [querier req]
+(defn index-handle-ok [querier req]
   (let [route-params (:route-params req)]
     (util/render-items req (hecuba/items querier
                              :dataset
                              (select-keys route-params [:entity-id])))))
 
-(defn items-handle-created [handlers req]
+(defn index-handle-created [handlers req]
   (let [route-params (:route-params req)
         routes       (:modular.bidi/routes route-params)
         {:keys [name entity-id]} route-params
@@ -78,15 +78,15 @@
                        :name :name})))
     (ring-response {:headers {"Location" location}})))
 
-(defresource items [{:keys [commander querier]} handlers]
+(defresource index [{:keys [commander querier]} handlers]
   :allowed-methods       #{:get :post}
   :available-media-types #{"application/edn" "text/html"}
   :authorized?           (authorized? querier :datasets)
-  :post!                 (partial items-post! querier)
-  :handle-ok             (partial items-handle-ok querier)
-  :handle-created        (partial items-handle-created handlers))
+  :post!                 (partial index-post! querier)
+  :handle-ok             (partial index-handle-ok querier)
+  :handle-created        (partial index-handle-created handlers))
 
-(defn item-exists? [querier req]
+(defn resource-exists? [querier req]
   (let [{route-params :route-params} req
         {:keys [entity-id name]} route-params]
     (when-let [item (first (hecuba/items querier :dataset {:entity-id entity-id
@@ -94,7 +94,7 @@
         {::item item}
         #_(throw (ex-info (format "Cannot find item of id %s"))))))
 
-(defn item-post! [commander req]
+(defn resource-post! [commander req]
   (let [{route-params :route-params} req
         {:keys [entity-id name]} route-params
         {:keys [members name]} (decode-body req)
@@ -103,14 +103,14 @@
             :members   (string/join \, members)}]
     (hecuba/upsert! commander :dataset ds)))
 
-(defn item-handle-ok [req]
+(defn resource-handle-ok [req]
   (let [item (::item req)]
     (util/render-item req item)))
 
-(defresource item [{:keys [commander querier]} handlers]
+(defresource resource [{:keys [commander querier]} handlers]
   :allowed-methods       #{:get :post}
   :available-media-types #{"application/edn" "text/html"}
   :authorized?           (authorized? querier :datasets)
-  :exists?               (partial item-exists? querier)
-  :post!                 (partial item-post! commander)
-  :handle-ok             item-handle-ok)
+  :exists?               (partial resource-exists? querier)
+  :post!                 (partial resource-post! commander)
+  :handle-ok             resource-handle-ok)

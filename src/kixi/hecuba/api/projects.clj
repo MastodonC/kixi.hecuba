@@ -1,4 +1,4 @@
-(ns kixi.hecuba.api.project
+(ns kixi.hecuba.api.projects
   (:require
    [bidi.bidi :as bidi]
    [cheshire.core :as json]
@@ -10,7 +10,7 @@
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]))
 
-(defresource projects [{:keys [commander querier]} handlers]
+(defresource index [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :post}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/json"}
@@ -40,7 +40,7 @@
     (let [location (bidi/path-for routes (:project @handlers) :project-id id)]
       (ring-response {:headers {"Location" location} :body (json/encode {:location location :status "OK" :version "4"})}))))
 
-(defresource project [{:keys [commander querier]} handlers]
+(defresource resource [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/json"}

@@ -1,4 +1,4 @@
-(ns kixi.hecuba.api.device
+(ns kixi.hecuba.api.devices
   (:require
    [bidi.bidi :as bidi]
    [cheshire.core :as json]
@@ -11,7 +11,7 @@
    [liberator.representation :refer (ring-response)]
 ))
 
-(defresource devices [{:keys [commander querier]} handlers]
+(defresource index [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :post}
   :available-media-types #{"text/html" "application/json"}
   :known-content-type? #{"application/json"}
@@ -86,7 +86,7 @@
         (ring-response {:headers {"Location" location} :body (json/encode {:location location :status "OK" :version "4"})}))
       (ring-response {:status 422 :body "Provide valid entityId."}))))
 
-(defresource device [{:keys [commander querier]} handlers]
+(defresource resource [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :delete :put}
   :available-media-types #{"application/json"}
   :authorized? (authorized? querier :device)

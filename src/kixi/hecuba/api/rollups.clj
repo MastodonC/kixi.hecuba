@@ -1,4 +1,4 @@
-(ns kixi.hecuba.api.rollup
+(ns kixi.hecuba.api.rollups
   (:require
    [bidi.bidi :as bidi]
    [clojure.string :as string]

@@ -1,4 +1,4 @@
-(ns kixi.hecuba.api.entity
+(ns kixi.hecuba.api.entities
   (:require
    [bidi.bidi :as bidi]
    [cheshire.core :as json]
@@ -10,7 +10,7 @@
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]))
 
-(defresource entities [{:keys [commander querier]} handlers]
+(defresource index [{:keys [commander querier]} handlers]
   :allowed-methods #{:post}
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}
@@ -40,7 +40,7 @@
         (ring-response {:headers {"Location" location} :body (json/encode {:location location :status "OK" :version "4"})}))
       (ring-response {:status 422 :body "Provide valid projectId and propertyCode."}))))
 
-(defresource entity [{:keys [commander querier]} handlers]
+(defresource resource [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :delete :put}
   :available-media-types #{"application/json"}
   :authorized? (authorized? querier :entity)

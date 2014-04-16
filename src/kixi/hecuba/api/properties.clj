@@ -1,4 +1,4 @@
-(ns kixi.hecuba.api.property
+(ns kixi.hecuba.api.properties
   (:require
    [bidi.bidi :as bidi]
    [cheshire.core :as json]
@@ -9,7 +9,7 @@
    [liberator.core :refer (defresource)]
    ))
 
-(defresource properties [{:keys [commander querier]} handlers]
+(defresource index [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
   :available-media-types #{"application/json" "application/edn" "text/html"}
   :authorized? (authorized? querier :property)
