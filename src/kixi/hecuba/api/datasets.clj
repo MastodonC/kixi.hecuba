@@ -41,17 +41,23 @@
    :synthetic                 true
    })
 
-(defn index-post! [commander req]
-  (let [route-params           (:route-params req)
-        entity-id              (:entity-id route-params)
-        {:keys [members name]} (decode-body req)
+(defn- entity-id-from [ctx]
+  (get-in ctx [:request :route-params :entity-id]))
+
+(defn- name-from [ctx]
+  (get-in ctx [:request :route-params :namee]))
+
+(defn index-post! [commander ctx]
+  (let [request                (:request ctx)
+        {:keys [members name]} (decode-body request)
+        entity-id              (entity-id-from ctx)
         members-str            (string/join \, members)
         ds                     {:entity_id entity-id
                                 :name      name
                                 :members   members-str}
         device-id              (hecuba/upsert! commander
-                                        :device
-                                        (synthetic-device entity-id "Synthetic"))]
+                                               :device
+                                               (synthetic-device entity-id "Synthetic"))]
     (hecuba/upsert! commander :sensor (synthetic-sensor device-id))
     (hecuba/upsert! commander :dataset ds)
     (hash-map :name name
@@ -63,10 +69,9 @@
                              :dataset
                              (select-keys route-params [:entity-id])))))
 
-(defn index-handle-created [handlers req]
-  (let [route-params (:route-params req)
-        {:keys [name entity-id]} route-params
-        name         (:name route-params)
+(defn index-handle-created [handlers ctx]
+  (let [entity-id   (entity-id-from ctx)
+        name        (name-from ctx)
         location     (bidi/path-for (routes-from ctx)
                                (:dataset @handlers)
                                :entity-id entity-id
@@ -93,12 +98,11 @@
         {::item item}
         #_(throw (ex-info (format "Cannot find item of id %s"))))))
 
-(defn resource-post! [commander req]
-  (let [{route-params :route-params} req
-        {:keys [entity-id name]} route-params
-        {:keys [members name]} (decode-body req)
-        ds {:entity_id entity-id
-            :name      name
+(defn resource-post! [commander ctx]
+  (let [request (:request ctx)
+        {:keys [members name]} (decode-body request)
+        ds {:entity_id (entity-id-from ctx)
+            :name      (name-from ctx)
             :members   (string/join \, members)}]
     (hecuba/upsert! commander :dataset ds)))
 
