@@ -13,19 +13,20 @@
    [liberator.representation :refer (ring-response)]))
 
 (defn measurements-slice-handle-ok [querier ctx]
-
-  (let [{{{:keys [device-id reading-type]} :route-params
-          query-string :query-string :as request} :request
-          {mime :media-type} :representation} ctx
-        decoded-params (util/decode-query-params query-string)
-        formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")
-        start-date     (.parse formatter (string/replace (get decoded-params "startDate") "%20" " "))
-        end-date       (.parse formatter (string/replace (get decoded-params "endDate") "%20" " "))
-        measurements   (hecuba/items querier :measurement [:device-id device-id
-                                                           :type reading-type
-                                                           :month (util/get-month-partition-key start-date)
-                                                           :timestamp [>= start-date]
-                                                           :timestamp [<= end-date]])]
+  (let [request                (:request ctx)
+        {:keys [route-params
+                query-string]} request
+        {:keys [device-id
+                reading-type]} route-params
+        decoded-params         (util/decode-query-params query-string)
+        formatter              (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")
+        start-date             (.parse formatter (string/replace (get decoded-params "startDate") "%20" " "))
+        end-date               (.parse formatter (string/replace (get decoded-params "endDate") "%20" " "))
+        measurements           (hecuba/items querier :measurement [:device-id device-id
+                                                                   :type reading-type
+                                                                   :month (util/get-month-partition-key start-date)
+                                                                   :timestamp [>= start-date]
+                                                                   :timestamp [<= end-date]])]
     (util/render-items request measurements)))
 
 (defn index-post! [commander querier queue ctx]
@@ -38,15 +39,15 @@
     (if (and device-id type (not (empty? (first (hecuba/items querier :sensor {:device-id device-id :type type})))))
       (do
         (doseq [measurement measurements]
-          (let [t        (util/db-timestamp (get measurement "timestamp"))
-                m        (stringify-values measurement)
-                m2       {:device-id device-id
-                          :type type
-                          :timestamp t
-                          :value (get m "value")
-                          :error (get m "error")
-                          :month (util/get-month-partition-key t)
-                          :metadata "{}"}]
+          (let [t  (util/db-timestamp (get measurement "timestamp"))
+                m  (stringify-values measurement)
+                m2 {:device-id device-id
+                    :type      type
+                    :timestamp t
+                    :value     (get m "value")
+                    :error     (get m "error")
+                    :month     (util/get-month-partition-key t)
+                    :metadata  "{}"}]
             (->> m2
                  (v/validate commander querier)
                  (hecuba/upsert! commander :measurement))
@@ -55,20 +56,21 @@
       {:response {:status 400 :body "Provide valid deviceId and type."}})))
 
 (defn index-handle-ok [querier ctx]
-  (let [{:keys [representation request]} ctx
+  (let [request (:request ctx)
         route-params (:route-params request)
-        device-id (:device-id route-params)
-        mime (:media-type representation)
-        measurements (hecuba/items querier :measurement {:device-id device-id})]
+        where (select-keys route-params [:device-id])
+        measurements (hecuba/items querier :measurement where)]
     (util/render-items request measurements)))
 
-(defn index-handle-created [{response :response {routes :modular.bidi/routes} :request}]
-  (ring-response response))
+(defn index-handle-created [ctx]
+  (ring-response (:response ctx)))
 
 (defn measurements-by-reading-handle-ok [querier ctx]
-  (let [{{{:keys [device-id sensor-type timestamp]} :route-params} :request {mime :media-type} :representation :as req} ctx
+  (let [{:keys [request]} ctx
+        {:keys [route-params]} request
+        {:keys [device-id sensor-type timestamp]} route-params
         measurement (first (hecuba/items querier :measurement {:device-id device-id :type sensor-type :timestamp timestamp}))]
-    (util/render-item req measurement)))
+    (util/render-item request measurement)))
 
 (defresource measurements-slice [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
