@@ -155,17 +155,5 @@
   "Returns java.util.Date from String timestamp."
   [t] (.parse (java.text.SimpleDateFormat.  "yyyy-MM-dd'T'HH:mm:ss") t))
 
-;; (defn resource [& kvs]
-;;   (fn [request]
-;;     (run-resource request (get-options kvs))))
-
-(defmacro defresource [name & kvs]
-  (if (vector? (first kvs))
-    (let [args (first kvs)
-          kvs (rest kvs)]
-      `(defn ~name [~@args]
-         (fn [~'request]
-           (liberator.core/run-resource ~'request (liberator.core/get-options ~kvs)))))
-    `(def ~name
-       (fn [~'request]
-         (liberator.core/run-resource ~'request (liberator.core/get-options ~kvs))))))
+(defn routes-from [ctx]
+  (get-in [:request :modular.bidi/routes]))
