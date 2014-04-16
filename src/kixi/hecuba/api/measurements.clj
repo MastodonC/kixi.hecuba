@@ -1,4 +1,4 @@
-(ns kixi.hecuba.api.mesurements
+(ns kixi.hecuba.api.measurements
   (:require
    [bidi.bidi :as bidi]
    [clojure.string :as string]
