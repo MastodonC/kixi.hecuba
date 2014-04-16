@@ -151,7 +151,7 @@
   :known-content-type? #{"application/json"}
   :authorized? (authorized? querier :device)
   :exists? (partial index-exists? querier)
-  :malformed? (partial index-malformed? querier)
+  :malformed? index-malformed?
   :post! (partial index-post! querier commander)
   :handle-ok (partial index-handle-ok)
   :handle-created (partial index-handle-created handlers))
