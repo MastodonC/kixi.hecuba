@@ -35,7 +35,7 @@
                                (dom/th nil label)))))
          (dom/tbody nil
                     (into-array
-                     (for [{:keys [type deviceId] :as row} (-> sensors :data
+                     (for [{:keys [type deviceId unit] :as row} (-> sensors :data
                                                                (cond-> path path))]
                        (let [id (str type "-" deviceId)]
                          ;; TODO clojurefy ids
@@ -43,6 +43,7 @@
                                  {:onClick (fn [_ _ ]
                                              (om/update! sensors :selected id)
                                              (om/update! chart :sensor id)
+                                             (om/update! chart :unit unit)
                                              (history/update-token-ids! history histkey id)
                                              )
                                   :className (when (= id (:selected sensors)) "success")}

@@ -33,6 +33,7 @@
                                  ))))
 
     (defnconsumer median-calculation-q [item]
+      (log/info "Starting median calculation.")
       (let [sensors (misc/all-sensors querier)]
         (doseq [s sensors]
           (let [device-id (:device-id s)
@@ -47,9 +48,11 @@
                 new-item  (assoc item :sensor s :range range)]
             (when (and range (not= period "PULSE"))
               (checks/median-calculation commander querier table new-item)
-              (misc/reset-date-range querier commander s :median-calc-check (:start-date range) (:end-date range)))))))
+              (misc/reset-date-range querier commander s :median-calc-check (:start-date range) (:end-date range))))))
+      (log/info "Finished median calculation."))
 
     (defnconsumer mislabelled-sensors-q [item]
+      (log/info "Starting mislabelled sensors check.")
       (let [sensors (misc/all-sensors querier)]
         (doseq [s sensors]
           (let [device-id (:device-id s)
@@ -60,9 +63,11 @@
                 new-item  (assoc item :sensor s :range range)]
             (when range
               (checks/mislabelled-sensors commander querier new-item)
-              (misc/reset-date-range querier commander s :mislabelled-sensors-check (:start-date range) (:end-date range)))))))
+              (misc/reset-date-range querier commander s :mislabelled-sensors-check (:start-date range) (:end-date range))))))
+      (log/info "Finished mislabelled sensors check."))
 
     (defnconsumer difference-series-q [item]
+      (log/info "Starting calculation of difference series.")
       (let [sensors (misc/all-sensors querier)]
         (doseq [s sensors]
           (let [device-id (:device-id s)
@@ -73,9 +78,11 @@
                 new-item  (assoc item :sensor s :range range)]
             (when range
               (calculate/difference-series commander querier new-item)
-              (misc/reset-date-range querier commander s :difference-series (:start-date range) (:end-date range)))))))
+              (misc/reset-date-range querier commander s :difference-series (:start-date range) (:end-date range))))))
+      (log/info "Finished calculation of difference series."))
 
     (defnconsumer rollups-q [item]
+      (log/info "Starting rollups.")
       (let [sensors (misc/all-sensors querier)]
         (doseq [s sensors]
           (let [device-id  (:device-id s)
@@ -91,9 +98,11 @@
             (when range
               (calculate/hourly-rollups commander querier new-item)
               (calculate/daily-rollups commander querier new-item)
-              (misc/reset-date-range querier commander s :rollups (:start-date range) (:end-date range)))))))
+              (misc/reset-date-range querier commander s :rollups (:start-date range) (:end-date range))))))
+      (log/info "Finished rollups."))
 
     (defnconsumer spike-check-q [item]
+      (log/info "Starting median spike check.")
       (let [sensors (misc/all-sensors querier)]
         (doseq [s sensors]
           (let [device-id (:device-id s)
@@ -104,7 +113,8 @@
                 new-item  (assoc item :sensor s :range range)]
             (when (and range (not= period "PULSE"))
               (checks/median-spike-check commander querier new-item)
-              (misc/reset-date-range querier commander s :spike-check (:start-date range) (:end-date range)))))))
+              (misc/reset-date-range querier commander s :spike-check (:start-date range) (:end-date range))))))
+      (log/info "Finished median spike check."))
 
     (defnconsumer synthetic-readings-q [item]
       (calculate/generate-synthetic-readings commander querier item))
