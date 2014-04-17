@@ -6,7 +6,7 @@
    [kixi.hecuba.protocols :as hecuba]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex)]
+   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex routes-from)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]))
 

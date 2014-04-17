@@ -20,15 +20,16 @@
   (when-let [items (hecuba/items querier :sensor-metadata {:device-id (device-id-from ctx)})]
     {::items items}))
 
-(defn metadata-handle-ok []
-    {::items items}
+(defn metadata-handle-ok [ctx]
+    {::items ctx}
          ;downcast-to-json
          ;camelify
          ;encode
          )
 
 (defn index-by-property-handle-ok [querier ctx]
-  (let [devices (hecuba/items querier
+  (let [request (:request ctx)
+        devices (hecuba/items querier
                               :device
                               {:entity-id (entity-id-from ctx)})
         sensors (mapcat (fn [{:keys [id location]}]
