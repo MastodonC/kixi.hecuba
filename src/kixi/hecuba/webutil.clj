@@ -71,7 +71,7 @@
 (defmethod decode-body "application/json" [{body :body}] (some-> body read-json-body ->shallow-kebab-map))
 (defmethod decode-body "application/edn" [{body :body}] (some-> body read-edn-body ->shallow-kebab-map))
 
-(defmulti render-items (comp first :content-type) :default :unknown)
+(defmulti render-items :content-type :default :unknown)
 (defmethod render-items :unknown [_ items]
   ;; If content type is unknown return it to liberator unchanged and
   ;; liberator may render it
@@ -102,10 +102,10 @@
   (pr-str (vec items)))
 
 (defmethod render-items "application/json" [_ items]
-  (-> items
-      downcast-to-json
-      camelify
-      encode))
+  (map #(-> %
+             downcast-to-json
+             camelify
+             encode) items))
 
 (defmulti render-item :content-type :default :unknown)
 (defmethod render-item :unknown [_ item]
@@ -158,4 +158,4 @@
   [t] (.parse (java.text.SimpleDateFormat.  "yyyy-MM-dd'T'HH:mm:ss") t))
 
 (defn routes-from [ctx]
-  (get-in [:request :modular.bidi/routes]))
+  (get-in ctx [:request :modular.bidi/routes]))

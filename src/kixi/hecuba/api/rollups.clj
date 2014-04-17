@@ -16,9 +16,13 @@
   :known-content-type? #{"application/json"}
   :authorized? (authorized? querier :measurement) ;; TODO authorization for hourly-rollups
 
-  :handle-ok (fn [{{{:keys [device-id reading-type]} :route-params query-string :query-string}
-                  :request {mime :media-type} :representation :as req}]
-               (let [decoded-params (util/decode-query-params query-string)
+  :handle-ok (fn [ctx]
+               (let [request        (:request ctx)
+                     query-string   (:query-string request)
+                     route-params   (:route-params request)
+                     device-id      (:device-id route-params)
+                     reading-type   (:reading-type route-params)
+                     decoded-params (util/decode-query-params query-string)
                      formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")
                      start-date     (.parse formatter (string/replace (get decoded-params "startDate") "%20" " "))
                      end-date       (.parse formatter (string/replace (get decoded-params "endDate") "%20" " "))
@@ -27,7 +31,7 @@
                                                                     :year (util/get-year-partition-key start-date)
                                                                     :timestamp [>= start-date]
                                                                     :timestamp [<= end-date]])]
-                 (util/render-items req measurements))))
+                 (util/render-items request measurements))))
 
 (defresource daily-rollups [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}

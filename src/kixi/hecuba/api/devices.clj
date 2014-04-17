@@ -11,12 +11,14 @@
    [liberator.representation :refer (ring-response)]))
 
 (defn index-exists? [querier ctx]
-  (let [{{{entity-id :entity-id} :route-params
-          method :request-method} :request} ctx
-        {id :id :as entity} (hecuba/item querier :entity entity-id)]
+  (let [request      (:request ctx)
+        method       (:request-method request)
+        route-params (:route-params request)
+        entity-id    (:entity-id route-params)
+        entity       (hecuba/item querier :entity entity-id)] 
     (case method
       :post (not (nil? entity))
-      :get (let [items (hecuba/items querier :device {:entity-id id})]
+      :get (let [items (hecuba/items querier :device {:entity-id entity-id})]
              {::items items}))))
 
 (defn index-malformed? [ctx]
@@ -129,7 +131,7 @@
   (let [{item ::item} ctx]
     (-> item
         ;; These are the device's sensors.
-        (assoc :readings (hecuba/items querier :sensor (select-keys item [:device-id])))
+        (assoc :readings (map #(dissoc % :user-id) (hecuba/items querier :sensor (select-keys item [:device-id]))))
         ;; Note: We are NOT showing measurements here, in
         ;; contradiction to the AMON API.  There is a
         ;; duplication (or ambiguity) in the AMON API whereby

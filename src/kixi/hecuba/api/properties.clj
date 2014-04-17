@@ -8,7 +8,7 @@
    [liberator.core :refer (defresource)]))
 
 (defn- project-id-from [ctx]
-  (get-in [:request :route-params :project-id]))
+  (get-in ctx [:request :route-params :project-id]))
 
 (defn index-handle-ok [querier handlers ctx]
   (let [request (:request ctx)]

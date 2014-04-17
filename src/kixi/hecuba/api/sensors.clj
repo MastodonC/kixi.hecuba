@@ -52,4 +52,4 @@
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}
   :authorized? (authorized? querier :measurement)
-  :handle-ok (index-by-property-handle-ok ))
+  :handle-ok (partial index-by-property-handle-ok querier))

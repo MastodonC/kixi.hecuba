@@ -33,15 +33,14 @@
         [username _]  (sec/get-username-password request querier)
         user-id       (-> (hecuba/items querier :user {:username username}) first :id)
         project       (-> request decode-body stringify-values)]
-      {:project-id (hecuba/upsert! commander
+      {::project-id (hecuba/upsert! commander
                                    :project (assoc project :user-id user-id))}))
 
 (defn index-handle-created [handlers ctx]
     (let [request (:request ctx)
-          route-params (:route-params request)
           routes (:modular.bidi/routes request)
           location (bidi/path-for routes (:project @handlers)
-                                  :project-id (:project-id route-params))]
+                                  :project-id (::project-id ctx))]
       (ring-response {:headers {"Location" location}
                       :body (json/encode {:location location
                                           :status "OK"

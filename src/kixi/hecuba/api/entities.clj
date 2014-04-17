@@ -19,14 +19,14 @@
         user-id           (-> (hecuba/items querier :user {:username username}) first :id)]
     (when (and project-id property-code)
       (when-not (empty? (first (hecuba/items querier :project {:id project-id})))
-        {:entity-id (hecuba/upsert! commander :entity (-> entity
+        {::entity-id (hecuba/upsert! commander :entity (-> entity
                                                           (assoc :user-id user-id)
                                                           (dissoc :device-ids)))}))))
 
 (defn index-handle-created [handlers ctx]
   (let [request (:request ctx)
-        routes  (:modular.bidi/routes ctx)
-        id      (:entity-id ctx)]
+        routes  (:modular.bidi/routes request)
+        id      (::entity-id ctx)]
     (if-not (empty? id)
       (let [location (bidi/path-for routes (:entity @handlers) :entity-id id)]
         (when-not location
@@ -48,9 +48,9 @@
   (let [request      (:request ctx)
         route-params (:route-params request)
         ids          (map :id (hecuba/items querier :device route-params))
-        item         (assoc (::item ctx))]
+        item         (::item ctx)]
     (util/render-item request (-> item
-                                  (assoc :device-ids (map :id (hecuba/items querier :device route-params)))
+                                  (assoc :device-ids ids)
                                   (dissoc :user-id)))))
 
 (defn resource-put! [commander querier ctx]
@@ -73,7 +73,7 @@
   :known-content-type? #{"application/json"}
   :authorized? (authorized? querier :entity)
   :post! (partial index-post! commander querier)
-  :handle-created (partial index-handle-created ))
+  :handle-created (partial index-handle-created handlers ))
 
 (defresource resource [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :delete :put}
@@ -81,6 +81,6 @@
   :authorized? (authorized? querier :entity)
   :exists? (partial resource-exists? querier)
   :handle-ok (partial resource-handle-ok querier)
-  :put! (partial resource-put! commander)
+  :put! (partial resource-put! commander querier)
   :respond-with-entity? (constantly true)
   :delete! (partial resource-delete! commander))

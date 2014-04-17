@@ -60,6 +60,7 @@
                  :measurement         (measurements/measurements-by-reading opts p)
                  :measurement-slice   (measurements/measurements-slice opts p)
                  :hourly-rollups      (rollups/hourly-rollups opts p)
+                 :daily-rollups       (rollups/daily-rollups opts p)
                  :sensors-by-property (sensors/index-by-property opts p)
                  :datasets            (datasets/index opts p)
                  :dataset             (datasets/resource opts p)
