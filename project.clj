@@ -17,7 +17,6 @@
                  [juxt/modular "0.2.0"]
                  [juxt.modular/http-kit "0.2.0"]
                  [juxt.modular/bidi "0.2.1"]
-                 [juxt.modular/cassandra "0.2.0"]
                  [cylon "0.1.0"]
 
                  ;; EDN reader with location metadata - for configuration
@@ -40,9 +39,8 @@
 
                  [clj-kafka "0.2.0-0.8" :exclusions [org.slf4j/slf4j-simple]]
                  [camel-snake-kebab "0.1.4"]
-                 [clojurewerkz/cassaforte "1.3.0-beta9" :exclusions [[com.datastax.cassandra/cassandra-driver-core]]]
-                 [com.datastax.cassandra/cassandra-driver-core "1.0.5" :exclusions [[org.slf4j/slf4j-log4j12]
-                                                                                    [log4j/log4j]]]
+                 [cc.qbits/alia "2.0.0-rc1"]
+                 [cc.qbits/hayt "2.0.0-beta4"]
 
 
                  [org.clojure/tools.macro "0.1.5"]

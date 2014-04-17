@@ -102,6 +102,7 @@ CREATE TABLE entities (
   property_data text,
   retrofit_completion_date text,
   metering_point_ids text,
+  devices map<text,text>,
   user_id text
 ) WITH
   bloom_filter_fp_chance=0.010000 AND

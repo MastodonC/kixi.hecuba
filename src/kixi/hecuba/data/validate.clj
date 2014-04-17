@@ -27,7 +27,7 @@
   [m commander querier sensor]
   (let [errors (-> sensor first :errors read-string)
         events (-> sensor first :events read-string)
-        where  {:device-id (:device-id m) :type (:type m)}]
+        where  [[= :device-id (:device-id m)] [= :type (:type m)]]]
     (if (is-broken? errors events)
       (update! commander :sensor {:status "Broken"} where)
       (update! commander :sensor {:status "OK"} where))
@@ -37,7 +37,7 @@
   "Increment error counter and label median spike in metadata."
   [commander sensor m]
   (let [metadata (-> m :metadata)
-        where    {:device-id (:device-id m) :type (:type m)}
+        where    [[= :device-id (:device-id m)] [= :type (:type m)]]
         errors   (-> sensor first :errors read-string)]
     (update! commander :sensor {:errors (inc errors)} where)
     (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "true"}))))
@@ -77,7 +77,7 @@
   Updates metadata accordingly."
   [m commander querier sensor]
   (let [metadata  (-> m :metadata)
-        where     {:device-id (:device-id m) :type (:type m)}]
+        where     [[= :device-id (:device-id m)] [= :type (:type m)]]]
     (if (m/numbers-as-strings? (:value m))
       (assoc-in m [:metadata] (m/update-metadata metadata {:is-number "true"}))
       (label-invalid-value commander querier sensor where m))))
@@ -88,7 +88,7 @@
   [commander querier m]
   (let [device-id (-> m :device-id)
         type      (-> m :type)
-        where     {:device-id device-id :type type}
+        where     [[= :device-id device-id] [= :type type]]
         sensor    (items querier :sensor where)
         events    (-> sensor first :events read-string)]
     
@@ -108,7 +108,7 @@
   [m commander querier]
   (let [device-id         (:device-id m)
         type              (:type m)
-        where             {:device-id device-id :type type}
+        where             [[= :device-id device-id] [= :type type]]
         sensor-metadata   (items querier :sensor-metadata where)
         timestamp         (m/last-check-int-format (:timestamp m))]
 
