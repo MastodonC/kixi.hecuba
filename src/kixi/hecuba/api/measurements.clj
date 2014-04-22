@@ -60,7 +60,9 @@
         route-params (:route-params request)
         where (select-keys route-params [:device-id])
         measurements (hecuba/items querier :measurement where)]
-    (util/render-items request measurements)))
+    (util/render-items request (->> measurements
+                                    (map #(-> %
+                                              (dissoc :metadata :device-id :month)))))))
 
 (defn index-handle-created [ctx]
   (ring-response (:response ctx)))

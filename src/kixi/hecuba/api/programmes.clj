@@ -16,6 +16,7 @@
         {:keys [projects programme]} @handlers
         items (->> (hecuba/items querier :programme)
                    (map #(-> %
+                             (dissoc :user-id)
                              (assoc :projects (bidi/path-for routes projects :programme-id (:id %))
                                     :href (bidi/path-for routes programme :programme-id (:id %))))))]
     (util/render-items request items)))
@@ -48,6 +49,7 @@
   (let [request (:request ctx)]
       (util/render-item request
                         (as-> (::item ctx) item
+                              (dissoc item :user-id)
                               (assoc item
                                 :projects (bidi/path-for (routes-from ctx) (:projects @handlers)
                                                          :programme-id (:id item)))))))
