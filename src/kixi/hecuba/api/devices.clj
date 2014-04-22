@@ -150,6 +150,13 @@
         util/camelify
         json/encode)))
 
+(defn resource-respond-with-entity [ctx]
+  (let [request (:request ctx)
+        method  (:request-method request)]
+    (case method
+      :delete false
+      :else true)))
+
 (defresource index [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :post}
   :available-media-types #{"text/html" "application/json"}
@@ -167,7 +174,7 @@
   :authorized? (authorized? querier :device)
   :exists? (partial resource-exists? querier)
   :delete-enacted? (partial resource-delete-enacted? commander)
-  :respond-with-entity? (constantly true) ;; the only way to return 200 ok
+  :respond-with-entity? (partial resource-respond-with-entity)
   :new? (constantly false)
   :can-put-to-missing? (constantly false)
   :put! (partial resource-put! querier commander)
