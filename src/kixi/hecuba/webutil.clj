@@ -48,7 +48,10 @@
   (postwalk
    #(cond
      (instance? java.util.UUID %) (str %)
+     (instance? java.util.Date %) (str %)
      (keyword? %) (name %)
+     (instance? java.lang.Double %) %
+     (instance? java.lang.Integer %) %
      (or (coll? %) (string? %)) %
      (nil? %) nil
      :otherwise (throw (ex-info (format "No JSON type for %s"

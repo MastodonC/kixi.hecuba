@@ -17,7 +17,7 @@
   (get-in ctx [:request :route-params :device-id]))
 
 (defn metadata-exists? [querier ctx]
-  (when-let [items (hecuba/items querier :sensor-metadata {:device-id (device-id-from ctx)})]
+  (when-let [items (hecuba/items querier :sensor-metadata [[= :device-id (device-id-from ctx)]])]
     {::items items}))
 
 (defn metadata-handle-ok [ctx]
@@ -31,11 +31,11 @@
   (let [request (:request ctx)
         devices (hecuba/items querier
                               :device
-                              {:entity-id (entity-id-from ctx)})
+                              [[= :entity-id (entity-id-from ctx)]])
         sensors (mapcat (fn [{:keys [id location]}]
                           (map #(assoc % :location (json/decode location))
                                (hecuba/items querier
-                                             :sensor {:device-id id})))
+                                             :sensor [[= :device-id id]])))
                         devices)]
     (util/render-items request sensors)))
 

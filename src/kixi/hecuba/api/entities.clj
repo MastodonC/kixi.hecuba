@@ -16,12 +16,12 @@
         project-id        (-> entity :project-id)
         property-code     (-> entity :property-code)
         [username _]      (sec/get-username-password request querier)
-        user-id           (-> (hecuba/items querier :user {:username username}) first :id)]
+        user-id           (-> (hecuba/items querier :user [[= :username username]]) first :id)]
     (when (and project-id property-code)
-      (when-not (empty? (first (hecuba/items querier :project {:id project-id})))
-        {::entity-id (hecuba/upsert! commander :entity (-> entity
-                                                          (assoc :user-id user-id)
-                                                          (dissoc :device-ids)))}))))
+      (when-not (empty? (hecuba/item querier :project project-id))
+        {::entity-id  (hecuba/upsert! commander :entity (-> entity
+                                                            (assoc :user-id user-id)
+                                                            (dissoc :device-ids)))}))))
 
 (defn index-handle-created [handlers ctx]
   (let [request (:request ctx)
@@ -47,25 +47,25 @@
 (defn resource-handle-ok [querier ctx]
   (let [request      (:request ctx)
         route-params (:route-params request)
-        ids          (map :id (hecuba/items querier :device route-params))
+        ids          (map :id (hecuba/items querier :device [[= :entity-id (:entity-id route-params)]]))
         item         (::item ctx)]
     (util/render-item request (-> item
                                   (assoc :device-ids ids)
-                                  (dissoc :user-id)))))
+                                  (dissoc :user-id :devices)))))
 
 (defn resource-put! [commander querier ctx]
   (let [request      (:request ctx)
         entity       (-> request decode-body stringify-values)
         entity-id    (-> entity :entity-id)
         [username _] (sec/get-username-password request querier)
-        user-id      (-> (hecuba/items querier :user {:username username}) first :id)]
+        user-id      (-> (hecuba/items querier :user [[=  :username username]]) first :id)]
       (hecuba/upsert! commander :entity (-> entity
                                             (assoc :user-id user-id
                                                    :id entity-id)
                                             (dissoc :device-ids)))))
 
 (defn resource-delete! [commander ctx]
-  (hecuba/delete! commander :entity {:id (get-in ctx [::item :id])}))
+  (hecuba/delete! commander :entity [[= :id (get-in ctx [::item :id])]]))
 
 (defresource index [{:keys [commander querier]} handlers]
   :allowed-methods #{:post}

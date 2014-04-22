@@ -40,7 +40,7 @@
   [commander querier {:keys [device-id type period]} start-date]
   (let [end-date     (m/add-hour start-date)
         month        (m/get-month-partition-key start-date)
-        where        [:device-id device-id :type type :month month :timestamp [>= start-date] :timestamp [< end-date]]
+        where        [[= :device-id device-id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
         measurements (m/decassandraify-measurements (items querier :measurement where))]
     (when-not (empty? measurements)
       (loop [m measurements]
@@ -64,7 +64,7 @@
   [commander querier {:keys [device-id type period]} start-date]
   (let [end-date     (m/add-day start-date)
         year         (m/get-year-partition-key start-date)
-        where        [:device-id device-id :type type :year year :timestamp [>= start-date] :timestamp [< end-date]]
+        where        [[= :device-id device-id] [= :type type] [= :year year] [>= :timestamp start-date] [< :timestamp end-date]]
         measurements (m/decassandraify-measurements (items querier :hourly-rollups where))
         funct        (case period
                        "CUMULATIVE" (fn [measurements] (reduce + (map :value measurements)))
@@ -91,7 +91,7 @@
   [commander querier {:keys [device-id type period]} start-date table]
   (let [end-date     (m/add-hour start-date)
         month        (m/get-month-partition-key start-date)
-        where        [:device-id device-id :type type :month month :timestamp [>= start-date] :timestamp [< end-date]]
+        where        [[= :device-id device-id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
         measurements (m/decassandraify-measurements (items querier table where))
         filtered     (filter #(number? %) (map :value measurements))
         funct        (case period
@@ -126,7 +126,7 @@
         (recur (hour-batch commander querier sensor start-date table))))))
 
 (defn generate-synthetic-readings [commander querier item]
-  (let [synthetics (items querier :sensor [:synthetic true])]
+  (let [synthetics (items querier :sensor [[= :synthetic true]])]
     (println "AA:")
     (prn synthetics)
     )

@@ -4,7 +4,9 @@
 (defprotocol Commander
   (upsert! [_ type payload])
   (update! [_ type payload where])
-  (delete! [_ type id]))
+  (delete!
+    [_ type where]
+    [_ type column where]))
 
 (defprotocol Querier
   (item [_ type id])

@@ -20,7 +20,7 @@
 (defn index-handle-ok [querier handlers ctx]
   (let [request (:request ctx)
         coll    (->> (if (programme-id-from ctx)
-                       (hecuba/items querier :project (:route-params request))
+                       (hecuba/items querier :project [[= :programme-id (-> (:route-params request) :programme-id)]])
                        (hecuba/items querier :project))
                      (map #(-> %
                                (assoc :properties (bidi/path-for (routes-from ctx) (:properties @handlers) :project-id (:id %))
@@ -31,14 +31,14 @@
 (defn index-post! [querier commander ctx]
   (let [request (:request ctx)
         [username _]  (sec/get-username-password request querier)
-        user-id       (-> (hecuba/items querier :user {:username username}) first :id)
+        user-id       (-> (hecuba/items querier :user [[= :username username]]) first :id)
         project       (-> request decode-body stringify-values)]
       {::project-id (hecuba/upsert! commander
                                    :project (assoc project :user-id user-id))}))
 
 (defn index-handle-created [handlers ctx]
-    (let [request (:request ctx)
-          routes (:modular.bidi/routes request)
+    (let [request  (:request ctx)
+          routes   (:modular.bidi/routes request)
           location (bidi/path-for routes (:project @handlers)
                                   :project-id (::project-id ctx))]
       (ring-response {:headers {"Location" location}

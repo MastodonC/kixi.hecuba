@@ -13,10 +13,10 @@
 (defn index-handle-ok [querier handlers ctx]
   (let [request (:request ctx)]
     (let [coll (->> (if (project-id-from ctx)
-                      (hecuba/items querier :entity (:route-params request))
+                      (hecuba/items querier :entity [[= :project-id (-> (:route-params request) :project-id)]])
                       (hecuba/items querier :entity))
                     (map #(-> %
-                              (assoc :device-ids (map :id (hecuba/items querier :device {:entity-id (:id %)}))
+                              (assoc :device-ids (map :id (hecuba/items querier :device [[= :entity-id (:id %)]]))
                                      :href (bidi/path-for (routes-from ctx)
                                                           (:entity @handlers) :entity-id (:id %))))))
           scoll (sort-by :address-street-two coll)]
