@@ -1,6 +1,6 @@
 # Hecuba
 
-A data platform built with [Clojure][CLJ], [ClojureScript][CLJS], [core.async][CORE.ASYNC], [Om][OM], Kafka, Cassandra and other technologies.
+A data platform built with [Clojure][CLJ], [ClojureScript][CLJS], [core.async][CORE.ASYNC], [Om][OM], Cassandra and other technologies.
 
 ## Build Status
 
@@ -8,30 +8,20 @@ A data platform built with [Clojure][CLJ], [ClojureScript][CLJS], [core.async][C
 
 ## Usage
 
-Clone and install [Jig][JIG].
+Clone the repo, and then lein repl or cider-jack-in as you prefer
 
 ```
-$ cd jig
-jig/ $ lein install-all
+(go)
 ```
 
-The need to install is only due to the possibility that Hecuba is using a SNAPSHOT version of Jig which is not released to clojars.org.
-
-Point Jig at Hecuba's config.
+When you make changes just reset.
 
 ```
-$ mkdir $HOME/.jig
-$ ln -s kixi.hecuba/config.clj $HOME/.jig/config.clj
+(reset)
 ```
 
-Start Jig
-
-```
-$ cd jig
-jig/ $ lein repl
-```
-
-Navigate to http://localhost:8000
+If you pull from github, you'll still probably want to restart your
+nrepl session though.
 
 ## Dev environment
 
@@ -76,7 +66,6 @@ Hecuba is a new project which is being developed 'in the open'. Therefore it may
 
 ## License
 
-Copyright © 2014 FIXME
+Copyright © 2014 Mastodon C Ltd
 
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+Distributed under the Eclipse Public License version 1.0.
