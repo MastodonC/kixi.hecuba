@@ -21,7 +21,7 @@
    [kixi.hecuba.amon :refer (new-amon-api)]
    [kixi.hecuba.user :refer (new-user-api)]
    [kixi.hecuba.cljs :refer (new-cljs-routes)]
-   [kixi.hecuba.transport.db :refer (new-cluster new-session new-direct-store)]
+   [kixi.hecuba.storage.db :refer (new-cluster new-session new-direct-store)]
 
    [shadow.cljs.build :as cljs]
 

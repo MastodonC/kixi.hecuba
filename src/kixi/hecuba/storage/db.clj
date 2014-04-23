@@ -1,4 +1,4 @@
-(ns kixi.hecuba.transport.db
+(ns kixi.hecuba.storage.db
   "Implementations of commander and querier."
   (:require  [camel-snake-kebab :refer (->snake_case_keyword ->kebab-case-keyword ->camelCaseString)]
              [qbits.alia :as alia]
