@@ -6,11 +6,7 @@
             [clj-time.coerce :as tc]
             [clj-time.periodic :as periodic]
             [simple-check.generators :as gen]
-            [clojure.data.json :as json]
-
-            [clojurewerkz.cassaforte.client :as client]
-            [clojurewerkz.cassaforte.query :as query]
-            [clojurewerkz.cassaforte.cql :as cql]))
+            [clojure.data.json :as json]))
 
 ;; Malcolm says: Sorry Anna, but I really need some predicatability to
 ;; work on the chart integration - so I'm seeding the randomness to it
@@ -159,38 +155,3 @@
   (let [sensor (assoc-in sensor [:period] "INSTANT")]
     (generate-measurements sensor)))
 
-(defn validate-and-insert
-  "Updates appropriate counters and inserts data."
-  [session measurement]
-  (binding [client/*default-session* session]
-    (cql/insert "measurements" measurement)))
-
-(defn insert-measurements
-  [session measurements]
-  (doseq [m measurements] (validate-and-insert session m)))
-
-(defn insert-sensors
-  [session sensors]
-  (binding [client/*default-session* session]
-    (doseq [s sensors] (cql/insert "sensors" s))))
-
-(defn insert-devices
-  [session devices]
-  (binding [client/*default-session* session]
-    (doseq [d devices] (cql/insert "devices" d))))
-
-;; STEPS:
-;; 1. Create devices
-;; 2. Create sensor for each device
-;; 3. Create measurements for each sensor
-;; e.g.
-;; (let [devices (generate-device-sample 5)
-;;       sensors (reduce concat (map #(generate-sensor-sample "CUMULATIVE" 1) devices))]
-;;   (doseq [s sensors] (insert-measurements session (measurements s))))
-
-
-#_(deftype DataGenerator [config]
-  Lifecycle
-  (init [_ system] system)
-  (start [_ system] system)
-  (stop [_ system] system))

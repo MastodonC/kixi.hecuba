@@ -51,13 +51,13 @@
         sensors-metadata (items querier :sensor-metadata)
         sensors          (filter #(or (= "" (validation-type %))
                                       (<= (Long/parseLong (validation-type %)) last-week)) sensors-metadata)]
-    (map #(merge (first (items querier :sensor {:device-id (:device-id %) :type (:type  %)})) %) sensors)))
+    (map #(merge (first (items querier :sensor [[= :device-id (:device-id %)] [= :type (:type  %)]])) %) sensors)))
 
 (defn all-sensors
   "Given a querier, retrieces all sensors data joined with their metadata."
   [querier]
   (let [all-sensors-metadata (items querier :sensor-metadata)]
-    (map #(merge (first (items querier :sensor {:device-id (:device-id %) :type (:type %)})) %) all-sensors-metadata)))
+    (map #(merge (first (items querier :sensor [[= :device-id (:device-id %)] [= :type (:type %)]])) %) all-sensors-metadata)))
 
 (defn start-end-dates
   "Given a sensor, table and where clause, returns start and end dates for (re)calculations."
@@ -111,20 +111,20 @@
   "Finds sensors with bad metadata and label as broken.
   Returns sequence of maps."
   [querier]
-  (let [where {:status "Broken"}]
+  (let [where [= :status "Broken"]]
     (items querier :sensor where)))
 
 (defn find-mislabelled-sensors
   "Finds sensots that are marked as mislabelled.
   Returns sequence of maps."
   [querier]
-  (let [where {:mislabelled "true"}]
+  (let [where [= :mislabelled "true"]]
     (items querier :sensor-metadata where)))
 
 (defn reset-date-range
   "Given querier, commander, sensor, column and start/end dates, update these dates in sensor metadata."
   [querier commander {:keys [device-id type period]} col start-date end-date]
-  (let [where               {:device-id device-id :type type}
+  (let [where               [[= :device-id device-id] [= :type type]]
         current-metadata    (first (items querier :sensor-metadata where))
         current-range       (-> current-metadata col read-string)
         current-start       (-> current-range :start (Long/parseLong))

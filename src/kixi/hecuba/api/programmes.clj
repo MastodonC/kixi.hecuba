@@ -25,7 +25,7 @@
 (defn index-post! [querier commander ctx]
   (let [request (:request ctx)
         [username _]  (sec/get-username-password request querier)
-        user-id       (-> (hecuba/items querier :user {:username username}) first :id)
+        user-id       (-> (hecuba/items querier :user [[= :username username]]) first :id)
         programme     (-> request decode-body stringify-values)]
     {::programme-id (hecuba/upsert! commander
                                    :programme (assoc programme :user-id user-id))}))
@@ -52,7 +52,8 @@
                               (dissoc item :user-id)
                               (assoc item
                                 :projects (bidi/path-for (routes-from ctx) (:projects @handlers)
-                                                         :programme-id (:id item)))))))
+                                                         :programme-id (:id item)))
+                              (dissoc item :user-id)))))
 
 (defresource index [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :post}

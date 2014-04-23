@@ -32,20 +32,17 @@
         {:keys [device-id
                 reading-type]} route-params
         decoded-params         (util/decode-query-params query-string)
-        start-date             (to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
-        end-date               (to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
-        measurements           (hecuba/items querier :measurement [:device-id device-id
-                                                                   :type reading-type
-                                                                   :month (util/get-month-partition-key start-date)
-                                                                   :timestamp [>= start-date]
-                                                                   :timestamp [<= end-date]])]
-    (util/downcast-to-json {:measurements (->> measurements
-                                                (map (fn [m]
-                                                       (-> m
-                                                           (update-in [:value] (when-not (empty? (:value m)) read-string))
-                                                           (update-in [:timestamp] db-to-iso)
-                                                           (dissoc :month :metadata :device-id (when-not (empty? (:value m)) :error))
-                                                           util/camelify))))})))
+        formatter              (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")
+        start-date             (.parse formatter (string/replace (get decoded-params "startDate") "%20" " "))
+        end-date               (.parse formatter (string/replace (get decoded-params "endDate") "%20" " "))
+        measurements           (hecuba/items querier :measurement [[= :device-id device-id]
+                                                                   [= :type reading-type]
+                                                                   [= :month (util/get-month-partition-key start-date)]
+                                                                   [>= :timestamp start-date]
+                                                                   [<= :timestamp end-date]])]
+    (->> measurements
+         (map #(update-in % [:timestamp] str))
+         (util/render-item request))))
 
 (defn index-post! [commander querier queue ctx]
   (let [request      (:request ctx)
@@ -54,7 +51,7 @@
         topic        (get-in queue ["measurements"])
         measurements (:measurements (decode-body request))
         type         (get (first  measurements) "type")]
-    (if (and device-id type (not (empty? (first (hecuba/items querier :sensor {:device-id device-id :type type})))))
+    (if (and device-id type (not (empty? (first (hecuba/items querier :sensor [[= :device-id device-id] [= :type type]])))))
       (do
         (doseq [measurement measurements]
           (let [t  (util/db-timestamp (get measurement "timestamp"))
@@ -76,7 +73,8 @@
 (defn index-handle-ok [querier ctx]
   (let [request (:request ctx)
         route-params (:route-params request)
-        where (select-keys route-params [:device-id])
+        device-id (:device-id route-params)
+        where [[= :device-id device-id]]
         measurements (hecuba/items querier :measurement where)]
     (util/downcast-to-json {:measurements (->> measurements
                                                (map #(-> %
@@ -92,7 +90,7 @@
   (let [{:keys [request]} ctx
         {:keys [route-params]} request
         {:keys [device-id sensor-type timestamp]} route-params
-        measurement (first (hecuba/items querier :measurement {:device-id device-id :type sensor-type :timestamp timestamp}))]
+        measurement (first (hecuba/items querier :measurement [[= :device-id device-id] [= :type sensor-type] [= :timestamp timestamp]]))]
     (util/render-item request measurement)))
 
 (defresource measurements-slice [{:keys [commander querier]} handlers]

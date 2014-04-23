@@ -1,9 +1,8 @@
 (ns kixi.hecuba.transport.db
   "Implementations of commander and querier."
   (:require  [camel-snake-kebab :refer (->snake_case_keyword ->kebab-case-keyword ->camelCaseString)]
-             [clojurewerkz.cassaforte.client :as cassaclient]
-             [clojurewerkz.cassaforte.query :as cassaquery]
-             [clojurewerkz.cassaforte.cql :as cql]
+             [qbits.alia :as alia]
+             [qbits.hayt :as hayt]
              [kixi.hecuba.hash :refer (sha1)]
              [kixi.hecuba.protocols :as proto]
              [com.stuartsierra.component :as component]
@@ -74,9 +73,9 @@
                                   v])) {} payload))
 
 (defn cassandraify-v
-  [payload]
-  (reduce (fn [s [k v]] (conj s [(->snake_case_keyword k)
-                                  v])) [] (partition 2 payload)))
+  [where]
+  (let [where (into [] (for [[op k v] where] [op (->snake_case_keyword k) v]))]
+    where))
 
 (defn de-cassandraify
   "Convert to kebab form after reading from Cassandra."
@@ -95,62 +94,52 @@
   (upsert! [_ typ payload]
     (assert session "No session!")
     (assert typ "No type!")
-    (binding [cassaclient/*default-session* session]
-      (let [id (if-let [i (:id payload)] i (gen-key typ payload))]
-        (cql/insert (get-table typ)
-                    (let [id-payload (if id (assoc payload :id id) payload)]
-                      (-> id-payload cassandraify)))
-        id)))
+    (let [id (if-let [i (:id payload)] i (gen-key typ payload))]
+      (alia/execute session
+       (hayt/insert (get-table typ) (hayt/values
+                                     (let [id-payload (if id (assoc payload :id id) payload)]
+                                       (-> id-payload cassandraify)))))
+      id))
 
   (update! [_ typ payload where]
-    (binding [cassaclient/*default-session* session]
-      (cql/update (get-table typ) (cassandraify payload) (apply cassaquery/where (apply concat (cassandraify where))))))
+    (assert where "No where clause")
+    (alia/execute session
+     (hayt/update (get-table typ) 
+                  (hayt/set-columns (cassandraify payload))
+                  (hayt/where (cassandraify-v where)))))
 
   (delete! [_ typ where]
     (assert where "No where clause!")
-    (binding [cassaclient/*default-session* session]
-      (cql/delete
-       (get-table typ)
-       (apply cassaquery/where (apply concat (cassandraify where)))))))
+    (alia/execute session
+     (hayt/delete (get-table typ)
+                  (hayt/where (cassandraify-v where)))))
 
+  (delete! [_ typ columns where]
+    (assert where "No where clause!")
+    (assert columns "No column(s) specified!")
+    (alia/execute session
+     (hayt/delete (get-table typ) (hayt/columns columns) (hayt/where (cassandraify-v where))))))
 
+;; TODO de-cassandraify on exit?
 (deftype CassandraQuerier [session]
   proto/Querier
   (item [_ typ id]
     (de-cassandraify
-     (binding [cassaclient/*default-session* session]
-       (first (cql/select
-               (get-table typ)
-               (cassaquery/where (get-primary-key-field typ) id))))))
+     (first
+      (alia/execute session
+       (hayt/select (get-table typ)
+                    (hayt/where {(get-primary-key-field typ) id}))))))
   (items [_ typ]
     (map de-cassandraify
-         (binding [cassaclient/*default-session* session]
-           (cql/select (get-table typ)))))
+         (alia/execute session
+          (hayt/select (get-table typ)))))
   (items [_ typ where]
     (map de-cassandraify
-         (binding [cassaclient/*default-session* session]
-           (cql/select (get-table typ)
-                       ;; TODO Vectors should be used across but refactoring will take lots of time. Can't do it now.
-                       (if (instance? clojure.lang.PersistentVector where)
-                         (do (let [w (vec (apply concat (cassandraify-v where)))]
-                               (apply cassaquery/where w)))
-                         (apply cassaquery/where (apply concat (cassandraify where))))))))
-  (items [_ typ where n]
-    (map de-cassandraify
-         (binding [cassaclient/*default-session* session]
-           (cql/select (get-table typ)
-                       (apply cassaquery/where (apply concat (cassandraify where)))
-                       (cassaquery/limit n)))))
-  (items [_ typ where paginate-key per-page]
-    (map de-cassandraify
-         (binding [cassaclient/*default-session* session]
-           (cql/select (get-table typ)
-                       (cassaquery/paginate :key paginate-key :per-page per-page :where (cassandraify where))))))
-  (items [_ typ where paginate-key per-page last-key]
-    (map de-cassandraify
-         (binding [cassaclient/*default-session* session]
-           (cql/select (get-table typ)
-                       (cassaquery/paginate :key paginate-key :per-page per-page :last-key last-key :where (cassandraify where)))))))
+         (alia/execute session
+          (hayt/select (get-table typ)
+                       ;; Where clause should always be a vector of vectors, e.g.
+                       ;; [[= :device-id "1"] [= :type "temp"] [> :timestamp "20140510"]
+                       (hayt/where (cassandraify-v where)))))) )
 
 (defrecord CassandraDirectStore []
   component/Lifecycle
@@ -168,3 +157,33 @@
 
 (defn new-direct-store []
   (->CassandraDirectStore))
+
+(defrecord Cluster [opts]
+  component/Lifecycle
+  (start [this]
+    (assoc this :cluster (alia/cluster opts)))
+  (stop [this]
+    (when-let [cluster (:cluster this)]
+      (alia/shutdown cluster)
+      this)))
+
+(def ClusterDefaults
+  {:contact-points ["127.0.0.1"]
+   :port 9042})
+
+(defn new-cluster [opts]
+  (->Cluster (merge ClusterDefaults opts)))
+
+(defrecord Session [opts]
+  component/Lifecycle
+  (start [this]
+    (assoc this :session (alia/connect (get-in this [:cluster :cluster]) (:keyspace opts))))
+  (stop [this]
+    (when-let [session (:session this)]
+      (alia/shutdown session)
+      this)))
+
+(def SessionDefaults {})
+
+(defn new-session [opts]
+  (->Session (merge SessionDefaults opts)))

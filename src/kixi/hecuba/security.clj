@@ -67,7 +67,7 @@ http://adambard.com/blog/3-wrong-ways-to-store-a-password/"
 
 (defn authorized-with-cookie? [{{{id :value} "session"} :cookies} querier]
   (when id
-    (when-let [session (first (items querier :user-session {:id id :timestamp [> (some-time-ago session-expiry-in-secs)]}))]
+    (when-let [session (items querier :user-session [[= :id id] [> :timestamp (some-time-ago session-expiry-in-secs)]])]
       session)))
 
 (defn create-session-cookie [username {:keys [commander]}]

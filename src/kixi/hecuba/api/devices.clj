@@ -18,7 +18,7 @@
         entity       (hecuba/item querier :entity entity-id)] 
     (case method
       :post (not (nil? entity))
-      :get (let [items (hecuba/items querier :device {:entity-id entity-id})]
+      :get (let [items (hecuba/items querier :device [[= :entity-id entity-id]])]
              {::items items}))))
 
 (defn index-malformed? [ctx]
@@ -40,23 +40,28 @@
   (let [{:keys [request body]} ctx
         entity-id     (-> request :route-params :entity-id)
         [username _]  (sec/get-username-password request querier)
-        user-id       (-> (hecuba/items querier :user {:username username}) first :id)
-        device-id     (hecuba/upsert! commander :device (-> body
-                                                            (assoc :user-id user-id)
-                                                            (update-in [:metadata] json/encode)
-                                                            (update-in [:location] json/encode)
-                                                            (dissoc :readings)
-                                                            stringify-values))]
-    (when-not (empty? (first (hecuba/items querier :entity {:id entity-id})))
-      (doseq [reading (:readings body)]
-        (let [sensor (-> reading
-                         stringify-values
-                         (assoc :device-id device-id)
-                         (assoc :errors 0)
-                         (assoc :events 0))]
-          (hecuba/upsert! commander :sensor (util/->shallow-kebab-map sensor))
-          (hecuba/upsert! commander :sensor-metadata (util/->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])}))))
-      {:device-id device-id})))
+        user-id       (-> (hecuba/items querier :user [[= :username username]]) first :id)]
+    
+    (when-not (empty? (first (hecuba/items querier :entity [[= :id entity-id]])))
+      (let [device    (-> body
+                          (assoc :user-id user-id)
+                          (update-in [:metadata] json/encode)
+                          (update-in [:location] json/encode)
+                          (dissoc :readings)
+                          stringify-values)
+            device-id (hecuba/upsert! commander :device device)]
+
+        (hecuba/update! commander :entity {:devices [+ {device-id (str body)}]} [[= :id entity-id]])
+
+        (doseq [reading (:readings body)]
+          (let [sensor (-> reading
+                           stringify-values
+                           (assoc :device-id device-id)
+                           (assoc :errors 0)
+                           (assoc :events 0))]
+            (hecuba/upsert! commander :sensor (util/->shallow-kebab-map sensor))
+            (hecuba/upsert! commander :sensor-metadata (util/->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])}))))
+        {:device-id device-id}))))
 
 (defn index-handle-ok [ctx]
   (let [{items ::items {mime :media-type} :representation {routes :modular.bidi/routes route-params :route-params} :request} ctx]
@@ -93,13 +98,17 @@
                   (dissoc :id))}
       false)))
 
+;; Should be device-response etc and it should do the delete in delete!, 
+;; that should put something in the context which is then checked here.
 (defn resource-delete-enacted? [commander ctx]
   (let [{item ::item} ctx
         device-id (:device-id item)
-        response1 (hecuba/delete! commander :device {:id device-id})
-        response2 (hecuba/delete! commander :sensor {:device-id device-id})
-        response3 (hecuba/delete! commander :sensor-metadata {:device-id device-id})]
-    (every? empty? [response1 response2 response3])))
+        entity-id (:entity-id item)
+        response1 (hecuba/delete! commander :device [[= :id device-id]])
+        response2 (hecuba/delete! commander :sensor [[= :device-id device-id]])
+        response3 (hecuba/delete! commander :sensor-metadata [[= :device-id device-id]])
+        response4 (hecuba/delete! commander :entity {:devices device-id} [[= :id entity-id]])]
+    (every? empty? [response1 response2 response3 response4])))
 
 (defn resource-put! [querier commander ctx]
   (let [{request :request} ctx]
@@ -107,7 +116,7 @@
       (let [body          (decode-body request)
             entity-id     (-> item :entity-id)
             [username _]  (sec/get-username-password request querier)
-            user-id       (-> (hecuba/items querier :user {:username username}) first :id)
+            user-id       (-> (hecuba/items querier :user [[= :username username]]) first :id)
             device-id     (-> item :device-id)]
         (hecuba/upsert! commander :device (-> body
                                               (assoc :id device-id)
@@ -116,6 +125,8 @@
                                               (update-in [:location] json/encode)
                                               (update-in [:metadata] json/encode)
                                               stringify-values))
+        ;; TODO when new sensors are created they do not necessarilly overwrite old sensors (unless their type is the same)
+        ;; We should probably allow to delete sensors through the API/UI
         (doseq [reading (:readings body)]
           (let [sensor (-> reading
                            stringify-values
@@ -130,18 +141,7 @@
 (defn resource-handle-ok [querier ctx]
   (let [{item ::item} ctx]
     (-> item
-        ;; These are the device's sensors.
-        (assoc :readings (map #(dissoc % :user-id) (hecuba/items querier :sensor (select-keys item [:device-id]))))
-        ;; Note: We are NOT showing measurements here, in
-        ;; contradiction to the AMON API.  There is a
-        ;; duplication (or ambiguity) in the AMON API whereby
-        ;; measurements can be retuned from both the device
-        ;; representation and a sub-resource
-        ;; (measurements). We are only implementing the
-        ;; sub-resource, since most clients requiring a
-        ;; device's details will suffer from these resource
-        ;; representations being bloated with measurements.
-        ;; Specifially, we are keeping the following line commented :-
+        (assoc :readings (map #(dissoc % :user-id) (hecuba/items querier :sensor [[= :device-id (:device-id item)]])))
         ;; (assoc :measurements (hecuba/items querier :measurement {:device-id (:id item)}))
         (update-in [:location] json/decode)
         (update-in [:metadata] json/decode)

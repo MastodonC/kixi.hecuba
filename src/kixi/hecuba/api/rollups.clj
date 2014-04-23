@@ -26,12 +26,14 @@
                      formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")
                      start-date     (.parse formatter (string/replace (get decoded-params "startDate") "%20" " "))
                      end-date       (.parse formatter (string/replace (get decoded-params "endDate") "%20" " "))
-                     measurements   (hecuba/items querier :hourly-rollups [:device-id device-id
-                                                                    :type reading-type
-                                                                    :year (util/get-year-partition-key start-date)
-                                                                    :timestamp [>= start-date]
-                                                                    :timestamp [<= end-date]])]
-                 (util/render-items request measurements))))
+                     measurements   (hecuba/items querier :hourly-rollups [[= :device-id device-id]
+                                                                           [= :type reading-type]
+                                                                           [= :year (util/get-year-partition-key start-date)]
+                                                                           [>= :timestamp start-date]
+                                                                           [<= :timestamp end-date]])]
+                  (->> measurements
+                       (map #(update-in % [:timestamp] str))
+                       (util/render-item request)))))
 
 (defresource daily-rollups [{:keys [commander querier]} handlers]
   :allowed-methods #{:get}
@@ -45,8 +47,10 @@
                      formatter      (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")
                      start-date     (.parse formatter (string/replace (get decoded-params "startDate") "%20" " "))
                      end-date       (.parse formatter (string/replace (get decoded-params "endDate") "%20" " "))
-                     measurements   (hecuba/items querier :daily-rollups [:device-id device-id
-                                                                   :type reading-type
-                                                                   :timestamp [>= start-date]
-                                                                   :timestamp [<= end-date]])]
-                 (util/render-items req measurements))))
+                     measurements   (hecuba/items querier :daily-rollups [[= :device-id device-id]
+                                                                          [= :type reading-type]
+                                                                          [>= :timestamp start-date]
+                                                                          [<= :timestamp end-date]])]
+                  (->> measurements
+                       (map #(update-in % [:timestamp] str))
+                       (util/render-item req)))))

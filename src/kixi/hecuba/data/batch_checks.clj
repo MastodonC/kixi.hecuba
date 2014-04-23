@@ -34,14 +34,14 @@
   [commander querier {:keys [device-id type period] :as sensor} start-date]
   (let [end-date     (m/add-hour start-date)
         month        (m/get-month-partition-key start-date)
-        where        [:device-id device-id :type type :month month :timestamp [>= start-date] :timestamp [< end-date]]
+        where        [[= :device-id device-id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
         measurements (filter #(number? (:value %)) (m/decassandraify-measurements (items querier :measurement where)))]
     (when-not (empty? measurements)
       (update! commander :sensor-metadata {:mislabelled 
                                            (if (labelled-correctly? sensor measurements)
                                              "false" 
                                              "true")} 
-               {:device-id device-id :type type}))
+               [[= :device-id device-id] [= :type type]]))
     end-date))
 
 (defn mislabelled-sensors
@@ -61,7 +61,7 @@
   [commander querier {:keys [device-id type median] :as sensor} start-date]
   (let [end-date     (m/add-hour start-date)
         month        (m/get-month-partition-key start-date)
-        where        [:device-id device-id :type type :month month :timestamp [>= start-date] :timestamp [< end-date]]
+        where        [[= :device-id device-id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
         measurements (filter #(number? (:value %)) (items querier :measurement where))]
     (doseq [m measurements]
       (let [spike    (str (v/larger-than-median (read-string median) m))
@@ -102,13 +102,13 @@
   [commander querier table {:keys [device-id type period]} start-date]
   (let [end-date     (m/add-hour start-date)
         month        (m/get-month-partition-key start-date)
-        where        [:device-id device-id :type type :month month :timestamp [>= start-date] :timestamp [< end-date]]
+        where        [[= :device-id device-id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
         measurements (m/decassandraify-measurements (items querier table where))
         median       (cond
                       (= "CUMULATIVE" period) (median (filter #(number? (:value %)) measurements))
                       (= "INSTANT" period) (median (filter #(remove-bad-readings %) measurements)))]
     (when (number? median)
-      (update! commander :sensor {:median median} {:device-id device-id :type type}))
+      (update! commander :sensor {:median median} [[= :device-id device-id] [= :type type]]))
     end-date))
 
 (defn median-calculation
