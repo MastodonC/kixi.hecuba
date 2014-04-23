@@ -101,10 +101,11 @@
                                                       selection-key
                                                       template
                                                       (<! in))]
+      ;; TODO Date format shoudl be: "2014-01-01T00:00:04Z"
       (let [[start-date end-date] search
-            entity-id                  (get ids :property)
-            sensor-id                  (get ids :sensor)
-            [type device-id]      (str/split sensor-id #"-")]
+            entity-id        (get ids :property)
+            sensor-id        (get ids :sensor)
+            [type device-id] (str/split sensor-id #"-")]
         ;; TODO ajax call should not be made on each change, only on this particular cursor update.
         (when (and (not (empty? start-date))
                    (not (empty? end-date))
@@ -173,7 +174,8 @@
 ;; in the datepicker instead.
 (defn evaluate-dates
   [start-date end-date]
-  (let [formatter (tf/formatter "dd-MM-yyyy HH:mm")
+  (prn start-date end-date)
+  (let [formatter (tf/formatter "yyyy-MM-dd-HH:mm:ssZZ")
         start     (tf/parse formatter start-date)
         end       (tf/parse formatter end-date)]
     (cond
@@ -195,7 +197,7 @@
                                                      (dom/input #js
                                                                 {:type "text"
                                                                  :ref "dateFrom"
-                                                                 :data-format "DD-MM-YYYY HH:mm"
+                                                                 :data-format "YYYY-MM-DDTHH:mm:ssZ"
                                                                  :className "form-control"
                                                                  :placeholder "Start date"
                                                                  :value (if (empty? (get-in cursor [:chart :range]))
@@ -208,7 +210,7 @@
                                             (dom/div #js {:className "input-group date" :id "dateTo"}
                                                      (dom/input #js
                                                                 {:type "text"
-                                                                 :data-format "DD-MM-YYYY HH:mm"
+                                                                 :data-format "YYYY-MM-DDTHH:mm:ssZ"
                                                                  :ref "dateTo"
                                                                  :className "form-control"
                                                                  :placeholder "End date"
@@ -225,9 +227,9 @@
                                              (let [start     (-> (om/get-node owner "dateFrom")
                                                                  .-value)
                                                    end       (-> (om/get-node owner "dateTo")
-                                                                 .-value)
-                                                   formatter (tf/formatter "dd-MM-yyyy HH:mm")]
-                                               (if (= :valid (evaluate-dates start end))
+                                                                 .-value)]
+                                               (if (= :valid (evaluate-dates start end)
+                                                      )
                                                  (do
                                                    (history/set-token-search! history [start end])
                                                    (om/update! cursor [:chart :range] {:start-date start :end-date end})

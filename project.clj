@@ -36,7 +36,7 @@
                  [cljs-ajax "0.2.3"]
                  [om "0.5.3"]
                  [net.drib/mrhyde "0.5.3"]
-                 [com.andrewmcveigh/cljs-time "0.1.1"]
+                 [com.andrewmcveigh/cljs-time "0.1.3"]
 
                  [clj-kafka "0.2.0-0.8" :exclusions [org.slf4j/slf4j-simple]]
                  [camel-snake-kebab "0.1.4"]
@@ -66,9 +66,10 @@
   :profiles {:dev {:source-paths ["dev"]
                    :dependencies [
                                   [ring-mock "0.1.5"]
-                                  [com.cemerick/austin "0.1.4"]
                                   [org.clojure/tools.namespace "0.2.4"]
-                                  ]}
+                                  ]
+                   :plugins [[com.cemerick/austin "0.1.4"]] }
+             
              :uberjar {:main kixi.hecuba.controller.main :aot [kixi.hecuba.controller.main]}}
 
   :exclusions [[org.clojure/clojurescript]

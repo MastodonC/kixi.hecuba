@@ -4,14 +4,27 @@
    [clojure.string :as string]
    [clojure.tools.logging :as log]
    [kixi.hecuba.data.validate :as v]
+   [kixi.hecuba.data.misc :as misc]
    [kixi.hecuba.protocols :as hecuba]
    [kixi.hecuba.queue :as q]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
+   [clj-time.coerce :as tc]
+   [clj-time.format :as tf]
    [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]))
 
+(def formatter (tf/formatter "yyyy-MM-dd'T'HH:mm:ssZ"))
+
+(defn to-db-format [date]
+  (tc/to-date (tf/parse formatter date)))
+
+(defn db-to-iso [s]
+  (let [date (misc/to-timestamp s)]
+    (tf/unparse formatter (tc/from-date date))))
+
+;; Expects the dates to be in "2014-01-01T00:00:04Z" format (:date-time-no-ms)
 (defn measurements-slice-handle-ok [querier ctx]
   (let [request                (:request ctx)
         {:keys [route-params
@@ -19,15 +32,20 @@
         {:keys [device-id
                 reading-type]} route-params
         decoded-params         (util/decode-query-params query-string)
-        formatter              (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")
-        start-date             (.parse formatter (string/replace (get decoded-params "startDate") "%20" " "))
-        end-date               (.parse formatter (string/replace (get decoded-params "endDate") "%20" " "))
+        start-date             (to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
+        end-date               (to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
         measurements           (hecuba/items querier :measurement [:device-id device-id
                                                                    :type reading-type
                                                                    :month (util/get-month-partition-key start-date)
                                                                    :timestamp [>= start-date]
                                                                    :timestamp [<= end-date]])]
-    (util/render-items request measurements)))
+    (util/downcast-to-json {:measurements (->> measurements
+                                                (map (fn [m]
+                                                       (-> m
+                                                           (update-in [:value] (when-not (empty? (:value m)) read-string))
+                                                           (update-in [:timestamp] db-to-iso)
+                                                           (dissoc :month :metadata :device-id (when-not (empty? (:value m)) :error))
+                                                           util/camelify))))})))
 
 (defn index-post! [commander querier queue ctx]
   (let [request      (:request ctx)
@@ -60,9 +78,12 @@
         route-params (:route-params request)
         where (select-keys route-params [:device-id])
         measurements (hecuba/items querier :measurement where)]
-    (util/render-items request (->> measurements
-                                    (map #(-> %
-                                              (dissoc :metadata :device-id :month)))))))
+    (util/downcast-to-json {:measurements (->> measurements
+                                               (map #(-> %
+                                                         (update-in [:value] (when-not (empty? (:value %)) read-string))
+                                                         (update-in [:timestamp] db-to-iso)
+                                                         (dissoc :metadata :device-id :month (when-not (empty? (:value %)) :error))
+                                                         util/camelify)))})))
 
 (defn index-handle-created [ctx]
   (ring-response (:response ctx)))

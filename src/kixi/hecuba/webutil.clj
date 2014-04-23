@@ -48,6 +48,7 @@
   (postwalk
    #(cond
      (instance? java.util.UUID %) (str %)
+     (instance? java.lang.Double %) %
      (keyword? %) (name %)
      (or (coll? %) (string? %)) %
      (nil? %) nil
@@ -122,7 +123,7 @@
 
 (defmethod render-item "application/edn" [_ item] (pr-str item))
 
-(defmethod render-item "application/json" [_ item] (-> item downcast-to-json camelify encode))
+(defmethod render-item "application/json" [_ item] (-> item downcast-to-json camelify encode))  
 
 (defn assoc-conj
   "Associate a key with a value in a map. If the key already exists in the map,
