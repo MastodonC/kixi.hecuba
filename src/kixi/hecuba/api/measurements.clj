@@ -32,17 +32,20 @@
         {:keys [device-id
                 reading-type]} route-params
         decoded-params         (util/decode-query-params query-string)
-        formatter              (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm")
-        start-date             (.parse formatter (string/replace (get decoded-params "startDate") "%20" " "))
-        end-date               (.parse formatter (string/replace (get decoded-params "endDate") "%20" " "))
+        start-date             (to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
+        end-date               (to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
         measurements           (hecuba/items querier :measurement [[= :device-id device-id]
                                                                    [= :type reading-type]
                                                                    [= :month (util/get-month-partition-key start-date)]
                                                                    [>= :timestamp start-date]
                                                                    [<= :timestamp end-date]])]
-    (->> measurements
-         (map #(update-in % [:timestamp] str))
-         (util/render-item request))))
+    (util/downcast-to-json {:measurements (->> measurements
+                                               (map (fn [m]
+                                                      (-> m
+                                                          (update-in [:value] (when-not (empty? (:value m)) read-string))
+                                                          (update-in [:timestamp] db-to-iso)
+                                                          (dissoc :month :metadata :device-id (when-not (empty? (:value m)) :error))
+                                                          util/camelify))))})))
 
 (defn index-post! [commander querier queue ctx]
   (let [request      (:request ctx)
