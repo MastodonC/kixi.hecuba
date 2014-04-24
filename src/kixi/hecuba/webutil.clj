@@ -6,7 +6,12 @@
    [camel-snake-kebab :as csk]
    [hiccup.core :refer (html)]
    [kixi.hecuba.security :as sec]
+   [kixi.hecuba.data.misc :as misc]
    [clojure.string :as string]
+   [clj-time.coerce :as tc]
+   [clj-time.format :as tf]
+   [clj-time.core :as t]
+   [clj-time.periodic :as tp]
    [clojure.pprint :refer (pprint)]
    [clojure.walk :refer (postwalk)]
    [liberator.core :as liberator]))
@@ -51,7 +56,9 @@
      (instance? java.util.Date %) (str %)
      (keyword? %) (name %)
      (instance? java.lang.Double %) %
+     (instance? java.lang.Long %) %
      (instance? java.lang.Integer %) %
+     (instance? clojure.lang.Symbol %) %
      (or (coll? %) (string? %)) %
      (nil? %) nil
      :otherwise (throw (ex-info (format "No JSON type for %s"
@@ -162,3 +169,26 @@
 
 (defn routes-from [ctx]
   (get-in ctx [:request :modular.bidi/routes]))
+
+(def formatter (tf/formatter (t/default-time-zone) "yyyy-MM-dd'T'HH:mm:ssZ" "yyyy-MM-dd HH:mm:ss"))
+(defn to-db-format [date] (tf/parse formatter date))
+(defn db-to-iso [s] (let [date (misc/to-timestamp s)] (tf/unparse formatter (tc/from-date date))))
+
+(defn time-range
+  "Return a lazy sequence of DateTime's from start to end, incremented
+  by 'step' units of time."
+  [start end step]
+  (let [start-date (t/first-day-of-the-month start)
+        end-date   (t/last-day-of-the-month end)
+        in-range-inclusive? (complement (fn [t] (t/after? t end-date)))]
+    (take-while in-range-inclusive? (tp/periodic-seq start-date step))))
+
+(defn parse-value 
+  "AMON API specifies that when value is not present, error must be returned and vice versa."
+  [measurement]
+  (let [value (:value measurement)]
+    (if-not (empty? value)
+      (-> measurement
+          (update-in [:value] read-string)
+          (dissoc :error))
+      (dissoc measurement :value))))

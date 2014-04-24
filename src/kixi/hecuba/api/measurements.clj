@@ -10,38 +10,11 @@
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
    [clj-time.coerce :as tc]
-   [clj-time.format :as tf]
    [clj-time.core :as t]
-   [clj-time.periodic :as tp]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex)]
+   [kixi.hecuba.webutil :as util]
+   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex time-range)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]))
-
-(defn parse-value 
-  "AMON API specifies that when value is not present, error must be returned and vice versa."
-  [measurement]
-  (let [value (:value measurement)]
-    (if-not (empty? value)
-      (-> measurement
-          (update-in [:value] read-string)
-          (dissoc :error))
-      (dissoc measurement :value))))
-
-(def formatter (tf/formatter "yyyy-MM-dd'T'HH:mm:ssZ"))
-(defn to-db-format [date]
-  (tf/parse formatter date))
-(defn db-to-iso [s]
-  (let [date (misc/to-timestamp s)]
-    (tf/unparse formatter (tc/from-date date))))
-
-(defn time-range
-  "Return a lazy sequence of DateTime's from start to end, incremented
-  by 'step' units of time."
-  [start end step]
-  (let [start-date (t/first-day-of-the-month start)
-        end-date   (t/last-day-of-the-month end)
-        in-range-inclusive? (complement (fn [t] (t/after? t end-date)))]
-    (take-while in-range-inclusive? (tp/periodic-seq start-date step))))
 
 (defn retrieve-measurements 
   "Iterate over a sequence of months and concatanate measurements retrieved from the database."
@@ -61,14 +34,14 @@
         {:keys [device-id
                 reading-type]} route-params
         decoded-params         (util/decode-query-params query-string)
-        start-date             (to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
-        end-date               (to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
+        start-date             (util/to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
+        end-date               (util/to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
         measurements           (retrieve-measurements querier start-date end-date device-id reading-type)]
     (util/downcast-to-json {:measurements (->> measurements
                                                (map (fn [m]
                                                       (-> m
-                                                          parse-value
-                                                          (update-in [:timestamp] db-to-iso)
+                                                          util/parse-value
+                                                          (update-in [:timestamp] util/db-to-iso)
                                                           (dissoc :month :metadata :device-id)
                                                           util/camelify))))})))
 
@@ -98,8 +71,6 @@
         {:response {:status 202 :body "Accepted"}})
       {:response {:status 400 :body "Provide valid deviceId and type."}})))
 
-
-
 (defn index-handle-ok [querier ctx]
   (let [request (:request ctx)
         route-params (:route-params request)
@@ -108,8 +79,8 @@
         measurements (hecuba/items querier :measurement where)]
     (util/downcast-to-json {:measurements (->> measurements
                                                (map #(-> %
-                                                         parse-value
-                                                         (update-in [:timestamp] db-to-iso)
+                                                         util/parse-value
+                                                         (update-in [:timestamp] util/db-to-iso)
                                                          (dissoc :metadata :device-id :month)
                                                          util/camelify)))})))
 

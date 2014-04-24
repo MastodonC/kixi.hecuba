@@ -34,7 +34,7 @@
 
 (defn interval
   [start-date end-date]
-  (let [formatter (tf/formatter "yyyy-MM-ddTHH:mm:ssZZ")
+  (let [formatter (tf/formatter "yyyy-MM-dd HH:mm:ss")
         start     (tf/parse formatter start-date)
         end       (tf/parse formatter end-date)
         interval  (t/in-minutes (t/interval start end))]
