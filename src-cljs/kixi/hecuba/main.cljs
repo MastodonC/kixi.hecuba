@@ -9,8 +9,7 @@
    [kixi.hecuba.navigation :as nav]
    [kixi.hecuba.widgets.datetimepicker :as dtpicker]
    [kixi.hecuba.tabs.properties :as properties]
-   [kixi.hecuba.chart :as chart]
-   [kixi.hecuba.mult-charts :as mchart]
+   [kixi.hecuba.widgets.chart :as chart]
    [kixi.hecuba.common :refer (index-of map-replace find-first interval)]
    [kixi.hecuba.history :as history]
    [kixi.hecuba.model :refer (app-model)]
@@ -102,7 +101,6 @@
                                                       selection-key
                                                       template
                                                       (<! in))]
-      ;; TODO Date format shoudl be: "2014-01-01T00:00:04Z"
       (let [[start-date end-date] search
             entity-id        (get ids :property)
             sensor-id        (get ids :sensor)
@@ -253,11 +251,11 @@
                                                      :path    :readings}})
                  (om/build sensor/define-data-set-button data)
                  (dom/h2 nil "Chart")
-                 (dom/div #js {:id "date-picker"})
-                 (om/build dtpicker/date-picker data {:opts {:histkey :range}})
+                 (dom/div #js {:id "date-picker"}
+                          (om/build dtpicker/date-picker data {:opts {:histkey :range}}))
                  (om/build chart-feedback-box (get-in data [:chart :message]))
-                 (dom/div #js {:id "chart"})
-                 (om/build chart/chart-figure (:chart data))
+                 (dom/div #js {:className "well" :id "chart" :style {:width "100%" :height 600}}
+                          (om/build chart/chart-figure (:chart data)))
                  (om/build sensor/selection-dialog (:tables data)
                            {:opts {:id "sensor-selection-dialog"
                                    :handler (fn [e]

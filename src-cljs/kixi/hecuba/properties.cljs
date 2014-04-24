@@ -36,7 +36,7 @@
                (dom/td nil id)
                (dom/td nil description)
                (dom/td nil (:name the-item))
-               (dom/td nil (dom/div nil {:className "checkbox"}
+               (dom/td nil (dom/div #js {:className "checkbox"}
                                     (dom/input #js {:type "checkbox"
                                                     :value id
                                                     :onChange #(select-device % owner)}))))))))
@@ -51,7 +51,7 @@
                (dom/td nil code)
                (dom/td nil id)
                (dom/td nil (:projectId the-item))
-               (dom/td nil (dom/div nil {:className "checkbox"}
+               (dom/td nil (dom/div #js {:className "checkbox"}
                              (dom/input #js {:type "checkbox"
                                              :value code
                                              :onChange (fn [e]
@@ -95,8 +95,8 @@
       (let [properties (:properties data)]
         (dom/div nil
           (dom/h4 nil "Search for a property:")
-          (dom/form nil {:role "form"}
-            (dom/div nil {:className "form-group"}                     
+          (dom/form #js {:role "form"}
+            (dom/div #js {:className "form-group"}                     
               (dom/input #js {:type "text"
                               :className "form-control"
                               :ref "text-field"
