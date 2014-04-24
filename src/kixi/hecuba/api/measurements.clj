@@ -41,7 +41,7 @@
   (let [start-date (t/first-day-of-the-month start)
         end-date   (t/last-day-of-the-month end)
         inf-range  (tp/periodic-seq start step)
-        below-end? (fn [t] (t/within? (t/interval start end-date)
+        below-end? (fn [t] (t/within? (t/interval start-date end-date)
                                          t))]
     (take-while below-end? inf-range)))
 
