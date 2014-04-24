@@ -6,12 +6,11 @@
    [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map< filter< mult tap map>]]
    [ajax.core :refer (GET POST)]
    [clojure.string :as str]
-   [cljs-time.core :as t]
-   [cljs-time.format :as tf]
    [kixi.hecuba.navigation :as nav]
+   [kixi.hecuba.widgets.datetimepicker :as dtpicker]
+   [kixi.hecuba.tabs.properties :as properties]
    [kixi.hecuba.chart :as chart]
    [kixi.hecuba.mult-charts :as mchart]
-   [kixi.hecuba.properties :as properties]
    [kixi.hecuba.common :refer (index-of map-replace find-first interval)]
    [kixi.hecuba.history :as history]
    [kixi.hecuba.model :refer (app-model)]
@@ -22,55 +21,6 @@
 (defn blank-tab [data owner]
   (om/component
       (dom/p nil "This page is unintentionally left blank")))
-
-(defn get-properties [projects data]
-  (doseq [project projects]
-    (GET (str "/4/projects/" (:id project) "/properties")
-         {:handler #(om/update! data [:properties :properties] (concat (-> @data :properties :properties) %))
-          :headers {"Accept" "application/json"}
-          :response-format :json
-          :keywords? true})))
-
-(defn properties-tab [data owner]
-  (reify
-    om/IInitState
-    (init-state [_]
-      {:chan {:clicked (chan (sliding-buffer 1))}})
-    om/IWillMount
-    (will-mount [this]
-      (GET "/4/projects/" {:handler #(get-properties % data)
-                           :headers {"Accept" "application/json"}
-                           :response-format :json
-                           :keywords? true}))
-    om/IRenderState
-    (render-state [_ {:keys [chan]}]
-      (dom/div nil
-         (dom/div #js {:className "panel-group" :id "accordion"}
-           (dom/div #js {:className "panel panel-default"}
-              (dom/div #js {:className "panel-heading"}
-                (dom/h3 #js {:className "panel-title"}
-                  (dom/a #js {:data-toggle "collapse" :data-parent "#accordion" :href "#collapseOne"}
-                         "Properties")))
-              (dom/div #js {:id "collapseOne" :className "panel-collapse collapse in"}
-                (dom/div #js {:className "panel-body"}
-                  (om/build properties/properties-select-table (:properties data) {:init-state chan}))))
-           (dom/div #js {:className "panel panel-default"}
-             (dom/div #js {:className "panel-heading"}
-               (dom/h3 #js {:className "panel-title"}
-                  (dom/a #js {:data-toggle "collapse" :data-parent "#accordion" :href "#collapseTwo"}
-                          "Devices")))
-             (dom/div #js {:id "collapseTwo" :className "panel-collapse collapse in"}
-                (dom/div #js {:className "panel-body"}
-                   (om/build properties/devices-select-table (:devices data) {:init-state chan})))))
-         (dom/br nil)
-         (dom/div #js {:className "panel-group"}
-           (dom/div #js {:className "panel panel-default"}
-              (dom/div #js {:className "panel-heading"}
-                (dom/h3 #js {:className "panel-title"} "Chart"))
-              (dom/div #js {:className "panel-body"}
-                ;;build chart component
-                                    )))
-         ))))
 
 (defn charts-tab [data owner]
   (om/component
@@ -219,78 +169,6 @@
                                   (dom/a #js {:href (get row href)} (get-in row k))
                                   (get-in row k))))))))))))))))
 
-;; TODO datepicker's min and max functions don't work as expected.
-;; Might be an issue with using jQuery for reading selected dates.
-;; For now added the check below. But need to disable invalid dates
-;; in the datepicker instead.
-(defn evaluate-dates
-  [start-date end-date]
-  (prn start-date end-date)
-  (let [formatter (tf/formatter "yyyy-MM-dd-HH:mm:ssZZ")
-        start     (tf/parse formatter start-date)
-        end       (tf/parse formatter end-date)]
-    (cond
-     (t/after? start end) :invalid
-     (= start-date end-date) :invalid
-     (not= start-date end-date) :valid)))
-
-(defn date-picker
-  [cursor owner {:keys [histkey]}]
-  (reify
-    om/IRender
-    (render [_]
-      (let [history (om/get-shared owner :history)]
-        (dom/div nil
-                 (dom/div #js {:className "container"}
-                          (dom/div #js {:className "col-sm-3"}
-                                   (dom/div #js {:className "form-group"}
-                                            (dom/div #js {:className "input-group date" :id "dateFrom" }
-                                                     (dom/input #js
-                                                                {:type "text"
-                                                                 :ref "dateFrom"
-                                                                 :data-format "YYYY-MM-DDTHH:mm:ssZ"
-                                                                 :className "form-control"
-                                                                 :placeholder "Start date"
-                                                                 :value (if (empty? (get-in cursor [:chart :range]))
-                                                                          ""
-                                                                          (get-in cursor [:chart :range :start-date]))})
-                                                     (dom/span #js {:className "input-group-addon"}
-                                                               (dom/span #js {:className "glyphicon glyphicon-calendar"})))))
-                          (dom/div #js {:className "col-sm-3"}
-                                   (dom/div #js {:className "form-group"}
-                                            (dom/div #js {:className "input-group date" :id "dateTo"}
-                                                     (dom/input #js
-                                                                {:type "text"
-                                                                 :data-format "YYYY-MM-DDTHH:mm:ssZ"
-                                                                 :ref "dateTo"
-                                                                 :className "form-control"
-                                                                 :placeholder "End date"
-                                                                 :value (if (empty? (get-in cursor [:chart :range]))
-                                                                          ""
-                                                                          (get-in cursor [:chart :range :end-date]))})
-                                                     (dom/span #js {:className "input-group-addon"}
-                                                               (dom/span #js {:className "glyphicon glyphicon-calendar"})))))
-                          (dom/button #js {:type "button"
-                                           :id "select-dates-btn"
-                                           :className  "btn btn-primary btn-large"
-                                           :onClick
-                                           (fn [e]
-                                             (let [start     (-> (om/get-node owner "dateFrom")
-                                                                 .-value)
-                                                   end       (-> (om/get-node owner "dateTo")
-                                                                 .-value)]
-                                               (if (= :valid (evaluate-dates start end)
-                                                      )
-                                                 (do
-                                                   (history/set-token-search! history [start end])
-                                                   (om/update! cursor [:chart :range] {:start-date start :end-date end})
-                                                   (om/update! cursor [:chart :message] ""))
-                                                 (do
-                                                   (om/update! cursor [:chart :range] {:start-date start :end-date end})
-                                                   (om/update! cursor [:chart :message] "End date must be later than start date."))
-                                                 )))}
-                                      "Select dates")))))))
-
 (defmulti render-content-directive (fn [itemtype _ _] itemtype))
 
 (defmethod render-content-directive :text
@@ -376,8 +254,7 @@
                  (om/build sensor/define-data-set-button data)
                  (dom/h2 nil "Chart")
                  (dom/div #js {:id "date-picker"})
-                 (dom/p nil "Note: When you select something to plot on a given axis, you will only be able to plot other items of the same unit on that axis.")
-                 (om/build date-picker data {:opts {:histkey :range}})
+                 (om/build dtpicker/date-picker data {:opts {:histkey :range}})
                  (om/build chart-feedback-box (get-in data [:chart :message]))
                  (dom/div #js {:id "chart"})
                  (om/build chart/chart-figure (:chart data))
@@ -425,7 +302,7 @@
 
 (om/root (tab-container {:about about-tab
                          :programmes programmes-tab
-                         :properties properties-tab
+                         :properties properties/properties-tab
                          :charts charts-tab
                          :documentation documentation-tab
                          :users users-tab})
