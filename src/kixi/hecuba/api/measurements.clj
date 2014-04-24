@@ -40,10 +40,8 @@
   [start end step]
   (let [start-date (t/first-day-of-the-month start)
         end-date   (t/last-day-of-the-month end)
-        inf-range  (tp/periodic-seq start step)
-        below-end? (fn [t] (t/within? (t/interval start-date end-date)
-                                         t))]
-    (take-while below-end? inf-range)))
+        in-range-inclusive? (complement (fn [t] (t/after? t end-date)))]
+    (take-while in-range-inclusive? (tp/periodic-seq start-date step))))
 
 (defn retrieve-measurements 
   "Iterate over a sequence of months and concatanate measurements retrieved from the database."
