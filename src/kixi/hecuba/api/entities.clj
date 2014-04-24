@@ -67,6 +67,13 @@
 (defn resource-delete! [commander ctx]
   (hecuba/delete! commander :entity [[= :id (get-in ctx [::item :id])]]))
 
+(defn resource-respond-with-entity [ctx]
+  (let [request (:request ctx)
+        method  (:request-method request)]
+    (cond
+     (= method :delete) false
+      :else true)))
+
 (defresource index [{:keys [commander querier]} handlers]
   :allowed-methods #{:post}
   :available-media-types #{"application/json"}
@@ -82,5 +89,5 @@
   :exists? (partial resource-exists? querier)
   :handle-ok (partial resource-handle-ok querier)
   :put! (partial resource-put! commander querier)
-  :respond-with-entity? (constantly true)
+  :respond-with-entity? (partial resource-respond-with-entity)
   :delete! (partial resource-delete! commander))

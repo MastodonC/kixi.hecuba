@@ -153,8 +153,8 @@
 (defn resource-respond-with-entity [ctx]
   (let [request (:request ctx)
         method  (:request-method request)]
-    (case method
-      :delete false
+    (cond
+     (= method :delete) false
       :else true)))
 
 (defresource index [{:keys [commander querier]} handlers]

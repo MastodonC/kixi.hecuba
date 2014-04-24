@@ -11,20 +11,49 @@
    [kixi.hecuba.webutil :as util]
    [clj-time.coerce :as tc]
    [clj-time.format :as tf]
+   [clj-time.core :as t]
+   [clj-time.periodic :as tp]
    [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]))
 
+(defn parse-value 
+  "AMON API specifies that when value is not present, error must be returned and vice versa."
+  [measurement]
+  (let [value (:value measurement)]
+    (if-not (empty? value)
+      (-> measurement
+          (update-in [:value] read-string)
+          (dissoc :error))
+      (dissoc measurement :value))))
+
 (def formatter (tf/formatter "yyyy-MM-dd'T'HH:mm:ssZ"))
-
 (defn to-db-format [date]
-  (tc/to-date (tf/parse formatter date)))
-
+  (tf/parse formatter date))
 (defn db-to-iso [s]
   (let [date (misc/to-timestamp s)]
     (tf/unparse formatter (tc/from-date date))))
 
-;; Expects the dates to be in "2014-01-01T00:00:04Z" format (:date-time-no-ms)
+(defn time-range
+  "Return a lazy sequence of DateTime's from start to end, incremented
+  by 'step' units of time."
+  [start end step]
+  (let [inf-range (tp/periodic-seq start step)
+        below-end? (fn [t] (t/within? (t/interval start end)
+                                         t))]
+    (take-while below-end? inf-range)))
+
+(defn retrieve-measurements 
+  "Iterate over a sequence of months and concatanate measurements retrieved from the database."
+  [querier start-date end-date device-id reading-type]
+  (let [range  (time-range start-date end-date (t/months 1))
+        months (map #(util/get-month-partition-key (tc/to-date %)) range)
+        where  [[= :device-id device-id]
+                [= :type reading-type]
+                [>= :timestamp (tc/to-date start-date)]
+                [<= :timestamp (tc/to-date end-date)]]]
+    (mapcat (fn [month] (hecuba/items querier :measurement (conj where [= :month month]))) months)))
+
 (defn measurements-slice-handle-ok [querier ctx]
   (let [request                (:request ctx)
         {:keys [route-params
@@ -34,17 +63,13 @@
         decoded-params         (util/decode-query-params query-string)
         start-date             (to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
         end-date               (to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
-        measurements           (hecuba/items querier :measurement [[= :device-id device-id]
-                                                                   [= :type reading-type]
-                                                                   [= :month (util/get-month-partition-key start-date)]
-                                                                   [>= :timestamp start-date]
-                                                                   [<= :timestamp end-date]])]
+        measurements           (retrieve-measurements querier start-date end-date device-id reading-type)]
     (util/downcast-to-json {:measurements (->> measurements
                                                (map (fn [m]
                                                       (-> m
-                                                          (update-in [:value] (when-not (empty? (:value m)) read-string))
+                                                          parse-value
                                                           (update-in [:timestamp] db-to-iso)
-                                                          (dissoc :month :metadata :device-id (when-not (empty? (:value m)) :error))
+                                                          (dissoc :month :metadata :device-id)
                                                           util/camelify))))})))
 
 (defn index-post! [commander querier queue ctx]
@@ -73,6 +98,8 @@
         {:response {:status 202 :body "Accepted"}})
       {:response {:status 400 :body "Provide valid deviceId and type."}})))
 
+
+
 (defn index-handle-ok [querier ctx]
   (let [request (:request ctx)
         route-params (:route-params request)
@@ -81,9 +108,9 @@
         measurements (hecuba/items querier :measurement where)]
     (util/downcast-to-json {:measurements (->> measurements
                                                (map #(-> %
-                                                         (update-in [:value] (when-not (empty? (:value %)) read-string))
+                                                         parse-value
                                                          (update-in [:timestamp] db-to-iso)
-                                                         (dissoc :metadata :device-id :month (when-not (empty? (:value %)) :error))
+                                                         (dissoc :metadata :device-id :month)
                                                          util/camelify)))})))
 
 (defn index-handle-created [ctx]
