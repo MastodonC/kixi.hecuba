@@ -4,6 +4,7 @@
              [om.dom :as dom :include-macros true]
              [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map< filter< mult tap map>]]
              [kixi.hecuba.properties :as properties]
+             [kixi.hecuba.bootstrap :as bootstrap]
              [ajax.core :refer (GET POST)]))
 
 
@@ -16,11 +17,13 @@
           :keywords? true})))
 
 
-(defn properties-tab [data owner {:keys [properties-tab-history]}]
+(defn properties-tab [data owner {:keys [properties-history]}]
   (reify
     om/IInitState
     (init-state [_]
-      {:chan {:clicked (chan (sliding-buffer 1))}})
+      {:chan {:clicked-properties (chan (sliding-buffer 1))
+              :clicked-devices    (chan (sliding-buffer 1))
+              :clicked-sensors    (chan (sliding-buffer 1))}})
     om/IWillMount
     (will-mount [this]
       (GET "/4/projects/" {:handler #(get-properties % data)
@@ -29,32 +32,27 @@
                            :keywords? true}))
     om/IRenderState
     (render-state [_ {:keys [chan]}]
-      (let [history (om/get-shared owner :properties-tab-history)]
-        (.log js/console history)
-        (dom/div nil
-          (dom/div #js {:className "panel-group" :id "accordion"}
-            (dom/div #js {:className "panel panel-default"}
-              (dom/div #js {:className "panel-heading"}
-                (dom/h3 #js {:className "panel-title"}
-                  (dom/a #js {:data-toggle "collapse" :data-parent "#accordion" :href "#collapseOne"}
-                         "Properties")))
-              (dom/div #js {:id "collapseOne" :className "panel-collapse collapse in"}
-                       (dom/div #js {:className "panel-body"}
-                                                     (om/build properties/properties-select-table (:properties data) {:init-state chan}))))
-                          (dom/div #js {:className "panel panel-default"}
-                                   (dom/div #js {:className "panel-heading"}
-                                            (dom/h3 #js {:className "panel-title"}
-                                                    (dom/a #js {:data-toggle "collapse" :data-parent "#accordion" :href "#collapseTwo"}
-                                                           "Devices")))
-                                   (dom/div #js {:id "collapseTwo" :className "panel-collapse collapse in"}
-                                            (dom/div #js {:className "panel-body"}
-                                                     (om/build properties/devices-select-table (:devices data) {:init-state chan})))))
-                 (dom/br nil)
-                 (dom/div #js {:className "panel-group"}
-                          (dom/div #js {:className "panel panel-default"}
-                                   (dom/div #js {:className "panel-heading"}
-                                            (dom/h3 #js {:className "panel-title"} "Chart"))
-                                   (dom/div #js {:className "panel-body"}
-                                            ;;build chart component
-                                            )))
-                 )))))
+      (dom/div nil
+               (dom/div #js {:className "panel-group" :id "accordion"}
+                        (bootstrap/accordion-panel  "#collapseOne" "collapseOne" "Properties"
+                                                    (om/build properties/properties-select-table
+                                                              (:properties data)
+                                                              {:init-state chan}))
+
+                        (bootstrap/accordion-panel  "#collapseTwo" "collapseTwo" "Devices"
+                                                    (om/build properties/devices-select-table
+                                                              (:devices data)
+                                                              {:init-state chan}))
+                        (bootstrap/accordion-panel  "#collapseThree" "collapseThree" "Sensors"
+                                                    (om/build properties/sensors-select-table
+                                                              (:sensors data)
+                                                              {:init-state chan})))
+               (dom/br nil)
+               (dom/div #js {:className "panel-group"}
+                        (dom/div #js {:className "panel panel-default"}
+                                 (dom/div #js {:className "panel-heading"}
+                                          (dom/h3 #js {:className "panel-title"} "Chart"))
+                                 (dom/div #js {:className "panel-body"}
+                                          ;;build chart component
+                                          )))
+               ))))

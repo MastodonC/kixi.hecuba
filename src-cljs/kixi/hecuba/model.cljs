@@ -24,7 +24,7 @@
                             :title "Properties"
                             :properties {:properties []}
                             :devices {:devices []}
-                            }
+                            :sensors {:sensors []}}
                            {:name     :programmes
                             :title    "Programmes"
                             :tables   {:programmes {:name     "Programmes"

@@ -139,18 +139,6 @@
                                   (dom/a #js {:href (get row href)} (get-in row k))
                                   (get-in row k))))))))))))))))
 
-
-(defmulti render-content-directive (fn [itemtype _ _] itemtype))
-
-(defmethod render-content-directive :text
-  [_ item _]
-  (dom/p nil item))
-
-(defmethod render-content-directive :table
-  [_ item owner]
-  (om/build table item {:opts (om/get-state owner :event-chan)}))
-
-
 (defn make-channel-pair []
   {:in (chan (sliding-buffer 1))
    :out (chan (sliding-buffer 1))})

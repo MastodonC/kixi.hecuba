@@ -83,3 +83,12 @@
                               :aria-labelledby "dropdownMenu1"}
                   (map #(dom/li nil (dom/a #js {:role "menuitem" :tabIndex "-1" :href "#"} %)) opts)
   )))
+
+(defn accordion-panel [href id title component]
+  (dom/div #js {:className "panel panel-default"}
+           (dom/div #js {:className "panel-heading"}
+                    (dom/h3 #js {:className "panel-title"}
+                            (dom/a #js {:data-toggle "collapse" :data-parent "#accordion" :href href} title)))
+           (dom/div #js {:id id :className "panel-collapse collapse in"}
+                    (dom/div #js {:className "panel-body"}
+                             component))))
