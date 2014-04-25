@@ -4,6 +4,8 @@
              [om.dom :as dom :include-macros true]
              [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map< filter< mult tap map>]]
              [kixi.hecuba.properties :as properties]
+             [kixi.hecuba.widgets.mult-charts :as chart]
+             [kixi.hecuba.widgets.datetimepicker :as dtpicker]
              [kixi.hecuba.bootstrap :as bootstrap]
              [ajax.core :refer (GET POST)]))
 
@@ -16,7 +18,12 @@
           :response-format :json
           :keywords? true})))
 
+(defn chart-feedback-box [cursor owner]
+  (om/component
+   (dom/div nil cursor)))
 
+
+;; TODO this has to be put on a separate page, with route "/charts". Datetimepicker needs history and :range in app model
 (defn properties-tab [data owner {:keys [properties-history]}]
   (reify
     om/IInitState
@@ -53,6 +60,10 @@
                                  (dom/div #js {:className "panel-heading"}
                                           (dom/h3 #js {:className "panel-title"} "Chart"))
                                  (dom/div #js {:className "panel-body"}
-                                          ;;build chart component
+                                          (dom/div #js {:id "date-picker"}
+                                                   (om/build dtpicker/date-picker data))
+                                          (om/build chart-feedback-box (get-in data [:chart :message]))
+                                          (dom/div #js {:className "well" :id "chart" :style {:width "100%" :height 600}}
+                                                   (om/build chart/multiple-properties-chart (:chart data)))
                                           )))
                ))))

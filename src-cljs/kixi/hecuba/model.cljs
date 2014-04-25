@@ -24,7 +24,14 @@
                             :title "Properties"
                             :properties {:properties []}
                             :devices {:devices []}
-                            :sensors {:sensors []}}
+                            :sensors {:sensors []}
+                            :chart    {:property ""
+                                       :sensor ""
+                                       :unit ""
+                                       :range {}
+                                       :measurements []
+                                       :message ""
+                                       }}
                            {:name     :programmes
                             :title    "Programmes"
                             :tables   {:programmes {:name     "Programmes"

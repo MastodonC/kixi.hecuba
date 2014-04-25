@@ -199,34 +199,34 @@
         ;;
         (let [{:keys [programmes projects properties devices sensor-select]} tables]
           (dom/div nil
-                 (dom/h1 {:id "programmes"} (:title data))
-                 (om/build table programmes {:opts {:histkey :programme}})
-                 (dom/h2 {:id "projects"} (str  "Projects " (title-for programmes)))
-                 (om/build table projects {:opts {:histkey :project}})
-                 (dom/h2 {:id "properties"} (str "Properties" (title-for projects)))
-                 (om/build table properties {:opts {:histkey :property}})
-                 (dom/h2 {:id "devices"} "Devices" (title-for properties :title-key :addressStreetTwo))
-                 (om/build table devices {:opts {:histkey :device}})
-                 (om/build device-detail devices)
-                 (dom/h2 {:id "sensors"} "Sensors" (title-for devices :title-key [:location :name]))
-                 (om/build sensor/table data {:opts {:histkey :sensor
-                                                     :path    :readings}})
-                 (om/build sensor/define-data-set-button data)
-                 (dom/h2 nil "Chart")
-                 (dom/div #js {:id "date-picker"}
-                          (om/build dtpicker/date-picker data {:opts {:histkey :range}}))
-                 (om/build chart-feedback-box (get-in data [:chart :message]))
-                 (dom/div #js {:className "well" :id "chart" :style {:width "100%" :height 600}}
-                          (om/build chart/chart-figure (:chart data)))
-                 (om/build sensor/selection-dialog (:tables data)
-                           {:opts {:id "sensor-selection-dialog"
-                                   :handler (fn [e]
-                                              (.preventDefault e)
-                                              (POST (str "/4/entities/" (:selected @properties) "/datasets")
-                                                    {:params (:sensor-group @sensor-select)
-                                                     :handler #(println "Yah!")
-                                                     :error-handler #(println "Error!")
-                                                     :response-format "application/edn"
-                                                     :keywords? true}))}})))))))
+                   (dom/h1 {:id "programmes"} (:title data))
+                   (om/build table programmes {:opts {:histkey :programme}})
+                   (dom/h2 {:id "projects"} (str  "Projects " (title-for programmes)))
+                   (om/build table projects {:opts {:histkey :project}})
+                   (dom/h2 {:id "properties"} (str "Properties" (title-for projects)))
+                   (om/build table properties {:opts {:histkey :property}})
+                   (dom/h2 {:id "devices"} "Devices" (title-for properties :title-key :addressStreetTwo))
+                   (om/build table devices {:opts {:histkey :device}})
+                   (om/build device-detail devices)
+                   (dom/h2 {:id "sensors"} "Sensors" (title-for devices :title-key [:location :name]))
+                   (om/build sensor/table data {:opts {:histkey :sensor
+                                                       :path    :readings}})
+                   (om/build sensor/define-data-set-button data)
+                   (dom/h2 nil "Chart")
+                   (dom/div #js {:id "date-picker"}
+                            (om/build dtpicker/date-picker data {:opts {:histkey :range}}))
+                   (om/build chart-feedback-box (get-in data [:chart :message]))
+                   (dom/div #js {:className "well" :id "chart" :style {:width "100%" :height 600}}
+                            (om/build chart/chart-figure (:chart data)))
+                   (om/build sensor/selection-dialog (:tables data)
+                             {:opts {:id "sensor-selection-dialog"
+                                     :handler (fn [e]
+                                                (.preventDefault e)
+                                                (POST (str "/4/entities/" (:selected @properties) "/datasets")
+                                                      {:params          (:sensor-group @sensor-select)
+                                                       :handler         #(println "Yah!")
+                                                       :error-handler   #(println "Error!")
+                                                       :response-format "application/edn"
+                                                       :keywords?       true}))}})))))))
 
 
