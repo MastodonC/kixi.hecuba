@@ -16,7 +16,7 @@
           :keywords? true})))
 
 
-(defn properties-tab [data owner]
+(defn properties-tab [data owner {:keys [properties-tab-history]}]
   (reify
     om/IInitState
     (init-state [_]
@@ -29,30 +29,32 @@
                            :keywords? true}))
     om/IRenderState
     (render-state [_ {:keys [chan]}]
-      (dom/div nil
-         (dom/div #js {:className "panel-group" :id "accordion"}
-           (dom/div #js {:className "panel panel-default"}
+      (let [history (om/get-shared owner :properties-tab-history)]
+        (.log js/console history)
+        (dom/div nil
+          (dom/div #js {:className "panel-group" :id "accordion"}
+            (dom/div #js {:className "panel panel-default"}
               (dom/div #js {:className "panel-heading"}
                 (dom/h3 #js {:className "panel-title"}
                   (dom/a #js {:data-toggle "collapse" :data-parent "#accordion" :href "#collapseOne"}
                          "Properties")))
               (dom/div #js {:id "collapseOne" :className "panel-collapse collapse in"}
-                (dom/div #js {:className "panel-body"}
-                  (om/build properties/properties-select-table (:properties data) {:init-state chan}))))
-           (dom/div #js {:className "panel panel-default"}
-             (dom/div #js {:className "panel-heading"}
-               (dom/h3 #js {:className "panel-title"}
-                  (dom/a #js {:data-toggle "collapse" :data-parent "#accordion" :href "#collapseTwo"}
-                          "Devices")))
-             (dom/div #js {:id "collapseTwo" :className "panel-collapse collapse in"}
-                (dom/div #js {:className "panel-body"}
-                   (om/build properties/devices-select-table (:devices data) {:init-state chan})))))
-         (dom/br nil)
-         (dom/div #js {:className "panel-group"}
-           (dom/div #js {:className "panel panel-default"}
-              (dom/div #js {:className "panel-heading"}
-                (dom/h3 #js {:className "panel-title"} "Chart"))
-              (dom/div #js {:className "panel-body"}
-                ;;build chart component
-                                    )))
-         ))))
+                       (dom/div #js {:className "panel-body"}
+                                                     (om/build properties/properties-select-table (:properties data) {:init-state chan}))))
+                          (dom/div #js {:className "panel panel-default"}
+                                   (dom/div #js {:className "panel-heading"}
+                                            (dom/h3 #js {:className "panel-title"}
+                                                    (dom/a #js {:data-toggle "collapse" :data-parent "#accordion" :href "#collapseTwo"}
+                                                           "Devices")))
+                                   (dom/div #js {:id "collapseTwo" :className "panel-collapse collapse in"}
+                                            (dom/div #js {:className "panel-body"}
+                                                     (om/build properties/devices-select-table (:devices data) {:init-state chan})))))
+                 (dom/br nil)
+                 (dom/div #js {:className "panel-group"}
+                          (dom/div #js {:className "panel panel-default"}
+                                   (dom/div #js {:className "panel-heading"}
+                                            (dom/h3 #js {:className "panel-title"} "Chart"))
+                                   (dom/div #js {:className "panel-body"}
+                                            ;;build chart component
+                                            )))
+                 )))))
