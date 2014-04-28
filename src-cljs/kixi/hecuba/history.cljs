@@ -61,7 +61,6 @@
       :search (str/split search-terms #"@@@"))))
 
 (defn- historian->token [{:keys [ids search]}]
-  (prn "ids: " ids)
   (str (->> ids
             vals
             (take-while identity)

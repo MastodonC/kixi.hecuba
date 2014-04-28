@@ -10,11 +10,6 @@
   font-size: 8px;
 }
 
-.line {
-  fill: none;
-  stroke: #428bca;
-  stroke-width: 2;
-}
 
 .tooltip {
     opacity: 0.95;
