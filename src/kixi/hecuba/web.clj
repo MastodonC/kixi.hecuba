@@ -21,8 +21,8 @@
 (defn programmes [req]
   {:status 200 :body (slurp (io/resource "sb-admin/programmes.html"))})
 
-(defn chart [req]
-  {:status 200 :body (slurp (io/resource "hecuba/chart.html"))})
+(defn charts [req]
+  {:status 200 :body (slurp (io/resource "sb-admin/charts.html"))})
 
 (defn maps [req]
   {:status 200 :body (slurp (io/resource "hecuba/map.html"))})
@@ -113,7 +113,9 @@
     ["programmes/" (->Secure (:programmes handlers) querier (:login-form handlers))]
     ["programmes" (->Redirect 301 programmes)]
 
-    ["chart.html" chart]
+    ["charts/" charts]
+    ["charts" (->Redirect 301 charts)]
+
     ["counters.html" counters]
     ["map.html" maps]
 

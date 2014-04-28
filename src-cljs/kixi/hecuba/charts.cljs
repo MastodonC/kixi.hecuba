@@ -1,14 +1,26 @@
-(ns kixi.hecuba.tabs.properties
+(ns kixi.hecuba.charts
   (:require-macros [cljs.core.async.macros :refer [go-loop]])
-  (:require  [om.core :as om :include-macros true]
-             [om.dom :as dom :include-macros true]
-             [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map< filter< mult tap map>]]
-             [kixi.hecuba.properties :as properties]
-             [kixi.hecuba.widgets.mult-charts :as chart]
-             [kixi.hecuba.widgets.datetimepicker :as dtpicker]
-             [kixi.hecuba.bootstrap :as bootstrap]
-             [ajax.core :refer (GET POST)]))
+  (:require
+   [om.core :as om :include-macros true]
+   [om.dom :as dom :include-macros true]
+   [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map< filter< mult tap map>]]
+   [ajax.core :refer (GET POST)]
+   [clojure.string :as str]
+   [kixi.hecuba.bootstrap :as bootstrap]
+   [kixi.hecuba.multiple-properties-charts :as properties]
+   [kixi.hecuba.widgets.datetimepicker :as dtpicker]
+   [kixi.hecuba.widgets.mult-charts :as chart]
+   [kixi.hecuba.history :as history]))
 
+(def data-model
+  (atom
+   {:properties {:properties []}
+    :devices {:devices []}
+    :sensors {:sensors []}
+    :chart {:unit ""
+            :range {}
+            :measurements []
+            :message ""}}))
 
 (defn get-properties [projects data]
   (doseq [project projects]
@@ -22,9 +34,7 @@
   (om/component
    (dom/div nil cursor)))
 
-
-;; TODO this has to be put on a separate page, with route "/charts". Datetimepicker needs history and :range in app model
-(defn properties-tab [data owner {:keys [properties-history]}]
+(defn multiple-properties-chart [data owner {:keys [properties-history]}]
   (reify
     om/IInitState
     (init-state [_]
@@ -67,3 +77,7 @@
                                                    (om/build chart/multiple-properties-chart (:chart data)))
                                           )))
                ))))
+
+
+(om/root multiple-properties-chart data-model {:target (.getElementById js/document "charting")
+                                                          :shared {:history (history/new-history [:properties :devices :sensors])}})

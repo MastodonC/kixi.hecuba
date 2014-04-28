@@ -1,4 +1,4 @@
-(ns kixi.hecuba.properties
+(ns kixi.hecuba.multiple-properties-charts
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:refer-clojure :exclude [chars])
   (:require [om.core :as om :include-macros true]

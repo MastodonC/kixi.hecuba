@@ -8,7 +8,6 @@
    [clojure.string :as str]
    [kixi.hecuba.navigation :as nav]
    [kixi.hecuba.widgets.datetimepicker :as dtpicker]
-   [kixi.hecuba.tabs.properties :as properties]
    [kixi.hecuba.tabs.programmes :as programmes]
    [kixi.hecuba.widgets.chart :as chart]
    [kixi.hecuba.common :refer (index-of map-replace find-first interval)]
@@ -83,7 +82,6 @@
 
 (om/root (tab-container {:about about-tab
                          :programmes programmes/programmes-tab
-                         :properties properties/properties-tab
                          :charts charts-tab
                          :documentation documentation-tab
                          :users users-tab})

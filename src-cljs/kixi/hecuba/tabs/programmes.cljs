@@ -8,7 +8,6 @@
      [clojure.string :as str]
      [kixi.hecuba.navigation :as nav]
      [kixi.hecuba.widgets.datetimepicker :as dtpicker]
-     [kixi.hecuba.tabs.properties :as properties]
      [kixi.hecuba.widgets.chart :as chart]
      [kixi.hecuba.common :refer (index-of map-replace find-first interval)]
      [kixi.hecuba.history :as history]

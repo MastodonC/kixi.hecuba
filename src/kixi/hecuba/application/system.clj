@@ -46,6 +46,7 @@
        ['cljs.core] ;; module mains, a main usually contains exported functions or code that just runs
        #{}) ;; module dependencies
       (cljs/step-configure-module :hecuba ['kixi.hecuba.main] #{:cljs})
+      (cljs/step-configure-module :charts ['kixi.hecuba.charts] #{:cljs})
       ))
 
 (defn message [state message]
@@ -88,6 +89,7 @@
        ['cljs.core] ;; module mains, a main usually contains exported functions or code that just runs
        #{}) ;; module dependencies
       (cljs/step-configure-module :hecuba ['kixi.hecuba.main] #{:cljs})
+      (cljs/step-configure-module :charts ['kixi.hecuba.charts] #{:cljs})
       ))
 
 
