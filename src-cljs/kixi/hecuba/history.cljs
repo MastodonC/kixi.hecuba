@@ -61,6 +61,7 @@
       :search (str/split search-terms #"@@@"))))
 
 (defn- historian->token [{:keys [ids search]}]
+  (prn "ids: " ids)
   (str (->> ids
             vals
             (take-while identity)
@@ -71,7 +72,7 @@
 (defn- get-token [history]
    (.getToken history))
 
-(defn- token-as-map [history]
+(defn token-as-map [history]
   (->> history
        get-token
        token->historian))
