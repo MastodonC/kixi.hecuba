@@ -49,15 +49,6 @@
   {:in (chan (sliding-buffer 1))
    :out (chan (sliding-buffer 1))})
 
-(defn tab-container [tabs]
-  (fn [data owner]
-    (om/component
-        (dom/div nil
-             (let [selected (-> data :tab-container :selected)]
-               (if-let [tab (get tabs selected)]
-                 (om/build tab (->> data :tab-container :tabs (filter #(= (:name %) selected)) first))
-                 (om/build blank-tab data)))))))
-
 (defn ^:export handle-left-nav [menu-item]
   ;; Currently we implement a one-to-one correspondence between the
   ;; left-hand-menu and the tab container, but in due course 'Project'
@@ -70,21 +61,42 @@
     (println "AM:" (type(-> @app-model (get-in path))))
     (println "AM:" (pr-str (-> @app-model (get-in path))))))
 
-(om/root
-    (let [{:keys [in out] :as pair} (make-channel-pair)]
-      (go-loop []
-               (when-let [n (<! out)]
-                 (handle-left-nav n)
-                 (recur)))
-      (nav/nav pair))
-    app-model
-    {:target (.getElementById js/document "hecuba-nav")})
+(comment
+  (om/root
+   (let [{:keys [in out] :as pair} (make-channel-pair)]
+     (go-loop []
+       (when-let [n (<! out)]
+         (handle-left-nav n)
+         (recur)))
+     (nav/nav pair))
+   app-model
+   {:target (.getElementById js/document "hecuba-nav")}))
 
-(om/root (tab-container {:about about-tab
-                         :programmes programmes/programmes-tab
-                         :charts charts-tab
-                         :documentation documentation-tab
-                         :users users-tab})
+(comment
+  (om/root (tab-container {:about about-tab
+                           :programmes programmes/programmes-tab
+                           :charts charts-tab
+                           :documentation documentation-tab
+                           :users users-tab})
+           app-model
+           {:target (.getElementById js/document "hecuba-tabs")
+            :shared {:history (history/new-history [:programme :project :property :device :sensor :measurement])}}))
+
+(defn tab-container [tabs]
+  (fn [data owner]
+    (om/component
+        (dom/div nil
+             (let [selected (-> data :tab-container :selected)]
+               (if-let [tab (get tabs selected)]
+                 (om/build tab (->> data :tab-container :tabs (filter #(= (:name %) selected)) first))
+                 (om/build blank-tab data)))))))
+
+;; TODO
+(om/root (fn [data owner]
+           (om/component
+            (dom/div nil
+                     (let [selected (-> data :tab-container :selected)]
+                       (om/build programmes/programmes-tab (->> data :programmes))))))
          app-model
          {:target (.getElementById js/document "hecuba-tabs")
           :shared {:history (history/new-history [:programme :project :property :device :sensor :measurement])}})
