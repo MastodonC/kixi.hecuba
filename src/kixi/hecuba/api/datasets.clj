@@ -2,6 +2,7 @@
   (:require
    [bidi.bidi :as bidi]
    [clojure.string :as string]
+   [clojure.tools.logging :as log]
    [kixi.hecuba.protocols :as hecuba]
    [kixi.hecuba.queue :as q]
    [kixi.hecuba.security :as sec]
@@ -45,10 +46,12 @@
   (get-in ctx [:request :route-params :entity-id]))
 
 (defn- name-from [ctx]
-  (get-in ctx [:request :route-params :namee]))
+  (get-in ctx [:request :route-params :name]))
 
 (defn index-post! [commander ctx]
-  (let [request                (:request ctx)
+   (log/info "index-post!")
+
+   (let [request                (:request ctx)
         {:keys [members name]} (decode-body request)
         entity-id              (entity-id-from ctx)
         members-str            (string/join \, members)
@@ -63,11 +66,12 @@
     (hash-map :name name
               :entity-id entity-id)))
 
-(defn index-handle-ok [querier req]
-  (let [route-params (:route-params req)]
-    (util/render-items req (hecuba/items querier
+(defn index-handle-ok [querier ctx]
+  (let [entity-id   (entity-id-from ctx)]
+    (log/info "index-handle-ok")
+    (util/render-items ctx (hecuba/items querier
                              :dataset
-                             (select-keys route-params [:entity-id])))))
+                              [[= :entity-id entity-id]]))))
 
 (defn index-handle-created [handlers ctx]
   (let [entity-id   (entity-id-from ctx)
@@ -76,6 +80,7 @@
                                (:dataset @handlers)
                                :entity-id entity-id
                                :name name)]
+    (log/info "index-handle-created!")
     (when-not location
       (throw (ex-info "No path resolved for Location header"
                       {:entity-id entity-id
@@ -86,15 +91,18 @@
   :allowed-methods       #{:get :post}
   :available-media-types #{"application/edn" "text/html"}
   :authorized?           (authorized? querier :datasets)
-  :post!                 (partial index-post! querier)
+  :post!                 (partial index-post! commander)
   :handle-ok             (partial index-handle-ok querier)
   :handle-created        (partial index-handle-created handlers))
 
-(defn resource-exists? [querier req]
-  (let [{route-params :route-params} req
+(defn resource-exists? [querier ctx]
+  (let [request      (:request ctx)
+        route-params (:route-params request)
         {:keys [entity-id name]} route-params]
-    (when-let [item (first (hecuba/items querier :dataset {:entity-id entity-id
-                                                           :name name}))]
+    (log/infof "resource-exists? :%s:%s" entity-id name)
+
+    (when-let [item (first (hecuba/items querier :dataset [[= :entity-id entity-id]
+                                                           [= :name name]]))]
         {::item item}
         #_(throw (ex-info (format "Cannot find item of id %s"))))))
 
@@ -104,11 +112,14 @@
         ds {:entity_id (entity-id-from ctx)
             :name      (name-from ctx)
             :members   (string/join \, members)}]
+    (log/infof "resource-post! %s" ds)
+
     (hecuba/upsert! commander :dataset ds)))
 
-(defn resource-handle-ok [req]
-  (let [item (::item req)]
-    (util/render-item req item)))
+(defn resource-handle-ok [ctx]
+  (let [item (::item ctx)]
+    (log/info "resource-handle-ok")
+    (util/render-item ctx item)))
 
 (defresource resource [{:keys [commander querier]} handlers]
   :allowed-methods       #{:get :post}
