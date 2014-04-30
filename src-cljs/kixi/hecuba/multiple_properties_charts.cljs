@@ -191,7 +191,7 @@
                                           :onChange
                                           (fn [e]
                                             (let [checked   (= (.. e -target -checked) true)
-                                                  new-id    (string/join "-" [device-id type entity-id])]
+                                                  new-id    (string/join "-" [device-id type unit entity-id])]
                                               (put! selection {:checked checked
                                                                :selection-key :sensors
                                                                :value new-id})))}))))))))

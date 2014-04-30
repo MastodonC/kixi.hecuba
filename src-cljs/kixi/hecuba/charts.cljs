@@ -93,13 +93,23 @@
     (update-measurements data {:selection-key :range :checked nil})))
 
 (defn update-chart-sensors [data history new-selected checked]
-  (om/update! data [:selected :sensors] ((if checked conj disj) (:sensors (:selected @data)) new-selected))
-  (om/update! data [:chart :sensors] (:sensors (:selected @data)))
-  (history/update-token-ids! history :sensors (str/join "&" (:sensors (:selected @data))))
-  (update-measurements data {:selection-key :sensors :checked checked :new-selected new-selected}))
+  (let [[device-id type unit entity-id] (str/split new-selected #"-")
+        new-sensor                      (str/join "-" [device-id type entity-id])
+        current-unit                    (:unit (:chart @data))]
+
+    (om/update! data [:selected :sensors] ((if checked conj disj) (:sensors (:selected @data)) new-sensor))
+    (om/update! data [:chart :sensors] (:sensors (:selected @data)))
+
+    (history/update-token-ids! history :sensors (str/join "&" (:sensors (:selected @data))))
+
+    ;; Check unit - selected sensors must be of the same unit
+    (if (or (empty? current-unit) (= current-unit unit))
+      (do
+        (om/update! data [:chart :unit] unit)
+        (update-measurements data {:selection-key :sensors :checked checked :new-selected new-sensor}))
+      (om/update! data [:chart :message] (if checked "Selected sensors must be of the same unit." "")))))
 
 (defn update-sensors-form [data history new-selected checked]
-;; TODO check if clicked sensors are of the same unit. don't allow different units.
   (if checked
     (let [all-properties (get-in @data [:properties :data])
           new-property   (into {} (filter #(= (:id %) new-selected) all-properties))
