@@ -12,7 +12,8 @@
      [kixi.hecuba.common :refer (index-of map-replace find-first interval)]
      [kixi.hecuba.history :as history]
      [kixi.hecuba.model :refer (app-model)]
-     [kixi.hecuba.sensor :as sensor]))
+     [kixi.hecuba.sensor :as sensor]
+     [sablono.core :as html :refer-macros [html]]))
 
 (enable-console-print!)
 
@@ -198,26 +199,32 @@
         ;;
         (let [{:keys [programmes projects properties devices sensor-select]} tables]
           (dom/div nil
-                   (dom/h1 {:id "programmes"} (:title data))
-                   (om/build table programmes {:opts {:histkey :programme}})
-                   (dom/h2 {:id "projects"} (str  "Projects " (title-for programmes)))
-                   (om/build table projects {:opts {:histkey :project}})
-                   (dom/h2 {:id "properties"} (str "Properties" (title-for projects)))
-                   (om/build table properties {:opts {:histkey :property}})
-                   (dom/h2 {:id "devices"} "Devices" (title-for properties :title-key :addressStreetTwo))
-                   (om/build table devices {:opts {:histkey :device}})
-                   (om/build device-detail devices)
-                   (dom/h2 {:id "sensors"} "Sensors" (title-for devices :title-key [:location :name]))
-                   (om/build sensor/table data {:opts {:histkey :sensor
-                                                       :path    :readings}})
-                   (om/build sensor/define-data-set-button data)
-                   (dom/h2 nil "Chart")
-                   (dom/div #js {:id "date-picker"}
-                            (om/build dtpicker/date-picker data {:opts {:histkey :range}}))
-                   (om/build chart-feedback-box (get-in data [:chart :message]))
-                   (dom/div #js {:className "well" :id "chart" :style {:width "100%" :height 600}}
-                            (om/build chart/chart-figure (:chart data)))
-                   (om/build sensor/selection-dialog (:tables data)
+                   (html [:h1 {:id "programmes"} (:title data)]
+                         (om/build table programmes {:opts {:histkey :programme}})
+
+                         [:h2 {:id "projects"} (str  "Projects " (title-for programmes))]
+                         (om/build table projects {:opts {:histkey :project}})
+
+                         [:h2  {:id "properties"} (str "Properties" (title-for projects))]
+                         (om/build table properties {:opts {:histkey :property}})
+
+                         [:h2 {:id "devices"} "Devices" (title-for properties :title-key :addressStreetTwo)]
+                         (om/build table devices {:opts {:histkey :device}})
+                         
+                         (om/build device-detail devices)
+
+                         [:h2 {:id "sensors"} "Sensors" (title-for devices :title-key [:location :name])]
+                         (om/build sensor/table data {:opts {:histkey :sensor
+                                                             :path    :readings}})
+                         (om/build sensor/define-data-set-button data)
+
+                         [:h2 "Chart"]
+                         [:div {:id "date-picker"}
+                          (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
+                         (om/build chart-feedback-box (get-in data [:chart :message]))
+                         [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
+                          (om/build chart/chart-figure (:chart data))]
+                         (om/build sensor/selection-dialog (:tables data)
                              {:opts {:id "sensor-selection-dialog"
                                      :handler (fn [e]
                                                 (.preventDefault e)
@@ -226,6 +233,6 @@
                                                        :handler         #(println "Yah!")
                                                        :error-handler   #(println "Error!")
                                                        :response-format "application/edn"
-                                                       :keywords?       true}))}})))))))
+                                                       :keywords?       true}))}}))))))))
 
 
