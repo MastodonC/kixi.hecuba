@@ -23,6 +23,10 @@
             :measurements []
             :message ""}}))
 
+(defn chart-feedback-box [cursor owner]
+  (om/component
+   (dom/div nil cursor)))
+
 (defn get-properties [projects data]
   (doseq [project projects]
     (GET (str "/4/projects/" (:id project) "/properties")
@@ -30,10 +34,6 @@
           :headers {"Accept" "application/json"}
           :response-format :json
           :keywords? true})))
-
-(defn chart-feedback-box [cursor owner]
-  (om/component
-   (dom/div nil cursor)))
 
 (defn get-measurements [data sensors start-date end-date]
   (when (and start-date end-date (not (empty? sensors)))
@@ -56,8 +56,13 @@
 
 (defmulti update-measurements (fn [data checked] (:selection-key checked)))
 
-(defmethod update-measurements :properties [data checked]
-  (om/update! data [:chart :measurements] nil))
+(defmethod update-measurements :properties [data {:keys [checked new-selected]}]
+  (om/update! data [:chart :measurements] (remove #(= (get % "entity-id") new-selected) (:measurements (:chart @data))))
+  ;; TODO Clears sensors belonging to deselected property - there must be a better way of doing this.
+  (let [sensors-to-keep (into #{} (remove (fn [s] (let [[device-id type entity-id] (str/split s #"-")]
+                                                    (= new-selected entity-id))) (:sensors (:selected @data))))]
+    (om/update! data [:selected :sensors]  sensors-to-keep)
+    (om/update! data [:chart :sensors] sensors-to-keep)))
 
 (defmethod update-measurements :range [data checked]
   (let [chart (:chart @data)
@@ -114,7 +119,7 @@
       (om/update! data [:selected :properties] (disj (:properties (:selected @data)) new-selected))
       (history/update-token-ids! history :properties (str/join "&" (:properties (:selected @data))))
       (om/update! data [:sensors :data] (remove #(= (:entity-id %) new-selected) (:data (:sensors @data))))))
-  (update-measurements data {:selection-key :properties :checked nil}))
+  (update-measurements data {:selection-key :properties :checked nil :new-selected new-selected}))
 
 (defn multiple-properties-chart [data owner]
   (reify
