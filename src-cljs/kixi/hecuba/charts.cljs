@@ -100,14 +100,25 @@
     (om/update! data [:selected :sensors] ((if checked conj disj) (:sensors (:selected @data)) new-sensor))
     (om/update! data [:chart :sensors] (:sensors (:selected @data)))
 
-    (history/update-token-ids! history :sensors (str/join "&" (:sensors (:selected @data))))
+   
 
     ;; Check unit - selected sensors must be of the same unit
     (if (or (empty? current-unit) (= current-unit unit))
       (do
         (om/update! data [:chart :unit] unit)
-        (update-measurements data {:selection-key :sensors :checked checked :new-selected new-sensor}))
-      (om/update! data [:chart :message] (if checked "Selected sensors must be of the same unit." "")))))
+        (om/update! data [:sensors :data] (into [] (map (fn [s]
+                                                          (if (and (= (:device-id s) device-id)
+                                                                   (= (:type s) type))
+                                                            (assoc-in s [:checked] checked)
+                                                            s)) (:data (:sensors @data)))))
+        (update-measurements data {:selection-key :sensors :checked checked :new-selected new-sensor})
+        (history/update-token-ids! history :sensors (str/join "&" (:sensors (:selected @data))))
+        (om/update! data [:chart :message] ""))
+      (om/update! data [:chart :message] "Selected sensors must be of the same unit."))))
+
+(defn should-be-checked? [data sensor]
+  (let [selected (filter (fn [s] (= sensor s)) (:sensors (:selected data)))]
+    (not (empty? selected))))
 
 (defn update-sensors-form [data history new-selected checked]
   (if checked
@@ -117,11 +128,17 @@
                                 (merge {:id k} (reader/read-string v))) (reader/read-string (:devices new-property)))
           new-sensors    (mapcat (fn [device]
                                    (map (fn [reading]
-                                          {:device-id (:id device)
-                                           :type (get reading "type")
-                                           :entity-id (:entity-id device)
-                                           :unit (get reading "unit")
-                                           :description (:description device)}) (:readings device))) new-devices)]
+                                          (let [device-id (:id device)
+                                                type      (get reading "type")
+                                                entity-id (:entity-id device)]
+                                            {:device-id device-id
+                                             :type type
+                                             :entity-id entity-id
+                                             :unit (get reading "unit")
+                                             :description (:description device)
+                                             :checked (should-be-checked? data
+                                                       (str/join "-" [device-id type entity-id]))}
+                                            )) (:readings device))) new-devices)]
       (om/update! data [:sensors :data] (concat (:data (:sensors @data)) new-sensors))
       (om/update! data [:selected :properties] (conj (:properties (:selected @data)) new-selected))
       (history/update-token-ids! history :properties (str/join "&" (:properties (:selected @data)))))

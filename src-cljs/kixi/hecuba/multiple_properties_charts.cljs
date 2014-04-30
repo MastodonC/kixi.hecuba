@@ -188,10 +188,12 @@
                                     (dom/input
                                      #js {:type "checkbox"
                                           :value type
+                                          :checked (get the-item :checked)
                                           :onChange
                                           (fn [e]
                                             (let [checked   (= (.. e -target -checked) true)
                                                   new-id    (string/join "-" [device-id type unit entity-id])]
+
                                               (put! selection {:checked checked
                                                                :selection-key :sensors
                                                                :value new-id})))}))))))))
