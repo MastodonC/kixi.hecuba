@@ -205,15 +205,15 @@
                          [:h2 {:id "projects"} (str  "Projects " (title-for programmes))]
                          (om/build table projects {:opts {:histkey :project}})
 
-                         [:h2  {:id "properties"} (str "Properties" (title-for projects))]
+                         [:h2  {:id "properties"} (str "Properties" (title-for projects)) [:small (title-for programmes)]]
                          (om/build table properties {:opts {:histkey :property}})
 
-                         [:h2 {:id "devices"} "Devices" (title-for properties :title-key :addressStreetTwo)]
+                         [:h2 {:id "devices"} "Devices" (title-for properties :title-key :addressStreetTwo) [:small (title-for programmes) (title-for projects)]]
                          (om/build table devices {:opts {:histkey :device}})
                          
                          (om/build device-detail devices)
 
-                         [:h2 {:id "sensors"} "Sensors" (title-for devices :title-key [:location :name])]
+                         [:h2 {:id "sensors"} "Sensors" (title-for devices :title-key [:location :name]) [:small (title-for programmes) (title-for projects) (title-for properties :title-key :addressStreetTwo)]]
                          (om/build sensor/table data {:opts {:histkey :sensor
                                                              :path    :readings}})
                          (om/build sensor/define-data-set-button data)
