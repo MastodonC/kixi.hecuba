@@ -31,6 +31,7 @@ CREATE TABLE data_sets (
   entity_id text,
   name text,
   members text,
+  type text,
   PRIMARY KEY (entity_id, name)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
