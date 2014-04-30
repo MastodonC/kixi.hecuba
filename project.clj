@@ -41,7 +41,6 @@
                  [com.andrewmcveigh/cljs-time "0.1.3"]
                  [sablono "0.2.17"]
 
-                 ;; for debugging
                  [ankha "0.1.2"]
 
                  [clj-kafka "0.2.0-0.8" :exclusions [org.slf4j/slf4j-simple org.apache.zookeeper/zookeeper]]
@@ -59,7 +58,7 @@
                  [clj-time "0.6.0"]
                  [org.clojure/data.json "0.2.4"]
 
-                 [kixi/pipe "0.15.1"]
+                 [kixi/pipe "0.15.3"]
 
                  [thheller/shadow-build "0.5.0" :exclusions [org.clojure/clojurescript]]
                  ]
