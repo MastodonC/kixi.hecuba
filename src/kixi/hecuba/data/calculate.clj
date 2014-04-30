@@ -1,11 +1,15 @@
 (ns kixi.hecuba.data.calculate
   "Calculated datasets."
-  (:require [clj-time.coerce :as tc]
-            [clj-time.core :as t]
+  (:require [clj-time.core :as t]
             [clj-time.format :as tf]
             [clojure.string :as str]
             [kixi.hecuba.data.misc :as m]
-            [kixi.hecuba.protocols :refer (upsert! update! delete! item items)]))
+            [kixi.hecuba.protocols :refer (upsert! update! delete! item items)]
+            [kixi.hecuba.storage.db :as db]
+            [kixi.hecuba.storage.dbnew :as dbnew]
+            [kixi.hecuba.api.measurements :as measurements]
+            [clj-time.coerce :as tc]
+            [qbits.hayt :as hayt]))
 
 (defn get-difference
   "Returns difference if both values are numbers, otherwise returns N/A."
@@ -126,30 +130,36 @@
       (when-not (.before end start-date)
         (recur (hour-batch commander querier sensor start-date table))))))
 
-(defn parse-sensor [s]
-  ;;TODO validation?
-  (zipmap [:type :device-id]
-          (str/split s #"-")))
-
 (defn normalize-dataset[m]
   (-> m
       (update-in [:members] #(str/split % #"\s*,\s*"))))
 
 (defn resolve-sensors
-  "Returns all the sensors for the given dataset."
+  "Returns all the sensors (with metadata) for the given dataset."
   [{:keys [members]} querier]
-  (let [devices (->> members
-                     (map parse-sensor)
-                     (into (hash-set)))]
-    (mapcat (fn [{:keys [device-id type]}]
-              (items querier :sensor [[= :device-id device-id]
-                                      [= :type type]]))
-            devices)))
+
+  (let [parse-sensor (comp next (partial re-matches #"(\w+)-(\w+)"))
+        sensor-with-metadata (fn [[type device-id]]
+                               (->> [:sensor :sensor-metadata]
+                                    (mapcat #(items querier % [[= :device-id device-id]
+                                                               [= :type type]]))
+                                    (apply merge)))]
+    (map sensor-with-metadata (->> members
+                                   (keep parse-sensor)
+                                   (into (hash-set))))))
 
 (defmulti calculate-data-set (comp keyword :type))
 
 (defmethod calculate-data-set :vol2kwh [ds querier]
-  (prn "S:"  (resolve-sensors ds querier)))
+  (let [sensors (resolve-sensors ds querier)
+        ms (map (fn [m] (measurements/all-measurements querier
+                                         (select-keys m [:type :device-id])
+                                         nil
+                                         nil
+                                         ) ))
+        ]
+    (first sensors)
+    ))
 
 (defn generate-synthetic-readings [commander querier item]
   (let [data-sets (items querier :dataset)]

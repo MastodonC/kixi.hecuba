@@ -1,22 +1,23 @@
 (ns etl
   (:require
-   [com.stuartsierra.component :as component]
-   [clojure.pprint :refer (pprint)]
-   [clojure.java.io :as io]
-   [clojure.data.csv :as csv]
-   clj-time.coerce
-   [clj-time.format :as tf]
-   [clj-time.core :as t]
-   [clj-time.coerce :as tc]
    [bidi.bidi :refer (path-for match-route)]
-   [org.httpkit.client :refer (request) :rename {request http-request}]
+   [camel-snake-kebab :refer (->camelCaseString)]
    [cheshire.core :refer (encode)]
+   [clj-time.coerce :as tc]
+   [clj-time.core :as t]
+   [clj-time.format :as tf]
+   [clojure.data.csv :as csv]
+   [clojure.java.io :as io]
+   [clojure.pprint :refer (pprint)]
+   [clojure.tools.logging :as log]
+   [clojure.tools.reader.reader-types :refer (indexing-push-back-reader)]
+   [com.stuartsierra.component :as component]
    [generators :as generators]
    [kixi.hecuba.data.calculate :as calc]
    [kixi.hecuba.data.misc :as m]
    [kixi.hecuba.protocols :refer (items)]
-   [camel-snake-kebab :refer (->camelCaseString)]
-   [clojure.tools.reader.reader-types :refer (indexing-push-back-reader)]))
+   [org.httpkit.client :refer (request) :rename {request http-request}]
+   ))
 
 (defn config []
   (let [f (io/file (System/getProperty "user.home") ".hecuba.edn")]
@@ -36,7 +37,7 @@
             type      (:type s)
             period    (:period s)
             where     {:device-id device-id :type type}
-            range     (m/start-end-dates querier :measurement :difference-series s where)
+            range     (m/start-end-dates :difference-series s where)
             new-item  (assoc item :sensor s :range range)]
         (when range
           (calc/difference-series commander querier new-item)
@@ -55,7 +56,7 @@
                          "INSTANT"    :measurement
                          "PULSE"      :measurement)
             where      {:device-id device-id :type type}
-            range      (m/start-end-dates querier table :rollups s where)
+            range      (m/start-end-dates :rollups s where)
             new-item   (assoc item :sensor s :range range)]
         (when range
           (calc/hourly-rollups commander querier new-item)
@@ -358,11 +359,11 @@
                       ]))))))
       (let [commander (-> system :store :commander)
             querier   (-> system :store :querier)]
-        
+
         (difference-series-batch commander querier {})
         (rollups commander querier {})))
     (catch Exception e
-      (println "ETL failed:" e))))
+      (log/error e "ETL failed:"))))
 
 ;; Makes use of kixi.hecuba.users/ApiService to create users listed in .hecuba.edn file
 (defn  load-user-data []

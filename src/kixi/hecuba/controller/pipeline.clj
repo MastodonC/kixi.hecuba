@@ -44,7 +44,7 @@
                             "CUMULATIVE" :difference-series
                             "INSTANT"    :measurement
                             "PULSE"      :measurement)
-                range     (misc/start-end-dates querier table :median-calc-check s where)
+                range     (misc/start-end-dates :median-calc-check s where)
                 new-item  (assoc item :sensor s :range range)]
             (when (and range (not= period "PULSE"))
               (checks/median-calculation commander querier table new-item)
@@ -59,7 +59,7 @@
                 type      (:type s)
                 period    (:period s)
                 where     {:device-id device-id :type type}
-                range     (misc/start-end-dates querier :measurement :mislabelled-sensors-check s where)
+                range     (misc/start-end-dates :mislabelled-sensors-check s where)
                 new-item  (assoc item :sensor s :range range)]
             (when range
               (checks/mislabelled-sensors commander querier new-item)
@@ -74,7 +74,7 @@
                 type      (:type s)
                 period    (:period s)
                 where     {:device-id device-id :type type}
-                range     (misc/start-end-dates querier :measurement :difference-series s where)
+                range     (misc/start-end-dates :difference-series s where)
                 new-item  (assoc item :sensor s :range range)]
             (when range
               (calculate/difference-series commander querier new-item)
@@ -93,7 +93,7 @@
                              "INSTANT"    :measurement
                              "PULSE"      :measurement)
                 where      {:device-id device-id :type type}
-                range      (misc/start-end-dates querier table :rollups s where)
+                range      (misc/start-end-dates :rollups s where)
                 new-item   (assoc item :sensor s :range range)]
             (when range
               (calculate/hourly-rollups commander querier new-item)
@@ -109,7 +109,7 @@
                 type      (:type s)
                 period    (:period s)
                 where     {:device-id device-id :type type}
-                range     (misc/start-end-dates querier :measurement :spike-check s where)
+                range     (misc/start-end-dates :spike-check s where)
                 new-item  (assoc item :sensor s :range range)]
             (when (and range (not= period "PULSE"))
               (checks/median-spike-check commander querier new-item)

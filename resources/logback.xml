@@ -1,7 +1,7 @@
 <!-- Logback configuration. See http://logback.qos.ch/manual/index.html -->
 <configuration>
 
- <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender"> 
+ <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
     <!-- encoders are  by default assigned the type
          ch.qos.logback.classic.encoder.PatternLayoutEncoder -->
     <encoder>
@@ -29,10 +29,10 @@
     <!-- Safely log to the same file from multiple JVMs. Degrades performance! -->
     <prudent>false</prudent>
   </appender>
- 
+
   <!-- Enable FILE and STDOUT appenders for all log messages.
        By default, only log at level INFO and above. -->
-  <root level="INFO">
+  <root level="DEBUG">
     <appender-ref ref="FILE" />
     <appender-ref ref="STDOUT" />
     <!-- <appender-ref ref="EMAIL" /> -->
@@ -43,7 +43,10 @@
   <logger name="org.eclipse.jetty" level="INFO" />
   <logger name="org.quartz.core.QuartzSchedulerThread" level="INFO" />
 
+  <!-- log all CQL -->
+  <logger name="kixi.hecuba.storage.db" level="DEBUG"/>
+
   <logger name="user" level="ALL" />
   <logger name="application" level="ALL" />
-  
+
 </configuration>

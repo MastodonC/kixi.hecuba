@@ -41,32 +41,32 @@
     (resolve-handler [this m] nil)
     (unresolve-handler [this m] nil))
 
-(defn make-handlers [opts queue]
+(defn make-handlers [store store-new queue]
   (let [p (promise)]
-    @(deliver p {:programmes          (programmes/index opts p)
-                 :programme           (programmes/resource opts p)
+    @(deliver p {:programmes          (programmes/index store p)
+                 :programme           (programmes/resource store p)
 
-                 :projects            (projects/index opts p)
-                 :allprojects         (projects/index opts p)
-                 :project             (projects/resource opts p)
+                 :projects            (projects/index store p)
+                 :allprojects         (projects/index store p)
+                 :project             (projects/resource store p)
 
-                 :properties          (properties/index opts p)
-                 :entities            (entities/index opts p)
-                 :entity              (entities/resource opts p)
+                 :properties          (properties/index store p)
+                 :entities            (entities/index store p)
+                 :entity              (entities/resource store p)
 
-                 :devices             (devices/index opts p)
-                 :device              (devices/resource opts p)
-                 :sensor-metadata     (sensors/metadata opts p)
-                 :measurements        (measurements/index opts queue p)
-                 :measurement         (measurements/measurements-by-reading opts p)
-                 :measurement-slice   (measurements/measurements-slice opts p)
-                 :hourly-rollups      (rollups/hourly-rollups opts p)
-                 :daily-rollups       (rollups/daily-rollups opts p)
-                 :sensors-by-property (sensors/index-by-property opts p)
-                 :datasets            (datasets/index opts p)
-                 :dataset             (datasets/resource opts p)
-                 :profiles            (profiles/index opts p)
-                 :profile             (profiles/resource opts p)
+                 :devices             (devices/index store p)
+                 :device              (devices/resource store p)
+                 :sensor-metadata     (sensors/metadata store p)
+                 :measurements        (measurements/index store store-new queue p)
+                 :measurement         (measurements/measurements-by-reading store store-new p)
+                 :measurement-slice   (measurements/measurements-slice store store-new p)
+                 :hourly-rollups      (rollups/hourly-rollups store p)
+                 :daily-rollups       (rollups/daily-rollups store p)
+                 :sensors-by-property (sensors/index-by-property store p)
+                 :datasets            (datasets/index store p)
+                 :dataset             (datasets/resource store p)
+                 :profiles            (profiles/index store p)
+                 :profile             (profiles/resource store p)
                  })))
 
 
@@ -122,13 +122,11 @@
 (defrecord AmonApi [context]
   component/Lifecycle
   (start [this]
-    (log/info "AmonApi starting")
-    (if-let [store (get-in this [:store])]
-      (let [handlers  (make-handlers store (get-in this [:queue :queue]))]
-        (assoc this
-          :handlers handlers
-          :routes (make-routes handlers)))
-      (throw (ex-info "No store!" {:this this}))))
+    (log/info "AmonApi starting - " this)
+    (let [handlers  (make-handlers (:store this) (:store-new this) (get-in this [:queue :queue]))]
+      (assoc this
+        :handlers handlers
+        :routes (make-routes handlers))))
   (stop [this] this)
 
   modular.bidi/BidiRoutesContributor

@@ -22,7 +22,7 @@
    [kixi.hecuba.user :refer (new-user-api)]
    [kixi.hecuba.cljs :refer (new-cljs-routes)]
    [kixi.hecuba.storage.db :refer (new-cluster new-session new-direct-store)]
-
+   [kixi.hecuba.storage.dbnew :as dbnew]
    [shadow.cljs.build :as cljs]
 
    ;; Misc
@@ -151,11 +151,14 @@
     (-> (component/system-map
          :cluster (new-cluster (:cassandra-cluster cfg))
          :session (new-session (:cassandra-session cfg))
+         :cluster-new (dbnew/new-cluster (:cassandra-cluster cfg))
+         :hecuba-session (dbnew/new-session (:hecuba-session cfg))
+         :store-new (dbnew/new-store)
          :store (new-direct-store)
          :pipeline (new-pipeline)
          :scheduler (kixipipe.scheduler/mk-session cfg)
-         :queue (new-queue (:queue cfg))
-         :queue-worker (new-queue-worker)
+         ;; :queue (new-queue (:queue cfg))
+         ;; :queue-worker (new-queue-worker)
          :cljs-builder (new-cljs-builder)
          :web-server (new-webserver (:web-server cfg))
          :bidi-ring-handler (new-bidi-ring-handler-provider)
@@ -163,13 +166,14 @@
          :amon-api (new-amon-api "/4")
          :user-api (new-user-api)
          :cljs-routes (new-cljs-routes (:cljs-builder cfg)))
-
         (mod/system-using
          {:main-routes [:store]
-          :amon-api [:store :queue :queue-worker :session]
+          :amon-api [:store :store-new :session]
           :user-api [:store]
           :store [:session]
-          :queue-worker [:queue :store]
+          :store-new [:hecuba-session]
+          ;; :queue-worker [:queue :store]
           :pipeline [:store]
           :scheduler [:pipeline]
+          :hecuba-session {:cluster :cluster-new} ;; TODO remove temp rename -> [:cluster]
           :session [:cluster]}))))

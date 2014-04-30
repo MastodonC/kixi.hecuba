@@ -3,6 +3,7 @@
   (:require  [camel-snake-kebab :refer (->snake_case_keyword ->kebab-case-keyword ->camelCaseString)]
              [qbits.alia :as alia]
              [qbits.hayt :as hayt]
+             [qbits.alia.codec.joda-time] ; necessary to get the codec installed.
              [kixi.hecuba.hash :refer (sha1)]
              [kixi.hecuba.protocols :as proto]
              [com.stuartsierra.component :as component]
@@ -91,7 +92,6 @@
                    (catch Exception e (do (println "exception on keyword: " k v) s))
                    )) {} payload)))
 
-
 (deftype CassandraDirectCommander [session]
   proto/Commander
   (upsert! [_ typ payload]
@@ -129,19 +129,19 @@
     (de-cassandraify
      (first
       (alia/execute session
-       (hayt/select (get-table typ)
-                    (hayt/where {(get-primary-key-field typ) id}))))))
+                    (hayt/select (get-table typ)
+                                 (hayt/where {(get-primary-key-field typ) id}))))))
   (items [_ typ]
     (map de-cassandraify
          (alia/execute session
-          (hayt/select (get-table typ)))))
+                       (hayt/select (get-table typ)))))
   (items [_ typ where]
     (map de-cassandraify
          (alia/execute session
-          (hayt/select (get-table typ)
-                       ;; Where clause should always be a vector of vectors, e.g.
-                       ;; [[= :device-id "1"] [= :type "temp"] [> :timestamp "20140510"]
-                       (hayt/where (cassandraify-v where)))))) )
+                       (hayt/select (get-table typ)
+                                    ;; Where clause should always be a vector of vectors, e.g.
+                                    ;; [[= :device-id "1"] [= :type "temp"] [> :timestamp "20140510"]
+                                    (hayt/where (cassandraify-v where)))))))
 
 (defrecord CassandraDirectStore []
   component/Lifecycle

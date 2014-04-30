@@ -303,6 +303,8 @@ CREATE TABLE sensor_metadata (
   mislabelled_sensors_check text,
   rollups text,
   spike_check text,
+  lower_ts timestamp,
+  upper_ts timestamp,
   PRIMARY KEY (device_id, type)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND

@@ -116,11 +116,13 @@
        #js {:className "modal-footer"}
        (bs/default-button "Close" "modal")
        (bs/primary-button "Define" "modal" (fn [e]
-                                             (POST (str "/4/entities/" (:selected @properties) "/datasets")
+                                             (println "POSTING!")
+                                             (POST (str "/4/entities/" (:selected @properties) "/datasets/")
                                                    {:params (:sensor-group @sensor-select)
                                                     :handler #(println "TODO: Refresh the devices table somehow!")
                                                     :error-handler #(println "Error!" %)
-                                                    :keywords? true}))))
+                                                    :keywords? true})
+                                             (println "POSTED! " (:selected @properties)))))
       )))))
 
 (defn define-data-set-button [cursor owner]
