@@ -108,10 +108,11 @@
 
 (defn resource-post! [commander ctx]
   (let [request (:request ctx)
-        {:keys [members name]} (decode-body request)
+        {:keys [members name type]} (decode-body request)
         ds {:entity_id (entity-id-from ctx)
             :name      (name-from ctx)
-            :members   (string/join \, members)}]
+            :members   (string/join \, members)
+            :type      type}]
     (log/infof "resource-post! %s" ds)
 
     (hecuba/upsert! commander :dataset ds)))

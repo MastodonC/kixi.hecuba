@@ -7,7 +7,7 @@
 (defmacro defreplmethods
   [name & options]
   `(let [options# (apply hash-map '~options)]
-     (defn 
+     (defn
        ~name
        []
        (submit-item (-> system :pipeline :head)
@@ -18,3 +18,4 @@
 (defreplmethods median-calculation-> :dest :data-quality :type :median-calculation)
 (defreplmethods mislabelled-check-> :dest :data-quality :type :mislabelled-sensors)
 (defreplmethods median-spike-check-> :dest :data-quality :type :spike-check)
+(defreplmethods synthetic-readings-> :dest :calculated-datasets :type :synthetic-readings)
