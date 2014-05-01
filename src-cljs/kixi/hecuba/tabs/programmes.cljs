@@ -176,7 +176,7 @@
                                 (history/update-token-ids! history :programme id))
                      :className (if (= id (:selected cursor)) "success")
                      :id (str table-id "-selected")}
-                [:td id] [:td lead-organisations] [:td name] [:td created-at]]))]])))))
+                [:td id [:a {:id (str "row-" id)}]] [:td lead-organisations] [:td name] [:td created-at]]))]])))))
 
 (defn programmes-tab [data owner]
   (let [{tables :tables} data]
@@ -219,41 +219,41 @@
         ;;      we need to decide on singular/plural for entities. I vote singular.
         ;;
         (let [{:keys [programmes projects properties devices sensor-select]} tables]
-          (dom/div nil
-                   (html [:h1 {:id "programmes"} (:title data)]
-                         (om/build programmes-table programmes)
+          (html [:div
+                 [:h1 {:id "programmes"} (:title data)]
+                 (om/build programmes-table programmes)
 
-                         [:h2 {:id "projects"} "Projects" [:a {:href "#programmes"} (title-for programmes)]]
-                         (om/build table projects {:opts {:histkey :project}})
+                 [:h2 {:id "projects"} "Projects" [:small [:a {:href "#programmes"} (title-for programmes)]]]
+                 (om/build table projects {:opts {:histkey :project}})
 
-                         [:h2  {:id "properties"} "Properties" (title-for projects) [:small (title-for programmes)]]
-                         (om/build table properties {:opts {:histkey :property}})
+                 [:h2  {:id "properties"} "Properties" [:small (title-for programmes) (title-for projects)]]
+                 (om/build table properties {:opts {:histkey :property}})
 
-                         [:h2 {:id "devices"} "Devices" (title-for properties :title-key :addressStreetTwo) [:small (title-for programmes) (title-for projects)]]
-                         (om/build table devices {:opts {:histkey :device}})
-                         
-                         (om/build device-detail devices)
+                 [:h2 {:id "devices"} "Devices" [:small (title-for programmes) (title-for projects) (title-for properties :title-key :addressStreetTwo)]]
+                 (om/build table devices {:opts {:histkey :device}})
+                 
+                 (om/build device-detail devices)
 
-                         [:h2 {:id "sensors"} "Sensors" (title-for devices :title-key [:location :name]) [:small (title-for programmes) (title-for projects) (title-for properties :title-key :addressStreetTwo)]]
-                         (om/build sensor/table data {:opts {:histkey :sensor
-                                                             :path    :readings}})
-                         (om/build sensor/define-data-set-button data)
+                 [:h2 {:id "sensors"} "Sensors" [:small (title-for programmes) (title-for projects) (title-for properties :title-key :addressStreetTwo) (title-for devices :title-key [:location :name])]]
+                 (om/build sensor/table data {:opts {:histkey :sensor
+                                                     :path    :readings}})
+                 (om/build sensor/define-data-set-button data)
 
-                         [:h2 "Chart"]
-                         [:div {:id "date-picker"}
-                          (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
-                         (om/build chart-feedback-box (get-in data [:chart :message]))
-                         [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
-                          (om/build chart/chart-figure (:chart data))]
-                         (om/build sensor/selection-dialog (:tables data)
-                             {:opts {:id "sensor-selection-dialog"
-                                     :handler (fn [e]
-                                                (.preventDefault e)
-                                                (POST (str "/4/entities/" (:selected @properties) "/datasets")
-                                                      {:params          (:sensor-group @sensor-select)
-                                                       :handler         #(println "Yah!")
-                                                       :error-handler   #(println "Error!")
-                                                       :response-format "application/edn"
-                                                       :keywords?       true}))}}))))))))
+                 [:h2 "Chart"]
+                 [:div {:id "date-picker"}
+                  (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
+                 (om/build chart-feedback-box (get-in data [:chart :message]))
+                 [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
+                  (om/build chart/chart-figure (:chart data))]
+                 (om/build sensor/selection-dialog (:tables data)
+                           {:opts {:id "sensor-selection-dialog"
+                                   :handler (fn [e]
+                                              (.preventDefault e)
+                                              (POST (str "/4/entities/" (:selected @properties) "/datasets")
+                                                    {:params          (:sensor-group @sensor-select)
+                                                     :handler         #(println "Yah!")
+                                                     :error-handler   #(println "Error!")
+                                                     :response-format "application/edn"
+                                                     :keywords?       true}))}})]))))))
 
 
