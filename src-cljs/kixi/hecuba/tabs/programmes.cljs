@@ -157,6 +157,27 @@
   (some->> (get-in (row-for cursor) (if (vector? title-key) title-key (vector title-key)))
            (str " - ")))
 
+(defn programmes-table [cursor owner]
+  (reify
+    om/IRender
+    (render [_]
+      (let [table-id "programme-table"
+            history (om/get-shared owner :history)]
+        (html
+         [:table {:className "table table-hover"}
+          [:thead
+           [:tr [:th "ID"] [:th "Organisations"] [:th "Name"] [:th "Created At"]]]
+          [:tbody
+           (for [row (sort-by :id (:data cursor))]
+             (let [{:keys [id lead-organisations name description created-at]} row]
+               [:tr {:onClick (fn [_ _ ]
+                                (println "Clicked on: " id)
+                                (om/update! cursor :selected id)
+                                (history/update-token-ids! history :programme id))
+                     :className (if (= id (:selected cursor)) "success")
+                     :id (str table-id "-selected")}
+                [:td id] [:td lead-organisations] [:td name] [:td created-at]]))]])))))
+
 (defn programmes-tab [data owner]
   (let [{tables :tables} data]
     (reify
@@ -200,7 +221,7 @@
         (let [{:keys [programmes projects properties devices sensor-select]} tables]
           (dom/div nil
                    (html [:h1 {:id "programmes"} (:title data)]
-                         (om/build table programmes {:opts {:histkey :programme}})
+                         (om/build programmes-table programmes)
 
                          [:h2 {:id "projects"} "Projects" [:a {:href "#programmes"} (title-for programmes)]]
                          (om/build table projects {:opts {:histkey :project}})
