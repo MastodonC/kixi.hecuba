@@ -202,10 +202,10 @@
                    (html [:h1 {:id "programmes"} (:title data)]
                          (om/build table programmes {:opts {:histkey :programme}})
 
-                         [:h2 {:id "projects"} (str  "Projects " (title-for programmes))]
+                         [:h2 {:id "projects"} "Projects" [:a {:href "#programmes"} (title-for programmes)]]
                          (om/build table projects {:opts {:histkey :project}})
 
-                         [:h2  {:id "properties"} (str "Properties" (title-for projects)) [:small (title-for programmes)]]
+                         [:h2  {:id "properties"} "Properties" (title-for projects) [:small (title-for programmes)]]
                          (om/build table properties {:opts {:histkey :property}})
 
                          [:h2 {:id "devices"} "Devices" (title-for properties :title-key :addressStreetTwo) [:small (title-for programmes) (title-for projects)]]
