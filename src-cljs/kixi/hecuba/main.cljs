@@ -17,9 +17,7 @@
 
 (enable-console-print!)
 
-;; TODO
 (om/root programmes/programmes-tab
          app-model
          {:target (.getElementById js/document "hecuba-tabs")
-          :shared {:history (history/new-history [:programme :project :property :device :sensor :measurement])
-                   :clear-tables (chan)}})
+          :shared {:history (history/new-history [:programmes :projects :properties :devices :sensors :measurements])}})
