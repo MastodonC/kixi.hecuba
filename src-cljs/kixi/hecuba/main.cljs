@@ -13,7 +13,8 @@
    [kixi.hecuba.common :refer (index-of map-replace find-first interval)]
    [kixi.hecuba.history :as history]
    [kixi.hecuba.model :refer (app-model)]
-   [kixi.hecuba.sensor :as sensor]))
+   [kixi.hecuba.sensor :as sensor]
+   [ankha.core :as ankha]))
 
 (enable-console-print!)
 
@@ -21,3 +22,7 @@
          app-model
          {:target (.getElementById js/document "hecuba-tabs")
           :shared {:history (history/new-history [:programmes :projects :properties :devices :sensors :measurements])}})
+
+;; Useful for debugging in dev
+;; (om/root ankha/inspector app-model {:target (.getElementById js/document "ankha")})
+

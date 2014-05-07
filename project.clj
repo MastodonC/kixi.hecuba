@@ -37,6 +37,9 @@
                  [net.drib/mrhyde "0.5.3"]
                  [com.andrewmcveigh/cljs-time "0.1.3"]
                  [sablono "0.2.16"]
+
+                 ;; for debugging
+                 [ankha "0.1.2"]
                  
                  [clj-kafka "0.2.0-0.8" :exclusions [org.slf4j/slf4j-simple org.apache.zookeeper/zookeeper]]
                  [camel-snake-kebab "0.1.4"]
