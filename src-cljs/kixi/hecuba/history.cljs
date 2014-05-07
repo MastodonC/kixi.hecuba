@@ -106,12 +106,8 @@
 
 (defn update-token-ids! [history k v]
   (let [{:keys [ids] :as tmap} (token-as-map history)
-        new-ids (reduce-kv (fn [m k' v']
-                               (if (= k k')
-                                 (reduced (assoc m k v))
-                                 (assoc m k' v')))
-                             (new-historian-map k v)
-                             ids)]
+        keep-keys              (take-while #(not (keyword-identical? % k)) key-order)
+        new-ids                (assoc (select-keys ids keep-keys) k v)]
     (set-token! history (assoc tmap :ids new-ids) historian->token)))
 
 (defn set-token-search! [history xs]

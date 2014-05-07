@@ -1,5 +1,5 @@
 (ns kixi.hecuba.tabs.programmes
-    (:require-macros [cljs.core.async.macros :refer [go-loop]])
+    (:require-macros [cljs.core.async.macros :refer [go go-loop]])
     (:require
      [om.core :as om :include-macros true]
      [om.dom :as dom :include-macros true]
@@ -12,7 +12,8 @@
      [kixi.hecuba.common :refer (index-of map-replace find-first interval)]
      [kixi.hecuba.history :as history]
      [kixi.hecuba.model :refer (app-model)]
-     [kixi.hecuba.sensor :as sensor]))
+     [kixi.hecuba.sensor :as sensor]
+     [sablono.core :as html :refer-macros [html]]))
 
 (enable-console-print!)
 
@@ -25,8 +26,9 @@
 (defn uri-for-selection-change
   "Returns the uri to load because of change of selection. Returns nil
    if no change to selection"
-  [current-selected selection-key template {{ids :ids} :args}]
-  (let [new-selected (get ids selection-key)]
+  [current-selected selection-key template nav-event]
+  (let [ids          (-> nav-event :args :ids)
+        new-selected (get ids selection-key)]
     (when (or (nil? current-selected)
               (nil? new-selected)
               (not= current-selected
@@ -36,14 +38,25 @@
 
 (defn ajax [in data path {:keys [template selection-key content-type]} & [chart]]
   (go-loop []
-    (when-let [[new-selected uri] (uri-for-selection-change (:selected @data)
-                                                            selection-key
-                                                            template
-                                                            (<! in))]
+    (let [nav-event (<! in)
+          active-components (-> nav-event :args :ids keys set)
+          components [:programmes :projects :properties :devices :sensors :measurements] ; FIXME
+          to-clear (remove #(active-components %) components)
+          [new-selected uri] (uri-for-selection-change (:selected @data)
+                                                       selection-key
+                                                       template
+                                                       nav-event)]
+      ;; (println "Nav Event: " nav-event)
+      ;; (println "To Clear: " to-clear)
+      ;; (println "URI: " uri " for path " path " selection-key " selection-key)
+      (doseq [c to-clear]
+        (om/update! data (vector c :data) [])
+        (om/update! data (vector c :selected) nil))
+      
       (when uri
         (GET uri
              (-> {:handler  (fn [x]
-                              (when (= selection-key :sensor)
+                              (when (= selection-key :sensors)
                                 (let [[type _] (str/split new-selected #"-")
                                       unit     (:unit (first (filter #(= (:type %) type) (:readings x))))]
                                   (om/update! chart :unit unit)))
@@ -67,14 +80,15 @@
   (om/component
    (dom/div nil cursor)))
 
+;; FIXME Not clearing properly
 (defn chart-ajax [in data {:keys [selection-key content-type]}]
   (go-loop []
     (when-let [[new-range ids search] (selected-range-change (:range @data)
-                                                      selection-key
-                                                      (<! in))]
+                                                             selection-key
+                                                             (<! in))]
       (let [[start-date end-date] search
-            entity-id        (get ids :property)
-            sensor-id        (get ids :sensor)
+            entity-id        (get ids :properties)
+            sensor-id        (get ids :sensors)
             [type device-id] (str/split sensor-id #"-")]
         ;; TODO ajax call should not be made on each change, only on this particular cursor update.
         (when (and (not (empty? start-date))
@@ -83,7 +97,7 @@
                    (not (nil? entity-id))
                    (not (nil? type)))
           (om/update! data :range {:start-date start-date :end-date end-date})
-          (om/update! data :sensor sensor-id)
+          (om/update! data :sensors sensor-id)
           (let [url (case (interval start-date end-date)
                       :raw (str "/4/entities/" entity-id "/devices/" device-id "/measurements/"
                                 type "?startDate=" start-date "&endDate=" end-date)
@@ -156,36 +170,54 @@
   (some->> (get-in (row-for cursor) (if (vector? title-key) title-key (vector title-key)))
            (str " - ")))
 
+(defn programmes-table [cursor owner]
+  (reify
+    om/IRender
+    (render [_]
+      (let [table-id   "programme-table"
+            history    (om/get-shared owner :history)]
+        (html
+         [:table {:className "table table-hover"}
+          [:thead
+           [:tr [:th "ID"] [:th "Organisations"] [:th "Name"] [:th "Created At"]]]
+          [:tbody
+           (for [row (sort-by :id (:data cursor))]
+             (let [{:keys [id lead-organisations name description created-at]} row]
+               [:tr {:onClick (fn [_ _]
+                                (om/update! cursor :selected id)
+                                (history/update-token-ids! history :programmes id))
+                     :className (if (= id (:selected cursor)) "success")
+                     :id (str table-id "-selected")}
+                [:td id [:a {:id (str "row-" id)}]] [:td lead-organisations] [:td name] [:td created-at]]))]])))))
+
 (defn programmes-tab [data owner]
   (let [{tables :tables} data]
     (reify
       om/IWillMount
       (will-mount [_]
-        (let [m           (mult (history/set-chan! (om/get-shared owner :history) (chan)))
+        (let [history     (om/get-shared owner :history)
+              m           (mult (history/set-chan! history (chan)))
               tap-history #(tap m (chan))]
 
-          ;; attach a go-loop that fires ajax requests on history changes to each table
-
-          ;;TODO still some cruft to tidy here:  /3 and singular/plural bunk.
           (ajax (tap-history) tables [:programmes] {:template      "/4/programmes/"
                                                     :content-type  "application/edn"
-                                                    :selection-key :programme})
-          (ajax (tap-history) tables [:projects] {:template      "/4/programmes/:programme/projects"
+                                                    :selection-key :programmes})
+          (ajax (tap-history) tables [:projects] {:template      "/4/programmes/:programmes/projects/"
                                                   :content-type  "application/edn"
-                                                  :selection-key :project})
-          (ajax (tap-history) tables [:properties] {:template      "/4/projects/:project/properties"
+                                                  :selection-key :projects})
+          (ajax (tap-history) tables [:properties] {:template      "/4/projects/:projects/properties/"
                                                     :content-type "application/json"
-                                                    :selection-key :property})
-          (ajax (tap-history) tables [:devices] {:template      "/4/entities/:property/devices"
+                                                    :selection-key :properties})
+          (ajax (tap-history) tables [:devices] {:template      "/4/entities/:properties/devices/"
                                                  :content-type  "application/json"
-                                                 :selection-key :device})
-          (ajax (tap-history) tables [:sensors] {:template "/4/entities/:property/devices/:device"
+                                                 :selection-key :devices})
+          (ajax (tap-history) tables [:sensors] {:template "/4/entities/:properties/devices/:devices"
                                                  :content-type "application/json"
-                                                 :selection-key :sensor} (:chart data))
-          (ajax (tap-history) tables [:sensor-select] {:template     "/4/entities/:property/sensors"
-                                                       :content-type "application/json"
-                                                       :selection-key :property})
-          (chart-ajax (tap-history) (:chart data) {:template "/4/entities/:property/devices/:device/measurements?startDate=:start-date&endDate=:end-date"
+                                                 :selection-key :sensors} (:chart data))
+          ;; (ajax (tap-history) tables [:sensor-select] {:template     "/4/entities/:properties/sensors"
+          ;;                                              :content-type "application/json"
+          ;;                                              :selection-key :sensor-select})
+          (chart-ajax (tap-history) (:chart data) {:template "/4/entities/:properties/devices/:devices/measurements?startDate=:start-date&endDate=:end-date"
                                                    :content-type  "application/json"
                                                    :selection-key :range})
           ))
@@ -194,38 +226,45 @@
         ;; Note dynamic titles for each of the sections.
 
         ;; TODO sort out duplication here, wrap (on/build table ...) calls probably.
-        ;;      we need to decide on singular/plural for entities. I vote singular.
         ;;
         (let [{:keys [programmes projects properties devices sensor-select]} tables]
-          (dom/div nil
-                   (dom/h1 {:id "programmes"} (:title data))
-                   (om/build table programmes {:opts {:histkey :programme}})
-                   (dom/h2 {:id "projects"} (str  "Projects " (title-for programmes)))
-                   (om/build table projects {:opts {:histkey :project}})
-                   (dom/h2 {:id "properties"} (str "Properties" (title-for projects)))
-                   (om/build table properties {:opts {:histkey :property}})
-                   (dom/h2 {:id "devices"} "Devices" (title-for properties :title-key :addressStreetTwo))
-                   (om/build table devices {:opts {:histkey :device}})
-                   (om/build device-detail devices)
-                   (dom/h2 {:id "sensors"} "Sensors" (title-for devices :title-key [:location :name]))
-                   (om/build sensor/table data {:opts {:histkey :sensor
-                                                       :path    :readings}})
-                   (om/build sensor/define-data-set-button data)
-                   (dom/h2 nil "Chart")
-                   (dom/div #js {:id "date-picker"}
-                            (om/build dtpicker/date-picker data {:opts {:histkey :range}}))
-                   (om/build chart-feedback-box (get-in data [:chart :message]))
-                   (dom/div #js {:className "well" :id "chart" :style {:width "100%" :height 600}}
-                            (om/build chart/chart-figure (:chart data)))
-                   (om/build sensor/selection-dialog (:tables data)
-                             {:opts {:id "sensor-selection-dialog"
-                                     :handler (fn [e]
-                                                (.preventDefault e)
-                                                (POST (str "/4/entities/" (:selected @properties) "/datasets")
-                                                      {:params          (:sensor-group @sensor-select)
-                                                       :handler         #(println "Yah!")
-                                                       :error-handler   #(println "Error!")
-                                                       :response-format "application/edn"
-                                                       :keywords?       true}))}})))))))
+          ;; (println "Tables: " tables)
+          (html [:div
+                 ;;(om/build clear-tables data)
+                 [:h1 {:id "programmes"} (:title data)]
+                 (om/build programmes-table programmes)
+
+                 [:h2 {:id "projects"} "Projects" [:small (title-for programmes)]]
+                 (om/build table projects {:opts {:histkey :projects}})
+
+                 [:h2  {:id "properties"} "Properties" [:small (title-for programmes) (title-for projects)]]
+                 (om/build table properties {:opts {:histkey :properties}})
+
+                 [:h2 {:id "devices"} "Devices" [:small (title-for programmes) (title-for projects) (title-for properties :title-key :addressStreetTwo)]]
+                 (om/build table devices {:opts {:histkey :devices}})
+                 
+                 (om/build device-detail devices)
+
+                 [:h2 {:id "sensors"} "Sensors" [:small (title-for programmes) (title-for projects) (title-for properties :title-key :addressStreetTwo) (title-for devices :title-key [:location :name])]]
+                 (om/build sensor/table data {:opts {:histkey :sensors
+                                                     :path    :readings}})
+                 (om/build sensor/define-data-set-button data)
+
+                 [:h2 "Chart"]
+                 [:div {:id "date-picker"}
+                  (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
+                 (om/build chart-feedback-box (get-in data [:chart :message]))
+                 [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
+                  (om/build chart/chart-figure (:chart data))]
+                 (om/build sensor/selection-dialog (:tables data)
+                           {:opts {:id "sensor-selection-dialog"
+                                   :handler (fn [e]
+                                              (.preventDefault e)
+                                              (POST (str "/4/entities/" (:selected @properties) "/datasets")
+                                                    {:params          (:sensor-group @sensor-select)
+                                                     :handler         #(println "Yah!")
+                                                     :error-handler   #(println "Error!")
+                                                     :response-format "application/edn"
+                                                     :keywords?       true}))}})]))))))
 
 
