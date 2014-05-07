@@ -15,8 +15,7 @@
         method        (:request-method request)
         route-params  (:route-params request)
         entity-id     (:entity-id route-params)
-        entity        (hecuba/item querier :entity entity-id)
-        _ (println "Looking for entity" entity)]
+        entity        (hecuba/item querier :entity entity-id)]
     (case method
       :post (not (nil? entity))
       :get (let [items (hecuba/items querier :profile [[= :entity-id entity-id]])]
@@ -37,6 +36,15 @@
                 ))
       false)))
 
+(defn json-list [items]
+  (map json/encode items))
+
+(defn update-when-available [body [selector]]
+  (if
+    (selector body)
+    (update-in body [selector] json-list)
+    (assoc body selector nil)))
+
 (defn index-post! [querier commander ctx]
   (let [{:keys [request body]} ctx
         entity-id     (-> request :route-params :entity-id)
@@ -46,12 +54,28 @@
     (when-not (empty? (first (hecuba/items querier :entity [[= :id entity-id]])))
       (let [profile   (-> body
                           (assoc :user-id user-id)
+                          (update-in [:profile-data] json/encode)
                           ;; here goes the list of "stuff" associated with profiles
-                          ;(update-in [:thermal-images] json/encode)
-                          ;(update-in [:storeys] json/encode)
-                          ;(update-in [:walls] json/encode)
-                          ;(update-in [:roofs] json/encode)
-                          stringify-values)
+                          (update-when-available [:airflow_measurements])
+                          (update-when-available [:chps])
+                          (update-when-available [:conservatories])
+                          (update-when-available [:door_sets])
+                          (update-when-available [:extensions])
+                          (update-when-available [:floors])
+                          (update-when-available [:heat_pumps])
+                          (update-when-available [:heating_systems])
+                          (update-when-available [:hot_water_systems])
+                          (update-when-available [:low_energy_lights])
+                          (update-when-available [:photovoltaics])
+                          (update-when-available [:roof_rooms])
+                          (update-when-available [:roofs])
+                          (update-when-available [:small_hydros])
+                          (update-when-available [:solar_thermals])
+                          (update-when-available [:storeys])
+                          (update-when-available [:thermal-images])
+                          (update-when-available [:walls])
+                          (update-when-available [:wind_turbines])
+                          (update-when-available [:window_sets]))
             profile-id (hecuba/upsert! commander :profile profile)]
         {:profile-id profile-id}))))
 
