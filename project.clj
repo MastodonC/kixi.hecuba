@@ -78,7 +78,7 @@
                [org.clojure/clojurescript]
                [org.clojure/core.async]
                [bidi]
-               ]
+               [org.clojure/tools.trace]]
 
   :cljsbuild {
     :builds [{:id "dev"
