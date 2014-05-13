@@ -32,7 +32,7 @@
 (defn get-properties [projects data]
   (doseq [project projects]
     (GET (str "/4/projects/" (:id project) "/properties")
-         {:handler #(om/update! data [:properties :data] (concat (-> @data :properties :data) %))
+         {:handler #(om/update! data [:properties :data] (into [] (concat (-> @data :properties :data) %)))
           :headers {"Accept" "application/json"}
           :response-format :json
           :keywords? true})))
@@ -87,39 +87,55 @@
   (let [selected (filter (fn [s] (= sensor s)) (:sensors (:selected data)))]
     (not (empty? selected))))
 
-
 (defmulti update-form (fn [click data history] (:selection-key click)))
 
+(defn- select-property [data history value]
+  (let [all-properties (get-in @data [:properties :data])
+        new-property   (into {} (filter #(= (:id %) value) all-properties))
+        new-devices    (when-let [devices (:devices new-property)]
+                         (map (fn [[k v]]
+                                (merge {:id k} (reader/read-string v))) (reader/read-string devices)))
+        new-sensors    (mapcat (fn [device]
+                                 (map (fn [reading]
+                                        (let [device-id (:id device)
+                                              type      (get reading "type")
+                                              entity-id (:entity-id device)]
+                                          {:device-id device-id
+                                           :type type
+                                           :entity-id entity-id
+                                           :unit (get reading "unit")
+                                           :description (:description device)
+                                           :checked (should-be-checked? data
+                                                                        (str/join "-" [device-id type entity-id]))}
+                                          )) (:readings device))) new-devices)]
+    (om/update! data [:properties :data] (into [] (map (fn [p]
+                                                         (if (= (:id p) value)
+                                                           (assoc-in p [:checked] true)
+                                                           p)) (:data (:properties @data)))))
+    (om/update! data [:sensors :data] (concat (:data (:sensors @data)) new-sensors))
+    (om/update! data [:selected :properties] (conj (:properties (:selected @data)) value))
+    (history/update-token-ids! history :properties (str/join "&" (:properties (:selected @data))))))
+
+(defn- deselect-property [data history value]
+  (om/update! data [:selected :properties] (disj (:properties (:selected @data)) value))
+  (om/update! data [:properties :data] (into [] (map (fn [p]
+                                                       (if (= (:id p) value)
+                                                         (assoc-in p [:checked] false)
+                                                         p)) (:data (:properties @data)))))
+  (history/update-token-ids! history :properties (str/join "&" (:properties (:selected @data))))
+  (om/update! data [:sensors :data] (remove #(= (:entity-id %) value) (:data (:sensors @data))))
+  (om/update! data [:chart :sensors] (:sensors (:selected @data)))
+  (when (empty? (-> @data :selected :sensors))
+    (om/update! data [:chart :unit] "")
+    (om/update! data [:chart :message] "")))
+
 (defmethod update-form :properties [click data history]
-  (.log js/console "properties click")
   (let [checked (:checked click)
         value   (:value click)]
     (if checked
-      (let [all-properties (get-in @data [:properties :data])
-            new-property   (into {} (filter #(= (:id %) value) all-properties))
-            new-devices    (map (fn [[k v]]
-                                  (merge {:id k} (reader/read-string v))) (reader/read-string (:devices new-property)))
-            new-sensors    (mapcat (fn [device]
-                                     (map (fn [reading]
-                                            (let [device-id (:id device)
-                                                  type      (get reading "type")
-                                                  entity-id (:entity-id device)]
-                                              {:device-id device-id
-                                               :type type
-                                               :entity-id entity-id
-                                               :unit (get reading "unit")
-                                               :description (:description device)
-                                               :checked (should-be-checked? data
-                                                                            (str/join "-" [device-id type entity-id]))}
-                                              )) (:readings device))) new-devices)]
-        (om/update! data [:sensors :data] (concat (:data (:sensors @data)) new-sensors))
-        (om/update! data [:selected :properties] (conj (:properties (:selected @data)) value))
-        (history/update-token-ids! history :properties (str/join "&" (:properties (:selected @data)))))
-      (do
-        (om/update! data [:selected :properties] (disj (:properties (:selected @data)) value))
-        (history/update-token-ids! history :properties (str/join "&" (:properties (:selected @data))))
-        (om/update! data [:sensors :data] (remove #(= (:entity-id %) value) (:data (:sensors @data)))))
-      (update-measurements data {:selection-key :properties :checked nil :new-selected value}))))
+      (select-property data history value)
+      (deselect-property data history value))
+    (update-measurements data {:selection-key :properties :checked nil :new-selected value})))
 
 (defn- select-sensor [data history value]
   (let [[device-id type unit entity-id] (str/split value #"-")
@@ -157,9 +173,8 @@
 
 
 (defmethod update-form :sensors [click data history]
-  (let [checked                         (:checked click)
-        value                           (:value click)]
-    
+  (let [checked (:checked click)
+        value   (:value click)]  
     (if checked
       (select-sensor data history value)
       (deselect-sensor data history value))))

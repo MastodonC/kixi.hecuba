@@ -220,8 +220,8 @@
 (defn property-row [selection]
   (fn [the-item owner]
     (om/component
-     (let [code    (:propertyCode the-item)
-           id      (:id the-item)]
+     (let [code    (get the-item :propertyCode)
+           id      (get the-item :id)]
        (dom/tr #js {:className "gradeA" :width "100%" :style (if (:hidden the-item) #js {:display "none"} {})} 
                (dom/td nil (:addressStreetTwo the-item))
                (dom/td nil code)
@@ -229,12 +229,13 @@
                (dom/td nil (:projectId the-item))
                (dom/td nil (dom/div #js {:className "checkbox"}
                                     (dom/input #js {:type "checkbox"
+                                                    :checked (get the-item :checked)
                                                     :value code
                                                     :onChange (fn [e]
                                                                 (let [checked (= (.. e -target -checked) true)]
                                                                   (put! selection {:checked checked
                                                                                    :selection-key :properties
-                                                                                   :value id})))}))))))))
+                                                                                   :value (str id)})))}))))))))
 
 (defn properties-select-table [data owner]
   (reify
