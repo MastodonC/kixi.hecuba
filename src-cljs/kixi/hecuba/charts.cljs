@@ -12,6 +12,8 @@
    [kixi.hecuba.multiple-properties-charts :as properties]
    [kixi.hecuba.history :as history]))
 
+(enable-console-print!)
+
 (def data-model
   (atom
    {:properties {:data []}
@@ -81,8 +83,91 @@
           sensor                     (str/join "-" [device-id type])]
       (om/update! data [:chart :measurements] (remove #(= (get % "sensor") sensor) (:measurements (:chart @data)))))))
 
-(defn update-chart-range [data history value]
-  (let [start   (:start-date (:range value))
+(defn should-be-checked? [data sensor]
+  (let [selected (filter (fn [s] (= sensor s)) (:sensors (:selected data)))]
+    (not (empty? selected))))
+
+
+(defmulti update-form (fn [click data history] (:selection-key click)))
+
+(defmethod update-form :properties [click data history]
+  (.log js/console "properties click")
+  (let [checked (:checked click)
+        value   (:value click)]
+    (if checked
+      (let [all-properties (get-in @data [:properties :data])
+            new-property   (into {} (filter #(= (:id %) value) all-properties))
+            new-devices    (map (fn [[k v]]
+                                  (merge {:id k} (reader/read-string v))) (reader/read-string (:devices new-property)))
+            new-sensors    (mapcat (fn [device]
+                                     (map (fn [reading]
+                                            (let [device-id (:id device)
+                                                  type      (get reading "type")
+                                                  entity-id (:entity-id device)]
+                                              {:device-id device-id
+                                               :type type
+                                               :entity-id entity-id
+                                               :unit (get reading "unit")
+                                               :description (:description device)
+                                               :checked (should-be-checked? data
+                                                                            (str/join "-" [device-id type entity-id]))}
+                                              )) (:readings device))) new-devices)]
+        (om/update! data [:sensors :data] (concat (:data (:sensors @data)) new-sensors))
+        (om/update! data [:selected :properties] (conj (:properties (:selected @data)) value))
+        (history/update-token-ids! history :properties (str/join "&" (:properties (:selected @data)))))
+      (do
+        (om/update! data [:selected :properties] (disj (:properties (:selected @data)) value))
+        (history/update-token-ids! history :properties (str/join "&" (:properties (:selected @data))))
+        (om/update! data [:sensors :data] (remove #(= (:entity-id %) value) (:data (:sensors @data)))))
+      (update-measurements data {:selection-key :properties :checked nil :new-selected value}))))
+
+(defn- select-sensor [data history value]
+  (let [[device-id type unit entity-id] (str/split value #"-")
+        new-sensor                      (str/join "-" [device-id type entity-id])
+        current-unit                    (-> @data :chart :unit)]
+
+    (if (or (empty? current-unit) (= current-unit unit))
+      (do 
+        (om/update! data [:selected :sensors] (conj (:sensors (:selected @data)) new-sensor))
+        (om/update! data [:chart :sensors] (:sensors (:selected @data)))
+        (om/update! data [:chart :unit] unit)
+        (om/update! data [:sensors :data] (into [] (map (fn [s]
+                                                          (if (and (= (:device-id s) device-id)
+                                                                   (= (:type s) type))
+                                                            (assoc-in s [:checked] true)
+                                                            s)) (:data (:sensors @data)))))
+        (update-measurements data {:selection-key :sensors :checked true :new-selected new-sensor})
+        (history/update-token-ids! history :sensors (str/join "&" (:sensors (:selected @data))))
+        (om/update! data [:chart :message] ""))
+      (om/update! data [:chart :message] "Selected sensors must be of the same unit."))))
+
+(defn- deselect-sensor [data history value]
+  (let [[device-id type unit entity-id] (str/split value #"-")
+        new-sensor                      (str/join "-" [device-id type entity-id])]
+       (om/update! data [:selected :sensors] (disj (:sensors (:selected @data)) new-sensor))
+       (om/update! data [:chart :sensors] (:sensors (:selected @data)))
+       (om/update! data [:sensors :data] (into [] (map (fn [s]
+                                                         (if (and (= (:device-id s) device-id)
+                                                                  (= (:type s) type))
+                                                           (assoc-in s [:checked] false)
+                                                           s)) (:data (:sensors @data)))))
+       (when (empty? (-> @data :selected :sensors))
+         (om/update! data [:chart :unit] "")
+         (om/update! data [:chart :message] ""))))
+
+
+(defmethod update-form :sensors [click data history]
+  (let [checked                         (:checked click)
+        value                           (:value click)]
+    
+    (if checked
+      (select-sensor data history value)
+      (deselect-sensor data history value))))
+
+(defmethod update-form :range [click data history]
+  (.log js/console "range click")
+  (let [value   (:value click)
+        start   (:start-date (:range value))
         end     (:end-date (:range value))
         message (:message value)]
     (if-not (empty? message)
@@ -91,62 +176,6 @@
           (om/update! data [:chart :range] {:start-date start :end-date end})
           (history/set-token-search! history [start end])))
     (update-measurements data {:selection-key :range :checked nil})))
-
-(defn update-chart-sensors [data history new-selected checked]
-  (let [[device-id type unit entity-id] (str/split new-selected #"-")
-        new-sensor                      (str/join "-" [device-id type entity-id])
-        current-unit                    (:unit (:chart @data))]
-
-    (om/update! data [:selected :sensors] ((if checked conj disj) (:sensors (:selected @data)) new-sensor))
-    (om/update! data [:chart :sensors] (:sensors (:selected @data)))
-
-   
-
-    ;; Check unit - selected sensors must be of the same unit
-    (if (or (empty? current-unit) (= current-unit unit))
-      (do
-        (om/update! data [:chart :unit] unit)
-        (om/update! data [:sensors :data] (into [] (map (fn [s]
-                                                          (if (and (= (:device-id s) device-id)
-                                                                   (= (:type s) type))
-                                                            (assoc-in s [:checked] checked)
-                                                            s)) (:data (:sensors @data)))))
-        (update-measurements data {:selection-key :sensors :checked checked :new-selected new-sensor})
-        (history/update-token-ids! history :sensors (str/join "&" (:sensors (:selected @data))))
-        (om/update! data [:chart :message] ""))
-      (om/update! data [:chart :message] "Selected sensors must be of the same unit."))))
-
-(defn should-be-checked? [data sensor]
-  (let [selected (filter (fn [s] (= sensor s)) (:sensors (:selected data)))]
-    (not (empty? selected))))
-
-(defn update-sensors-form [data history new-selected checked]
-  (if checked
-    (let [all-properties (get-in @data [:properties :data])
-          new-property   (into {} (filter #(= (:id %) new-selected) all-properties))
-          new-devices    (map (fn [[k v]]
-                                (merge {:id k} (reader/read-string v))) (reader/read-string (:devices new-property)))
-          new-sensors    (mapcat (fn [device]
-                                   (map (fn [reading]
-                                          (let [device-id (:id device)
-                                                type      (get reading "type")
-                                                entity-id (:entity-id device)]
-                                            {:device-id device-id
-                                             :type type
-                                             :entity-id entity-id
-                                             :unit (get reading "unit")
-                                             :description (:description device)
-                                             :checked (should-be-checked? data
-                                                       (str/join "-" [device-id type entity-id]))}
-                                            )) (:readings device))) new-devices)]
-      (om/update! data [:sensors :data] (concat (:data (:sensors @data)) new-sensors))
-      (om/update! data [:selected :properties] (conj (:properties (:selected @data)) new-selected))
-      (history/update-token-ids! history :properties (str/join "&" (:properties (:selected @data)))))
-    (do
-      (om/update! data [:selected :properties] (disj (:properties (:selected @data)) new-selected))
-      (history/update-token-ids! history :properties (str/join "&" (:properties (:selected @data))))
-      (om/update! data [:sensors :data] (remove #(= (:entity-id %) new-selected) (:data (:sensors @data))))))
-  (update-measurements data {:selection-key :properties :checked nil :new-selected new-selected}))
 
 (defn multiple-properties-chart [data owner]
   (reify
@@ -161,15 +190,10 @@
                              :headers {"Accept" "application/json"}
                              :response-format :json
                              :keywords? true})
-        (go (while true
-              (let [sel           (<! clicked)
-                    selection-key (:selection-key sel)
-                    checked       (:checked sel)
-                    value         (:value sel)]
-                (case selection-key
-                  :properties (update-sensors-form data history value checked)
-                  :sensors (update-chart-sensors data history value checked)
-                  :range (update-chart-range data history value)))))))
+        (go-loop []
+          (let [click (<! clicked)]
+            (update-form click data history))
+          (recur))))
 
     om/IRenderState
     (render-state [_ {:keys [chans]}]
