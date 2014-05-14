@@ -43,10 +43,14 @@
                                                        selection-key
                                                        template
                                                        nav-event)]
+      (doseq [a active-components]
+        (om/update! data (vector a :active) true))
+      
       ;; (println "Nav Event: " nav-event)
       ;; (println "To Clear: " to-clear)
       ;; (println "URI: " uri " for path " path " selection-key " selection-key)
       (doseq [c to-clear]
+        (om/update! data (vector c :active) false)
         (om/update! data (vector c :data) [])
         (om/update! data (vector c :selected) nil))
       
@@ -180,6 +184,16 @@
   (let [[type _] (str/split selected #"-")]
     type))
 
+(defn programmes-div [programmes owner]
+  (reify
+    om/IRender
+    (render [_]
+      (html
+       ;; hide div if we've already chosen something
+       [:div {:id "programmes" :class (if (:active programmes) "hidden" "")}
+        [:h1 "Programmes"]
+        (om/build programmes-table programmes)]))))
+
 (defn programmes-table [cursor owner]
   (reify
     om/IRender
@@ -200,6 +214,22 @@
                      :id (str table-id "-selected")}
                 [:td id [:a {:id (str "row-" id)}]] [:td lead-organisations] [:td name] [:td created-at]]))]])))))
 
+(defn projects-div [tables owner]
+  (reify
+    om/IRender
+    (render [_]
+      (let [{:keys [programmes projects]} tables
+            history (om/get-shared owner :history)]
+        (html [:div {:id "projects" :class (if (:active projects) "hidden" "")}
+               [:h2 "Projects"]
+               [:ul {:class "breadcrumb"}
+                [:li [:a
+                      {:onClick (fn projects-div-history-change
+                                  [_ _]
+                                  (history/update-token-ids! history :programmes nil))}
+                      (title-for programmes)]]]
+               (om/build table projects {:opts {:histkey :projects}})])))))
+      
 (defn programmes-tab [data owner]
   (let [{tables :tables} data]
     (reify
@@ -238,17 +268,20 @@
         ;; TODO sort out duplication here, wrap (on/build table ...) calls probably.
         ;;
         (let [{:keys [programmes projects properties devices sensors sensor-select]} tables]
-          (println ">>>> Sensors: " sensors)
           ;; (println "Tables: " tables)
           (html [:div
                  ;;(om/build clear-tables data)
-                 [:h1 {:id "programmes"} (:title data)]
-                 (om/build programmes-table programmes)
+                 ;; [:div {:id "programmes"}
+                 ;;  [:h1 (:title data)]
+                 ;;  (om/build programmes-table programmes)]
+                 (om/build programmes-div programmes)
 
-                 [:h2 {:id "projects"} "Projects"]
-                 [:ul {:class "breadcrumb"}
-                  [:li (title-for programmes)]]
-                 (om/build table projects {:opts {:histkey :projects}})
+                 ;; [:div {:id "projects"}
+                 ;;  [:h2 "Projects"]
+                 ;;  [:ul {:class "breadcrumb"}
+                 ;;   [:li (title-for programmes)]]
+                 ;;  (om/build table projects {:opts {:histkey :projects}})]
+                 (om/build projects-div tables)
 
                  [:h2  {:id "properties"} "Properties"]
                  [:ul {:class "breadcrumb"}
