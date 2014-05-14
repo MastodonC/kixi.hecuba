@@ -80,35 +80,41 @@
   (om/component
    (dom/div nil cursor)))
 
-;; FIXME Not clearing properly
 (defn chart-ajax [in data {:keys [selection-key content-type]}]
   (go-loop []
-    (when-let [[new-range ids search] (selected-range-change (:range @data)
-                                                             selection-key
-                                                             (<! in))]
-      (let [[start-date end-date] search
-            entity-id        (get ids :properties)
-            sensor-id        (get ids :sensors)
-            [type device-id] (str/split sensor-id #"-")]
-        ;; TODO ajax call should not be made on each change, only on this particular cursor update.
-        (when (and (not (empty? start-date))
-                   (not (empty? end-date))
-                   (not (nil? device-id))
-                   (not (nil? entity-id))
-                   (not (nil? type)))
+    (let [nav-event (<! in)]
+      (when-let [[new-range ids search] (selected-range-change (:range @data)
+                                                               selection-key
+                                                               nav-event)]
+        (let [[start-date end-date] search
+              entity-id        (get ids :properties)
+              sensor-id        (get ids :sensors)
+              [type device-id] (str/split sensor-id #"-")]
+
           (om/update! data :range {:start-date start-date :end-date end-date})
           (om/update! data :sensors sensor-id)
-          (let [url (case (interval start-date end-date)
-                      :raw (str "/4/entities/" entity-id "/devices/" device-id "/measurements/"
-                                type "?startDate=" start-date "&endDate=" end-date)
-                      :hourly-rollups (str "/4/entities/" entity-id "/devices/" device-id "/hourly_rollups/"
-                                           type "?startDate=" start-date "&endDate=" end-date)
-                      :daily-rollups (str "/4/entities/" entity-id "/devices/" device-id "/daily_rollups/"
-                                          type "?startDate=" start-date "&endDate=" end-date))]
-            (GET url {:handler #(om/update! data :measurements %)
-                      :headers {"Accept" "application/json"}
-                      :response-format :json
-                      :keywords? true})))))
+          (om/update! data :measurements [])
+
+          ;; TODO ajax call should not be made on each change, only on this particular cursor update.
+          (when (and (not (empty? start-date))
+                     (not (empty? end-date))
+                     (not (nil? device-id))
+                     (not (nil? entity-id))
+                     (not (nil? type)))
+
+            ;; FIXME Should be a multimethod
+            (let [url (case (interval start-date end-date)
+                        :raw (str "/4/entities/" entity-id "/devices/" device-id "/measurements/"
+                                  type "?startDate=" start-date "&endDate=" end-date)
+                        :hourly-rollups (str "/4/entities/" entity-id "/devices/" device-id "/hourly_rollups/"
+                                             type "?startDate=" start-date "&endDate=" end-date)
+                        :daily-rollups (str "/4/entities/" entity-id "/devices/" device-id "/daily_rollups/"
+                                            type "?startDate=" start-date "&endDate=" end-date))]
+              (GET url
+                   {:handler #(om/update! data :measurements %)
+                    :headers {"Accept" "application/json"}
+                    :response-format :json
+                    :keywords? true}))))))
     (recur)))
 
 ;; TODO histkey is really id key. resolve name confusion.

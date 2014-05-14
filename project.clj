@@ -38,6 +38,9 @@
                  [com.andrewmcveigh/cljs-time "0.1.3"]
                  [sablono "0.2.16"]
 
+                 ;; for debugging
+                 [ankha "0.1.2"]
+
                  [clj-kafka "0.2.0-0.8" :exclusions [org.slf4j/slf4j-simple org.apache.zookeeper/zookeeper]]
                  [camel-snake-kebab "0.1.4"]
                  [cc.qbits/alia "2.0.0-rc1" :exclusions [com.google.guava/guava org.flatland/useful]]
@@ -75,7 +78,7 @@
                [org.clojure/clojurescript]
                [org.clojure/core.async]
                [bidi]
-               ]
+               [org.clojure/tools.trace]]
 
   :cljsbuild {
     :builds [{:id "dev"
