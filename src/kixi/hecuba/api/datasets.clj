@@ -59,19 +59,21 @@
    (log/info "index-post!")
 
    (let [request                (:request ctx)
-        {:keys [members name]} (decode-body request)
+        {:keys [members name type]} (decode-body request)
+         _ (log/info "!!: m:" members ", n:" name ", t:" type)
         entity-id              (entity-id-from ctx)
         members-str            (string/join \, members)
-        ds                     {:entity_id entity-id
-                                :name      name
-                                :members   members-str}
+         ds                     {:entity_id entity-id
+                                 :name      name
+                                 :members   members-str
+                                 :type      type}
         device-id              (hecuba/upsert! commander
                                                :device
                                                (synthetic-device entity-id "Synthetic"))]
     (hecuba/upsert! commander :sensor (synthetic-sensor device-id))
     (hecuba/upsert! commander :dataset ds)
-    (hash-map :name name
-              :entity-id entity-id)))
+    (hash-map ::name name
+              ::entity-id entity-id)))
 
 (defn index-handle-ok [querier ctx]
   (let [entity-id   (entity-id-from ctx)]
@@ -81,12 +83,15 @@
                               [[= :entity-id entity-id]]))))
 
 (defn index-handle-created [handlers ctx]
-  (let [entity-id   (entity-id-from ctx)
-        name        (name-from ctx)
+  (let [entity-id   (::entity-id ctx)
+        name        (::name ctx)
+        _ (log/info "RR:" (routes-from ctx))
         location     (bidi/path-for (routes-from ctx)
                                (:dataset @handlers)
                                :entity-id entity-id
-                               :name name)]
+                               :name name)
+        _ (log/info "ctx: " )
+        ]
     (log/info "index-handle-created!")
     (when-not location
       (throw (ex-info "No path resolved for Location header"

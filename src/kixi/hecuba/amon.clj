@@ -93,7 +93,7 @@
          [["entities/" [sha1-regex :entity-id] "/datasets/"] (:datasets handlers)]
          [["entities/" [sha1-regex :entity-id] "/datasets"] (bidi/->Redirect 301 (:datasets handlers))]
 
-         ;; [["entities/" [sha1-regex :entity-id] "/datasets/" :name] (:dataset handlers)]
+         [["entities/" [sha1-regex :entity-id] "/datasets/" :name] (:dataset handlers)]
          [["entities/" [sha1-regex :entity-id] "/sensors/"] (:sensors-by-property handlers)]
          [["entities/" [sha1-regex :entity-id] "/sensors"] (bidi/->Redirect 301 (:sensors-by-property handlers))]
 
