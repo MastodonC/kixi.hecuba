@@ -19,28 +19,53 @@
    [qbits.hayt :as hayt]
    ))
 
+(defn sensor-metadata-for [store sensor-id]
+  (let [{:keys [type device-id]} sensor-id]
+    (dbnew/with-session [session (:hecuba-session store)]
+      (first (dbnew/execute session
+                            (hayt/select
+                             :sensor_metadata
+                             (hayt/where [[= :device-id device-id]
+                                          [= :type type]])))))))
+
+(defn- mk-bounds-from [store type device-id]
+  (let [sm  (sensor-metadata-for store {:type type :device-id device-id})
+        {:keys [lower_ts upper_ts]} sm]
+    (vector (atom (or (tc/to-date-time lower_ts) (org.joda.time.DateTime. Long/MAX_VALUE) ))
+            (atom (or (tc/to-date-time upper_ts) (org.joda.time.DateTime. 0))))))
+
+(defn resolve-start-end [store type device-id start end]
+  (mapv tc/to-date-time
+       (if (not (and start end))
+         (let [sm (sensor-metadata-for store {:type type :device-id device-id})
+               _ (log/info "sm: " sm)
+               [lower upper] ((juxt :lower_ts :upper_ts) sm)]
+           [(or start lower)
+            (or end upper)])
+         [start end])))
+
 (defn all-measurements
   "Returns a sequence of all the measurements for a sensor
    matching (type,device-id). The sequence pages to the database in the
    background. The page size is a clj-time Period representing a range
    in the timestamp column. page size defaults to (clj-time/hours 1)"
-  [store sensor-id start end & [opts]]
-  (let [{:keys [type device-id]} sensor-id
-        {:keys [page] :or {page (t/hours 1)}} opts
-        start      (tc/to-date-time start)
-        end        (tc/to-date-time end)
-        next-start (t/plus start page)]
-    (dbnew/with-session [session (:hecuba-session store)]
-      (lazy-cat (dbnew/execute session
-                 (hayt/select :measurements
-                              (hayt/where [[= :device-id device-id]
-                                           [= :type type]
-                                           [= :month (m/get-month-partition-key start)]
-                                           [>= :timestamp start]
-                                           [< :timestamp next-start]]))
-                 nil)
-       (when (t/before? next-start end)
-         (all-measurements store sensor-id next-start end opts))))))
+  ([store sensor-id & [opts]]
+     (let [{:keys [type device-id]} sensor-id
+           {:keys [page start end] :or {page (t/hours 1)}} opts
+           [start end] (resolve-start-end store type device-id start end )
+           _ (log/info "s: " start ", e:" end)
+           next-start (t/plus start page)]
+       (dbnew/with-session [session (:hecuba-session store)]
+         (lazy-cat (dbnew/execute session
+                                  (hayt/select :measurements
+                                               (hayt/where [[= :device-id device-id]
+                                                            [= :type type]
+                                                            [= :month (m/get-month-partition-key start)]
+                                                            [>= :timestamp start]
+                                                            [< :timestamp next-start]]))
+                                  nil)
+                   (when (t/before? next-start end)
+                     (all-measurements store sensor-id (merge opts {:start next-start :end end}))))))))
 
 (defn measurements-slice-handle-ok [store store-new ctx]
   (let [request                (:request ctx)
@@ -61,30 +86,19 @@
                                                           (dissoc :month :metadata :device-id)
                                                           util/camelify))))})))
 
-(defn sensor-metadata-for [store sensor-id]
-  (let [{:keys [type device-id]} sensor-id]
-    (dbnew/with-session [session (:hecuba-session store)]
-      (first (dbnew/execute session
-                            (hayt/select
-                             :sensor_metadata
-                             (hayt/where [[= :device-id device-id]
-                                          [= :type type]])))))))
 
-(defn- mk-bounds-from [store type device-id]
-  (let [sm  (sensor-metadata-for store {:type type :device-id device-id})
-        {:keys [lower_ts upper_ts]} sm]
-    (vector (atom (or lower_ts (java.util.Date. Long/MAX_VALUE) ))
-            (atom (or upper_ts (java.util.Date. 0))))))
 
-(defn- min-date [d1 d2]
-  (if (pos? (compare d1 d2))
-    d2
-    d1))
 
-(defn- max-date [d1 d2]
-  (if (pos? (compare d1 d2))
-    d1
-    d2))
+
+(defn- min-date [dt1 dt2]
+  (let [dt1' (tc/to-date-time dt1)
+        dt2' (tc/to-date-time dt2)]
+    (if (t/before? dt1' dt2') dt1' dt2')))
+
+(defn- max-date [dt1 dt2]
+  (let [dt1' (tc/to-date-time dt1)
+        dt2' (tc/to-date-time dt2)]
+    (if (t/before? dt1' dt2') dt2' dt1')))
 
 (defn index-post! [store store-new queue ctx]
   (let [{:keys [commander querier]} store
