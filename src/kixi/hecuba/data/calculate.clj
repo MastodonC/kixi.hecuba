@@ -150,19 +150,18 @@
 
 (defmulti calculate-data-set (comp keyword :type))
 
-(defmethod calculate-data-set :vol2kwh [ds querier]
-  (let [sensors (resolve-sensors ds querier)
-        ms (map (fn [m] (measurements/all-measurements querier
-                                         (select-keys m [:type :device-id])
-                                         nil
-                                         nil
-                                         ) ))
-        ]
-    (first sensors)
-    ))
+(defmethod calculate-data-set :vol2kwh [ds store]
+  ;; (let [sensors (sensors-for-dataset ds querier)
+  ;;       ms (map (fn [m] (measurements/all-measurements querier
+  ;;                                        (select-keys m [:type :device-id])) ))
+  ;;       ]
+  ;;   (first sensors)
+  ;;   )
+  )
 
-(defn generate-synthetic-readings [commander querier item]
-  (let [data-sets (items querier :dataset)]
-    (doseq [ds data-sets]
-      (calculate-data-set (normalize-dataset ds)
-                          querier))))
+(defn generate-synthetic-readings [store item]
+  ;; (let [data-sets]
+  ;;   (doseq [ds data-sets]
+  ;;     (calculate-data-set (normalize-dataset ds)
+  ;;                         querier)))
+  )

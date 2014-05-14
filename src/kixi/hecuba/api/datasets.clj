@@ -4,12 +4,19 @@
    [clojure.string :as string]
    [clojure.tools.logging :as log]
    [kixi.hecuba.protocols :as hecuba]
+   [qbits.hayt :as hayt]
    [kixi.hecuba.queue :as q]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
    [kixi.hecuba.webutil :refer (decode-body authorized? uuid routes-from)]
+   [kixi.hecuba.storage.dbnew :as db]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]))
+
+(defn all-datasets [store]
+  (db/with-session [session (:hecuba-session store)]
+    (db/execute session
+                (hayt/select :datasets))))
 
 (defn synthetic-device [entity-id description]
   (hash-map :description     description
@@ -84,7 +91,7 @@
     (when-not location
       (throw (ex-info "No path resolved for Location header"
                       {:entity-id entity-id
-                       :name :name})))
+                       :name name})))
     (ring-response {:headers {"Location" location}})))
 
 (defresource index [{:keys [commander querier]} handlers]
