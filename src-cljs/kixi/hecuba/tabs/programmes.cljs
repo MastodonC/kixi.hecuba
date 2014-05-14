@@ -20,9 +20,6 @@
 (defn update-when [x pred f & args]
   (if pred (apply f x args) x))
 
-(defn row-for [{:keys [selected data]}]
-  (find-first #(= (:id %) selected) data))
-
 (defn uri-for-selection-change
   "Returns the uri to load because of change of selection. Returns nil
    if no change to selection"
@@ -172,9 +169,16 @@
                 (dom/p nil (str "Latitude: " latitude))
                 (dom/p nil (str "Longitude: " longitude)))))))
 
+(defn row-for [{:keys [selected data]}]
+  (find-first #(= (:id %) selected) data))
+
 (defn title-for [cursor & {:keys [title-key] :or {title-key :name}}]
-  (some->> (get-in (row-for cursor) (if (vector? title-key) title-key (vector title-key)))
-           (str " - ")))
+  (let [row (row-for cursor)]
+    (get-in row (if (vector? title-key) title-key (vector title-key)))))
+
+(defn title-for-sensor [{:keys [selected]}]
+  (let [[type _] (str/split selected #"-")]
+    type))
 
 (defn programmes-table [cursor owner]
   (reify
@@ -233,30 +237,51 @@
 
         ;; TODO sort out duplication here, wrap (on/build table ...) calls probably.
         ;;
-        (let [{:keys [programmes projects properties devices sensor-select]} tables]
+        (let [{:keys [programmes projects properties devices sensors sensor-select]} tables]
+          (println ">>>> Sensors: " sensors)
           ;; (println "Tables: " tables)
           (html [:div
                  ;;(om/build clear-tables data)
                  [:h1 {:id "programmes"} (:title data)]
                  (om/build programmes-table programmes)
 
-                 [:h2 {:id "projects"} "Projects" [:small (title-for programmes)]]
+                 [:h2 {:id "projects"} "Projects"]
+                 [:ul {:class "breadcrumb"}
+                  [:li (title-for programmes)]]
                  (om/build table projects {:opts {:histkey :projects}})
 
-                 [:h2  {:id "properties"} "Properties" [:small (title-for programmes) (title-for projects)]]
+                 [:h2  {:id "properties"} "Properties"]
+                 [:ul {:class "breadcrumb"}
+                  [:li (title-for programmes)]
+                  [:li (title-for projects)]]
                  (om/build table properties {:opts {:histkey :properties}})
 
-                 [:h2 {:id "devices"} "Devices" [:small (title-for programmes) (title-for projects) (title-for properties :title-key :addressStreetTwo)]]
+                 [:h2 {:id "devices"} "Devices"]
+                 [:ul {:class "breadcrumb"}
+                  [:li (title-for programmes)]
+                  [:li (title-for projects)]
+                  [:li (title-for properties :title-key :addressStreetTwo)]]
                  (om/build table devices {:opts {:histkey :devices}})
                  
                  (om/build device-detail devices)
 
-                 [:h2 {:id "sensors"} "Sensors" [:small (title-for programmes) (title-for projects) (title-for properties :title-key :addressStreetTwo) (title-for devices :title-key [:location :name])]]
+                 [:h2 {:id "sensors"} "Sensors"]
+                 [:ul {:class "breadcrumb"}
+                  [:li (title-for programmes)]
+                  [:li (title-for projects)]
+                  [:li (title-for properties :title-key :addressStreetTwo)]
+                  [:li (title-for devices :title-key [:location :name])]]
                  (om/build sensor/table data {:opts {:histkey :sensors
                                                      :path    :readings}})
                  (om/build sensor/define-data-set-button data)
 
                  [:h2 "Chart"]
+                 [:ul {:class "breadcrumb"}
+                  [:li (title-for programmes)]
+                  [:li (title-for projects)]
+                  [:li (title-for properties :title-key :addressStreetTwo)]
+                  [:li (title-for devices :title-key [:location :name])]
+                  [:li (title-for-sensor sensors)]]
                  [:div {:id "date-picker"}
                   (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
                  (om/build chart-feedback-box (get-in data [:chart :message]))
