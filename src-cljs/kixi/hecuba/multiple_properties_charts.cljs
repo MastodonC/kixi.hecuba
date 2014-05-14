@@ -6,7 +6,6 @@
             [mrhyde.core :as mrhyde]
             [ajax.core :refer (GET POST)]
             [kixi.hecuba.bootstrap :as bs]
-            [kixi.hecuba.history :as h]
             [kixi.hecuba.common :refer (interval)]
             [clojure.string :as string]
             [cljs.reader :as reader]
