@@ -44,14 +44,12 @@
                                                        template
                                                        nav-event)]
 
-      (om/update! data :active-compnents active-components)
+
+      (om/update! data :active-components (-> nav-event :args :ids))
       
       (doseq [a active-components]
         (om/update! data (vector a :active) true))
       
-      ;; (println "Nav Event: " nav-event)
-      ;; (println "To Clear: " to-clear)
-      ;; (println "URI: " uri " for path " path " selection-key " selection-key)
       (doseq [c to-clear]
         (om/update! data (vector c :active) false)
         (om/update! data (vector c :data) [])
@@ -183,15 +181,16 @@
   (let [[type _] (str/split selected #"-")]
     type))
 
-(defn programmes-div [programmes owner]
+(defn programmes-div [tables owner]
   (reify
     om/IRender
     (render [_]
-      (html
-       ;; hide div if we've already chosen something
-       [:div {:id "programmes" :class (if (:active programmes) "hidden" "")}
-        [:h1 "Programmes"]
-        (om/build programmes-table programmes)]))))
+      (let [programmes (-> tables :programmes)]
+        (html
+         ;; hide div if we've already chosen something
+         [:div {:id "programmes" :class (if (:active programmes) "hidden" "")}
+          [:h1 "Programmes"]
+          (om/build programmes-table programmes)])))))
 
 (defn programmes-table [cursor owner]
   (reify
@@ -215,12 +214,16 @@
 
 (defn projects-div [tables owner]
   (reify
+    om/IDidUpdate
+    (did-update [_ prev-props prev-state]
+      (let [{:keys [programmes projects active-components]} tables]
+        (println "Active Components: " active-components)))
     om/IRender
     (render [_]
-      (let [{:keys [programmes projects]} tables
+      (let [{:keys [programmes projects active-components]} tables
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "projects" :class (if (:active projects) "hidden" "")}
+         [:div {:id "projects" :class (if (:projects active-components) "hidden" "")}
           [:h2 "Projects"]
           [:ul {:class "breadcrumb"}
            [:li [:a
@@ -234,10 +237,11 @@
   (reify
     om/IRender
     (render [_]
-      (let [{:keys [programmes projects properties]} tables
+      (let [{:keys [programmes projects properties active-components]} tables
             history (om/get-shared owner :history)]
         (html
-         [:div [:h2  {:id "properties"} "Properties"]
+         [:div {:id "properties" :class (if (:properties active-components) "hidden" "")}
+          [:h2 "Properties"]
           [:ul {:class "breadcrumb"}
            [:li [:a
                  {:onClick (fn [_ _]
@@ -250,6 +254,32 @@
                  (title-for projects)]]]
           (om/build table properties {:opts {:histkey :properties}})])))))
 
+(defn devices-div [tables owner]
+  (reify
+    om/IRender
+    (render [_]
+      (let [{:keys [programmes projects properties devices active-components]} tables
+            history (om/get-shared owner :history)]
+        (html
+         [:div {:id "devices"}
+          [:h2  "Devices"]
+          [:ul {:class "breadcrumb"}
+           [:li [:a
+                 {:onClick (fn [_ _]
+                             (history/update-token-ids! history :projects nil)
+                             (history/update-token-ids! history :programmes nil))}
+                 (title-for programmes)]]
+           [:li [:a
+                 {:onClick (fn [_ _]
+                             (history/update-token-ids! history :properties nil)
+                             (history/update-token-ids! history :projects nil))}
+                 (title-for projects)]]
+           [:li [:a
+                 {:onClick (fn [_ _]
+                             (history/update-token-ids! history :properties nil))}
+                 (title-for properties :title-key :addressStreetTwo)]]]
+          (om/build table devices {:opts {:histkey :devices}})])))))
+
 (defn programmes-tab [data owner]
   (let [{tables :tables} data]
     (reify
@@ -258,7 +288,7 @@
         (let [history     (om/get-shared owner :history)
               m           (mult (history/set-chan! history (chan)))
               tap-history #(tap m (chan))]
-
+          
           (ajax (tap-history) tables [:programmes] {:template      "/4/programmes/"
                                                     :content-type  "application/edn"
                                                     :selection-key :programmes})
@@ -279,32 +309,18 @@
           ;;                                              :selection-key :sensor-select})
           (chart-ajax (tap-history) (:chart data) {:template "/4/entities/:properties/devices/:devices/measurements?startDate=:start-date&endDate=:end-date"
                                                    :content-type  "application/json"
-                                                   :selection-key :range})
-          ))
+                                                   :selection-key :range})))
       om/IRender
       (render [_]
-        ;; Note dynamic titles for each of the sections.
 
-        ;; TODO sort out duplication here, wrap (on/build table ...) calls probably.
-        ;;
         (let [{:keys [programmes projects properties devices sensors sensor-select]} tables]
-          ;; (println "Tables: " tables)
           (html [:div
-                 
-                 (om/build programmes-div programmes)
-
+                 (om/build programmes-div tables)
                  (om/build projects-div tables)
-                 
                  (om/build properties-div tables)
-
-                 [:h2 {:id "devices"} "Devices"]
-                 [:ul {:class "breadcrumb"}
-                  [:li (title-for programmes)]
-                  [:li (title-for projects)]
-                  [:li (title-for properties :title-key :addressStreetTwo)]]
-                 (om/build table devices {:opts {:histkey :devices}})
-                 
-                 (om/build device-detail devices)
+                 (om/build devices-div tables)
+                     
+                 ;; (om/build device-detail devices)
 
                  [:h2 {:id "sensors"} "Sensors"]
                  [:ul {:class "breadcrumb"}
@@ -314,7 +330,7 @@
                   [:li (title-for devices :title-key [:location :name])]]
                  (om/build sensor/table data {:opts {:histkey :sensors
                                                      :path    :readings}})
-                 (om/build sensor/define-data-set-button data)
+                 ;; (om/build sensor/define-data-set-button data)
 
                  [:h2 "Chart"]
                  [:ul {:class "breadcrumb"}
