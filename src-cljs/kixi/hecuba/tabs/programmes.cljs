@@ -70,7 +70,6 @@
                          (merge {:response-format :json :keywords? true}))))))
     (recur)))
 
-
 (defn selected-range-change
   [selected selection-key {{ids :ids search :search} :args}]
   (let [new-selected (get ids selection-key)]
@@ -131,7 +130,7 @@
             history (om/get-shared owner :history)]
         (dom/div #js {:id (str table-id "-container")}
          (dom/table
-          #js {:id table-id
+          #js {;; :id table-id
                :className "table table-hover hecuba-table"} ;; table-hover table-stripedso,
           (dom/thead
            nil
@@ -188,9 +187,15 @@
       (let [programmes (-> tables :programmes)]
         (html
          ;; hide div if we've already chosen something
-         [:div {:id "programmes" :class (if (:active programmes) "hidden" "")}
+         [:div {:id "programmes-div"}
           [:h1 "Programmes"]
           (om/build programmes-table programmes)])))))
+
+;; our banner is 50px so we need to tweak the scrolling
+(defn fixed-scroll-to-element [element]
+  (-> (.getElementById js/document element)
+                                    .scrollIntoView)
+  (.scrollBy js/window 0 -50))
 
 (defn programmes-table [cursor owner]
   (reify
@@ -207,7 +212,8 @@
              (let [{:keys [id lead-organisations name description created-at]} row]
                [:tr {:onClick (fn [_ _]
                                 (om/update! cursor :selected id)
-                                (history/update-token-ids! history :programmes id))
+                                (history/update-token-ids! history :programmes id)
+                                (fixed-scroll-to-element "projects-div"))
                      :className (if (= id (:selected cursor)) "success")
                      :id (str table-id "-selected")}
                 [:td id [:a {:id (str "row-" id)}]] [:td lead-organisations] [:td name] [:td created-at]]))]])))))
@@ -223,13 +229,14 @@
       (let [{:keys [programmes projects active-components]} tables
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "projects" :class (if (:projects active-components) "hidden" "")}
+         [:div {:id "projects-div"}
           [:h2 "Projects"]
           [:ul {:class "breadcrumb"}
            [:li [:a
                  {:onClick (fn projects-div-history-change
                              [_ _]
-                             (history/update-token-ids! history :programmes nil))}
+                             (history/update-token-ids! history :programmes nil)
+                             (fixed-scroll-to-element "programmes-div"))}
                  (title-for programmes)]]]
           (om/build table projects {:opts {:histkey :projects}})])))))
 
@@ -240,17 +247,19 @@
       (let [{:keys [programmes projects properties active-components]} tables
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "properties" :class (if (:properties active-components) "hidden" "")}
+         [:div {:id "properties-div"}
           [:h2 "Properties"]
           [:ul {:class "breadcrumb"}
            [:li [:a
                  {:onClick (fn [_ _]
                              (history/update-token-ids! history :projects nil)
-                             (history/update-token-ids! history :programmes nil))}
+                             (history/update-token-ids! history :programmes nil)
+                             (fixed-scroll-to-element "programmes-div"))}
                  (title-for programmes)]]
            [:li [:a
                  {:onClick (fn [_ _]
-                             (history/update-token-ids! history :projects nil))}
+                             (history/update-token-ids! history :projects nil)
+                             (fixed-scroll-to-element "projects-div"))}
                  (title-for projects)]]]
           (om/build table properties {:opts {:histkey :properties}})])))))
 
@@ -261,22 +270,26 @@
       (let [{:keys [programmes projects properties devices active-components]} tables
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "devices"}
+         [:div {:id "devices-div"}
           [:h2  "Devices"]
           [:ul {:class "breadcrumb"}
            [:li [:a
                  {:onClick (fn [_ _]
+                             (history/update-token-ids! history :properties nil)
                              (history/update-token-ids! history :projects nil)
-                             (history/update-token-ids! history :programmes nil))}
+                             (history/update-token-ids! history :programmes nil)
+                             (fixed-scroll-to-element "programmes-div"))}
                  (title-for programmes)]]
            [:li [:a
                  {:onClick (fn [_ _]
                              (history/update-token-ids! history :properties nil)
-                             (history/update-token-ids! history :projects nil))}
+                             (history/update-token-ids! history :projects nil)
+                             (fixed-scroll-to-element "projects-div"))}
                  (title-for projects)]]
            [:li [:a
                  {:onClick (fn [_ _]
-                             (history/update-token-ids! history :properties nil))}
+                             (history/update-token-ids! history :properties nil)
+                             (fixed-scroll-to-element "projects-div"))}
                  (title-for properties :title-key :addressStreetTwo)]]]
           (om/build table devices {:opts {:histkey :devices}})])))))
 
