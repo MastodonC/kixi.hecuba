@@ -7,6 +7,7 @@
   :plugins [[lein-cljsbuild "1.0.3"]]
 
   :dependencies [[org.clojure/clojure "1.5.1"]
+                 [org.clojure/data.csv "0.1.2"]
 
                  ;; tools.trace for liberator
                  [org.clojure/tools.trace "0.7.8"]

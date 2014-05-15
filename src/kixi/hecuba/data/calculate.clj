@@ -1,14 +1,15 @@
 (ns kixi.hecuba.data.calculate
   "Calculated datasets."
-  (:require [clj-time.core :as t]
+  (:require [clj-time.coerce :as tc]
+            [clj-time.core :as t]
             [clj-time.format :as tf]
             [clojure.string :as str]
+            [kixi.hecuba.api.datasets :as datasets]
+            [kixi.hecuba.api.measurements :as measurements]
             [kixi.hecuba.data.misc :as m]
             [kixi.hecuba.protocols :refer (upsert! update! delete! item items)]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.storage.dbnew :as dbnew]
-            [kixi.hecuba.api.measurements :as measurements]
-            [clj-time.coerce :as tc]
             [qbits.hayt :as hayt]))
 
 (defn get-difference
@@ -134,34 +135,34 @@
   (-> m
       (update-in [:members] #(str/split % #"\s*,\s*"))))
 
-(defn resolve-sensors
-  "Returns all the sensors (with metadata) for the given dataset."
-  [{:keys [members]} querier]
 
-  (let [parse-sensor (comp next (partial re-matches #"(\w+)-(\w+)"))
-        sensor-with-metadata (fn [[type device-id]]
-                               (->> [:sensor :sensor-metadata]
-                                    (mapcat #(items querier % [[= :device-id device-id]
-                                                               [= :type type]]))
-                                    (apply merge)))]
-    (map sensor-with-metadata (->> members
-                                   (keep parse-sensor)
-                                   (into (hash-set))))))
+(defn sensors-for-dataset
+  "Returns all the sensors for the given dataset."
+  [{:keys [members]} store]
+
+  (dbnew/with-session [session (:hecuba-session store)]
+    (let [parse-sensor (comp next (partial re-matches #"(\w+)-(\w+)"))
+          sensor (fn [[type device-id]]
+                   (dbnew/->clj (dbnew/execute session
+                                               (hayt/select :sensors
+                                                            (hayt/where [[= :type type]
+                                                                         [= :device_id device-id]])))))]
+      (mapcat sensor (->> members
+                       (keep parse-sensor)
+                       (into (hash-set)))))))
 
 (defmulti calculate-data-set (comp keyword :type))
 
 (defmethod calculate-data-set :vol2kwh [ds store]
-  ;; (let [sensors (sensors-for-dataset ds querier)
-  ;;       ms (map (fn [m] (measurements/all-measurements querier
-  ;;                                        (select-keys m [:type :device-id])) ))
-  ;;       ]
-  ;;   (first sensors)
-  ;;   )
-  )
+  (let [sensors (sensors-for-dataset ds store)
+        ms (map (fn [s] (measurements/all-measurements store s))
+                sensors)]
+    ))
 
+;;  select count(*) from measurements where type='gasConsumption' and device_id='fe5ab5bf19a7265276ffe90e4c0050037de923e2' limit 10000000;
 (defn generate-synthetic-readings [store item]
-  ;; (let [data-sets]
-  ;;   (doseq [ds data-sets]
-  ;;     (calculate-data-set (normalize-dataset ds)
-  ;;                         querier)))
+  (let [data-sets (datasets/all-datasets store)]
+    (doseq [ds data-sets]
+      (calculate-data-set (normalize-dataset ds)
+                          store)))
   )

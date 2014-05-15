@@ -1,23 +1,25 @@
 (ns etl
-  (:require
-   [bidi.bidi :refer (path-for match-route)]
-   [camel-snake-kebab :refer (->camelCaseString)]
-   [cheshire.core :refer (encode)]
-   [clj-time.coerce :as tc]
-   [clj-time.core :as t]
-   [clj-time.format :as tf]
-   [clojure.data.csv :as csv]
-   [clojure.java.io :as io]
-   [clojure.pprint :refer (pprint)]
-   [clojure.tools.logging :as log]
-   [clojure.tools.reader.reader-types :refer (indexing-push-back-reader)]
-   [com.stuartsierra.component :as component]
-   [generators :as generators]
-   [kixi.hecuba.data.calculate :as calc]
-   [kixi.hecuba.data.misc :as m]
-   [kixi.hecuba.protocols :refer (items)]
-   [org.httpkit.client :refer (request) :rename {request http-request}]
-   ))
+  (:require [camel-snake-kebab :refer (->camelCaseString)]
+            [cheshire.core :refer (encode)]
+            [clj-time.coerce :as tc]
+            [clj-time.core :as t]
+            [clj-time.format :as tf]
+            [clojure.data.csv :as csv]
+            [clojure.java.io :as io]
+            [clojure.pprint :refer (pprint)]
+            [clojure.tools.logging :as log]
+            [clojure.tools.reader.reader-types :refer (indexing-push-back-reader)]
+            [com.stuartsierra.component :as component]
+            [generators :as generators]
+            [kixi.hecuba.data.calculate :as calc]
+            [kixi.hecuba.data.misc :as m]
+            [kixi.hecuba.protocols :refer (items)]
+            [kixi.hecuba.storage.dbnew :as dbnew]
+            [kixi.hecuba.webutil :as util]
+            [org.httpkit.client :refer (request) :rename {request http-request}]
+            [qbits.hayt :as hayt]
+            [bidi.bidi :refer (path-for match-route)]
+            ))
 
 (defn config []
   (let [f (io/file (System/getProperty "user.home") ".hecuba.edn")]
@@ -383,6 +385,61 @@
           (println "Failed to add user:" body)
           (pprint response))))))
 
+(defn db-timestamp
+  "Returns java.util.Date from String timestamp." ; 2014-01-01 00:00:10+0000
+  [t] (.parse (java.text.SimpleDateFormat.  "yyyy-MM-dd HH:mm:ssZ") t))
+;
 
+(defn load-sensor-sample [system]
+  (let [programme-id "2312312314"
+        project-id "32523453"
+        property-id "34653464"
+        device-id "fe5ab5bf19a7265276ffe90e4c0050037de923e2"]
+   (dbnew/with-session [session (:hecuba-session system)]
+
+     (dbnew/execute session
+                    (hayt/insert :programmes
+                                 (hayt/values {:id programme-id
+                                               :name "AAA_Calculated_Test Programme"})))
+     (dbnew/execute session
+                    (hayt/insert :projects
+                                 (hayt/values {:id project-id
+                                               :name "AAA_Calculated_Test Project"
+                                               :programme_id programme-id
+                                               })))
+     (dbnew/execute session
+                    (hayt/insert :entities
+                                 (hayt/values {:id property-id
+                                               :name "AAA_Calculated_Test Properties"
+                                               :address_street_two "A1 Flat, A1 road, A1 Town, A1 1AA"
+                                               :project_id project-id})))
+     (dbnew/execute session
+                    (hayt/insert :devices
+                                 (hayt/values {:id device-id
+                                               :name "AAA_Calculated_Test Device"
+                                               :entity_id property-id})))
+     (dbnew/execute session
+                    (hayt/insert :sensors
+                                 (hayt/values {:device_id device-id
+                                               :period "PULSE"
+                                               :type "gasConsumption"})))
+
+     (dbnew/execute session
+                    (hayt/insert :sensor_metadata
+                                 (hayt/values {:device_id device-id
+                                               :lower_ts (.getMillis (t/date-time 2014 1))
+                                               :upper_ts (.getMillis (t/date-time 2014 2))
+                                               :type "gasConsumption"})))
+
+     (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
+       (doseq [m (map #(zipmap [:device_id :type :month :timestamp :error :metadata :value] %) (rest (csv/read-csv in-file )))]
+         (dbnew/execute session
+                        (hayt/insert :measurements
+                                     (hayt/values
+                                      (-> m
+                                          (update-in [:timestamp] db-timestamp)
+                                          (update-in [:month] #(Integer/parseInt %))))))))))
+
+  )
 ;; To load users from .hecuba.edn: (load-user-data)
 ;; To load data from CSV files: (load-csv system)

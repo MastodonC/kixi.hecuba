@@ -16,7 +16,7 @@
 (defn all-datasets [store]
   (db/with-session [session (:hecuba-session store)]
     (db/execute session
-                (hayt/select :datasets))))
+                (hayt/select :data_sets))))
 
 (defn synthetic-device [entity-id description]
   (hash-map :description     description

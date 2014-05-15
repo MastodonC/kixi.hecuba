@@ -25,7 +25,7 @@
       (first (dbnew/execute session
                             (hayt/select
                              :sensor_metadata
-                             (hayt/where [[= :device-id device-id]
+                             (hayt/where [[= :device_id device-id]
                                           [= :type type]])))))))
 
 (defn- mk-bounds-from [store type device-id]
@@ -58,7 +58,7 @@
        (dbnew/with-session [session (:hecuba-session store)]
          (lazy-cat (dbnew/execute session
                                   (hayt/select :measurements
-                                               (hayt/where [[= :device-id device-id]
+                                               (hayt/where [[= :device_id device-id]
                                                             [= :type type]
                                                             [= :month (m/get-month-partition-key start)]
                                                             [>= :timestamp start]
@@ -143,7 +143,7 @@
         request (:request ctx)
         route-params (:route-params request)
         device-id (:device-id route-params)
-        where [[= :device-id device-id]]
+        where [[= :device_id device-id]]
         measurements (hecuba/items querier :measurement where)]
     (util/downcast-to-json {:measurements (->> measurements
                                                (map #(-> %
@@ -162,7 +162,7 @@
         measurement (dbnew/with-session [session (:hecuba-session store)]
                       (dbnew/execute session
                                      (hayt/select :measurements
-                                                  (hayt/where [[= :device-id device-id]
+                                                  (hayt/where [[= :device_id device-id]
                                                                [= :type sensor-type]
                                                                [= :timestamp timestamp]]))))]
     (util/render-item request measurement)))

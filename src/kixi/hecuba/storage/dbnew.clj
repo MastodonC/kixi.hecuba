@@ -48,6 +48,25 @@
     (log/log 'kixi.hecuba.storage.db.CQL :debug  nil raw-cql)
     raw-cql))
 
+(defn- to-clj
+  "Convert to kebab form after reading from Cassandra."
+  [payload]
+  (when payload
+    (reduce-kv (fn [s k v]
+                 (try
+                   (conj s [(->kebab-case-keyword k)
+                            (str v)])
+                   (catch Exception e (do (println "exception on keyword: " k v) s))
+                   )) {} payload)))
+
+(defmulti ->clj #(if (seq? %) :multiple :single))
+
+(defmethod ->clj :multiple [xs]
+  (map to-clj xs))
+
+(defmethod ->clj :single [x]
+  (to-clj x))
+
 (defrecord CassandraSession [opts]
   component/Lifecycle
   (start [this]
@@ -95,8 +114,7 @@
       (with-session [session keyspace1-session]
           (execute (hayt/select :sensor
                                 (hayt/where [= [:id 1]]))))
-   ```
-"
+   ```"
    [binding & body]
    (assert-args
     (vector? binding) "a vector for binding"
