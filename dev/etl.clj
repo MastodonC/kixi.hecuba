@@ -422,6 +422,7 @@
                     (hayt/insert :sensors
                                  (hayt/values {:device_id device-id
                                                :period "PULSE"
+                                               :unit "m^3"
                                                :type "gasConsumption"})))
 
      (dbnew/execute session
@@ -429,6 +430,7 @@
                                  (hayt/values {:device_id device-id
                                                :lower_ts (.getMillis (t/date-time 2014 1))
                                                :upper_ts (.getMillis (t/date-time 2014 2))
+                                               :rollups "{:start \"20140101000000\", :end \"20140201000000\"}"
                                                :type "gasConsumption"})))
 
      (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
