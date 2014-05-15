@@ -6,17 +6,6 @@
               [kixi.hecuba.history :as history]
               [sablono.core :as html :refer-macros [html]]))
 
-(defn render-row [row cols id-fn cursor]
-  (prn "row: " row)
-  (into-array
-   (for [[k {:keys [checkbox]}] cols]
-     (let [k (if (vector? k) k (vector k))
-           v (get-in row k)
-           id (id-fn row)]
-       (dom/td
-        nil
-        (if checkbox (bs/checkbox id v cursor) v))))))
-
 (defn table [{:keys [tables chart]} owner {:keys [histkey path]}]
   (reify
     om/IRender
