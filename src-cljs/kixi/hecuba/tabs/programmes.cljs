@@ -159,10 +159,6 @@
                                   (dom/a #js {:href (get row href)} (get-in row k))
                                   (get-in row k))))))))))))))))
 
-(defn make-channel-pair []
-  {:in (chan (sliding-buffer 1))
-   :out (chan (sliding-buffer 1))})
-
 (defn device-detail [{:keys [selected data] :as cursor} owner]
   (om/component
    (let [row      (first (filter #(= (:id %) selected) data))]
