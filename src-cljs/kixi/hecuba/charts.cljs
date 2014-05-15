@@ -34,7 +34,6 @@
     (not (empty? selected))))
 
 (defn- select-sensor [data history value]
-  (prn "selecting sensor: " value)
   (let [[device-id type unit entity-id] (str/split value #"-")
         new-sensor                      (str/join "-" [device-id type entity-id])
         current-unit                    (-> @data :chart :unit)]
@@ -60,6 +59,8 @@
         new-sensor                      (str/join "-" [device-id type entity-id])]
        (om/update! data [:selected :sensors] (disj (:sensors (:selected @data)) new-sensor))
        (om/update! data [:chart :sensors] (:sensors (:selected @data)))
+       (om/update! data [:chart :message] "")
+       (update-measurements data {:selection-key :sensors :checked false :new-selected new-sensor})
        (om/update! data [:sensors :data] (into [] (map (fn [s]
                                                          (if (and (= (:device-id s) device-id)
                                                                   (= (:type s) type))
@@ -68,8 +69,7 @@
        (history/update-token-ids! history :sensors (str/join ";" (:sensors (:selected @data))))
        (history/update-token-ids! history :properties (str/join ";" (:properties (:selected @data))))
        (when (empty? (-> @data :selected :sensors))
-         (om/update! data [:chart :unit] "")
-         (om/update! data [:chart :message] ""))))
+         (om/update! data [:chart :unit] ""))))
 
 (defn- select-property [data history value]
   (let [all-properties (get-in @data [:properties :data])
