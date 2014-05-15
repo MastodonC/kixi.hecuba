@@ -220,16 +220,37 @@
     (render [_]
       (let [{:keys [programmes projects]} tables
             history (om/get-shared owner :history)]
-        (html [:div {:id "projects" :class (if (:active projects) "hidden" "")}
-               [:h2 "Projects"]
-               [:ul {:class "breadcrumb"}
-                [:li [:a
-                      {:onClick (fn projects-div-history-change
-                                  [_ _]
-                                  (history/update-token-ids! history :programmes nil))}
-                      (title-for programmes)]]]
-               (om/build table projects {:opts {:histkey :projects}})])))))
-      
+        (html
+         [:div {:id "projects" :class (if (:active projects) "hidden" "")}
+          [:h2 "Projects"]
+          [:ul {:class "breadcrumb"}
+           [:li [:a
+                 {:onClick (fn projects-div-history-change
+                             [_ _]
+                             (history/update-token-ids! history :programmes nil))}
+                 (title-for programmes)]]]
+          (om/build table projects {:opts {:histkey :projects}})])))))
+
+(defn properties-div [tables owner]
+  (reify
+    om/IRender
+    (render [_]
+      (let [{:keys [programmes projects properties]} tables
+            history (om/get-shared owner :history)]
+        (html
+         [:div [:h2  {:id "properties"} "Properties"]
+          [:ul {:class "breadcrumb"}
+           [:li [:a
+                 {:onClick (fn [_ _]
+                             (history/update-token-ids! history :projects nil)
+                             (history/update-token-ids! history :programmes nil))}
+                 (title-for programmes)]]
+           [:li [:a
+                 {:onClick (fn [_ _]
+                             (history/update-token-ids! history :projects nil))}
+                 (title-for projects)]]]
+          (om/build table properties {:opts {:histkey :properties}})])))))
+
 (defn programmes-tab [data owner]
   (let [{tables :tables} data]
     (reify
@@ -270,24 +291,12 @@
         (let [{:keys [programmes projects properties devices sensors sensor-select]} tables]
           ;; (println "Tables: " tables)
           (html [:div
-                 ;;(om/build clear-tables data)
-                 ;; [:div {:id "programmes"}
-                 ;;  [:h1 (:title data)]
-                 ;;  (om/build programmes-table programmes)]
+                 
                  (om/build programmes-div programmes)
 
-                 ;; [:div {:id "projects"}
-                 ;;  [:h2 "Projects"]
-                 ;;  [:ul {:class "breadcrumb"}
-                 ;;   [:li (title-for programmes)]]
-                 ;;  (om/build table projects {:opts {:histkey :projects}})]
                  (om/build projects-div tables)
-
-                 [:h2  {:id "properties"} "Properties"]
-                 [:ul {:class "breadcrumb"}
-                  [:li (title-for programmes)]
-                  [:li (title-for projects)]]
-                 (om/build table properties {:opts {:histkey :properties}})
+                 
+                 (om/build properties-div tables)
 
                  [:h2 {:id "devices"} "Devices"]
                  [:ul {:class "breadcrumb"}
