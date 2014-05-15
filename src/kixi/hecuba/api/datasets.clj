@@ -16,7 +16,7 @@
 (defn all-datasets [store]
   (db/with-session [session (:hecuba-session store)]
     (db/execute session
-                (hayt/select :data_sets))))
+                (hayt/select :datasets))))
 
 (defn synthetic-device [entity-id description]
   (hash-map :description     description
@@ -29,13 +29,13 @@
             :synthetic       true
             ))
 
-(defn synthetic-sensor [device-id]
+(defn synthetic-sensor [type device-id unit]
   {:device-id                 device-id
-   :type                      "Synthetic"
-   :unit                      "TBD"
+   :type                      type
+   :unit                      unit
    :resolution                "0" ;; TODO
    :accuracy                  "0" ;; TODO
-   :period                    "CUMULATIVE"
+   :period                    "PULSE"
    :min                       "0"
    :max                       "100"
    :correction                nil
@@ -49,29 +49,52 @@
    :synthetic                 true
    })
 
+(defn synthetic-sensor-metadata [type device-id]
+  {:type      type
+   :device_id device-id})
+
 (defn- entity-id-from [ctx]
   (get-in ctx [:request :route-params :entity-id]))
 
 (defn- name-from [ctx]
   (get-in ctx [:request :route-params :name]))
 
+;;TODO - duplication with calculate - resolve.
+(defn output-unit-for [t]
+  (case (.toUpperCase t)
+    "VOL2KWH" "kWh"))
+
+(defn output-type-for [t]
+  (str "converted_" t))
+
+
+(defn create-output-sensors [commander device-id unit members]
+  (let [parse-sensor (comp next (partial re-matches #"(\w+)-(\w+)"))]
+    (doseq [m members]
+      (let [[type _ ] (parse-sensor m)
+            converted-type (output-type-for type)]
+        (hecuba/upsert! commander :sensor (synthetic-sensor converted-type device-id unit))
+        (hecuba/upsert! commander :sensor-metadata (synthetic-sensor-metadata converted-type device-id)))))
+  )
 (defn index-post! [commander ctx]
    (log/info "index-post!")
 
-   (let [request                (:request ctx)
-        {:keys [members name type]} (decode-body request)
-         _ (log/info "!!: m:" members ", n:" name ", t:" type)
-        entity-id              (entity-id-from ctx)
-        members-str            (string/join \, members)
-         ds                     {:entity_id entity-id
-                                 :name      name
-                                 :members   members-str
-                                 :type      type}
-        device-id              (hecuba/upsert! commander
-                                               :device
-                                               (synthetic-device entity-id "Synthetic"))]
-    (hecuba/upsert! commander :sensor (synthetic-sensor device-id))
-    (hecuba/upsert! commander :dataset ds)
+   (let [request                     (:request ctx)
+         {:keys [members name operation]} (decode-body request)
+         members                     (into #{} members)
+         entity-id                   (entity-id-from ctx)
+         unit                        (output-unit-for operation)
+         device-id                   (hecuba/upsert! commander
+                                                     :device
+                                                     (synthetic-device entity-id "Synthetic"))]
+     (create-output-sensors commander device-id unit members)
+     (hecuba/upsert! commander :dataset
+                    {:entity_id entity-id
+                     :name      name
+                     :members   members
+                     :operation operation
+                     :device_id device-id}
+                                      )
     (hash-map ::name name
               ::entity-id entity-id)))
 
@@ -85,12 +108,10 @@
 (defn index-handle-created [handlers ctx]
   (let [entity-id   (::entity-id ctx)
         name        (::name ctx)
-        _ (log/info "RR:" (routes-from ctx))
         location     (bidi/path-for (routes-from ctx)
                                (:dataset @handlers)
                                :entity-id entity-id
                                :name name)
-        _ (log/info "ctx: " )
         ]
     (log/info "index-handle-created!")
     (when-not location
@@ -120,14 +141,14 @@
 
 (defn resource-post! [commander ctx]
   (let [request (:request ctx)
-        {:keys [members name type]} (decode-body request)
-        ds {:entity_id (entity-id-from ctx)
-            :name      (name-from ctx)
-            :members   (string/join \, members)
-            :type      type}]
-    (log/infof "resource-post! %s" ds)
+        {:keys [members name operation]} (decode-body request)
+        converted-type              (output-type-for operation)]
 
-    (hecuba/upsert! commander :dataset ds)))
+    (hecuba/upsert! commander :dataset
+                    {:entity_id (entity-id-from ctx)
+                     :name      (name-from ctx)
+                     :members   members
+                     :operation operation})))
 
 (defn resource-handle-ok [ctx]
   (let [item (::item ctx)]

@@ -27,11 +27,13 @@ CREATE TABLE daily_rollups (
   compaction={'class': 'SizeTieredCompactionStrategy'} AND
   compression={'sstable_compression': 'SnappyCompressor'};
 
-CREATE TABLE data_sets (
+CREATE TABLE datasets (
   entity_id text,
   name text,
-  members text,
+  members set<text>,
+  operation text,
   type text,
+  device_id text,
   PRIMARY KEY (entity_id, name)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND

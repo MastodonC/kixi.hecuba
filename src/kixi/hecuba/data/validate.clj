@@ -1,6 +1,6 @@
 (ns kixi.hecuba.data.validate
  "Data quality assurance and validation."
- (:require [clj-time.core :as t]   
+ (:require [clj-time.core :as t]
            [kixi.hecuba.protocols :refer (upsert! update! delete! item items)]
            [kixi.hecuba.data.misc :as m]))
 
@@ -57,7 +57,7 @@
   (let [metadata (-> m :metadata)
         errors   (-> sensor first :errors read-string)
         median   (-> sensor first :median)]
-    (cond 
+    (cond
      (empty? median) (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "n/a"}))
      (nil? median) (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "n/a"}))
      (larger-than-median (read-string median) m) (label-spike commander sensor m)
@@ -67,8 +67,8 @@
   "Labels measurement as having invalid value.
    Increaments error counter of the sensor."
   [commander querier sensor where m]
-  (let [metadata (-> m :metadata)   
-        errors   (-> sensor first :errors read-string)]  
+  (let [metadata (-> m :metadata)
+        errors   (-> sensor first :errors read-string)]
     (update! commander :sensor {:errors (inc errors)} where)
     (assoc-in m [:metadata] (m/update-metadata metadata {:is-number "false"}))))
 
@@ -92,7 +92,7 @@
         where     [[= :device-id device-id] [= :type type]]
         sensor    (items querier :sensor where)
         events    (-> sensor first :events read-string)]
-    
+
     (if (= events 1440) (reset-counters! commander where))
     (update! commander :sensor {:events (inc events)} where)
 
@@ -107,7 +107,7 @@
 (defn update-sensor-metadata
   "Updates start and end dates when new measurement is received."
   [m commander querier]
-  (let [device-id         (:device-id m)
+  (let [device-id         (or (:device-id m) (:device_id m))
         type              (:type m)
         where             [[= :device-id device-id] [= :type type]]
         sensor-metadata   (items querier :sensor-metadata where)
@@ -118,8 +118,3 @@
     (m/update-date-range commander :difference-series where timestamp (:difference-series (first sensor-metadata)))
     (m/update-date-range commander :median-calc-check where timestamp (:median-calc-check (first sensor-metadata)))
     (m/update-date-range commander :spike-check where timestamp (:spike-check (first sensor-metadata)))))
-
-
-
-
-

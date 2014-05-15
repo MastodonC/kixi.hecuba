@@ -65,7 +65,7 @@
 (defmethod get-table :daily-rollups [_] "daily_rollups")
 (defmethod get-table :user [_] "users")
 (defmethod get-table :user-session [_] "user_sessions")
-(defmethod get-table :dataset [_] "data_sets")
+(defmethod get-table :dataset [_] "datasets")
 
 
 (defn cassandraify
@@ -106,6 +106,9 @@
 
   (update! [_ typ payload where]
     (assert where "No where clause")
+    (log/info "CQL: " (hayt/->raw (hayt/update (get-table typ)
+                                               (hayt/set-columns (cassandraify payload))
+                                               (hayt/where (cassandraify-v where)))))
     (alia/execute session
      (hayt/update (get-table typ)
                   (hayt/set-columns (cassandraify payload))
@@ -136,12 +139,15 @@
          (alia/execute session
                        (hayt/select (get-table typ)))))
   (items [_ typ where]
-    (map de-cassandraify
-         (alia/execute session
-                       (hayt/select (get-table typ)
-                                    ;; Where clause should always be a vector of vectors, e.g.
-                                    ;; [[= :device-id "1"] [= :type "temp"] [> :timestamp "20140510"]
-                                    (hayt/where (cassandraify-v where)))))))
+    (let [cql (hayt/->raw (hayt/select (get-table typ)
+                                       (hayt/where (cassandraify-v where))))]
+      (log/info "CQL: " cql)
+      (map de-cassandraify
+           (alia/execute session
+                         (hayt/select (get-table typ)
+                                      ;; Where clause should always be a vector of vectors, e.g.
+                                      ;; [[= :device-id "1"] [= :type "temp"] [> :timestamp "20140510"]
+                                      (hayt/where (cassandraify-v where))))))))
 
 (defrecord CassandraDirectStore []
   component/Lifecycle

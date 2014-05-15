@@ -157,8 +157,8 @@
          :store (new-direct-store)
          :pipeline (new-pipeline)
          :scheduler (kixipipe.scheduler/mk-session cfg)
-         ;; :queue (new-queue (:queue cfg))
-         ;; :queue-worker (new-queue-worker)
+         :queue (new-queue (:queue cfg))
+         :queue-worker (new-queue-worker)
          :cljs-builder (new-cljs-builder)
          :web-server (new-webserver (:web-server cfg))
          :bidi-ring-handler (new-bidi-ring-handler-provider)
@@ -171,8 +171,8 @@
           :amon-api [:store :store-new :session]
           :user-api [:store]
           :store [:session]
-          :store-new [:hecuba-session]
-          ;; :queue-worker [:queue :store]
+          :store-new [:hecuba-session :queue]
+          :queue-worker [:queue :store]
           :pipeline [:store]
           :scheduler [:pipeline]
           :hecuba-session {:cluster :cluster-new} ;; TODO remove temp rename -> [:cluster]

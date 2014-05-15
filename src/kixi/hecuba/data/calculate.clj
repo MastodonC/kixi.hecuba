@@ -4,13 +4,15 @@
             [clj-time.core :as t]
             [clj-time.format :as tf]
             [clojure.string :as str]
+            [clojure.tools.logging :as log]
             [kixi.hecuba.api.datasets :as datasets]
             [kixi.hecuba.api.measurements :as measurements]
             [kixi.hecuba.data.misc :as m]
             [kixi.hecuba.protocols :refer (upsert! update! delete! item items)]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.storage.dbnew :as dbnew]
-            [qbits.hayt :as hayt]))
+            [qbits.hayt :as hayt]
+            [kixi.hecuba.queue :as q]))
 
 (defn get-difference
   "Returns difference if both values are numbers, otherwise returns N/A."
@@ -139,7 +141,6 @@
 (defn sensors-for-dataset
   "Returns all the sensors for the given dataset."
   [{:keys [members]} store]
-
   (dbnew/with-session [session (:hecuba-session store)]
     (let [parse-sensor (comp next (partial re-matches #"(\w+)-(\w+)"))
           sensor (fn [[type device-id]]
@@ -151,18 +152,56 @@
                        (keep parse-sensor)
                        (into (hash-set)))))))
 
-(defmulti calculate-data-set (comp keyword :type))
+
+(defn insert-measurement [store m ]
+  (dbnew/with-session [session (:hecuba-session store)]
+    (dbnew/execute session
+                   (hayt/insert :measurements
+                                (hayt/values m)))))
+
+(defn output-unit-for [t]
+  (log/error t)
+  (case t
+    "vol2Kwh" "kWh"))
+
+(defn output-type-for [t]
+  (str "converted_" t))
+
+(def truthy? #{"true"})
+
+(def conversions {"gasConsumption" {"m^3" 10.97222
+                                    "ft^3" (* 2.83 10.9722)}
+                  "oilConsumption" {"m^3" 10308.34
+                                    "ft^3" (* 2.83 10308.34)}})
+
+(defn metadata-is-number? [{:keys [metadata]}]
+  (truthy? (:is-number (read-string metadata))))
+
+(defn conversion-fn [{:keys [type unit]}]
+  (let [factor (get-in conversions [type unit])]
+    (fn [m]
+      (cond-> m (metadata-is-number? m)
+              (assoc :value (str (* factor (read-string (:value m))))
+                     :type (output-type-for type))))))
+
+(defmulti calculate-data-set (comp keyword :operation))
 
 (defmethod calculate-data-set :vol2kwh [ds store]
-  (let [sensors (sensors-for-dataset ds store)
-        ms (map (fn [s] (measurements/all-measurements store s))
-                sensors)]
-    ))
+
+  (let [get-fn-and-measurements  (fn [s] [(conversion-fn s) (measurements/all-measurements store s)])
+        convert                  (fn [[f xs]] (map f xs))
+        topic (get-in (:queue store) [:queue "measurements"])
+        {:keys [operation device_id]} ds]
+    (doseq [m  (->> (sensors-for-dataset ds store)
+                    (map get-fn-and-measurements)
+                    (mapcat convert)
+                    (map #(assoc % :device_id device_id)))]
+      (q/put-on-queue topic m)
+      (insert-measurement store m))))
 
 ;;  select count(*) from measurements where type='gasConsumption' and device_id='fe5ab5bf19a7265276ffe90e4c0050037de923e2' limit 10000000;
 (defn generate-synthetic-readings [store item]
   (let [data-sets (datasets/all-datasets store)]
     (doseq [ds data-sets]
       (calculate-data-set (normalize-dataset ds)
-                          store)))
-  )
+                          store))))
