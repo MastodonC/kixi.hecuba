@@ -43,6 +43,9 @@
                                                        selection-key
                                                        template
                                                        nav-event)]
+
+      (om/update! data :active-compnents active-components)
+      
       (doseq [a active-components]
         (om/update! data (vector a :active) true))
       
