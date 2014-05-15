@@ -212,7 +212,8 @@
     om/IDidUpdate
     (did-update [_ prev-props prev-state]
       (let [{:keys [programmes projects active-components]} tables]
-        (println "Active Components: " active-components)))
+        ;;(println "Active Components: " active-components)
+        ))
     om/IRender
     (render [_]
       (let [{:keys [programmes projects active-components]} tables
