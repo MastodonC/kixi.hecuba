@@ -6,6 +6,11 @@
               [kixi.hecuba.history :as history]
               [sablono.core :as html :refer-macros [html]]))
 
+(defn status-label [status]
+  (if (= status "OK")
+    [:span {:class "label label-success"} status]
+    [:span {:class "label label-danger"} status]))
+
 (defn table [{:keys [tables chart]} owner {:keys [histkey path]}]
   (reify
     om/IRender
@@ -35,7 +40,7 @@
                 [:td unit]
                 [:td period]
                 [:td deviceId]
-                [:td status]]))]])))))
+                [:td (status-label status)]]))]])))))
 
 
 (defn sensors-select-table [cursor owner {:keys [path]}]
