@@ -278,6 +278,30 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; devices
+(defn devices-table [devices owner]
+  (reify
+    om/IRender
+    (render [_]
+      (let [table-id   "devices-table"
+            history    (om/get-shared owner :history)]
+        (html
+         [:table {:className "table table-hover"}
+          [:thead
+           [:tr [:th "Name"] [:th "Description"] [:th "Privacy"]]]
+          [:tbody
+           (for [row (sort-by :name (:data devices))]
+             (let [{:keys [id location description privacy]} row
+                   name (:name location)]
+               [:tr {:onClick (fn [_ _]
+                                (om/update! devices :selected id)
+                                (history/update-token-ids! history :devices id)
+                                (fixed-scroll-to-element "sensors-div"))
+                     :className (if (= id (:selected devices)) "success")
+                     :id (str table-id "-selected")}
+                [:td name]
+                [:td description]
+                [:td privacy]]))]])))))
+
 (defn devices-div [tables owner]
   (reify
     om/IRender
@@ -306,7 +330,7 @@
                              (history/update-token-ids! history :properties nil)
                              (fixed-scroll-to-element "properties-div"))}
                  (title-for properties :title-key :addressStreetTwo)]]]
-          (om/build table devices {:opts {:histkey :devices}})])))))
+          (om/build devices-table devices {:opts {:histkey :devices}})])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; sensors
