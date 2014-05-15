@@ -8,7 +8,7 @@
             [kixi.hecuba.data.calculate    :as calculate]
             [com.stuartsierra.component    :as component]))
 
-(defn build-pipeline [commander querier]
+(defn build-pipeline [commander querier store]
   (let [fanout-q              (new-queue {:name "fanout-q" :queue-size 50})
         data-quality-q        (new-queue {:name "data-quality-q" :queue-size 50})
         median-calculation-q  (new-queue {:name "median-calculation-q" :queue-size 50})
@@ -16,8 +16,7 @@
         difference-series-q   (new-queue {:name "difference-series-q" :queue-size 50})
         rollups-q             (new-queue {:name "rollups-q" :queue-size 50})
         spike-check-q         (new-queue {:name "spike-check-q" :queue-size 50})
-        synthetic-readings-q  (new-queue {:name "synthetic-readings-q" :queue-size 50})
-        ]
+        synthetic-readings-q  (new-queue {:name "synthetic-readings-q" :queue-size 50})]
 
     (defnconsumer fanout-q [{:keys [dest type] :as item}]
       (let [item (dissoc item :dest)]
@@ -117,7 +116,7 @@
       (log/info "Finished median spike check."))
 
     (defnconsumer synthetic-readings-q [item]
-      (calculate/generate-synthetic-readings commander querier item))
+      (calculate/generate-synthetic-readings store item))
 
     (producer-of fanout-q median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q rollups-q synthetic-readings-q)
 
@@ -127,9 +126,10 @@
   component/Lifecycle
   (start [this]
     (log/info "Pipeline starting")
-    (let [commander (-> this :store :commander)
-          querier   (-> this :store :querier)
-          [head others] (build-pipeline commander querier)]
+    (let [commander     (-> this :store :commander)
+          querier       (-> this :store :querier)
+          store         (-> this :store-new)
+          [head others] (build-pipeline commander querier store)]
       (-> this
           (assoc :head head)
           (assoc :others others))))

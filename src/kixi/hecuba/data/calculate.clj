@@ -133,11 +133,6 @@
       (when-not (.before end start-date)
         (recur (hour-batch commander querier sensor start-date table))))))
 
-(defn normalize-dataset[m]
-  (-> m
-      (update-in [:members] #(str/split % #"\s*,\s*"))))
-
-
 (defn sensors-for-dataset
   "Returns all the sensors for the given dataset."
   [{:keys [members]} store]
@@ -199,9 +194,7 @@
       (q/put-on-queue topic m)
       (insert-measurement store m))))
 
-;;  select count(*) from measurements where type='gasConsumption' and device_id='fe5ab5bf19a7265276ffe90e4c0050037de923e2' limit 10000000;
 (defn generate-synthetic-readings [store item]
   (let [data-sets (datasets/all-datasets store)]
     (doseq [ds data-sets]
-      (calculate-data-set (normalize-dataset ds)
-                          store))))
+      (calculate-data-set ds store))))

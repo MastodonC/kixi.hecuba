@@ -173,7 +173,7 @@
           :store [:session]
           :store-new [:hecuba-session :queue]
           :queue-worker [:queue :store]
-          :pipeline [:store]
+          :pipeline [:store :store-new]
           :scheduler [:pipeline]
           :hecuba-session {:cluster :cluster-new} ;; TODO remove temp rename -> [:cluster]
           :session [:cluster]}))))
