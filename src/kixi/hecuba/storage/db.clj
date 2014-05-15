@@ -26,6 +26,7 @@
 (defmethod gen-key :project [typ payload] ((sha1-keyfn :name :programme-id) payload))
 (defmethod gen-key :entity [typ payload] ((sha1-keyfn :property-code :project-id) payload))
 (defmethod gen-key :device [typ payload] ((sha1-keyfn :description :entity-id) payload))
+(defmethod gen-key :profile [typ payload] ((sha1-keyfn :timestamp :entity-id) payload))
 
 (defmethod gen-key :sensor [typ payload] nil)
 (defmethod gen-key :sensor-metadata [typ payload] nil)
@@ -43,6 +44,7 @@
 (defmethod get-primary-key-field :project [typ] :id)
 (defmethod get-primary-key-field :entity [typ] :id)
 (defmethod get-primary-key-field :device [typ] :id)
+(defmethod get-primary-key-field :profile [typ] :id)
 (defmethod get-primary-key-field :user [typ] :id) ; TODO should be username...
 (defmethod get-primary-key-field :user-session [typ] :id)
 (defmethod get-primary-key-field :dataset [typ] :id)
@@ -52,6 +54,7 @@
 (defmethod get-table :project [_] "projects")
 (defmethod get-table :property [_] "entities")
 (defmethod get-table :entity [_] "entities")
+(defmethod get-table :profile [_] "profiles")
 (defmethod get-table :device [_] "devices")
 (defmethod get-table :sensor [_] "sensors")
 (defmethod get-table :sensor-metadata [_] "sensor_metadata")
@@ -104,7 +107,7 @@
   (update! [_ typ payload where]
     (assert where "No where clause")
     (alia/execute session
-     (hayt/update (get-table typ) 
+     (hayt/update (get-table typ)
                   (hayt/set-columns (cassandraify payload))
                   (hayt/where (cassandraify-v where)))))
 

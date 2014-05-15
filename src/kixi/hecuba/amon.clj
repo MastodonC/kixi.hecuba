@@ -17,6 +17,7 @@
    [kixi.hecuba.api.devices :as devices]
    [kixi.hecuba.api.entities :as entities]
    [kixi.hecuba.api.measurements :as measurements]
+   [kixi.hecuba.api.profiles :as profiles]
    [kixi.hecuba.api.programmes :as programmes]
    [kixi.hecuba.api.projects :as projects]
    [kixi.hecuba.api.properties :as properties]
@@ -64,6 +65,8 @@
                  :sensors-by-property (sensors/index-by-property opts p)
                  :datasets            (datasets/index opts p)
                  :dataset             (datasets/resource opts p)
+                 :profiles            (profiles/index opts p)
+                 :profile             (profiles/resource opts p)
                  })))
 
 
@@ -109,6 +112,10 @@
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements/" :reading-type "/" :timestamp] (:measurement handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/hourly_rollups/" :reading-type] (:hourly-rollups handlers)]
          [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/daily_rollups/" :reading-type] (:daily-rollups handlers)]
+
+         [["entities/" [sha1-regex :entity-id] "/profiles/"] (:profiles handlers)]
+         [["entities/" [sha1-regex :entity-id] "/profiles"] (bidi/->Redirect 301 (:profiles handlers))]
+         [["entities/" [sha1-regex :entity-id] "/profiles/" [sha1-regex :profile-id]] (:profile handlers)]
          ]
         wrap-cookies)])
 

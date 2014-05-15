@@ -15,7 +15,7 @@
         method       (:request-method request)
         route-params (:route-params request)
         entity-id    (:entity-id route-params)
-        entity       (hecuba/item querier :entity entity-id)] 
+        entity       (hecuba/item querier :entity entity-id)]
     (case method
       :post (not (nil? entity))
       :get (let [items (hecuba/items querier :device [[= :entity-id entity-id]])]
@@ -41,7 +41,7 @@
         entity-id     (-> request :route-params :entity-id)
         [username _]  (sec/get-username-password request querier)
         user-id       (-> (hecuba/items querier :user [[= :username username]]) first :id)]
-    
+
     (when-not (empty? (first (hecuba/items querier :entity [[= :id entity-id]])))
       (let [device    (-> body
                           (assoc :user-id user-id)
@@ -98,7 +98,7 @@
                   (dissoc :id))}
       false)))
 
-;; Should be device-response etc and it should do the delete in delete!, 
+;; Should be device-response etc and it should do the delete in delete!,
 ;; that should put something in the context which is then checked here.
 (defn resource-delete-enacted? [commander ctx]
   (let [{item ::item} ctx
