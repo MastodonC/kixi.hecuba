@@ -118,47 +118,6 @@
                     :keywords? true}))))))
     (recur)))
 
-;; TODO histkey is really id key. resolve name confusion.
-(defn table [cursor owner {:keys [histkey path]}]
-  (reify
-    om/IRender
-    (render [_]
-      ;; Select the first row
-      ;;(put! out {:type :row-selected :row (first (om/get-state owner :data))})
-      (let [cols (get-in cursor [:header :cols])
-            table-id (str (name histkey) "-table")
-            history (om/get-shared owner :history)]
-        (dom/div #js {:id (str table-id "-container")}
-         (dom/table
-          #js {;; :id table-id
-               :className "table table-hover hecuba-table"} ;; table-hover table-stripedso,
-          (dom/thead
-           nil
-           (dom/tr
-            nil
-            (into-array
-             (for [[_ {:keys [label]}] cols]
-               (dom/th nil label)))))
-          (dom/tbody
-           nil
-           (into-array
-            (for [{:keys [id href ] :as row} (-> cursor :data
-                                                (cond-> path path))]
-              (dom/tr
-               #js {:onClick (fn [_ _ ]
-                               (om/update! cursor :selected id)
-                               (history/update-token-ids! history histkey id))
-                    :className (if (= id (:selected cursor)) "success")
-                    ;; TODO use this to scroll the row into view.
-                    ;; Possible solution here: http://stackoverflow.com/questions/1805808/how-do-i-scroll-a-row-of-a-table-into-view-element-scrollintoview-using-jquery
-                    :id (str table-id "-selected")}
-               (into-array
-                (for [[k {:keys [href]}] cols]
-                  (let [k (if (vector? k) k (vector k))]
-                    (dom/td nil (if href
-                                  (dom/a #js {:href (get row href)} (get-in row k))
-                                  (get-in row k))))))))))))))))
-
 (defn device-detail [{:keys [selected data] :as cursor} owner]
   (om/component
    (let [row      (first (filter #(= (:id %) selected) data))]
@@ -180,6 +139,35 @@
   (let [[type _] (str/split selected #"-")]
     type))
 
+;; our banner is 50px so we need to tweak the scrolling
+(defn fixed-scroll-to-element [element]
+  (-> (.getElementById js/document element)
+                                    .scrollIntoView)
+  (.scrollBy js/window 0 -50))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; programmes
+(defn programmes-table [programmes owner]
+  (reify
+    om/IRender
+    (render [_]
+      (let [table-id   "programme-table"
+            history    (om/get-shared owner :history)]
+        (html
+         [:table {:className "table table-hover"}
+          [:thead
+           [:tr [:th "ID"] [:th "Organisations"] [:th "Name"] [:th "Created At"]]]
+          [:tbody
+           (for [row (sort-by :id (:data programmes))]
+             (let [{:keys [id lead-organisations name description created-at]} row]
+               [:tr {:onClick (fn [_ _]
+                                (om/update! programmes :selected id)
+                                (history/update-token-ids! history :programmes id)
+                                (fixed-scroll-to-element "projects-div"))
+                     :className (if (= id (:selected programmes)) "success")
+                     :id (str table-id "-selected")}
+                [:td id [:a {:id (str "row-" id)}]] [:td lead-organisations] [:td name] [:td created-at]]))]])))))
+
 (defn programmes-div [tables owner]
   (reify
     om/IRender
@@ -191,32 +179,33 @@
           [:h1 "Programmes"]
           (om/build programmes-table programmes)])))))
 
-;; our banner is 50px so we need to tweak the scrolling
-(defn fixed-scroll-to-element [element]
-  (-> (.getElementById js/document element)
-                                    .scrollIntoView)
-  (.scrollBy js/window 0 -50))
-
-(defn programmes-table [cursor owner]
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; projects
+(defn projects-table [projects owner]
   (reify
     om/IRender
     (render [_]
-      (let [table-id   "programme-table"
+      (let [table-id   "projects-table"
             history    (om/get-shared owner :history)]
         (html
          [:table {:className "table table-hover"}
           [:thead
-           [:tr [:th "ID"] [:th "Organisations"] [:th "Name"] [:th "Created At"]]]
+           [:tr [:th "Name"] [:th "Type"] [:th "Description"] [:th "Created At"] [:th "Organisation"] [:th "Project Code"]]]
           [:tbody
-           (for [row (sort-by :id (:data cursor))]
-             (let [{:keys [id lead-organisations name description created-at]} row]
+           (for [row (sort-by :id (:data projects))]
+             (let [{:keys [id name type-of description created-at organisation project-code]} row]
                [:tr {:onClick (fn [_ _]
-                                (om/update! cursor :selected id)
-                                (history/update-token-ids! history :programmes id)
-                                (fixed-scroll-to-element "projects-div"))
-                     :className (if (= id (:selected cursor)) "success")
+                                (om/update! projects :selected id)
+                                (history/update-token-ids! history :projects id)
+                                (fixed-scroll-to-element "properties-div"))
+                     :className (if (= id (:selected projects)) "success")
                      :id (str table-id "-selected")}
-                [:td id [:a {:id (str "row-" id)}]] [:td lead-organisations] [:td name] [:td created-at]]))]])))))
+                [:td name]
+                [:td type-of]
+                [:td description]
+                [:td created-at]
+                [:td organisation]
+                [:td project-code]]))]])))))
 
 (defn projects-div [tables owner]
   (reify
@@ -238,7 +227,31 @@
                              (history/update-token-ids! history :programmes nil)
                              (fixed-scroll-to-element "programmes-div"))}
                  (title-for programmes)]]]
-          (om/build table projects {:opts {:histkey :projects}})])))))
+          (om/build projects-table projects {:opts {:histkey :projects}})])))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; properties
+(defn properties-table [properties owner]
+  (reify
+    om/IRender
+    (render [_]
+      (let [table-id   "properties-table"
+            history    (om/get-shared owner :history)]
+        (html
+         [:table {:className "table table-hover"}
+          [:thead
+           [:tr [:th "Address"] [:th "Country"]]]
+          [:tbody
+           (for [row (sort-by :name (:data properties))]
+             (let [{:keys [id addressStreetTwo country]} row]
+               [:tr {:onClick (fn [_ _]
+                                (om/update! properties :selected id)
+                                (history/update-token-ids! history :properties id)
+                                (fixed-scroll-to-element "devices-div"))
+                     :className (if (= id (:selected properties)) "success")
+                     :id (str table-id "-selected")}
+                [:td addressStreetTwo]
+                [:td country]]))]])))))
 
 (defn properties-div [tables owner]
   (reify
@@ -261,8 +274,10 @@
                              (history/update-token-ids! history :projects nil)
                              (fixed-scroll-to-element "projects-div"))}
                  (title-for projects)]]]
-          (om/build table properties {:opts {:histkey :properties}})])))))
+          (om/build properties-table properties {:opts {:histkey :properties}})])))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; devices
 (defn devices-div [tables owner]
   (reify
     om/IRender
@@ -289,10 +304,54 @@
            [:li [:a
                  {:onClick (fn [_ _]
                              (history/update-token-ids! history :properties nil)
-                             (fixed-scroll-to-element "projects-div"))}
+                             (fixed-scroll-to-element "properties-div"))}
                  (title-for properties :title-key :addressStreetTwo)]]]
           (om/build table devices {:opts {:histkey :devices}})])))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; sensors
+(defn sensors-div [data owner]
+  (let [tables (:tables data)]
+    (reify
+      om/IRender
+      (render [_]
+        (let [{:keys [programmes projects properties devices active-components]} tables
+              history (om/get-shared owner :history)]
+          (html
+           [:div {:id "sensors-div"}
+            [:h2 {:id "sensors"} "Sensors"]
+            [:ul {:class "breadcrumb"}
+             [:li [:a
+                   {:onClick (fn [_ _]
+                               (history/update-token-ids! history :devices nil)
+                               (history/update-token-ids! history :properties nil)
+                               (history/update-token-ids! history :projects nil)
+                               (history/update-token-ids! history :programmes nil)
+                               (fixed-scroll-to-element "programmes-div"))}
+                   (title-for programmes)]]
+             [:li [:a
+                   {:onClick (fn [_ _]
+                               (history/update-token-ids! history :devices nil)
+                               (history/update-token-ids! history :properties nil)
+                               (history/update-token-ids! history :projects nil)
+                               (fixed-scroll-to-element "projects-div"))}
+                   (title-for projects)]]
+             [:li [:a
+                   {:onClick (fn [_ _]
+                               (history/update-token-ids! history :devices nil)
+                               (history/update-token-ids! history :properties nil)
+                               (fixed-scroll-to-element "properties-div"))}
+                   (title-for properties :title-key :addressStreetTwo)]]
+             [:li [:a
+                   {:onClick (fn [_ _]
+                               (history/update-token-ids! history :devices nil)
+                               (fixed-scroll-to-element "devices-div"))}
+                   (title-for devices :title-key [:location :name])]]]
+            (om/build sensor/table data {:opts {:histkey :sensors
+                                                :path    :readings}})]))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Main View
 (defn programmes-tab [data owner]
   (let [{tables :tables} data]
     (reify
@@ -332,40 +391,26 @@
                  (om/build projects-div tables)
                  (om/build properties-div tables)
                  (om/build devices-div tables)
-                     
                  ;; (om/build device-detail devices)
-
-                 [:h2 {:id "sensors"} "Sensors"]
-                 [:ul {:class "breadcrumb"}
-                  [:li (title-for programmes)]
-                  [:li (title-for projects)]
-                  [:li (title-for properties :title-key :addressStreetTwo)]
-                  [:li (title-for devices :title-key [:location :name])]]
-                 (om/build sensor/table data {:opts {:histkey :sensors
-                                                     :path    :readings}})
+                 (om/build sensors-div data)
                  ;; (om/build sensor/define-data-set-button data)
 
-                 [:h2 "Chart"]
-                 [:ul {:class "breadcrumb"}
-                  [:li (title-for programmes)]
-                  [:li (title-for projects)]
-                  [:li (title-for properties :title-key :addressStreetTwo)]
-                  [:li (title-for devices :title-key [:location :name])]
-                  [:li (title-for-sensor sensors)]]
-                 [:div {:id "date-picker"}
-                  (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
-                 (om/build chart-feedback-box (get-in data [:chart :message]))
-                 [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
-                  (om/build chart/chart-figure (:chart data))]
-                 (om/build sensor/selection-dialog (:tables data)
-                           {:opts {:id "sensor-selection-dialog"
-                                   :handler (fn [e]
-                                              (.preventDefault e)
-                                              (POST (str "/4/entities/" (:selected @properties) "/datasets")
-                                                    {:params          (:sensor-group @sensor-select)
-                                                     :handler         #(println "Yah!")
-                                                     :error-handler   #(println "Error!")
-                                                     :response-format "application/edn"
-                                                     :keywords?       true}))}})]))))))
+                 [:div {:id "chart-div"}
+                  [:h2 "Chart"]
+                  [:div {:id "date-picker"}
+                   (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
+                  (om/build chart-feedback-box (get-in data [:chart :message]))
+                  [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
+                   (om/build chart/chart-figure (:chart data))]
+                  (om/build sensor/selection-dialog (:tables data)
+                            {:opts {:id "sensor-selection-dialog"
+                                    :handler (fn [e]
+                                               (.preventDefault e)
+                                               (POST (str "/4/entities/" (:selected @properties) "/datasets")
+                                                     {:params          (:sensor-group @sensor-select)
+                                                      :handler         #(println "Yah!")
+                                                      :error-handler   #(println "Error!")
+                                                      :response-format "application/edn"
+                                                      :keywords?       true}))}})]]))))))
 
 
