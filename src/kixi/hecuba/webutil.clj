@@ -38,11 +38,14 @@
 (defn json-list [items]
   (map encode items))
 
-(defn update-stringified-lists [body [selector]]
+(defn update-stringified-list [body selector]
   (if
     (contains? body selector)
     (update-in body [selector] json-list)
     (assoc body selector nil)))
+
+(defn update-stringified-lists [body selectors]
+  (reduce update-stringified-list body selectors))
 
 (defn authorized? [querier typ]
   (fn [{{route-params :route-params :as req} :request}]
