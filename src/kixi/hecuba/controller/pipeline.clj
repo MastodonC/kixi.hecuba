@@ -16,7 +16,9 @@
         difference-series-q   (new-queue {:name "difference-series-q" :queue-size 50})
         rollups-q             (new-queue {:name "rollups-q" :queue-size 50})
         spike-check-q         (new-queue {:name "spike-check-q" :queue-size 50})
-        synthetic-readings-q  (new-queue {:name "synthetic-readings-q" :queue-size 50})]
+        synthetic-readings-q  (new-queue {:name "synthetic-readings-q" :queue-size 50})
+        resolution-q          (new-queue {:name "resolution-q" :queue-size 50})
+        ]
 
     (defnconsumer fanout-q [{:keys [dest type] :as item}]
       (let [item (dissoc item :dest)]
@@ -24,7 +26,8 @@
           :data-quality (condp = type
                           :median-calculation  (produce-item item median-calculation-q)
                           :mislabelled-sensors (produce-item item mislabelled-sensors-q)
-                          :spike-check         (produce-item item spike-check-q))
+                          :spike-check         (produce-item item spike-check-q)
+                          :resolution          (produce-item item resolution-q))
           :calculated-datasets (condp = type
                                  :difference-series (produce-item item difference-series-q)
                                  :rollups           (produce-item item rollups-q)
@@ -118,9 +121,14 @@
     (defnconsumer synthetic-readings-q [item]
       (calculate/generate-synthetic-readings store item))
 
-    (producer-of fanout-q median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q rollups-q synthetic-readings-q)
+    (defnconsumer resolution-q [item]
+      (calculate/resolution store item))
 
-    (list fanout-q #{median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q rollups-q synthetic-readings-q})))
+    (producer-of fanout-q median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q rollups-q synthetic-readings-q
+                 resolution-q)
+
+    (list fanout-q #{median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q rollups-q synthetic-readings-q
+                     resolution-q})))
 
 (defrecord Pipeline []
   component/Lifecycle

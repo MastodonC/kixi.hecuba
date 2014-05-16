@@ -133,6 +133,33 @@
       (when-not (.before end start-date)
         (recur (hour-batch commander querier sensor start-date table))))))
 
+;;;;;;;;; Resolution calculation ;;;;;;;;;;
+
+(defn diff [coll]
+  (map - coll (rest coll)))
+
+(defn mode [coll]
+  (first (last (sort-by second (frequencies coll)))))
+
+(defn resolution
+  "Updates resolution if it's missing. Infers it from last 100 measurements.
+  Depending on the order of data in the database, it might not always return last 100 of measurements."
+  [store item]
+  (dbnew/with-session [session (:hecuba-session store)]
+    (let [sensors-to-update (filter #(empty? (:resolution %)) (dbnew/execute session (hayt/select :sensors)))]
+      (doseq [sensor sensors-to-update]
+        (let [measurements (dbnew/execute session (hayt/select :measurements
+                                                               (hayt/where [[= :device_id (:device_id sensor)]
+                                                                            [= :type (:type sensor)]])
+                                                               (hayt/order-by [:type :desc])
+                                                               (hayt/limit 100)))
+              differences  (diff (map #(/ (.getTime (m/truncate-seconds (:timestamp %))) 1000) measurements))
+              resolution  (str (mode differences))]
+          (dbnew/execute session (hayt/update :sensors
+                                              (hayt/set-columns [[:resolution resolution]])
+                                              (hayt/where [[= :device_id (:device_id sensor)]
+                                                           [= :type (:type sensor)]]))))))))
+
 (defn sensors-for-dataset
   "Returns all the sensors for the given dataset."
   [{:keys [members]} store]
@@ -193,6 +220,10 @@
                     (map #(assoc % :device_id device_id)))]
       (q/put-on-queue topic m)
       (insert-measurement store m))))
+
+(defmethod calculate-data-set :total-vol2kwh [ds store]
+ 
+  )
 
 (defn generate-synthetic-readings [store item]
   (let [data-sets (datasets/all-datasets store)]

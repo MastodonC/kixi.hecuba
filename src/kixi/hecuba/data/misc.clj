@@ -24,6 +24,10 @@
 
 (defn get-year-partition-key [timestamp] (Long/parseLong (format "%4d" (t/year (tc/from-date timestamp)))))
 
+(defn truncate-seconds [t]
+  (let [time-str (tf/unparse (tf/formatter "yyyy-MM-dd'T'HH:mm") (tc/from-date t))]
+    (tc/to-date  (tf/parse (tf/formatter "yyyy-MM-dd'T'HH:mm") time-str))))
+
 ;; Return int representation of month partition key
 (defmulti get-month-partition-key type)
 (defmethod get-month-partition-key java.util.Date [t]

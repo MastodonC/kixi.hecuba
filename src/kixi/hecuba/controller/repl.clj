@@ -19,3 +19,5 @@
 (defreplmethods mislabelled-check-> :dest :data-quality :type :mislabelled-sensors)
 (defreplmethods median-spike-check-> :dest :data-quality :type :spike-check)
 (defreplmethods synthetic-readings-> :dest :calculated-datasets :type :synthetic-readings)
+(defreplmethods resolution-> :dest :data-quality :type :resolution)
+
