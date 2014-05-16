@@ -230,7 +230,6 @@
                                     (dom/input #js {:type "checkbox"
                                                     :checked (get the-item :checked)
                                                     :value code
-                                                    :checked (get the-item :checked)
                                                     :onChange (fn [e]
                                                                 (let [checked (= (.. e -target -checked) true)]
                                                                   (put! selection {:checked checked
