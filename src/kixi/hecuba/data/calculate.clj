@@ -14,6 +14,11 @@
             [qbits.hayt :as hayt]
             [kixi.hecuba.queue :as q]))
 
+(def truthy? #{"true"})
+
+(defn metadata-is-number? [{:keys [metadata]}]
+  (truthy? (:is-number (read-string metadata))))
+
 (defn get-difference
   "Returns difference if both values are numbers, otherwise returns N/A."
   [rest-coll first-coll]
@@ -64,6 +69,61 @@
     (loop [start-date start]
       (when-not (.before end start-date)
         (recur (calculate-difference-series commander querier sensor start-date))))))
+
+;;;;;;; Difference series using resolution ;;;;;;;;;
+
+;; TODO validate whether the timestamp of the difference should be of n-1 or n (at the moment it's n-1
+(defn get-difference-new [m n]
+  [[:timestamp (:timestamp m)]
+   [:value (if (every? metadata-is-number? [m n]) (str (- (read-string (:value n)) (read-string (:value m)))) "N/A")]
+   [:device_id (:device_id m)]
+   [:type (:type m)]
+   [:month (:month m)]])
+
+(defn do-map [f & lists] (apply mapv f lists) nil)
+
+(defn diff-and-insert-new [store coll]
+  (dbnew/with-session [session (:hecuba-session store)]
+    (do-map #(dbnew/execute session
+                            (hayt/insert :difference_series
+                                         (hayt/values (get-difference-new %1 %2)))) coll (rest coll))))
+
+(defn measurements-for-range
+  "Returns a lazy sequence of measurements for a sensor matching type and device_id for a specified
+  datetime range."
+  [store sensor {:keys [start-date end-date]} page]
+  (let [device-id  (:device_id sensor)
+        type       (:type sensor)
+        next-start (t/plus start-date page)]
+    (dbnew/with-session [session (:hecuba-session store)]
+      (lazy-cat (dbnew/execute session
+                               (hayt/select :measurements
+                                            (hayt/where [[= :device_id device-id]
+                                                         [= :type type]
+                                                         [= :month (m/get-month-partition-key start-date)]
+                                                         [>= :timestamp start-date]
+                                                         [< :timestamp next-start]]))
+                               nil)
+                (when (t/before? next-start end-date)
+                  (measurements-for-range store sensor {:start next-start :end end-date} page))))))
+
+(defmulti quantize-timestamp (fn [m resolution] resolution))
+
+(defmethod quantize-timestamp 60
+  [m resolution]
+  (let [t       (:timestamp m)
+        rounded (m/truncate-seconds t)]
+    (assoc-in m [:timestamp] rounded)))
+
+(defn difference-series-from-resolution
+  "Takes store, sensor and a range of dates and calculates difference series using resolution
+  stored in the sensor data."
+  [store {:keys [sensor range]}]
+  (let [measurements (measurements-for-range store sensor range (t/hours 1))
+        resolution   (:resolution sensor)]
+    (when-not (empty? measurements)
+      (let [quantized (map #(quantize-timestamp % resolution) measurements)]
+        (diff-and-insert-new store quantized)))))
 
 
 ;;;;;;;;;;; Rollups of measurements ;;;;;;;;;
@@ -160,6 +220,8 @@
                                               (hayt/where [[= :device_id (:device_id sensor)]
                                                            [= :type (:type sensor)]]))))))))
 
+;;;;;; Calculated datasets ;;;;;;;;;;;
+
 (defn sensors-for-dataset
   "Returns all the sensors for the given dataset."
   [{:keys [members]} store]
@@ -189,15 +251,10 @@
 (defn output-type-for [t]
   (str "converted_" t))
 
-(def truthy? #{"true"})
-
 (def conversions {"gasConsumption" {"m^3" 10.97222
                                     "ft^3" (* 2.83 10.9722)}
                   "oilConsumption" {"m^3" 10308.34
                                     "ft^3" (* 2.83 10308.34)}})
-
-(defn metadata-is-number? [{:keys [metadata]}]
-  (truthy? (:is-number (read-string metadata))))
 
 (defn conversion-fn [{:keys [type unit]}]
   (let [factor (get-in conversions [type unit])]
