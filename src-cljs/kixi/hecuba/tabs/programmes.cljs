@@ -210,8 +210,7 @@
                             (om/update! programmes :selected nil))
                 ;; TODO: Add Error Handler
                 :headers {"Accept" "application/edn"}
-                :response-format :text})
-          (println "Not fetching programmes!"))
+                :response-format :text}))
 
         ;; handle selection on programmes table (this should be nil if called)
         (om/update! programmes :selected (:programmes active-components))))
@@ -273,8 +272,7 @@
                             (om/update! projects :selected nil))
                 ;; TODO: Add Error Handler
                 :headers {"Accept" "application/edn"}
-                :response-format :text})
-          (println "Not fetching projects!"))
+                :response-format :text}))
 
         ;; update our current id with the new one
         (om/update! projects :programme-id new-programme-id)
@@ -330,11 +328,8 @@
       (let [{:keys [projects properties active-components]} data
             new-project-id (:projects active-components)]
 
-        (println "Active Components: " active-components)
-
         ;; handle selection in projects table
         (when-not new-project-id
-          (println "Cleaering projects data.")
           (om/update! properties :data [])
           (om/update! properties :selected nil))
         
@@ -353,8 +348,7 @@
                                    (om/update! properties :error-status status)
                                    (om/update! properties :error-text status-text))
                   :headers {"Accept" "application/edn"}
-                  :response-format :text}))
-          (println "Not fetching properties!"))
+                  :response-format :text})))
         (om/update! properties :project-id new-project-id)
 
         ;; handle selection on properties table
@@ -409,8 +403,6 @@
       (let [{:keys [properties devices active-components]} data
             new-property-id (:properties active-components)]
 
-        (println "Active Components: " active-components)
-
         ;; handle selection perties table
         (when-not new-property-id
           (om/update! devices :data [])
@@ -433,8 +425,7 @@
                   ;; FIXME: This should be application/edn
                   :headers {"Accept" "application/json"}
                   :response-format :json
-                  :keywords? true}))
-          (println "Not fetching devices!"))
+                  :keywords? true})))
         (om/update! devices :property-id new-property-id)
 
         ;; handle selection in devices table
@@ -507,8 +498,6 @@
             new-device-id                       (:devices active-components)
             property-id                         (:properties active-components)]
 
-        (println "Active Components: " active-components)
-
         ;; handle selection perties table
         (when-not new-device-id
           (om/update! sensors :data [])
@@ -532,8 +521,7 @@
                   ;; FIXME: This should be application/edn
                   :headers {"Accept" "application/json"}
                   :response-format :json
-                  :keywords? true}))
-          (println "Not fetching sensors!"))
+                  :keywords? true})))
         (om/update! sensors :device-id new-device-id)
 
         ;; handle selection in sensors table
