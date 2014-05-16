@@ -286,13 +286,14 @@
       (let [{:keys [programmes projects active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "projects-div" :class (if (:programme-id projects) "" "hidden")}
-          [:h2 "Projects"]
-          [:ul {:class "breadcrumb"}
-           [:li [:a
-                 {:onClick (back-to-programmes history)}
-                 (title-for programmes)]]]
-          (om/build projects-table projects {:opts {:histkey :projects}})])))))
+         [:div {:id "projects-div"}
+          [:div {:class (if (:programme-id projects) "" "hidden")}
+           [:h2 "Projects"]
+           [:ul {:class "breadcrumb"}
+            [:li [:a
+                  {:onClick (back-to-programmes history)}
+                  (title-for programmes)]]]
+           (om/build projects-table projects {:opts {:histkey :projects}})]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; properties
