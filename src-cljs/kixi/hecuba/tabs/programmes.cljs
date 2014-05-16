@@ -413,7 +413,6 @@
 
         ;; handle selection perties table
         (when-not new-property-id
-          (println "Clearing devices data.")
           (om/update! devices :data [])
           (om/update! devices :selected nil))
         
@@ -512,7 +511,6 @@
 
         ;; handle selection perties table
         (when-not new-device-id
-          (println "Clearing sensors data.")
           (om/update! sensors :data [])
           (om/update! sensors :selected nil))
         
