@@ -40,7 +40,7 @@
 
 (defn update-stringified-lists [body [selector]]
   (if
-    (selector body)
+    (contains? selector body)
     (update-in body [selector] json-list)
     (assoc body selector nil)))
 
