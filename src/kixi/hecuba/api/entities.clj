@@ -24,6 +24,7 @@
                                                             (dissoc :device-ids)
                                                             (update-stringified-lists [:documents])
                                                             (update-stringified-lists [:photos])
+                                                            (update-stringified-lists [:notes])
                                                             (update-in [:property-data] json/encode)
                                                             ))}))))
 
