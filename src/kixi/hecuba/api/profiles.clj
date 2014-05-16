@@ -6,7 +6,7 @@
    [kixi.hecuba.protocols :as hecuba]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values sha1-regex)]
+   [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values update-stringified-lists sha1-regex)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]))
 
@@ -56,26 +56,25 @@
                           (assoc :user-id user-id)
                           (update-in [:profile-data] json/encode)
                           ;; here goes the list of "stuff" associated with profiles
-                          (update-when-available [:airflow_measurements])
-                          (update-when-available [:chps])
-                          (update-when-available [:conservatories])
-                          (update-when-available [:door_sets])
-                          (update-when-available [:extensions])
-                          (update-when-available [:floors])
-                          (update-when-available [:heat_pumps])
-                          (update-when-available [:heating_systems])
-                          (update-when-available [:hot_water_systems])
-                          (update-when-available [:low_energy_lights])
-                          (update-when-available [:photovoltaics])
-                          (update-when-available [:roof_rooms])
-                          (update-when-available [:roofs])
-                          (update-when-available [:small_hydros])
-                          (update-when-available [:solar_thermals])
-                          (update-when-available [:storeys])
-                          (update-when-available [:thermal-images])
-                          (update-when-available [:walls])
-                          (update-when-available [:wind_turbines])
-                          (update-when-available [:window_sets]))
+                          (update-stringified-lists [:airflow_measurements
+                                                    :chps :conservatories
+                                                    :door_sets
+                                                    :extensions
+                                                    :floors
+                                                    :heat_pumps
+                                                    :heating_systems
+                                                    :hot_water_systems
+                                                    :low_energy_lights
+                                                    :photovoltaics
+                                                    :roof_rooms
+                                                    :roofs
+                                                    :small_hydros
+                                                    :solar_thermals
+                                                    :storeys
+                                                    :thermal-images
+                                                    :walls
+                                                    :wind_turbines
+                                                    :window_sets]))
             profile-id (hecuba/upsert! commander :profile profile)]
         {:profile-id profile-id}))))
 
