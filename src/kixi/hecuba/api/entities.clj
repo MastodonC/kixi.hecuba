@@ -6,13 +6,13 @@
    [kixi.hecuba.protocols :as hecuba]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values sha1-regex)]
+   [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values sha1-regex update-stringified-lists)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]))
 
 (defn index-post! [commander querier ctx]
   (let [request           (-> ctx :request)
-        entity            (-> request decode-body stringify-values)
+        entity            (-> request decode-body)
         project-id        (-> entity :project-id)
         property-code     (-> entity :property-code)
         [username _]      (sec/get-username-password request querier)
@@ -21,7 +21,11 @@
       (when-not (empty? (hecuba/item querier :project project-id))
         {::entity-id  (hecuba/upsert! commander :entity (-> entity
                                                             (assoc :user-id user-id)
-                                                            (dissoc :device-ids)))}))))
+                                                            (dissoc :device-ids)
+                                                            (update-stringified-lists [:documents])
+                                                            (update-stringified-lists [:photos])
+                                                            (update-in [:property-data] json/encode)
+                                                            ))}))))
 
 (defn index-handle-created [handlers ctx]
   (let [request (:request ctx)

@@ -35,6 +35,15 @@
 (defn stringify-values [m]
   (into {} (for [[k v] m] [k (str v)])))
 
+(defn json-list [items]
+  (map encode items))
+
+(defn update-stringified-lists [body [selector]]
+  (if
+    (selector body)
+    (update-in body [selector] json-list)
+    (assoc body selector nil)))
+
 (defn authorized? [querier typ]
   (fn [{{route-params :route-params :as req} :request}]
     (or
