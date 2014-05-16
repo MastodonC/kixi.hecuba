@@ -11,15 +11,16 @@
     [:span {:class "label label-success"} status]
     [:span {:class "label label-danger"} status]))
 
-(defn table [{:keys [tables chart]} owner {:keys [histkey path]}]
+(defn table [data owner {:keys [histkey path]}]
   (reify
     om/IRender
     (render [_]
       ;; Select the first row
       ;;(put! out {:type :row-selected :row (first (om/get-state owner :data))})
-      (let [{sensors :sensors} tables
-            cols               (get-in sensors [:header :cols])
-            history            (om/get-shared owner :history)]
+      (let [sensors (:sensors data)
+            chart   (:chart data)
+            cols    (get-in sensors [:header :cols])
+            history (om/get-shared owner :history)]
 
         (html
          [:table {:className "table table-hover"}
