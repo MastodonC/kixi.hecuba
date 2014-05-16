@@ -282,14 +282,16 @@
     (render [_]
       (let [{:keys [programmes projects active-components]} tables
             history (om/get-shared owner :history)]
-        (html
-         [:div {:id "projects-div"}
-          [:h2 "Projects"]
-          [:ul {:class "breadcrumb"}
-           [:li [:a
-                 {:onClick (back-to-programmes history)}
-                 (title-for programmes)]]]
-          (om/build projects-table projects {:opts {:histkey :projects}})])))))
+        (if (:programme-id projects)
+          (html
+           [:div {:id "projects-div"}
+            [:h2 "Projects"]
+            [:ul {:class "breadcrumb"}
+             [:li [:a
+                   {:onClick (back-to-programmes history)}
+                   (title-for programmes)]]]
+            (om/build projects-table projects {:opts {:histkey :projects}})])
+          (html [:div {:id "projects-div"}]))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; properties
@@ -300,21 +302,21 @@
       (let [table-id   "properties-table"
             history    (om/get-shared owner :history)]
         (html
-         [:table {:className "table table-hover"}
-          [:thead
-           [:tr [:th "Address"] [:th "Region"] [:th "Country"]]]
-          [:tbody
-           (for [row (sort-by :address-street-two (:data properties))]
-             (let [{:keys [id address-street-two address-country address-region]} row]
-               [:tr {:onClick (fn [_ _]
-                                (om/update! properties :selected id)
-                                (history/update-token-ids! history :properties id)
-                                (fixed-scroll-to-element "devices-div"))
-                     :className (if (= id (:selected properties)) "success")
-                     :id (str table-id "-selected")}
-                [:td address-street-two]
-                [:td address-region]
-                [:td address-country]]))]])))))
+           [:table {:className "table table-hover"}
+            [:thead
+             [:tr [:th "Address"] [:th "Region"] [:th "Country"]]]
+            [:tbody
+             (for [row (sort-by :address-street-two (:data properties))]
+               (let [{:keys [id address-street-two address-country address-region]} row]
+                 [:tr {:onClick (fn [_ _]
+                                  (om/update! properties :selected id)
+                                  (history/update-token-ids! history :properties id)
+                                  (fixed-scroll-to-element "devices-div"))
+                       :className (if (= id (:selected properties)) "success")
+                       :id (str table-id "-selected")}
+                  [:td address-street-two]
+                  [:td address-region]
+                  [:td address-country]]))]])))))
 
 (defn properties-div [tables owner]
   (reify
@@ -333,14 +335,20 @@
         
         (if (and new-project-id
                  (not (= (:project-id properties) new-project-id)))
-          (GET (str "/4/projects/" new-project-id "/properties/")
-               {:handler  (fn [x]
-                            (println "Fetching properties for project: " new-project-id)
-                            (om/update! properties :data x)
-                            (om/update! properties :selected nil))
-                ;; TODO: Add Error Handler
-                :headers {"Accept" "application/edn"}
-                :response-format :text})
+          (do
+            (om/update! properties :fetching true)
+            (GET (str "/4/projects/" new-project-id "/properties/")
+                 {:handler  (fn [x]
+                              (println "Fetching properties for project: " new-project-id)
+                              (om/update! properties :fetching false)
+                              (om/update! properties :data x)
+                              (om/update! properties :selected nil))
+                  :error-handler (fn [{:keys [status status-text]}]
+                                   (om/update! properties :fetching false)
+                                   (om/update! properties :error-status status)
+                                   (om/update! properties :error-text status-text))
+                  :headers {"Accept" "application/edn"}
+                  :response-format :text}))
           (println "Not fetching properties!"))
         (om/update! properties :project-id new-project-id)
 
@@ -350,17 +358,19 @@
     (render [_]
       (let [{:keys [programmes projects properties active-components]} tables
             history (om/get-shared owner :history)]
-        (html
-         [:div {:id "properties-div"}
-          [:h2 "Properties"]
-          [:ul {:class "breadcrumb"}
-           [:li [:a
-                 {:onClick (back-to-programmes history)}
-                 (title-for programmes)]]
-           [:li [:a
-                 {:onClick (back-to-projects history)}
-                 (title-for projects)]]]
-          (om/build properties-table properties {:opts {:histkey :properties}})])))))
+        (if (:project-id properties)
+          (html
+           [:div {:id "properties-div"}
+            [:h2 "Properties"]
+            [:ul {:class "breadcrumb"}
+             [:li [:a
+                   {:onClick (back-to-programmes history)}
+                   (title-for programmes)]]
+             [:li [:a
+                   {:onClick (back-to-projects history)}
+                   (title-for projects)] " " (when (:fetching properties) [:span {:class "glyphicon glyphicon-cloud-download spinner"}])]]
+            (om/build properties-table properties {:opts {:histkey :properties}})])
+          (html [:div {:id "properties-div"}]))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; devices
@@ -405,39 +415,49 @@
         
         (if (and new-property-id
                  (not (= (:property-id devices) new-property-id)))
-          (GET (str "/4/entities/" new-property-id "/devices/")
-               {:handler  (fn [x]
-                            (println "Fetching devices for property: " new-property-id)
-                            (om/update! devices :data x)
-                            (om/update! devices :selected nil))
-                ;; TODO: Add Error Handler
-                ;; FIXME: This should be application/edn
-                :headers {"Accept" "application/json"}
-                :response-format :json
-                :keywords? true})
+          (do
+            (om/update! devices :fetching true)
+            (GET (str "/4/entities/" new-property-id "/devices/")
+                 {:handler  (fn [x]
+                              (println "Fetching devices for property: " new-property-id)
+                              (om/update! devices :fetching false)
+                              (om/update! devices :data x)
+                              (om/update! devices :selected nil))
+                  :error-handler (fn [{:keys [status status-text]}]
+                                   (om/update! devices :fetching false)
+                                   (om/update! devices :error-status status)
+                                   (om/update! devices :error-text status-text))
+                  ;; FIXME: This should be application/edn
+                  :headers {"Accept" "application/json"}
+                  :response-format :json
+                  :keywords? true}))
           (println "Not fetching devices!"))
         (om/update! devices :property-id new-property-id)
 
-        ;; handle seledevices table
+        ;; handle selection in devices table
         (om/update! devices :selected (:devices active-components))))
     om/IRender
     (render [_]
       (let [{:keys [programmes projects properties devices active-components]} tables
             history (om/get-shared owner :history)]
-        (html
-         [:div {:id "devices-div"}
-          [:h2  "Devices"]
-          [:ul {:class "breadcrumb"}
-           [:li [:a
-                 {:onClick (back-to-programmes history)}
-                 (title-for programmes)]]
-           [:li [:a
-                 {:onClick (back-to-projects history)}
-                 (title-for projects)]]
-           [:li [:a
-                 {:onClick (back-to-properties history)}
-                 (title-for properties :title-key :address-street-two)]]]
-          (om/build devices-table devices {:opts {:histkey :devices}})])))))
+        (if (:property-id devices)
+          (html
+           [:div {:id "devices-div"}
+            [:h2  "Devices"]
+            [:ul {:class "breadcrumb"}
+             [:li [:a
+                   {:onClick (back-to-programmes history)}
+                   (title-for programmes)]]
+             [:li [:a
+                   {:onClick (back-to-projects history)}
+                   (title-for projects)]]
+             [:li [:a
+                   {:onClick (back-to-properties history)}
+                   (title-for properties :title-key :address-street-two)]
+              " " (when (:fetching devices) [:span {:class "glyphicon glyphicon-cloud-download spinner"}])]]
+            (om/build devices-table devices {:opts {:histkey :devices}})])
+          (html [:div {:id "devices-div"}
+                 [:p (:property-id devices)]]))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; sensors
