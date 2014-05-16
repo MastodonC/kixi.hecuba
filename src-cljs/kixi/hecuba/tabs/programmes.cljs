@@ -36,26 +36,15 @@
 (defn ajax [in data path {:keys [template selection-key content-type]} & [chart]]
   (go-loop []
     (let [nav-event (<! in)
-          active-components (-> nav-event :args :ids keys set)
-          components [:programmes :projects :properties :devices :sensors :measurements] ; FIXME
-          to-clear (remove #(active-components %) components)
           [new-selected uri] (uri-for-selection-change (:selected @data)
                                                        selection-key
                                                        template
                                                        nav-event)]
 
-
       (om/update! data :active-components (-> nav-event :args :ids))
       
-      (doseq [a active-components]
-        (om/update! data (vector a :active) true))
-      
-      (doseq [c to-clear]
-        (om/update! data (vector c :active) false)
-        (om/update! data (vector c :data) [])
-        (om/update! data (vector c :selected) nil))
-      
       (when uri
+        (println "Fetching: " uri)
         (GET uri
              (-> {:handler  (fn [x]
                               (when (= selection-key :sensors)
@@ -170,11 +159,27 @@
 
 (defn programmes-div [tables owner]
   (reify
+    om/IDidUpdate
+    (did-update [_ prev-props prev-state]
+      (let [{:keys [programmes active-components]} tables]
+
+        (if (empty? (:data programmes))
+          (GET (str "/4/programmes/")
+               {:handler  (fn [x]
+                            (println "Fetching programmes.")
+                            (om/update! programmes :data x)
+                            (om/update! programmes :selected nil))
+                ;; TODO: Add Error Handler
+                :headers {"Accept" "application/edn"}
+                :response-format :text})
+          (println "Not fetching programmes!"))
+
+        ;; handle selection on programmes table (this should be nil if called)
+        (om/update! programmes :selected (:programmes active-components))))
     om/IRender
     (render [_]
       (let [programmes (-> tables :programmes)]
         (html
-         ;; hide div if we've already chosen something
          [:div {:id "programmes-div"}
           [:h1 "Programmes"]
           (om/build programmes-table programmes)])))))
@@ -211,9 +216,32 @@
   (reify
     om/IDidUpdate
     (did-update [_ prev-props prev-state]
-      (let [{:keys [programmes projects active-components]} tables]
-        ;;(println "Active Components: " active-components)
-        ))
+      (let [{:keys [programmes projects active-components]} tables
+            new-programme-id (:programmes active-components)]
+
+        ;; handle selection in programme table
+        (when-not new-programme-id
+          (om/update! projects :data [])
+          (om/update! projects :selected nil))
+
+        ;; get the data if we have a new id
+        (if (and new-programme-id
+                   (not (= (:programme-id projects) new-programme-id)))
+          (GET (str "/4/programmes/" new-programme-id "/projects/")
+               {:handler  (fn [x]
+                            (println "Fetching projects for programme: " new-programme-id)
+                            (om/update! projects :data x)
+                            (om/update! projects :selected nil))
+                ;; TODO: Add Error Handler
+                :headers {"Accept" "application/edn"}
+                :response-format :text})
+          (println "Not fetching projects!"))
+
+        ;; update our current id with the new one
+        (om/update! projects :programme-id new-programme-id)
+
+        ;; handle selection in projects table
+        (om/update! projects :selected (:projects active-components))))
     om/IRender
     (render [_]
       (let [{:keys [programmes projects active-components]} tables
@@ -241,21 +269,50 @@
         (html
          [:table {:className "table table-hover"}
           [:thead
-           [:tr [:th "Address"] [:th "Country"]]]
+           [:tr [:th "Address"] [:th "Region"] [:th "Country"]]]
           [:tbody
-           (for [row (sort-by :name (:data properties))]
-             (let [{:keys [id addressStreetTwo country]} row]
+           (for [row (sort-by :address-street-two (:data properties))]
+             (let [{:keys [id address-street-two address-country address-region]} row]
                [:tr {:onClick (fn [_ _]
                                 (om/update! properties :selected id)
                                 (history/update-token-ids! history :properties id)
                                 (fixed-scroll-to-element "devices-div"))
                      :className (if (= id (:selected properties)) "success")
                      :id (str table-id "-selected")}
-                [:td addressStreetTwo]
-                [:td country]]))]])))))
+                [:td address-street-two]
+                [:td address-region]
+                [:td address-country]]))]])))))
 
 (defn properties-div [tables owner]
   (reify
+    om/IDidUpdate
+    (did-update [_ prev-props prev-state]
+      (let [{:keys [projects properties active-components]} tables
+            new-project-id (:projects active-components)]
+
+        (println "Active Components: " active-components)
+
+        ;; handle selection in projects table
+        (when-not new-project-id
+          (println "Cleaering projects data.")
+          (om/update! properties :data [])
+          (om/update! properties :selected nil))
+        
+        (if (and new-project-id
+                 (not (= (:project-id properties) new-project-id)))
+          (GET (str "/4/projects/" new-project-id "/properties/")
+               {:handler  (fn [x]
+                            (println "Fetching properties for project: " new-project-id)
+                            (om/update! properties :data x)
+                            (om/update! properties :selected nil))
+                ;; TODO: Add Error Handler
+                :headers {"Accept" "application/edn"}
+                :response-format :text})
+          (println "Not fetching properties!"))
+        (om/update! properties :project-id new-project-id)
+
+        ;; handle selection on properties table
+        (om/update! properties :selected (:properties active-components))))
     om/IRender
     (render [_]
       (let [{:keys [programmes projects properties active-components]} tables
@@ -386,15 +443,15 @@
               m           (mult (history/set-chan! history (chan)))
               tap-history #(tap m (chan))]
           
-          (ajax (tap-history) tables [:programmes] {:template      "/4/programmes/"
-                                                    :content-type  "application/edn"
-                                                    :selection-key :programmes})
-          (ajax (tap-history) tables [:projects] {:template      "/4/programmes/:programmes/projects/"
-                                                  :content-type  "application/edn"
-                                                  :selection-key :projects})
-          (ajax (tap-history) tables [:properties] {:template      "/4/projects/:projects/properties/"
-                                                    :content-type "application/json"
-                                                    :selection-key :properties})
+          ;; (ajax (tap-history) tables [:programmes] {:template      "/4/programmes/"
+          ;;                                           :content-type  "application/edn"
+          ;;                                           :selection-key :programmes})
+          ;; (ajax (tap-history) tables [:projects] {:template      "/4/programmes/:programmes/projects/"
+          ;;                                         :content-type  "application/edn"
+          ;;                                         :selection-key :projects})
+          ;; (ajax (tap-history) tables [:properties] {:template      "/4/projects/:projects/properties/"
+          ;;                                           :content-type "application/json"
+          ;;                                           :selection-key :properties})
           (ajax (tap-history) tables [:devices] {:template      "/4/entities/:properties/devices/"
                                                  :content-type  "application/json"
                                                  :selection-key :devices})
