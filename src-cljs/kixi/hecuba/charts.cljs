@@ -208,6 +208,66 @@
           (history/set-token-search! history [start end])))
     (update-measurements data {:selection-key :range :checked nil})))
 
+(defn update-chart-sensors [data history new-selected checked]
+  (let [[device-id type unit entity-id] (str/split new-selected #"-")
+        new-sensor                      (str/join "-" [device-id type entity-id])
+        current-unit                    (:unit (:chart @data))]
+
+    (om/update! data [:selected :sensors] ((if checked conj disj) (:sensors (:selected @data)) new-sensor))
+    (om/update! data [:chart :sensors] (:sensors (:selected @data)))
+
+    ;; Check unit - selected sensors must be of the same unit
+    (if (or (empty? current-unit) (= current-unit unit))
+      (do
+        (om/update! data [:chart :unit] unit)
+        (om/update! data [:sensors :data] (into [] (map (fn [s]
+                                                          (if (and (= (:device-id s) device-id)
+                                                                   (= (:type s) type))
+                                                            (assoc-in s [:checked] checked)
+                                                            s)) (:data (:sensors @data)))))
+        (update-measurements data {:selection-key :sensors :checked checked :new-selected new-sensor})
+        (history/update-token-ids! history :sensors (str/join "&" (:sensors (:selected @data))))
+        (om/update! data [:chart :message] ""))
+      (om/update! data [:chart :message] "Selected sensors must be of the same unit."))))
+
+(defn should-be-checked? [data sensor]
+  (let [selected (filter (fn [s] (= sensor s)) (:sensors (:selected data)))]
+    (not (empty? selected))))
+
+(defn update-sensors-form [data history new-selected checked]
+  (if checked
+    (let [all-properties (get-in @data [:properties :data])
+          new-property   (into {} (filter #(= (:id %) new-selected) all-properties))
+          new-devices    (map (fn [[k v]]
+                                (merge {:id k} (reader/read-string v))) (reader/read-string (:devices new-property)))
+          new-sensors    (mapcat (fn [device]
+                                   (map (fn [reading]
+                                          (let [device-id (:id device)
+                                                type      (get reading "type")
+                                                entity-id (:entity-id device)]
+                                            {:device-id device-id
+                                             :type type
+                                             :entity-id entity-id
+                                             :unit (get reading "unit")
+                                             :description (:description device)
+                                             :checked (should-be-checked? data
+                                                       (str/join "-" [device-id type entity-id]))}
+                                            )) (:readings device))) new-devices)]
+      (om/update! data [:sensors :data] (concat (:data (:sensors @data)) new-sensors))
+      (om/update! data [:selected :properties] (conj (:properties (:selected @data)) new-selected))
+      (history/update-token-ids! history :properties (str/join "&" (:properties (:selected @data)))))
+    (do
+      (om/update! data [:selected :properties] (disj (:properties (:selected @data)) new-selected))
+      (history/update-token-ids! history :properties (str/join "&" (:properties (:selected @data))))
+      (om/update! data [:sensors :data] (remove #(= (:entity-id %) new-selected) (:data (:sensors @data))))))
+
+  (om/update! data [:properties :data] (into []
+                                             (map (fn [p]
+                                                    (if (= (:id p) new-selected)
+                                                      (assoc-in p [:checked] checked)
+                                                      p)) (:data (:properties @data)))))
+  (update-measurements data {:selection-key :properties :checked nil :new-selected new-selected}))
+
 (defn multiple-properties-chart [data owner]
   (reify
     om/IInitState
