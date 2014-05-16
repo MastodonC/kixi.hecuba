@@ -17,6 +17,36 @@
 
 (enable-console-print!)
 
+(defn back-to-programmes [history]
+  (fn [_ _]
+    (history/update-token-ids! history :sensors nil)
+    (history/update-token-ids! history :devices nil)
+    (history/update-token-ids! history :properties nil)
+    (history/update-token-ids! history :projects nil)
+    (history/update-token-ids! history :programmes nil)
+    (fixed-scroll-to-element "programmes-div")))
+
+(defn back-to-projects [history]
+  (fn [_ _]
+    (history/update-token-ids! history :sensors nil)
+    (history/update-token-ids! history :devices nil)
+    (history/update-token-ids! history :properties nil)
+    (history/update-token-ids! history :projects nil)
+    (fixed-scroll-to-element "projects-div")))
+
+(defn back-to-properties [history]
+  (fn [_ _]
+    (history/update-token-ids! history :sensors nil)
+    (history/update-token-ids! history :devices nil)
+    (history/update-token-ids! history :properties nil)
+    (fixed-scroll-to-element "properties-div")))
+
+(defn back-to-devices [history]
+  (fn [_ _]
+    (history/update-token-ids! history :sensors nil)
+    (history/update-token-ids! history :devices nil)
+    (fixed-scroll-to-element "devices-div")))
+
 (defn update-when [x pred f & args]
   (if pred (apply f x args) x))
 
@@ -41,7 +71,7 @@
                                                        template
                                                        nav-event)]
 
-      (om/update! data :active-components (-> nav-event :args :ids))
+      ;; (om/update! data :active-components (-> nav-event :args :ids))
       
       (when uri
         (println "Fetching: " uri)
@@ -57,6 +87,12 @@
                   :response-format :text}
                  (cond-> (= content-type "application/json")
                          (merge {:response-format :json :keywords? true}))))))
+    (recur)))
+
+(defn history-loop [history-channel tables]
+  (go-loop []
+    (let [nav-event (<! history-channel)]
+      (om/update! tables :active-components (-> nav-event :args :ids)))
     (recur)))
 
 (defn selected-range-change
@@ -251,10 +287,7 @@
           [:h2 "Projects"]
           [:ul {:class "breadcrumb"}
            [:li [:a
-                 {:onClick (fn projects-div-history-change
-                             [_ _]
-                             (history/update-token-ids! history :programmes nil)
-                             (fixed-scroll-to-element "programmes-div"))}
+                 {:onClick (back-to-programmes history)}
                  (title-for programmes)]]]
           (om/build projects-table projects {:opts {:histkey :projects}})])))))
 
@@ -322,15 +355,10 @@
           [:h2 "Properties"]
           [:ul {:class "breadcrumb"}
            [:li [:a
-                 {:onClick (fn [_ _]
-                             (history/update-token-ids! history :projects nil)
-                             (history/update-token-ids! history :programmes nil)
-                             (fixed-scroll-to-element "programmes-div"))}
+                 {:onClick (back-to-programmes history)}
                  (title-for programmes)]]
            [:li [:a
-                 {:onClick (fn [_ _]
-                             (history/update-token-ids! history :projects nil)
-                             (fixed-scroll-to-element "projects-div"))}
+                 {:onClick (back-to-projects history)}
                  (title-for projects)]]]
           (om/build properties-table properties {:opts {:histkey :properties}})])))))
 
@@ -362,6 +390,36 @@
 
 (defn devices-div [tables owner]
   (reify
+    om/IDidUpdate
+    (did-update [_ prev-props prev-state]
+      (let [{:keys [properties devices active-components]} tables
+            new-property-id (:properties active-components)]
+
+        (println "Active Components: " active-components)
+
+        ;; handle selection perties table
+        (when-not new-property-id
+          (println "Clearing devices data.")
+          (om/update! devices :data [])
+          (om/update! devices :selected nil))
+        
+        (if (and new-property-id
+                 (not (= (:property-id devices) new-property-id)))
+          (GET (str "/4/entities/" new-property-id "/devices/")
+               {:handler  (fn [x]
+                            (println "Fetching devices for property: " new-property-id)
+                            (om/update! devices :data x)
+                            (om/update! devices :selected nil))
+                ;; TODO: Add Error Handler
+                ;; FIXME: This should be application/edn
+                :headers {"Accept" "application/json"}
+                :response-format :json
+                :keywords? true})
+          (println "Not fetching devices!"))
+        (om/update! devices :property-id new-property-id)
+
+        ;; handle seledevices table
+        (om/update! devices :selected (:devices active-components))))
     om/IRender
     (render [_]
       (let [{:keys [programmes projects properties devices active-components]} tables
@@ -371,23 +429,14 @@
           [:h2  "Devices"]
           [:ul {:class "breadcrumb"}
            [:li [:a
-                 {:onClick (fn [_ _]
-                             (history/update-token-ids! history :properties nil)
-                             (history/update-token-ids! history :projects nil)
-                             (history/update-token-ids! history :programmes nil)
-                             (fixed-scroll-to-element "programmes-div"))}
+                 {:onClick (back-to-programmes history)}
                  (title-for programmes)]]
            [:li [:a
-                 {:onClick (fn [_ _]
-                             (history/update-token-ids! history :properties nil)
-                             (history/update-token-ids! history :projects nil)
-                             (fixed-scroll-to-element "projects-div"))}
+                 {:onClick (back-to-projects history)}
                  (title-for projects)]]
            [:li [:a
-                 {:onClick (fn [_ _]
-                             (history/update-token-ids! history :properties nil)
-                             (fixed-scroll-to-element "properties-div"))}
-                 (title-for properties :title-key :addressStreetTwo)]]]
+                 {:onClick (back-to-properties history)}
+                 (title-for properties :title-key :address-street-two)]]]
           (om/build devices-table devices {:opts {:histkey :devices}})])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -404,30 +453,16 @@
             [:h2 {:id "sensors"} "Sensors"]
             [:ul {:class "breadcrumb"}
              [:li [:a
-                   {:onClick (fn [_ _]
-                               (history/update-token-ids! history :devices nil)
-                               (history/update-token-ids! history :properties nil)
-                               (history/update-token-ids! history :projects nil)
-                               (history/update-token-ids! history :programmes nil)
-                               (fixed-scroll-to-element "programmes-div"))}
+                   {:onClick (back-to-programmes history)}
                    (title-for programmes)]]
              [:li [:a
-                   {:onClick (fn [_ _]
-                               (history/update-token-ids! history :devices nil)
-                               (history/update-token-ids! history :properties nil)
-                               (history/update-token-ids! history :projects nil)
-                               (fixed-scroll-to-element "projects-div"))}
+                   {:onClick (back-to-projects history)}
                    (title-for projects)]]
              [:li [:a
-                   {:onClick (fn [_ _]
-                               (history/update-token-ids! history :devices nil)
-                               (history/update-token-ids! history :properties nil)
-                               (fixed-scroll-to-element "properties-div"))}
-                   (title-for properties :title-key :addressStreetTwo)]]
+                   {:onClick (back-to-properties history)}
+                   (title-for properties :title-key :address-street-two)]]
              [:li [:a
-                   {:onClick (fn [_ _]
-                               (history/update-token-ids! history :devices nil)
-                               (fixed-scroll-to-element "devices-div"))}
+                   {:onClick (back-to-devices history)}
                    (title-for devices :title-key [:location :name])]]]
             (om/build sensor/table data {:opts {:histkey :sensors
                                                 :path    :readings}})]))))))
@@ -442,6 +477,9 @@
         (let [history     (om/get-shared owner :history)
               m           (mult (history/set-chan! history (chan)))
               tap-history #(tap m (chan))]
+
+          ;; handle navigation changes
+          (history-loop (tap-history) tables)
           
           ;; (ajax (tap-history) tables [:programmes] {:template      "/4/programmes/"
           ;;                                           :content-type  "application/edn"
@@ -452,9 +490,9 @@
           ;; (ajax (tap-history) tables [:properties] {:template      "/4/projects/:projects/properties/"
           ;;                                           :content-type "application/json"
           ;;                                           :selection-key :properties})
-          (ajax (tap-history) tables [:devices] {:template      "/4/entities/:properties/devices/"
-                                                 :content-type  "application/json"
-                                                 :selection-key :devices})
+          ;; (ajax (tap-history) tables [:devices] {:template      "/4/entities/:properties/devices/"
+          ;;                                        :content-type  "application/json"
+          ;;                                        :selection-key :devices})
           (ajax (tap-history) tables [:sensors] {:template "/4/entities/:properties/devices/:devices"
                                                  :content-type "application/json"
                                                  :selection-key :sensors} (:chart data))
