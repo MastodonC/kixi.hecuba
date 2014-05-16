@@ -286,14 +286,13 @@
       (let [{:keys [programmes projects active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "projects-div"}
-          [:div {:class (if (:programme-id projects) "" "hidden")}
-           [:h2 "Projects"]
-           [:ul {:class "breadcrumb"}
-            [:li [:a
-                  {:onClick (back-to-programmes history)}
-                  (title-for programmes)]]]
-           (om/build projects-table projects {:opts {:histkey :projects}})]])))))
+         [:div {:id "projects-div" :class (if (:programme-id projects) "" "hidden")}
+          [:h2 "Projects"]
+          [:ul {:class "breadcrumb"}
+           [:li [:a
+                 {:onClick (back-to-programmes history)}
+                 (title-for programmes)]]]
+          (om/build projects-table projects {:opts {:histkey :projects}})])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; properties
@@ -361,17 +360,16 @@
       (let [{:keys [programmes projects properties active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "properties-div"}
-          [:div {:class (if (:project-id properties) "" "hidden")}
-           [:h2 "Properties"]
-           [:ul {:class "breadcrumb"}
-            [:li [:a
-                  {:onClick (back-to-programmes history)}
-                  (title-for programmes)]]
-            [:li [:a
-                  {:onClick (back-to-projects history)}
-                  (title-for projects)] " " (when (:fetching properties) [:span {:class "glyphicon glyphicon-cloud-download spinner"}])]]
-           (om/build properties-table properties {:opts {:histkey :properties}})]])))))
+         [:div {:id "properties-div" :class (if (:project-id properties) "" "hidden")}
+          [:h2 "Properties"]
+          [:ul {:class "breadcrumb"}
+           [:li [:a
+                 {:onClick (back-to-programmes history)}
+                 (title-for programmes)]]
+           [:li [:a
+                 {:onClick (back-to-projects history)}
+                 (title-for projects)] " " (when (:fetching properties) [:span {:class "glyphicon glyphicon-cloud-download spinner"}])]]
+          (om/build properties-table properties {:opts {:histkey :properties}})])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; devices
@@ -442,21 +440,20 @@
       (let [{:keys [programmes projects properties devices active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "devices-div"}
-          [:div {:class (if (:property-id devices) "" "hidden")}
-           [:h2 "Devices"]
-           [:ul {:class "breadcrumb"}
-            [:li [:a
-                  {:onClick (back-to-programmes history)}
-                  (title-for programmes)]]
-            [:li [:a
-                  {:onClick (back-to-projects history)}
-                  (title-for projects)]]
-            [:li [:a
-                  {:onClick (back-to-properties history)}
-                  (title-for properties :title-key :address-street-two)]
-             " " (when (:fetching devices) [:span {:class "glyphicon glyphicon-cloud-download spinner"}])]]
-           (om/build devices-table devices {:opts {:histkey :devices}})]])))))
+         [:div {:id "devices-div" :class (if (:property-id devices) "" "hidden")}
+          [:h2  "Devices"]
+          [:ul {:class "breadcrumb"}
+           [:li [:a
+                 {:onClick (back-to-programmes history)}
+                 (title-for programmes)]]
+           [:li [:a
+                 {:onClick (back-to-projects history)}
+                 (title-for projects)]]
+           [:li [:a
+                 {:onClick (back-to-properties history)}
+                 (title-for properties :title-key :address-street-two)]
+            " " (when (:fetching devices) [:span {:class "glyphicon glyphicon-cloud-download spinner"}])]]
+          (om/build devices-table devices {:opts {:histkey :devices}})])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; sensors
@@ -542,61 +539,60 @@
       (let [{:keys [programmes projects properties devices sensors active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "sensors-div"}
-          [:div {:class (if (:device-id sensors) "" "hidden")}
-           [:h2 "Sensors"]
-           [:ul {:class "breadcrumb"}
-            [:li [:a
-                  {:onClick (back-to-programmes history)}
-                  (title-for programmes)]]
-            [:li [:a
-                  {:onClick (back-to-projects history)}
-                  (title-for projects)]]
-            [:li [:a
-                  {:onClick (back-to-properties history)}
-                  (title-for properties :title-key :address-street-two)]]
-            [:li [:a
-                  {:onClick (back-to-devices history)}
-                  (title-for devices :title-key [:location :name])]]]
-           (om/build sensors-table data {:opts {:histkey :sensors
-                                                :path    :readings}})
-           [:div {:id "chart-div"}
-            [:div {:id "date-picker"}
-             (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
-            (om/build chart-feedback-box (get-in data [:chart :message]))
-            [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
-             (om/build chart/chart-figure (:chart data))]]]]))))
+         [:div {:id "sensors-div" :class (if (:device-id sensors) "" "hidden")}
+          [:h2 {:id "sensors"} "Sensors"]
+          [:ul {:class "breadcrumb"}
+           [:li [:a
+                 {:onClick (back-to-programmes history)}
+                 (title-for programmes)]]
+           [:li [:a
+                 {:onClick (back-to-projects history)}
+                 (title-for projects)]]
+           [:li [:a
+                 {:onClick (back-to-properties history)}
+                 (title-for properties :title-key :address-street-two)]]
+           [:li [:a
+                 {:onClick (back-to-devices history)}
+                 (title-for devices :title-key [:location :name])]]]
+          (om/build sensors-table data {:opts {:histkey :sensors
+                                               :path    :readings}})
+          [:div {:id "chart-div"}
+           [:div {:id "date-picker"}
+            (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
+           (om/build chart-feedback-box (get-in data [:chart :message]))
+           [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
+            (om/build chart/chart-figure (:chart data))]]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  ;; Main View
-  (defn programmes-tab [data owner]
-    (reify
-      om/IWillMount
-      (will-mount [_]
-        (let [history     (om/get-shared owner :history)
-              m           (mult (history/set-chan! history (chan)))
-              tap-history #(tap m (chan))]
+;; Main View
+(defn programmes-tab [data owner]
+  (reify
+    om/IWillMount
+    (will-mount [_]
+      (let [history     (om/get-shared owner :history)
+            m           (mult (history/set-chan! history (chan)))
+            tap-history #(tap m (chan))]
 
-          ;; handle navigation changes
-          (history-loop (tap-history) data)
-          
-          (chart-ajax (tap-history)
-                      (:chart data)
-                      {:template "/4/entities/:properties/devices/:devices/measurements?startDate=:start-date&endDate=:end-date"
-                       :content-type  "application/json"
-                       :selection-key :range})))
-      om/IRender
-      (render [_]
+        ;; handle navigation changes
+        (history-loop (tap-history) data)
+        
+        (chart-ajax (tap-history)
+                    (:chart data)
+                    {:template "/4/entities/:properties/devices/:devices/measurements?startDate=:start-date&endDate=:end-date"
+                     :content-type  "application/json"
+                     :selection-key :range})))
+    om/IRender
+    (render [_]
 
-        (html [:div
-               (om/build programmes-div data)
-               (om/build projects-div data)
-               (om/build properties-div data)
-               (om/build devices-div data)
-               ;; (om/build device-detail devices)
-               (om/build sensors-div data)
-               ;; (om/build sensor/define-data-set-button data)
+      (html [:div
+             (om/build programmes-div data)
+             (om/build projects-div data)
+             (om/build properties-div data)
+             (om/build devices-div data)
+             ;; (om/build device-detail devices)
+             (om/build sensors-div data)
+             ;; (om/build sensor/define-data-set-button data)
 
-               ])))))
+             ]))))
 
 
