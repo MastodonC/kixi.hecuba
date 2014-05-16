@@ -303,7 +303,10 @@
     (render [_]
       (let [table-id   "properties-table"
             history    (om/get-shared owner :history)]
-        (html
+        (if (:fetching properties)
+          (html
+           [:p "Fetching data..."])
+          (html
            [:table {:className "table table-hover"}
             [:thead
              [:tr [:th "Address"] [:th "Region"] [:th "Country"]]]
@@ -318,7 +321,7 @@
                        :id (str table-id "-selected")}
                   [:td address-street-two]
                   [:td address-region]
-                  [:td address-country]]))]])))))
+                  [:td address-country]]))]]))))))
 
 (defn properties-div [data owner]
   (reify
