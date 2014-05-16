@@ -542,29 +542,30 @@
       (let [{:keys [programmes projects properties devices sensors active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "sensors-div" :class (if (:device-id sensors) "" "hidden")}
-          [:h2 {:id "sensors"} "Sensors"]
-          [:ul {:class "breadcrumb"}
-           [:li [:a
-                 {:onClick (back-to-programmes history)}
-                 (title-for programmes)]]
-           [:li [:a
-                 {:onClick (back-to-projects history)}
-                 (title-for projects)]]
-           [:li [:a
-                 {:onClick (back-to-properties history)}
-                 (title-for properties :title-key :address-street-two)]]
-           [:li [:a
-                 {:onClick (back-to-devices history)}
-                 (title-for devices :title-key [:location :name])]]]
-          (om/build sensors-table data {:opts {:histkey :sensors
-                                               :path    :readings}})
-          [:div {:id "chart-div"}
-           [:div {:id "date-picker"}
-            (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
-           (om/build chart-feedback-box (get-in data [:chart :message]))
-           [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
-            (om/build chart/chart-figure (:chart data))]]])))))
+         [:div {:id "sensors-div"}
+          [:div {:class (if (:device-id sensors) "" "hidden")}
+           [:h2 {:id "sensors"} "Sensors"]
+           [:ul {:class "breadcrumb"}
+            [:li [:a
+                  {:onClick (back-to-programmes history)}
+                  (title-for programmes)]]
+            [:li [:a
+                  {:onClick (back-to-projects history)}
+                  (title-for projects)]]
+            [:li [:a
+                  {:onClick (back-to-properties history)}
+                  (title-for properties :title-key :address-street-two)]]
+            [:li [:a
+                  {:onClick (back-to-devices history)}
+                  (title-for devices :title-key [:location :name])]]]
+           (om/build sensors-table data {:opts {:histkey :sensors
+                                                :path    :readings}})
+           [:div {:id "chart-div"}
+            [:div {:id "date-picker"}
+             (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
+            (om/build chart-feedback-box (get-in data [:chart :message]))
+            [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
+             (om/build chart/chart-figure (:chart data))]]]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Main View
