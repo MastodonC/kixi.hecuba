@@ -442,20 +442,21 @@
       (let [{:keys [programmes projects properties devices active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "devices-div" :class (if (:property-id devices) "" "hidden")}
-          [:h2  "Devices"]
-          [:ul {:class "breadcrumb"}
-           [:li [:a
-                 {:onClick (back-to-programmes history)}
-                 (title-for programmes)]]
-           [:li [:a
-                 {:onClick (back-to-projects history)}
-                 (title-for projects)]]
-           [:li [:a
-                 {:onClick (back-to-properties history)}
-                 (title-for properties :title-key :address-street-two)]
-            " " (when (:fetching devices) [:span {:class "glyphicon glyphicon-cloud-download spinner"}])]]
-          (om/build devices-table devices {:opts {:histkey :devices}})])))))
+         [:div {:id "devices-div"}
+          [:div {:class (if (:property-id devices) "" "hidden")}
+           [:h2  "Devices"]
+           [:ul {:class "breadcrumb"}
+            [:li [:a
+                  {:onClick (back-to-programmes history)}
+                  (title-for programmes)]]
+            [:li [:a
+                  {:onClick (back-to-projects history)}
+                  (title-for projects)]]
+            [:li [:a
+                  {:onClick (back-to-properties history)}
+                  (title-for properties :title-key :address-street-two)]
+             " " (when (:fetching devices) [:span {:class "glyphicon glyphicon-cloud-download spinner"}])]]
+           (om/build devices-table devices {:opts {:histkey :devices}})]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; sensors
