@@ -39,10 +39,7 @@
   (map encode items))
 
 (defn update-stringified-list [body selector]
-  (if
-    (contains? body selector)
-    (update-in body [selector] json-list)
-    (assoc body selector nil)))
+  (update-in body [selector] #(when % (map encode %))))
 
 (defn update-stringified-lists [body selectors]
   (reduce update-stringified-list body selectors))
