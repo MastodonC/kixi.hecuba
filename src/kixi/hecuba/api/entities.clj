@@ -22,9 +22,9 @@
         {::entity-id  (hecuba/upsert! commander :entity (-> entity
                                                             (assoc :user-id user-id)
                                                             (dissoc :device-ids)
-                                                            (update-stringified-lists [:documents])
-                                                            (update-stringified-lists [:photos])
-                                                            (update-stringified-lists [:notes])
+                                                            (update-stringified-lists [:documents
+                                                                                       :photos
+                                                                                       :notes])
                                                             (update-in [:property-data] json/encode)
                                                             ))}))))
 

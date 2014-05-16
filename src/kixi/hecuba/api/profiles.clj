@@ -56,26 +56,25 @@
                           (assoc :user-id user-id)
                           (update-in [:profile-data] json/encode)
                           ;; here goes the list of "stuff" associated with profiles
-                          (update-stringified-lists [:airflow_measurements])
-                          (update-stringified-lists [:chps])
-                          (update-stringified-lists [:conservatories])
-                          (update-stringified-lists [:door_sets])
-                          (update-stringified-lists [:extensions])
-                          (update-stringified-lists [:floors])
-                          (update-stringified-lists [:heat_pumps])
-                          (update-stringified-lists [:heating_systems])
-                          (update-stringified-lists [:hot_water_systems])
-                          (update-stringified-lists [:low_energy_lights])
-                          (update-stringified-lists [:photovoltaics])
-                          (update-stringified-lists [:roof_rooms])
-                          (update-stringified-lists [:roofs])
-                          (update-stringified-lists [:small_hydros])
-                          (update-stringified-lists [:solar_thermals])
-                          (update-stringified-lists [:storeys])
-                          (update-stringified-lists [:thermal-images])
-                          (update-stringified-lists [:walls])
-                          (update-stringified-lists [:wind_turbines])
-                          (update-stringified-lists [:window_sets]))
+                          (update-stringified-lists [:airflow_measurements
+                                                    :chps :conservatories
+                                                    :door_sets
+                                                    :extensions
+                                                    :floors
+                                                    :heat_pumps
+                                                    :heating_systems
+                                                    :hot_water_systems
+                                                    :low_energy_lights
+                                                    :photovoltaics
+                                                    :roof_rooms
+                                                    :roofs
+                                                    :small_hydros
+                                                    :solar_thermals
+                                                    :storeys
+                                                    :thermal-images
+                                                    :walls
+                                                    :wind_turbines
+                                                    :window_sets]))
             profile-id (hecuba/upsert! commander :profile profile)]
         {:profile-id profile-id}))))
 
