@@ -33,6 +33,52 @@
   (let [selected (filter (fn [s] (= sensor s)) (:sensors (:selected data)))]
     (not (empty? selected))))
 
+(defn get-measurements [data sensors start-date end-date]
+  (when (and start-date end-date (not (empty? sensors)))
+    (doseq [sensor sensors]
+      (let [[device-id type entity-id] (str/split sensor #"-")
+            resource (case (interval start-date end-date)
+                       :raw "measurements"
+                       :hourly-rollups "hourly_rollups"
+                       :daily-rollups "daily_rollups")
+            url      (str "/4/entities/" entity-id "/devices/" device-id "/" resource "/" type "?startDate="
+                          start-date "&endDate=" end-date)
+            sensor (str/join "-" [device-id type])]
+        
+        (GET url {:handler #(om/update! data [:chart :measurements]
+                                        (concat (:measurements (:chart @data))
+                                                (into []
+                                                      (map (fn [m] 
+                                                             (assoc m "sensor" sensor "entity-id" entity-id)) 
+                                                           (get % "measurements")))))})))))
+
+(defmulti update-measurements (fn [data checked] (:selection-key checked)))
+
+(defmethod update-measurements :properties [data {:keys [checked new-selected]}]
+  (om/update! data [:chart :measurements] (remove #(= (get % "entity-id") new-selected) (:measurements (:chart @data))))
+  ;; TODO Clears sensors belonging to deselected property - there must be a better way of doing this.
+  (let [sensors-to-keep (into #{} (remove (fn [s] (let [[device-id type entity-id] (str/split s #"-")]
+                                                    (= new-selected entity-id))) (:sensors (:selected @data))))]
+    (om/update! data [:selected :sensors]  sensors-to-keep)
+    (om/update! data [:chart :sensors] sensors-to-keep)))
+
+(defmethod update-measurements :range [data checked]
+  (let [chart (:chart @data)
+        sensors (:sensors chart)
+        {:keys [start-date end-date]} (:range chart)]
+    (get-measurements data sensors start-date end-date)))
+
+(defmethod update-measurements :sensors [data {:keys [checked new-selected]}]
+  (if checked
+    (let [chart      (:chart @data)
+          sensors    (:sensors chart)
+          start-date (:start-date (:range chart))
+          end-date   (:end-date (:range chart))]
+      (get-measurements data sensors start-date end-date))
+    (let [[device-id type entity-id] (str/split new-selected #"-")
+          sensor                     (str/join "-" [device-id type])]
+      (om/update! data [:chart :measurements] (remove #(= (get % "sensor") sensor) (:measurements (:chart @data)))))))
+
 (defn- select-sensor [data history value]
   (let [[device-id type unit entity-id] (str/split value #"-")
         new-sensor                      (str/join "-" [device-id type entity-id])
@@ -132,54 +178,6 @@
             :headers {"Accept" "application/json"}
             :response-format :json
             :keywords? true}))))
-
-(defn get-measurements [data sensors start-date end-date]
-  (when (and start-date end-date (not (empty? sensors)))
-    (doseq [sensor sensors]
-      (let [[device-id type entity-id] (str/split sensor #"-")
-            resource (case (interval start-date end-date)
-                       :raw "measurements"
-                       :hourly-rollups "hourly_rollups"
-                       :daily-rollups "daily_rollups")
-            url      (str "/4/entities/" entity-id "/devices/" device-id "/" resource "/" type "?startDate="
-                          start-date "&endDate=" end-date)
-            sensor (str/join "-" [device-id type])]
-        
-        (GET url {:handler #(om/update! data [:chart :measurements]
-                                        (concat (:measurements (:chart @data))
-                                                (into []
-                                                      (map (fn [m] 
-                                                             (assoc m "sensor" sensor "entity-id" entity-id)) 
-                                                           (get % "measurements")))))})))))
-
-(defmulti update-measurements (fn [data checked] (:selection-key checked)))
-
-(defmethod update-measurements :properties [data {:keys [checked new-selected]}]
-  (om/update! data [:chart :measurements] (remove #(= (get % "entity-id") new-selected) (:measurements (:chart @data))))
-  ;; TODO Clears sensors belonging to deselected property - there must be a better way of doing this.
-  (let [sensors-to-keep (into #{} (remove (fn [s] (let [[device-id type entity-id] (str/split s #"-")]
-                                                    (= new-selected entity-id))) (:sensors (:selected @data))))]
-    (om/update! data [:selected :sensors]  sensors-to-keep)
-    (om/update! data [:chart :sensors] sensors-to-keep)))
-
-(defmethod update-measurements :range [data checked]
-  (let [chart (:chart @data)
-        sensors (:sensors chart)
-        {:keys [start-date end-date]} (:range chart)]
-    (get-measurements data sensors start-date end-date)))
-
-(defmethod update-measurements :sensors [data {:keys [checked new-selected]}]
-  (if checked
-    (let [chart      (:chart @data)
-          sensors    (:sensors chart)
-          start-date (:start-date (:range chart))
-          end-date   (:end-date (:range chart))]
-      (get-measurements data sensors start-date end-date))
-    (let [[device-id type entity-id] (str/split new-selected #"-")
-          sensor                     (str/join "-" [device-id type])]
-      (om/update! data [:chart :measurements] (remove #(= (get % "sensor") sensor) (:measurements (:chart @data)))))))
-
-
 
 (defmulti update-form (fn [click data history] (:selection-key click)))
 
