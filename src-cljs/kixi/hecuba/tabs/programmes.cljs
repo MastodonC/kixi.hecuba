@@ -361,16 +361,17 @@
       (let [{:keys [programmes projects properties active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "properties-div" :class (if (:project-id properties) "" "hidden")}
-          [:h2 "Properties"]
-          [:ul {:class "breadcrumb"}
-           [:li [:a
-                 {:onClick (back-to-programmes history)}
-                 (title-for programmes)]]
-           [:li [:a
-                 {:onClick (back-to-projects history)}
-                 (title-for projects)] " " (when (:fetching properties) [:span {:class "glyphicon glyphicon-cloud-download spinner"}])]]
-          (om/build properties-table properties {:opts {:histkey :properties}})])))))
+         [:div {:id "properties-div"}
+          [:div {:class (if (:project-id properties) "" "hidden")}
+           [:h2 "Properties"]
+           [:ul {:class "breadcrumb"}
+            [:li [:a
+                  {:onClick (back-to-programmes history)}
+                  (title-for programmes)]]
+            [:li [:a
+                  {:onClick (back-to-projects history)}
+                  (title-for projects)] " " (when (:fetching properties) [:span {:class "glyphicon glyphicon-cloud-download spinner"}])]]
+           (om/build properties-table properties {:opts {:histkey :properties}})]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; devices
