@@ -167,7 +167,7 @@
 ;; our banner is 50px so we need to tweak the scrolling
 (defn fixed-scroll-to-element [element]
   (-> (.getElementById js/document element)
-                                    .scrollIntoView)
+      .scrollIntoView)
   (.scrollBy js/window 0 -50))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
