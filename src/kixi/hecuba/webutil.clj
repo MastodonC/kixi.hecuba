@@ -35,9 +35,6 @@
 (defn stringify-values [m]
   (into {} (for [[k v] m] [k (str v)])))
 
-(defn json-list [items]
-  (map encode items))
-
 (defn update-stringified-list [body selector]
   (update-in body [selector] #(when % (map encode %))))
 

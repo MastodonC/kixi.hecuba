@@ -36,15 +36,6 @@
                 ))
       false)))
 
-(defn json-list [items]
-  (map json/encode items))
-
-(defn update-when-available [body [selector]]
-  (if
-    (selector body)
-    (update-in body [selector] json-list)
-    (assoc body selector nil)))
-
 (defn index-post! [querier commander ctx]
   (let [{:keys [request body]} ctx
         entity-id     (-> request :route-params :entity-id)
