@@ -3,56 +3,45 @@
               [om.dom :as dom :include-macros true]
               [ajax.core :refer (POST)]
               [kixi.hecuba.bootstrap :as bs]
-              [kixi.hecuba.history :as history]))
+              [kixi.hecuba.history :as history]
+              [sablono.core :as html :refer-macros [html]]))
 
-(defn render-row [row cols id-fn cursor]
-  (prn "row: " row)
-  (into-array
-   (for [[k {:keys [checkbox]}] cols]
-     (let [k (if (vector? k) k (vector k))
-           v (get-in row k)
-           id (id-fn row)]
-       (dom/td
-        nil
-        (if checkbox (bs/checkbox id v cursor) v))))))
+(defn status-label [status]
+  (if (= status "OK")
+    [:span {:class "label label-success"} status]
+    [:span {:class "label label-danger"} status]))
 
-(defn table [{:keys [tables chart]} owner {:keys [histkey path]}]
+(defn table [data owner {:keys [histkey path]}]
   (reify
     om/IRender
     (render [_]
       ;; Select the first row
       ;;(put! out {:type :row-selected :row (first (om/get-state owner :data))})
-      (let [{sensors :sensors} tables
-            cols               (get-in sensors [:header :cols])
-            history            (om/get-shared owner :history)]
+      (let [sensors (:sensors data)
+            chart   (:chart data)
+            cols    (get-in sensors [:header :cols])
+            history (om/get-shared owner :history)]
 
-        (dom/table
-         #js {:className "table table-bordered hecuba-table "} ;; table-hover table-stripedso,
-         (dom/thead nil
-                    (dom/tr nil
-                            (into-array
-                             (for [[_ {:keys [label]}] cols]
-                               (dom/th nil label)))))
-         (dom/tbody nil
-                    (into-array
-                     (for [{:keys [type deviceId unit] :as row} (-> sensors :data
-                                                               (cond-> path path))]
-                       (let [id (str type "-" deviceId)]
-                         ;; TODO clojurefy ids
-                         (dom/tr #js
-                                 {:onClick (fn [_ _ ]
-                                             (om/update! sensors :selected id)
-                                             (om/update! chart :sensor id)
-                                             (om/update! chart :unit unit)
-                                             (history/update-token-ids! history histkey id)
-                                             )
-                                  :className (when (= id (:selected sensors)) "success")}
-                                 (into-array
-                                  (for [[k {:keys [href]}] cols]
-                                    (let [k (if (vector? k) k (vector k))]
-                                      (dom/td nil (if href
-                                                    (dom/a #js {:href (get row href)} (get-in row k))
-                                                    (get-in row k))))))))))))))))
+        (html
+         [:table {:className "table table-hover"}
+          [:thead
+           [:tr [:th "Type"] [:th "Unit"] [:th "Period"] [:th "Device"] [:th "Status"]]]
+          [:tbody
+           (for [row (sort-by :type (-> sensors :data :readings))]
+             (let [{:keys [deviceId type unit period status]} row
+                   id (str type "-" deviceId)]
+               [:tr {:onClick (fn [_ _]
+                                (om/update! sensors :selected id)
+                                (om/update! chart :sensor id)
+                                (om/update! chart :unit unit)
+                                (history/update-token-ids! history :sensors id))
+                     :className (if (= id (:selected sensors)) "success")
+                     :id (str table-id "-selected")}
+                [:td type]
+                [:td unit]
+                [:td period]
+                [:td deviceId]
+                [:td (status-label status)]]))]])))))
 
 
 (defn sensors-select-table [cursor owner {:keys [path]}]
