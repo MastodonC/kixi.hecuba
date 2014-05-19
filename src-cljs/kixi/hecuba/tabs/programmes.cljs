@@ -16,6 +16,16 @@
 
 (enable-console-print!)
 
+;; our banner is 50px so we need to tweak the scrolling
+(defn fixed-scroll-to-element [element]
+  (-> (.getElementById js/document element)
+      .scrollIntoView)
+  (.scrollBy js/window 0 -50))
+
+(defn scroll-to-element [element]
+  (-> (.getElementById js/document element)
+      .scrollIntoView))
+
 (defn back-to-programmes [history]
   (fn [_ _]
     (history/update-token-ids! history :sensors nil)
@@ -163,12 +173,6 @@
   (let [[type _] (str/split selected #"-")]
     type))
 
-;; our banner is 50px so we need to tweak the scrolling
-(defn fixed-scroll-to-element [element]
-  (-> (.getElementById js/document element)
-      .scrollIntoView)
-  (.scrollBy js/window 0 -50))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; programmes
 (defn programmes-table [programmes owner]
@@ -187,7 +191,7 @@
                [:tr {:onClick (fn [_ _]
                                 (om/update! programmes :selected id)
                                 (history/update-token-ids! history :programmes id)
-                                (fixed-scroll-to-element "projects-div"))
+                                (scroll-to-element "projects-div"))
                      :className (if (= id (:selected programmes)) "success")
                      :id (str table-id "-selected")}
                 [:td id [:a {:id (str "row-" id)}]] [:td lead-organisations] [:td name] [:td created-at]]))]])))))
@@ -240,7 +244,7 @@
                [:tr {:onClick (fn [_ _]
                                 (om/update! projects :selected id)
                                 (history/update-token-ids! history :projects id)
-                                (fixed-scroll-to-element "properties-div"))
+                                (scroll-to-element "properties-div"))
                      :className (if (= id (:selected projects)) "success")
                      :id (str table-id "-selected")}
                 [:td name]
@@ -314,7 +318,7 @@
                  [:tr {:onClick (fn [_ _]
                                   (om/update! properties :selected id)
                                   (history/update-token-ids! history :properties id)
-                                  (fixed-scroll-to-element "devices-div"))
+                                  (scroll-to-element "devices-div"))
                        :className (if (= id (:selected properties)) "success")
                        :id (str table-id "-selected")}
                   [:td address-street-two]
@@ -389,7 +393,7 @@
                [:tr {:onClick (fn [_ _]
                                 (om/update! devices :selected id)
                                 (history/update-token-ids! history :devices id)
-                                (fixed-scroll-to-element "sensors-div"))
+                                (scroll-to-element "sensors-div"))
                      :className (if (= id (:selected devices)) "success")
                      :id (str table-id "-selected")}
                 [:td name]
@@ -467,7 +471,8 @@
       (let [sensors (:sensors data)
             chart   (:chart data)
             cols    (get-in sensors [:header :cols])
-            history (om/get-shared owner :history)]
+            history (om/get-shared owner :history)
+            table-id "sensors-table"]
 
         (html
          [:table {:className "table table-hover"}
