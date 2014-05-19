@@ -58,7 +58,8 @@
                                         :low-energy-lights :photovoltaics
                                         :roof-rooms :roofs :small-hydros
                                         :solar-thermals :storeys :thermal-images
-                                        :walls :wind-turbines :window-sets])
+                                        :ventilation-systems :walls
+                                        :wind-turbines :window-sets])
                                      (update-in [:profile-data] json/encode)
                                      ))}))))
 
