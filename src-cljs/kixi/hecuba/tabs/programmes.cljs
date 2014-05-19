@@ -514,13 +514,13 @@
         (html
          [:div {:class "row"}
           [:div {:class "col-md-3"}
-           (bs/panel "Minimum" (str series-1-min " " unit))]
+           (bs/panel "Minimum" (str (.toFixed (js/Number. series-1-min) 3) " " unit))]
           [:div {:class "col-md-3"}
-           (bs/panel "Maximum" (str series-1-max " " unit))]
+           (bs/panel "Maximum" (str (.toFixed (js/Number. series-1-max) 3) " " unit))]
           [:div {:class "col-md-3"}
-           (bs/panel "Average (mean)" (str series-1-mean " " unit))]
+           (bs/panel "Average (mean)" (str (.toFixed (js/Number. series-1-mean) 3) " " unit))]
           [:div {:class "col-md-3"}
-           (bs/panel "Range" (str (- series-1-max series-1-min) " " unit))]])))))
+           (bs/panel "Range" (str (.toFixed (js/Number. (- series-1-max series-1-min)) 3) " " unit))]])))))
 
 (defn sensors-div [data owner]
   (reify
