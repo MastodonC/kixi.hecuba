@@ -36,38 +36,31 @@
                 ))
       false)))
 
-(defn index-post! [querier commander ctx]
-  (let [{:keys [request body]} ctx
-        entity-id     (-> request :route-params :entity-id)
+(defn index-post! [commander querier ctx]
+  (let [request       (-> ctx :request)
+        profile       (-> ctx :body)
+        entity-id     (-> profile :entity-id)
+        timestamp     (-> profile :timestamp)
         [username _]  (sec/get-username-password request querier)
-        user-id       (-> (hecuba/items querier :user [[= :username username]]) first :id)]
-
-    (when-not (empty? (first (hecuba/items querier :entity [[= :id entity-id]])))
-      (let [profile   (-> body
-                          (assoc :user-id user-id)
-                          (update-in [:profile-data] json/encode)
-                          ;; here goes the list of "stuff" associated with profiles
-                          (update-stringified-lists [:airflow_measurements
-                                                    :chps :conservatories
-                                                    :door_sets
-                                                    :extensions
-                                                    :floors
-                                                    :heat_pumps
-                                                    :heating_systems
-                                                    :hot_water_systems
-                                                    :low_energy_lights
-                                                    :photovoltaics
-                                                    :roof_rooms
-                                                    :roofs
-                                                    :small_hydros
-                                                    :solar_thermals
-                                                    :storeys
-                                                    :thermal-images
-                                                    :walls
-                                                    :wind_turbines
-                                                    :window_sets]))
-            profile-id (hecuba/upsert! commander :profile profile)]
-        {:profile-id profile-id}))))
+        user-id       (-> (hecuba/items querier :user [[= :username username]]) first :id)
+        ]
+    (when (and entity-id timestamp)
+      (when-not (empty? (hecuba/item querier :entity entity-id))
+        {:profile-id (hecuba/upsert!
+                        commander
+                        :profile (-> profile
+                                     (assoc :user-id user-id)
+                                     (update-stringified-lists
+                                       [:airflow-measurements :chps
+                                        :conservatories :door-sets
+                                        :extensions :floors :heat-pumps
+                                        :heating-systems :hot-water-systems
+                                        :low-energy-lights :photovoltaics
+                                        :roof-rooms :roofs :small-hydros
+                                        :solar-thermals :storeys :thermal-images
+                                        :walls :wind-turbines :window-sets])
+                                     (update-in [:profile-data] json/encode)
+                                     ))}))))
 
 (defn index-handle-ok [ctx]
   (let [{items ::items
@@ -101,7 +94,7 @@
                                             :status "OK"
                                             :version "4"})}))
       (ring-response {:status 422
-                      :body "Provide valid projectId and propertyCode."}))))
+                      :body "Provide valid entityId and timestamp."}))))
 
 (defn resource-exists? [querier ctx]
   (let [{{{:keys [entity-id profile-id]} :route-params} :request} ctx
@@ -160,7 +153,7 @@
   :authorized? (authorized? querier :profile)
   :exists? (partial index-exists? querier)
   :malformed? index-malformed?
-  :post! (partial index-post! querier commander)
+  :post! (partial index-post! commander querier)
   :handle-ok (partial index-handle-ok)
   :handle-created (partial index-handle-created handlers))
 
