@@ -1,6 +1,7 @@
 (ns kixi.hecuba.bootstrap
-      (:require [om.core :as om :include-macros true]
-              [om.dom :as dom :include-macros true]))
+  (:require [om.core :as om :include-macros true]
+            [om.dom :as dom :include-macros true]
+            [sablono.core :as html :refer-macros [html]]))
 
 
 (defn checkbox [v cursor on-click]
@@ -92,3 +93,14 @@
            (dom/div #js {:id id :className "panel-collapse collapse in"}
                     (dom/div #js {:className "panel-body"}
                              component))))
+
+(defn panel
+  "A bootstrap panel"
+  ([class title data]
+     [:div {:class (str  "panel " class)}
+      [:div {:class "panel-heading"}
+       [:div {:class "panel-title"}
+        title]]
+      [:div {:class "panel-body"} data]])
+  ([title data]
+     (panel "panel-info" title data)))

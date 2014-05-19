@@ -9,6 +9,7 @@
      [kixi.hecuba.navigation :as nav]
      [kixi.hecuba.widgets.datetimepicker :as dtpicker]
      [kixi.hecuba.widgets.chart :as chart]
+     [kixi.hecuba.bootstrap :as bs]
      [kixi.hecuba.common :refer (index-of map-replace find-first interval)]
      [kixi.hecuba.history :as history]
      [kixi.hecuba.model :refer (app-model)]
@@ -495,6 +496,32 @@
                 [:td deviceId]
                 [:td (status-label status)]]))]])))))
 
+(defn chart-summary 
+  "Show min, max, delta and average of chart data."
+  [chart owner]
+  (reify
+    om/IRender
+    (render [_]
+      (let [{:keys [unit measurements]} chart
+            ;; FIXME why are measurements nested? (in prep for multi-series?)
+            series-1 (:measurements measurements)
+            vals-1 (map :value series-1)
+            series-1-min (apply min vals-1)
+            series-1-max (apply max vals-1)
+            series-1-sum (reduce + vals-1)
+            series-1-count (count series-1)
+            series-1-mean (if (not= 0 series-1-count) (/ series-1-sum series-1-count) "NA")]
+        (html
+         [:div {:class "row"}
+          [:div {:class "col-md-3"}
+           (bs/panel "Minimum" (str series-1-min " " unit))]
+          [:div {:class "col-md-3"}
+           (bs/panel "Maximum" (str series-1-max " " unit))]
+          [:div {:class "col-md-3"}
+           (bs/panel "Average (mean)" (str series-1-mean " " unit))]
+          [:div {:class "col-md-3"}
+           (bs/panel "Range" (str (- series-1-max series-1-min) " " unit))]])))))
+
 (defn sensors-div [data owner]
   (reify
     om/IDidUpdate
@@ -509,7 +536,7 @@
           (om/update! sensors :selected nil))
         
         (if (and new-device-id
-                 (not (= (:device-id sensors) new-device-id)))
+                 (not= (:device-id sensors) new-device-id))
           (do
             (om/update! sensors :fetching true)
             ;; "/4/entities/:properties/devices/:devices"
@@ -558,6 +585,7 @@
             [:div {:id "date-picker"}
              (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
             (om/build chart-feedback-box (get-in data [:chart :message]))
+            (om/build chart-summary (:chart data))
             [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
              (om/build chart/chart-figure (:chart data))]]]])))))
 
