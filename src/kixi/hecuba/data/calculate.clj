@@ -115,13 +115,18 @@
         rounded (m/truncate-seconds t)]
     (assoc-in m [:timestamp] rounded)))
 
+(defmethod quantize-timestamp :default
+  [m resolution]
+  (quantize-timestamp m 60))
+
+;; TODO Should we trigger resolution calculation if it's not present? At the moment it's a separate job.
 (defn difference-series-from-resolution
   "Takes store, sensor and a range of dates and calculates difference series using resolution
-  stored in the sensor data."
+  stored in the sensor data. If resolution is not specified, calculation is not done."
   [store {:keys [sensor range]}]
   (let [measurements (measurements-for-range store sensor range (t/hours 1))
         resolution   (:resolution sensor)]
-    (when-not (empty? measurements)
+    (when (and (not (empty? measurements)) (not (nil? resolution)))
       (let [quantized (map #(quantize-timestamp % resolution) measurements)]
         (diff-and-insert-new store quantized)))))
 
