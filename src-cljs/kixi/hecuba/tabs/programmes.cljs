@@ -281,6 +281,11 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; properties
+(defn slugify-property
+  "Create a slug for a property in the UI"
+  [property]
+  (assoc property :slug (:address-street-two property)))
+
 (defn properties-table [properties owner]
   (reify
     om/IRender
@@ -327,7 +332,7 @@
                  {:handler  (fn [x]
                               (println "Fetching properties for project: " new-project-id)
                               (om/update! properties :fetching false)
-                              (om/update! properties :data x)
+                              (om/update! properties :data (mapv slugify-property x))
                               (om/update! properties :selected nil))
                   :error-handler (fn [{:keys [status status-text]}]
                                    (om/update! properties :fetching false)
@@ -433,7 +438,7 @@
                   (title-for projects)]]
             [:li [:a
                   {:onClick (back-to-properties history)}
-                  (title-for properties :title-key :address-street-two)]
+                  (title-for properties)]
              " " (when (:fetching devices) [:span {:class "glyphicon glyphicon-cloud-download spinner"}])]]
            (om/build devices-table devices {:opts {:histkey :devices}})]])))))
 
