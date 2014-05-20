@@ -150,11 +150,15 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; programmes
-(defn programmes-table [programmes owner]
+(defn slugify-programme [programme]
+  (assoc programme :slug (:name programme)))
+
+(defn programmes-table [data owner]
   (reify
     om/IRender
     (render [_]
-      (let [table-id   "programme-table"
+      (let [programmes (-> data :programmes)
+            table-id   "programme-table"
             history    (om/get-shared owner :history)]
         (html
          [:table {:className "table table-hover"}
@@ -177,7 +181,6 @@
     (did-update [_ prev-props prev-state]
       (let [{:keys [programmes active-components]} data
             programme-id (:programmes active-components)]
-
         (when-not programme-id
           (om/update! programmes :selected nil))
 
@@ -185,7 +188,7 @@
           (GET (str "/4/programmes/")
                {:handler  (fn [x]
                             (println "Fetching programmes.")
-                            (om/update! programmes :data x)
+                            (om/update! programmes :data (mapv slugify-programme x))
                             (om/update! programmes :selected nil))
                 ;; TODO: Add Error Handler
                 :headers {"Accept" "application/edn"}
