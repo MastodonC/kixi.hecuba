@@ -31,3 +31,33 @@
     from {transform:rotate(0deg);}
     to {transform:rotate(360deg);}
 }
+
+html {
+  position: relative;
+  min-height: 100%;
+}
+
+body {
+    margin-bottom: 60px;
+}
+
+#footer {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  /* Set the fixed height of the footer here */
+  height: 60px;
+  background-color: #f5f5f5;
+}
+
+p#footer {
+    margin-bottom: 0px;
+}
+
+.row {
+    min-height: 200px;
+}
+
+#summary-stats {
+    min-height: 100px;
+}
