@@ -170,7 +170,7 @@
                [:tr {:onClick (fn [_ _]
                                 (om/update! programmes :selected id)
                                 (history/update-token-ids! history :programmes id)
-                                (scroll-to-element "projects-div"))
+                                (fixed-scroll-to-element "projects-div"))
                      :className (if (= id (:selected programmes)) "success")
                      :id (str table-id "-selected")}
                 [:td id [:a {:id (str "row-" id)}]] [:td lead-organisations] [:td name] [:td created-at]]))]])))))
@@ -226,7 +226,7 @@
                [:tr {:onClick (fn [_ _]
                                 (om/update! projects :selected id)
                                 (history/update-token-ids! history :projects id)
-                                (scroll-to-element "properties-div"))
+                                (fixed-scroll-to-element "properties-div"))
                      :className (if (= id (:selected projects)) "success")
                      :id (str table-id "-selected")}
                 [:td name]
@@ -284,7 +284,7 @@
 (defn slugify-property
   "Create a slug for a property in the UI"
   [property]
-  (assoc property :slug (:address-street-two property)))
+  (assoc property :slug (apply str (interpose ", " (keep identity (vector (:property-code property) (:address-street-two property)))))))
 
 (defn properties-table [properties owner]
   (reify
@@ -298,16 +298,17 @@
           (html
            [:table {:className "table table-hover"}
             [:thead
-             [:tr [:th "Address"] [:th "Region"] [:th "Country"]]]
+             [:tr [:th "Property Code"] [:th "Address"] [:th "Region"] [:th "Country"]]]
             [:tbody
              (for [row (sort-by :address-street-two (:data properties))]
-               (let [{:keys [id address-street-two address-country address-region]} row]
+               (let [{:keys [id property-code address-street-two address-country address-region]} row]
                  [:tr {:onClick (fn [_ _]
                                   (om/update! properties :selected id)
                                   (history/update-token-ids! history :properties id)
-                                  (scroll-to-element "devices-div"))
+                                  (fixed-scroll-to-element "devices-div"))
                        :className (if (= id (:selected properties)) "success")
                        :id (str table-id "-selected")}
+                  [:td property-code]
                   [:td address-street-two]
                   [:td address-region]
                   [:td address-country]]))]]))))))
@@ -363,6 +364,11 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; devices
+(defn slugify-device
+  "Create a user friendly slug for a device"
+  [device]
+  (assoc device :slug (apply str (interpose ", " (keep identity (vector (:name device) (:description device)))))))
+
 (defn devices-table [devices owner]
   (reify
     om/IRender
@@ -380,7 +386,7 @@
                [:tr {:onClick (fn [_ _]
                                 (om/update! devices :selected id)
                                 (history/update-token-ids! history :devices id)
-                                (scroll-to-element "sensors-div"))
+                                (fixed-scroll-to-element "sensors-div"))
                      :className (if (= id (:selected devices)) "success")
                      :id (str table-id "-selected")}
                 [:td name]
@@ -407,7 +413,7 @@
                  {:handler  (fn [x]
                               (println "Fetching devices for property: " new-property-id)
                               (om/update! devices :fetching false)
-                              (om/update! devices :data x)
+                              (om/update! devices :data (mapv slugify-device x))
                               (om/update! devices :selected nil))
                   :error-handler (fn [{:keys [status status-text]}]
                                    (om/update! devices :fetching false)
