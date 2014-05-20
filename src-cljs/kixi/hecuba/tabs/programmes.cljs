@@ -73,32 +73,6 @@
       (vector new-selected
               (map-replace template ids)))))
 
-(defn ajax [in data path {:keys [template selection-key content-type]} & [chart]]
-  (go-loop []
-    (let [nav-event (<! in)
-          [new-selected uri] (uri-for-selection-change (:selected @data)
-                                                       selection-key
-                                                       template
-                                                       nav-event)]
-
-      ;; (om/update! data :active-components (-> nav-event :args :ids))
-      
-      (when uri
-        (println "Fetching: " uri)
-        (GET uri
-             (-> {:handler  (fn [x]
-                              (when (= selection-key :sensors)
-                                (let [[type _] (str/split new-selected #"-")
-                                      unit     (:unit (first (filter #(= (:type %) type) (:readings x))))]
-                                  (om/update! chart :unit unit)))
-                              (om/update! data (conj path :data) x)
-                              (om/update! data (conj path :selected) new-selected))
-                  :headers {"Accept" content-type}
-                  :response-format :text}
-                 (cond-> (= content-type "application/json")
-                         (merge {:response-format :json :keywords? true}))))))
-    (recur)))
-
 (defn history-loop [history-channel data]
   (go-loop []
     (let [nav-event (<! history-channel)]
