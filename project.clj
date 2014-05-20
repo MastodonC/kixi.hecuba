@@ -39,7 +39,7 @@
                  [om "0.6.1"]
                  [net.drib/mrhyde "0.5.3"]
                  [com.andrewmcveigh/cljs-time "0.1.3"]
-                 [sablono "0.2.16"]
+                 [sablono "0.2.17"]
 
                  ;; for debugging
                  [ankha "0.1.2"]
