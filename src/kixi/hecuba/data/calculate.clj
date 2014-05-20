@@ -284,7 +284,7 @@
       (insert-measurement store m))))
 
 (defmethod calculate-data-set :total-vol2kwh [ds store]
- 
+
   )
 
 (defn generate-synthetic-readings [store item]

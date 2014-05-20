@@ -9,8 +9,10 @@
             [clojure.pprint :refer (pprint)]
             [clojure.tools.logging :as log]
             [clojure.tools.reader.reader-types :refer (indexing-push-back-reader)]
+            [clojure.walk :as walk]
             [com.stuartsierra.component :as component]
             [generators :as generators]
+            [etl.fixture :as fixture]
             [kixi.hecuba.data.calculate :as calc]
             [kixi.hecuba.data.misc :as m]
             [kixi.hecuba.protocols :refer (items)]
@@ -18,8 +20,7 @@
             [kixi.hecuba.webutil :as util]
             [org.httpkit.client :refer (request) :rename {request http-request}]
             [qbits.hayt :as hayt]
-            [bidi.bidi :refer (path-for match-route)]
-            ))
+            [bidi.bidi :refer (path-for match-route)]))
 
 (defn config []
   (let [f (io/file (System/getProperty "user.home") ".hecuba.edn")]
@@ -388,7 +389,6 @@
 (defn db-timestamp
   "Returns java.util.Date from String timestamp." ; 2014-01-01 00:00:10+0000
   [t] (.parse (java.text.SimpleDateFormat.  "yyyy-MM-dd HH:mm:ssZ") t))
-;
 
 (defn load-sensor-sample [system]
   (let [programme-id "2312312314"
@@ -424,7 +424,6 @@
                                                :period "PULSE"
                                                :unit "m^3"
                                                :type "gasConsumption"})))
-
      (dbnew/execute session
                     (hayt/insert :sensor_metadata
                                  (hayt/values {:device_id device-id
@@ -443,5 +442,28 @@
                                           (update-in [:month] #(Integer/parseInt %))))))))))
 
   )
+
+(defn insert-all [session table xs]
+  (doseq [x xs]
+     (dbnew/execute session (hayt/insert table (hayt/values x)))))
+
+(defn readings [n period & more]
+  [:measurements (map #(hash-map :value %
+                                 :period period) (range n))])
+
+(defn load-total-kwh-sample [system]
+  (dbnew/with-session [session (:hecuba-session system)]
+    (fixture/load-fixture session [:programmes.A1
+                                   [:projects.A1
+                                    [:entities.A1 {:address_street_two "A1 Flat, A1 road, A1 Town, A1 1AA"}
+                                     [:devices.gasConsumption
+                                      [:sensors.m3 {:etl.fixure/start (t/date-time 2014 5 1)
+                                                    :etl.fixture/end  (t/date-time 2014 5 1)}
+                                       (readings 100 "PULSE")]]
+                                     [:devices.electricityConsumption
+                                      [:sensors.kwh {:etl.fixure/start (t/date-time 2014 5 1)
+                                                     :etl.fixture/end  (t/date-time 2014 5 1)}
+                                       (readings 100 "CUMULATIVE")]]]]])))
+
 ;; To load users from .hecuba.edn: (load-user-data)
 ;; To load data from CSV files: (load-csv system)
