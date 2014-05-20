@@ -198,11 +198,11 @@
         (om/update! programmes :selected (:programmes active-components))))
     om/IRender
     (render [_]
-      (let [programmes (-> data :programmes)]
-        (html
-         [:div {:id "programmes-div"}
-          [:h1 "Programmes"]
-          (om/build programmes-table programmes)])))))
+      (html
+       [:div.row#programmes-div
+        [:div {:class "col-md-12"}
+         [:h1 "Programmes"]
+         (om/build programmes-table data)]]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; projects
@@ -270,8 +270,8 @@
       (let [{:keys [programmes projects active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "projects-div"}
-          [:div {:class (if (:programme-id projects) "" "hidden")}
+         [:div.row#projects-div
+          [:div {:class (str "col-md-12 " (if (:programme-id projects) "" "hidden"))}
            [:h2 "Projects"]
            [:ul {:class "breadcrumb"}
             [:li [:a
@@ -349,8 +349,8 @@
       (let [{:keys [programmes projects properties active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "properties-div"}
-          [:div {:class (if (:project-id properties) "" "hidden")}
+         [:div.row#properties-div
+          [:div {:class (str "col-md-12 " (if (:project-id properties) "" "hidden"))}
            [:h2 "Properties"]
            [:ul {:class "breadcrumb"}
             [:li [:a
@@ -426,8 +426,8 @@
       (let [{:keys [programmes projects properties devices active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "devices-div"}
-          [:div {:class (if (:property-id devices) "" "hidden")}
+         [:div.row#devices-id
+          [:div {:class (str "col-md-12 " (if (:property-id devices) "" "hidden"))}
            [:h2  "Devices"]
            [:ul {:class "breadcrumb"}
             [:li [:a
@@ -549,8 +549,8 @@
       (let [{:keys [programmes projects properties devices sensors active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "sensors-div"}
-          [:div {:class (if (:device-id sensors) "" "hidden")}
+         [:div.row#sensors-div
+          [:div {:class (str "col-md-12 "  (if (:device-id sensors) "" "hidden"))}
            [:h2 {:id "sensors"} "Sensors"]
            [:ul {:class "breadcrumb"}
             [:li [:a
