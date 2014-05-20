@@ -20,7 +20,8 @@
       (let [sensors (:sensors data)
             chart   (:chart data)
             cols    (get-in sensors [:header :cols])
-            history (om/get-shared owner :history)]
+            history (om/get-shared owner :history)
+            table-id "sensors-table"]
 
         (html
          [:table {:className "table table-hover"}

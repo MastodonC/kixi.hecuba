@@ -73,32 +73,6 @@
       (vector new-selected
               (map-replace template ids)))))
 
-(defn ajax [in data path {:keys [template selection-key content-type]} & [chart]]
-  (go-loop []
-    (let [nav-event (<! in)
-          [new-selected uri] (uri-for-selection-change (:selected @data)
-                                                       selection-key
-                                                       template
-                                                       nav-event)]
-
-      ;; (om/update! data :active-components (-> nav-event :args :ids))
-      
-      (when uri
-        (println "Fetching: " uri)
-        (GET uri
-             (-> {:handler  (fn [x]
-                              (when (= selection-key :sensors)
-                                (let [[type _] (str/split new-selected #"-")
-                                      unit     (:unit (first (filter #(= (:type %) type) (:readings x))))]
-                                  (om/update! chart :unit unit)))
-                              (om/update! data (conj path :data) x)
-                              (om/update! data (conj path :selected) new-selected))
-                  :headers {"Accept" content-type}
-                  :response-format :text}
-                 (cond-> (= content-type "application/json")
-                         (merge {:response-format :json :keywords? true}))))))
-    (recur)))
-
 (defn history-loop [history-channel data]
   (go-loop []
     (let [nav-event (<! history-channel)]
@@ -166,7 +140,7 @@
 (defn row-for [{:keys [selected data]}]
   (find-first #(= (:id %) selected) data))
 
-(defn title-for [cursor & {:keys [title-key] :or {title-key :name}}]
+(defn title-for [cursor & {:keys [title-key] :or {title-key :slug}}]
   (let [row (row-for cursor)]
     (get-in row (if (vector? title-key) title-key (vector title-key)))))
 
@@ -176,11 +150,15 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; programmes
-(defn programmes-table [programmes owner]
+(defn slugify-programme [programme]
+  (assoc programme :slug (:name programme)))
+
+(defn programmes-table [data owner]
   (reify
     om/IRender
     (render [_]
-      (let [table-id   "programme-table"
+      (let [programmes (-> data :programmes)
+            table-id   "programme-table"
             history    (om/get-shared owner :history)]
         (html
          [:table {:className "table table-hover"}
@@ -192,7 +170,7 @@
                [:tr {:onClick (fn [_ _]
                                 (om/update! programmes :selected id)
                                 (history/update-token-ids! history :programmes id)
-                                (scroll-to-element "projects-div"))
+                                (fixed-scroll-to-element "projects-div"))
                      :className (if (= id (:selected programmes)) "success")
                      :id (str table-id "-selected")}
                 [:td id [:a {:id (str "row-" id)}]] [:td lead-organisations] [:td name] [:td created-at]]))]])))))
@@ -203,7 +181,6 @@
     (did-update [_ prev-props prev-state]
       (let [{:keys [programmes active-components]} data
             programme-id (:programmes active-components)]
-
         (when-not programme-id
           (om/update! programmes :selected nil))
 
@@ -211,7 +188,7 @@
           (GET (str "/4/programmes/")
                {:handler  (fn [x]
                             (println "Fetching programmes.")
-                            (om/update! programmes :data x)
+                            (om/update! programmes :data (mapv slugify-programme x))
                             (om/update! programmes :selected nil))
                 ;; TODO: Add Error Handler
                 :headers {"Accept" "application/edn"}
@@ -221,14 +198,18 @@
         (om/update! programmes :selected (:programmes active-components))))
     om/IRender
     (render [_]
-      (let [programmes (-> data :programmes)]
-        (html
-         [:div {:id "programmes-div"}
-          [:h1 "Programmes"]
-          (om/build programmes-table programmes)])))))
+      (html
+       [:div.row#programmes-div
+        [:div {:class "col-md-12"}
+         [:h1 "Programmes"]
+         (om/build programmes-table data)]]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; projects
+(defn slugify-project "Create a slug for projects in the UI"
+  [project]
+  (assoc project :slug (:name project)))
+
 (defn projects-table [projects owner]
   (reify
     om/IRender
@@ -245,7 +226,7 @@
                [:tr {:onClick (fn [_ _]
                                 (om/update! projects :selected id)
                                 (history/update-token-ids! history :projects id)
-                                (scroll-to-element "properties-div"))
+                                (fixed-scroll-to-element "properties-div"))
                      :className (if (= id (:selected projects)) "success")
                      :id (str table-id "-selected")}
                 [:td name]
@@ -273,7 +254,7 @@
           (GET (str "/4/programmes/" new-programme-id "/projects/")
                {:handler  (fn [x]
                             (println "Fetching projects for programme: " new-programme-id)
-                            (om/update! projects :data x)
+                            (om/update! projects :data (mapv slugify-project x))
                             (om/update! projects :selected nil))
                 ;; TODO: Add Error Handler
                 :headers {"Accept" "application/edn"}
@@ -289,17 +270,22 @@
       (let [{:keys [programmes projects active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "projects-div"}
-          [:div {:class (if (:programme-id projects) "" "hidden")}
+         [:div.row#projects-div
+          [:div {:class (str "col-md-12 " (if (:programme-id projects) "" "hidden"))}
            [:h2 "Projects"]
            [:ul {:class "breadcrumb"}
             [:li [:a
-                  {:onClick (back-to-programmes history)}
+                  {:href "/programmes/"}
                   (title-for programmes)]]]
            (om/build projects-table projects {:opts {:histkey :projects}})]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; properties
+(defn slugify-property
+  "Create a slug for a property in the UI"
+  [property]
+  (assoc property :slug (apply str (interpose ", " (keep identity (vector (:property-code property) (:address-street-two property)))))))
+
 (defn properties-table [properties owner]
   (reify
     om/IRender
@@ -312,16 +298,17 @@
           (html
            [:table {:className "table table-hover"}
             [:thead
-             [:tr [:th "Address"] [:th "Region"] [:th "Country"]]]
+             [:tr [:th "Property Code"] [:th "Address"] [:th "Region"] [:th "Country"]]]
             [:tbody
              (for [row (sort-by :address-street-two (:data properties))]
-               (let [{:keys [id address-street-two address-country address-region]} row]
+               (let [{:keys [id property-code address-street-two address-country address-region]} row]
                  [:tr {:onClick (fn [_ _]
                                   (om/update! properties :selected id)
                                   (history/update-token-ids! history :properties id)
-                                  (scroll-to-element "devices-div"))
+                                  (fixed-scroll-to-element "devices-div"))
                        :className (if (= id (:selected properties)) "success")
                        :id (str table-id "-selected")}
+                  [:td property-code]
                   [:td address-street-two]
                   [:td address-region]
                   [:td address-country]]))]]))))))
@@ -346,7 +333,7 @@
                  {:handler  (fn [x]
                               (println "Fetching properties for project: " new-project-id)
                               (om/update! properties :fetching false)
-                              (om/update! properties :data x)
+                              (om/update! properties :data (mapv slugify-property x))
                               (om/update! properties :selected nil))
                   :error-handler (fn [{:keys [status status-text]}]
                                    (om/update! properties :fetching false)
@@ -363,12 +350,12 @@
       (let [{:keys [programmes projects properties active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "properties-div"}
-          [:div {:class (if (:project-id properties) "" "hidden")}
+         [:div.row#properties-div
+          [:div {:class (str "col-md-12 " (if (:project-id properties) "" "hidden"))}
            [:h2 "Properties"]
            [:ul {:class "breadcrumb"}
             [:li [:a
-                  {:onClick (back-to-programmes history)}
+                  {:href "/programmes/"}
                   (title-for programmes)]]
             [:li [:a
                   {:onClick (back-to-projects history)}
@@ -377,6 +364,11 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; devices
+(defn slugify-device
+  "Create a user friendly slug for a device"
+  [device]
+  (assoc device :slug (apply str (interpose ", " (keep identity (vector (:name device) (:description device)))))))
+
 (defn devices-table [devices owner]
   (reify
     om/IRender
@@ -394,7 +386,7 @@
                [:tr {:onClick (fn [_ _]
                                 (om/update! devices :selected id)
                                 (history/update-token-ids! history :devices id)
-                                (scroll-to-element "sensors-div"))
+                                (fixed-scroll-to-element "sensors-div"))
                      :className (if (= id (:selected devices)) "success")
                      :id (str table-id "-selected")}
                 [:td name]
@@ -421,7 +413,7 @@
                  {:handler  (fn [x]
                               (println "Fetching devices for property: " new-property-id)
                               (om/update! devices :fetching false)
-                              (om/update! devices :data x)
+                              (om/update! devices :data (mapv slugify-device x))
                               (om/update! devices :selected nil))
                   :error-handler (fn [{:keys [status status-text]}]
                                    (om/update! devices :fetching false)
@@ -440,19 +432,19 @@
       (let [{:keys [programmes projects properties devices active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "devices-div"}
-          [:div {:class (if (:property-id devices) "" "hidden")}
+         [:div.row#devices-id
+          [:div {:class (str "col-md-12 " (if (:property-id devices) "" "hidden"))}
            [:h2  "Devices"]
            [:ul {:class "breadcrumb"}
             [:li [:a
-                  {:onClick (back-to-programmes history)}
+                  {:href "/programmes/"}
                   (title-for programmes)]]
             [:li [:a
                   {:onClick (back-to-projects history)}
                   (title-for projects)]]
             [:li [:a
                   {:onClick (back-to-properties history)}
-                  (title-for properties :title-key :address-street-two)]
+                  (title-for properties)]
              " " (when (:fetching devices) [:span {:class "glyphicon glyphicon-cloud-download spinner"}])]]
            (om/build devices-table devices {:opts {:histkey :devices}})]])))))
 
@@ -512,7 +504,7 @@
             series-1-count (count series-1)
             series-1-mean (if (not= 0 series-1-count) (/ series-1-sum series-1-count) "NA")]
         (html
-         [:div {:class "row"}
+         [:div.row#summary-stats
           [:div {:class "col-md-3"}
            (bs/panel "Minimum" (str (.toFixed (js/Number. series-1-min) 3) " " unit))]
           [:div {:class "col-md-3"}
@@ -563,12 +555,12 @@
       (let [{:keys [programmes projects properties devices sensors active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div {:id "sensors-div"}
-          [:div {:class (if (:device-id sensors) "" "hidden")}
+         [:div.row#sensors-div
+          [:div {:class (str "col-md-12 "  (if (:device-id sensors) "" "hidden"))}
            [:h2 {:id "sensors"} "Sensors"]
            [:ul {:class "breadcrumb"}
             [:li [:a
-                  {:onClick (back-to-programmes history)}
+                  {:href "/programmes/"}
                   (title-for programmes)]]
             [:li [:a
                   {:onClick (back-to-projects history)}
