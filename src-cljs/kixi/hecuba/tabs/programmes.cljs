@@ -498,7 +498,7 @@
             series-1-count (count series-1)
             series-1-mean (if (not= 0 series-1-count) (/ series-1-sum series-1-count) "NA")]
         (html
-         [:div {:class "row"}
+         [:div.row#summary-stats
           [:div {:class "col-md-3"}
            (bs/panel "Minimum" (str (.toFixed (js/Number. series-1-min) 3) " " unit))]
           [:div {:class "col-md-3"}
