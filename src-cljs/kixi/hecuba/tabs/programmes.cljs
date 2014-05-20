@@ -206,6 +206,10 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; projects
+(defn slugify-project "Create a slug for projects in the UI"
+  [project]
+  (assoc project :slug (:name project)))
+
 (defn projects-table [projects owner]
   (reify
     om/IRender
@@ -250,7 +254,7 @@
           (GET (str "/4/programmes/" new-programme-id "/projects/")
                {:handler  (fn [x]
                             (println "Fetching projects for programme: " new-programme-id)
-                            (om/update! projects :data x)
+                            (om/update! projects :data (mapv slugify-project x))
                             (om/update! projects :selected nil))
                 ;; TODO: Add Error Handler
                 :headers {"Accept" "application/edn"}
