@@ -140,7 +140,7 @@
 (defn row-for [{:keys [selected data]}]
   (find-first #(= (:id %) selected) data))
 
-(defn title-for [cursor & {:keys [title-key] :or {title-key :name}}]
+(defn title-for [cursor & {:keys [title-key] :or {title-key :slug}}]
   (let [row (row-for cursor)]
     (get-in row (if (vector? title-key) title-key (vector title-key)))))
 
