@@ -515,15 +515,17 @@
             series-1-count (count series-1)
             series-1-mean (if (not= 0 series-1-count) (/ series-1-sum series-1-count) "NA")]
         (html
-         [:div.row#summary-stats
-          [:div {:class "col-md-3"}
-           (bs/panel "Minimum" (str (.toFixed (js/Number. series-1-min) 3) " " unit))]
-          [:div {:class "col-md-3"}
-           (bs/panel "Maximum" (str (.toFixed (js/Number. series-1-max) 3) " " unit))]
-          [:div {:class "col-md-3"}
-           (bs/panel "Average (mean)" (str (.toFixed (js/Number. series-1-mean) 3) " " unit))]
-          [:div {:class "col-md-3"}
-           (bs/panel "Range" (str (.toFixed (js/Number. (- series-1-max series-1-min)) 3) " " unit))]])))))
+         (if (seq measurements)
+           [:div.row#summary-stats
+            [:div {:class "col-md-3"}
+             (bs/panel "Minimum" (str (.toFixed (js/Number. series-1-min) 3) " " unit))]
+            [:div {:class "col-md-3"}
+             (bs/panel "Maximum" (str (.toFixed (js/Number. series-1-max) 3) " " unit))]
+            [:div {:class "col-md-3"}
+             (bs/panel "Average (mean)" (str (.toFixed (js/Number. series-1-mean) 3) " " unit))]
+            [:div {:class "col-md-3"}
+             (bs/panel "Range" (str (.toFixed (js/Number. (- series-1-max series-1-min)) 3) " " unit))]]
+           [:div.row#summary-stats [:div.col-md-12]]))))))
 
 (defn sensors-div [data owner]
   (reify
