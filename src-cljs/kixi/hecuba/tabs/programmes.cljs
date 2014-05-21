@@ -284,7 +284,9 @@
 (defn slugify-property
   "Create a slug for a property in the UI"
   [property]
-  (assoc property :slug (apply str (interpose ", " (keep identity (vector (:property-code property) (:address-street-two property)))))))
+  (assoc property :slug (apply str (interpose ", " (->> (vector (:property-code property) (:address-street-two property))
+                                                        (keep identity)
+                                                        (remove empty?))))))
 
 (defn properties-table [properties owner]
   (reify
@@ -567,7 +569,7 @@
                   (title-for projects)]]
             [:li [:a
                   {:onClick (back-to-properties history)}
-                  (title-for properties :title-key :address-street-two)]]
+                  (title-for properties)]]
             [:li [:a
                   {:onClick (back-to-devices history)}
                   (title-for devices :title-key [:location :name])]]]
