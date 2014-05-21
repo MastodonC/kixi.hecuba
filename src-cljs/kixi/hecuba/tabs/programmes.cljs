@@ -581,7 +581,7 @@
                   (title-for properties)]]
             [:li [:a
                   {:onClick (back-to-devices history)}
-                  (title-for devices :title-key [:location :name])]]]
+                  (title-for devices)]]]
            (om/build sensors-table data {:opts {:histkey :sensors
                                                 :path    :readings}})
            [:div {:id "chart-div"}
