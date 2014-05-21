@@ -148,6 +148,19 @@
   (let [[type _] (str/split selected #"-")]
     type))
 
+(defn error-row [data]
+  [:div.row
+   [:div.col-md-12.text-center
+    [:p.lead {:style {:padding-top 30}}
+     "There has been an error. Please contact " [:a {:href "mailto:support@mastodonc.com"} "support@mastodonc.com"]]
+    [:p "Error Code: " (:error-status data) " Message: " (:error-text data)]]])
+
+(defn no-data-row [data]
+  [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data available for this selection."]]])
+
+(defn fetching-row [data]
+  [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching properties for selected project." ]]])
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; programmes
 (defn slugify-programme [programme]
@@ -217,31 +230,48 @@
   [project]
   (assoc project :slug (:name project)))
 
+(defmulti projects-table-html (fn [projects owner] (:fetching projects)))
+(defmethod projects-table-html :fetching [projects owner]
+  (fetching-row projects))
+
+(defmethod projects-table-html :no-data [projects owner]
+  (no-data-row projects))
+
+(defmethod projects-table-html :error [projects owner]
+  (error-row projects))
+
+(defmethod projects-table-html :has-data [projects owner]
+  (let [table-id   "projects-table"
+        history    (om/get-shared owner :history)]
+    [:div.row
+     [:div.col-md-12
+      [:table {:className "table table-hover"}
+       [:thead
+        [:tr [:th "Name"] [:th "Type"] [:th "Description"] [:th "Created At"] [:th "Organisation"] [:th "Project Code"]]]
+       [:tbody
+        (for [row (sort-by :id (:data projects))]
+          (let [{:keys [id name type-of description created-at organisation project-code]} row]
+            [:tr {:onClick (fn [_ _]
+                             (om/update! projects :selected id)
+                             (history/update-token-ids! history :projects id)
+                             (fixed-scroll-to-element "properties-div"))
+                  :className (if (= id (:selected projects)) "success")
+                  :id (str table-id "-selected")}
+             [:td name]
+             [:td type-of]
+             [:td description]
+             [:td created-at]
+             [:td organisation]
+             [:td project-code]]))]]]]))
+
+(defmethod projects-table-html :default [projects owner]
+  [:div.row [:div.col-md-12]])
+
 (defn projects-table [projects owner]
   (reify
     om/IRender
     (render [_]
-      (let [table-id   "projects-table"
-            history    (om/get-shared owner :history)]
-        (html
-         [:table {:className "table table-hover"}
-          [:thead
-           [:tr [:th "Name"] [:th "Type"] [:th "Description"] [:th "Created At"] [:th "Organisation"] [:th "Project Code"]]]
-          [:tbody
-           (for [row (sort-by :id (:data projects))]
-             (let [{:keys [id name type-of description created-at organisation project-code]} row]
-               [:tr {:onClick (fn [_ _]
-                                (om/update! projects :selected id)
-                                (history/update-token-ids! history :projects id)
-                                (fixed-scroll-to-element "properties-div"))
-                     :className (if (= id (:selected projects)) "success")
-                     :id (str table-id "-selected")}
-                [:td name]
-                [:td type-of]
-                [:td description]
-                [:td created-at]
-                [:td organisation]
-                [:td project-code]]))]])))))
+      (html (projects-table-html projects owner)))))
 
 (defn projects-div [data owner]
   (reify
@@ -257,15 +287,21 @@
 
         ;; get the data if we have a new id
         (if (and new-programme-id
-                   (not (= (:programme-id projects) new-programme-id)))
-          (GET (str "/4/programmes/" new-programme-id "/projects/")
-               {:handler  (fn [x]
-                            (println "Fetching projects for programme: " new-programme-id)
-                            (om/update! projects :data (mapv slugify-project x))
-                            (om/update! projects :selected nil))
-                ;; TODO: Add Error Handler
-                :headers {"Accept" "application/edn"}
-                :response-format :text}))
+                 (not (= (:programme-id projects) new-programme-id)))
+          (do
+            (om/update! projects :fetching :fetching)
+            (GET (str "/4/programmes/" new-programme-id "/projects/")
+                 {:handler  (fn [x]
+                              (println "Fetching projects for programme: " new-programme-id)
+                              (om/update! projects :data (mapv slugify-project x))
+                              (om/update! projects :fetching (if (empty? x) :no-data :has-data))
+                              (om/update! projects :selected nil))
+                  :error-handler (fn [{:keys [status status-text]}]
+                                   (om/update! projects :fetching :error)
+                                   (om/update! projects :error-status status)
+                                   (om/update! projects :error-text status-text))
+                  :headers {"Accept" "application/edn"}
+                  :response-format :text})))
 
         ;; update our current id with the new one
         (om/update! projects :programme-id new-programme-id)
@@ -297,17 +333,13 @@
 
 (defmulti properties-table-html (fn [properties owner] (:fetching properties)))
 (defmethod properties-table-html :fetching [properties owner]
-  [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching properties for selected project." ]]])
+  (fetching-row properties))
 
 (defmethod properties-table-html :no-data [properties owner]
-  [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data available for this selection."]]])
+  (no-data-row properties))
 
 (defmethod properties-table-html :error [properties owner]
-  [:div.row
-   [:div.col-md-12.text-center
-    [:p.lead {:style {:padding-top 30}}
-     "There has been an error. Please contact " [:a {:href "mailto:support@mastodonc.com"} "support@mastodonc.com"]]
-    [:p "Error Code: " (:error-status properties) " Message: " (:error-text properties)]]])
+  (error-row properties))
 
 (defmethod properties-table-html :has-data [properties owner]
   (let [table-id "properties-table"
