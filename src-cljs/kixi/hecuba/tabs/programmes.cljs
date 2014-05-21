@@ -163,9 +163,13 @@
         (html
          [:table {:className "table table-hover"}
           [:thead
-           [:tr [:th "ID"] [:th "Organisations"] [:th "Name"] [:th "Created At"]]]
+           [:tr
+            [:th "Name"]
+            [:th "Organisations"]
+            [:th "ID"]
+            [:th "Created At"]]]
           [:tbody
-           (for [row (sort-by :id (:data programmes))]
+           (for [row (sort-by :name (:data programmes))]
              (let [{:keys [id lead-organisations name description created-at]} row]
                [:tr {:onClick (fn [_ _]
                                 (om/update! programmes :selected id)
@@ -173,7 +177,10 @@
                                 (fixed-scroll-to-element "projects-div"))
                      :className (if (= id (:selected programmes)) "success")
                      :id (str table-id "-selected")}
-                [:td id [:a {:id (str "row-" id)}]] [:td lead-organisations] [:td name] [:td created-at]]))]])))))
+                [:td name]
+                [:td lead-organisations]
+                [:td id]
+                [:td created-at]]))]])))))
 
 (defn programmes-div [data owner]
   (reify
@@ -284,7 +291,9 @@
 (defn slugify-property
   "Create a slug for a property in the UI"
   [property]
-  (assoc property :slug (apply str (interpose ", " (keep identity (vector (:property-code property) (:address-street-two property)))))))
+  (assoc property :slug (apply str (interpose ", " (->> (vector (:property-code property) (:address-street-two property))
+                                                        (keep identity)
+                                                        (remove empty?))))))
 
 (defn properties-table [properties owner]
   (reify
@@ -367,7 +376,9 @@
 (defn slugify-device
   "Create a user friendly slug for a device"
   [device]
-  (assoc device :slug (apply str (interpose ", " (keep identity (vector (:name device) (:description device)))))))
+  (assoc device :slug (apply str (interpose ", " (->> (vector (:name device) (:description device))
+                                                      (keep identity)
+                                                      (remove empty?))))))
 
 (defn devices-table [devices owner]
   (reify
@@ -432,7 +443,7 @@
       (let [{:keys [programmes projects properties devices active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div.row#devices-id
+         [:div.row#devices-div
           [:div {:class (str "col-md-12 " (if (:property-id devices) "" "hidden"))}
            [:h2  "Devices"]
            [:ul {:class "breadcrumb"}
@@ -504,15 +515,17 @@
             series-1-count (count series-1)
             series-1-mean (if (not= 0 series-1-count) (/ series-1-sum series-1-count) "NA")]
         (html
-         [:div.row#summary-stats
-          [:div {:class "col-md-3"}
-           (bs/panel "Minimum" (str (.toFixed (js/Number. series-1-min) 3) " " unit))]
-          [:div {:class "col-md-3"}
-           (bs/panel "Maximum" (str (.toFixed (js/Number. series-1-max) 3) " " unit))]
-          [:div {:class "col-md-3"}
-           (bs/panel "Average (mean)" (str (.toFixed (js/Number. series-1-mean) 3) " " unit))]
-          [:div {:class "col-md-3"}
-           (bs/panel "Range" (str (.toFixed (js/Number. (- series-1-max series-1-min)) 3) " " unit))]])))))
+         (if (seq measurements)
+           [:div.row#summary-stats
+            [:div {:class "col-md-3"}
+             (bs/panel "Minimum" (str (.toFixed (js/Number. series-1-min) 3) " " unit))]
+            [:div {:class "col-md-3"}
+             (bs/panel "Maximum" (str (.toFixed (js/Number. series-1-max) 3) " " unit))]
+            [:div {:class "col-md-3"}
+             (bs/panel "Average (mean)" (str (.toFixed (js/Number. series-1-mean) 3) " " unit))]
+            [:div {:class "col-md-3"}
+             (bs/panel "Range" (str (.toFixed (js/Number. (- series-1-max series-1-min)) 3) " " unit))]]
+           [:div.row#summary-stats [:div.col-md-12]]))))))
 
 (defn sensors-div [data owner]
   (reify
@@ -567,10 +580,10 @@
                   (title-for projects)]]
             [:li [:a
                   {:onClick (back-to-properties history)}
-                  (title-for properties :title-key :address-street-two)]]
+                  (title-for properties)]]
             [:li [:a
                   {:onClick (back-to-devices history)}
-                  (title-for devices :title-key [:location :name])]]]
+                  (title-for devices)]]]
            (om/build sensors-table data {:opts {:histkey :sensors
                                                 :path    :readings}})
            [:div {:id "chart-div"}
