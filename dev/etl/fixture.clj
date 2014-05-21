@@ -30,6 +30,10 @@
 (defmethod compile-element clojure.lang.ISeq [xs]
   (for [x xs] (compile-element x)))
 
+(defn- insert* [session table values]
+  (dbnew/execute session
+     (hayt/insert table (hayt/values values))))
+
 (defn- insert-simple [x session]
     (let [id (str (generators/uuid))
         data (-> x
@@ -37,14 +41,6 @@
                  (dissoc x ::table))]
       (insert* session (::table x) data)
       id))
-
-(defn- insert* [session table values]
-  (let [cql (hayt/->raw      (hayt/insert table (hayt/values values)))]
-    (println "cql:" cql)
-    )
-  (dbnew/execute session
-     (hayt/insert table (hayt/values values))))
-
 
 (defmulti insert (fn [x _ _] (::table x)) :default :default)
 
@@ -74,34 +70,37 @@
                    (dissoc :device-id)
                    (update-in [:meteringPointId] str)
                    (update-in [:parent-id] str)
-                   (update-in [:location] pr-str)
-                   )
+                   (update-in [:location] pr-str))
         data (->> (dissoc x ::table)
                   (merge
                    device
                    m))]
-    (doseq [k (keys data)]
-      (println k ":" (type (get data k)))
-      )
+
     (insert* session :devices data)
     (merge ctx {:device_id (:id m)})))
 
 (defmethod insert :sensors [x session ctx]
-  (let [m (select-keys ctx [:device_id type])
+  (let [m {:device_id (:device_id ctx)
+           :type (:type x)}
         start (::start x) ;; TODO clojure 1.6-ify
         end   (::end x)]
-    (insert* session :sensors
-             (->> (dissoc x ::table)
+    (println "SS:"  (->> (dissoc x ::table ::start ::end)
                   (merge
-                   (generators/generate-sensor-sample (:id x) 1)
+                   (generators/generate-sensor-sample (:id x))
                    m)))
+    (insert* session :sensors
+             (->> (dissoc x ::table ::start ::end)
+                  (merge
+                   (generators/generate-sensor-sample (:id x))
+                   m)))
+    (println "SS2")
     (insert* session :sensor_metadata
-             (->> (dissoc x ::table)
+             (->> m
                   (merge
                    {:lower_ts start
                     :upper_ts end}
                    m)))
-    (assoc ctx m)))
+    (merge ctx m)))
 
 (defmethod insert :measurements [x session ctx]
   (let [m     (select-keys ctx [:device-id type])]
@@ -111,7 +110,7 @@
                           ::start
                           ::end)
                   (merge
-                   (generators/generate-measurements (:id x) 1)
+                   (generators/generate-measurements (:id x))
                    m)))))
 
 (defn insert-seq

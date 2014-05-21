@@ -459,13 +459,13 @@
                                      [:devices.D1
                                       [:sensors.gasConsumption
                                        {:unit "m^3"
-                                        :etl.fixure/start (t/date-time 2014 5 1)
+                                        :etl.fixture/start (t/date-time 2014 5 1)
                                         :etl.fixture/end  (t/date-time 2014 5 1)}
                                        (readings 100 "PULSE")]]
                                      [:devices.D2
                                       [:sensors.electricityConsumption
                                        {:unit "kwh"
-                                        :etl.fixure/start (t/date-time 2014 5 1)
+                                        :etl.fixture/start (t/date-time 2014 5 1)
                                         :etl.fixture/end  (t/date-time 2014 5 1)}
                                        (readings 100 "CUMULATIVE")]]]]])))
 

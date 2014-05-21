@@ -34,25 +34,28 @@
    (= "co2" type) "ppm"
    :else ""))
 
-(defn generate-sensor-sample [period n]
-  (take n (repeatedly n #(let [type (first (gen/sample (type-gen) 1))
-                               unit (unit-gen type)]
-                           {:type type
-                            :unit unit
-                            :resolution (str (rand-int 60))
-                            :accuracy (str (rand-int 100))
-                            :period (first (gen/sample (gen/elements [period])))
-                            :min "0"
-                            :max (str (rand-int 100))
-                            :correction nil
-                            :correctedUnit nil
-                            :correctionFactor nil
-                            :correctionFactorBreakdown nil
-                            :events 0
-                            :errors 0
-                            :status "Not enough data"
-                           ; :median nil
-                            }))))
+(defn generate-sensor-sample
+  ([period]
+     (first (generate-sensor-sample period 1)))
+  ([period n]
+     (take n (repeatedly n #(let [type (first (gen/sample (type-gen) 1))
+                                  unit (unit-gen type)]
+                              {:type type
+                               :unit unit
+                               :resolution (str (rand-int 60))
+                               :accuracy (str (rand-int 100))
+                               :period (first (gen/sample (gen/elements [period])))
+                               :min "0"
+                               :max (str (rand-int 100))
+                               :correction nil
+                               :correctedUnit nil
+                               :correctionFactor nil
+                               :correctionFactorBreakdown nil
+                               :events 0
+                               :errors 0
+                               :status "Not enough data"
+                                        ; :median nil
+                               })))))
 
 
 ;;;;;;;;;;;;;;; Generate devices ;;;;;;;;;;;;;;
