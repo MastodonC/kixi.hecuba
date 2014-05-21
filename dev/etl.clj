@@ -456,13 +456,17 @@
     (fixture/load-fixture session [:programmes.A1
                                    [:projects.A1
                                     [:entities.A1 {:address_street_two "A1 Flat, A1 road, A1 Town, A1 1AA"}
-                                     [:devices.gasConsumption
-                                      [:sensors.m3 {:etl.fixure/start (t/date-time 2014 5 1)
-                                                    :etl.fixture/end  (t/date-time 2014 5 1)}
+                                     [:devices.D1
+                                      [:sensors.gasConsumption
+                                       {:unit "m^3"
+                                        :etl.fixure/start (t/date-time 2014 5 1)
+                                        :etl.fixture/end  (t/date-time 2014 5 1)}
                                        (readings 100 "PULSE")]]
-                                     [:devices.electricityConsumption
-                                      [:sensors.kwh {:etl.fixure/start (t/date-time 2014 5 1)
-                                                     :etl.fixture/end  (t/date-time 2014 5 1)}
+                                     [:devices.D2
+                                      [:sensors.electricityConsumption
+                                       {:unit "kwh"
+                                        :etl.fixure/start (t/date-time 2014 5 1)
+                                        :etl.fixture/end  (t/date-time 2014 5 1)}
                                        (readings 100 "CUMULATIVE")]]]]])))
 
 ;; To load users from .hecuba.edn: (load-user-data)

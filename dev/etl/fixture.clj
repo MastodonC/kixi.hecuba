@@ -7,8 +7,7 @@
 
 (defn table-arg-name [table]
   (case table
-    :sensors :unit
-    :devices :type
+    :sensors :type
     :name))
 
 (defmulti compile-element type)
@@ -31,28 +30,64 @@
 (defmethod compile-element clojure.lang.ISeq [xs]
   (for [x xs] (compile-element x)))
 
+(defn- insert-simple [x session]
+    (let [id (str (generators/uuid))
+        data (-> x
+                 (assoc :id id)
+                 (dissoc x ::table))]
+      (insert* session (::table x) data)
+      id))
+
 (defn- insert* [session table values]
+  (let [cql (hayt/->raw      (hayt/insert table (hayt/values values)))]
+    (println "cql:" cql)
+    )
   (dbnew/execute session
      (hayt/insert table (hayt/values values))))
 
-(defmulti insert ::table :default :default)
+
+(defmulti insert (fn [x _ _] (::table x)) :default :default)
 
 (defmethod insert :default [x session ctx]
-  (let [id (generators/uuid)]
-    (insert* session (::table x)
-             (dissoc x ::table))))
+  (insert-simple x session))
+
+(defmethod insert :programmes [x session ctx]
+  (assoc ctx :programme_id
+         (insert-simple x session)))
+
+(defmethod insert :projects [x session ctx]
+  (assoc ctx :project_id
+         (insert-simple x session)))
+
+(defmethod insert :entities [x session ctx]
+  (assoc ctx :entity_id
+         (insert-simple x session)))
+
+(defmethod insert :properties [x session ctx]
+  (assoc ctx :property_id
+         (insert-simple x session)))
 
 (defmethod insert :devices [x session ctx]
-  (let [m {:device-id (generators/uuid)}]
-    (insert* session :devices
-             (->> (dissoc x ::table)
+  (let [m {:id (str (generators/uuid))
+           :entity_id (:entity_id ctx)}
+        device (-> (generators/generate-device-sample (:entity_id x))
+                   (dissoc :device-id)
+                   (update-in [:meteringPointId] str)
+                   (update-in [:parent-id] str)
+                   (update-in [:location] pr-str)
+                   )
+        data (->> (dissoc x ::table)
                   (merge
-                   (generators/generate-device-sample (:id x) 1)
-                   m)))
-    (merge ctx m)))
+                   device
+                   m))]
+    (doseq [k (keys data)]
+      (println k ":" (type (get data k)))
+      )
+    (insert* session :devices data)
+    (merge ctx {:device_id (:id m)})))
 
 (defmethod insert :sensors [x session ctx]
-  (let [m (select-keys ctx [:device-id type])
+  (let [m (select-keys ctx [:device_id type])
         start (::start x) ;; TODO clojure 1.6-ify
         end   (::end x)]
     (insert* session :sensors
@@ -79,6 +114,17 @@
                    (generators/generate-measurements (:id x) 1)
                    m)))))
 
+(defn insert-seq
+  ([xs session]
+     (insert-seq xs session {}))
+  ([xs session ctx]
+     (loop [[x & more] xs ctx ctx]
+       (when x
+         (recur more (if (vector? x)
+                       (insert-seq x session ctx)
+                       (insert x session ctx)))))))
+
 (defn load-fixture [session fixture]
   (let [data (compile-element fixture)]
-    (tree-seq vector? rest data)))
+    ;; (clojure.pprint/pprint data)
+    (insert-seq data session)))

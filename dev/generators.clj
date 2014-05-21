@@ -64,16 +64,18 @@
    :longitude (str (rand 1))})
 
 (defn generate-device-sample
-  [entity-id n]
-  (take n (repeatedly n
-                      #(hash-map :device-id (str (uuid))
-                                 :description (first (gen/sample (gen/not-empty gen/string-alpha-numeric) 1))
-                                 :parent-id (uuid)
-                                 :entity-id entity-id
-                                 :location (location-gen)
-                                 :metadata nil
-                                 :privacy (first (gen/sample (gen/not-empty (gen/elements ["public" "private"])) 1))
-                                 :meteringPointId (uuid)))))
+  ([entity-id]
+     (first (generate-device-sample entity-id 1)))
+  ([entity-id n]
+     (take n (repeatedly n
+                         #(hash-map :device-id (str (uuid))
+                                    :description (first (gen/sample (gen/not-empty gen/string-alpha-numeric) 1))
+                                    :parent-id (uuid)
+                                    :entity_id entity-id
+                                    :location (location-gen)
+                                    :metadata nil
+                                    :privacy (first (gen/sample (gen/not-empty (gen/elements ["public" "private"])) 1))
+                                    :meteringPointId (uuid))))))
 
 ;;;;;;;;;;;;;;;;; Generate measurements ;;;;;;;;;;;;;;;;
 
@@ -154,4 +156,3 @@
   [sensor]
   (let [sensor (assoc-in sensor [:period] "INSTANT")]
     (generate-measurements sensor)))
-
