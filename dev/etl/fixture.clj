@@ -3,11 +3,12 @@
             [qbits.hayt :as hayt]
             [generators]))
 
-(def re-kw #"(\w+)(?:\.(\w+))?")
+(def re-kw #"(\w+)(?:#(?:(\w+)(?:\.(\w+))?))?")
 
 (defn table-arg-name [table]
   (case table
     :sensors :type
+    :measurements :period
     :name))
 
 (defmulti compile-element type)
@@ -42,10 +43,10 @@
       (insert* session (::table x) data)
       id))
 
-(defmulti insert (fn [x _ _] (::table x)) :default :default)
+(defmulti insert (fn [x _ _] (::table x)) :default :error-no-table)
 
-(defmethod insert :default [x session ctx]
-  (insert-simple x session))
+(defmethod insert :error-no-table [x _ _ ]
+  (throw (ex-info "ERROR - NO TABLE:" x)))
 
 (defmethod insert :programmes [x session ctx]
   (assoc ctx :programme_id
@@ -81,19 +82,15 @@
 
 (defmethod insert :sensors [x session ctx]
   (let [m {:device_id (:device_id ctx)
-           :type (:type x)}
+           :type (:type x)
+           }
         start (::start x) ;; TODO clojure 1.6-ify
         end   (::end x)]
-    (println "SS:"  (->> (dissoc x ::table ::start ::end)
-                  (merge
-                   (generators/generate-sensor-sample (:id x))
-                   m)))
     (insert* session :sensors
              (->> (dissoc x ::table ::start ::end)
                   (merge
                    (generators/generate-sensor-sample (:id x))
                    m)))
-    (println "SS2")
     (insert* session :sensor_metadata
              (->> m
                   (merge
@@ -103,27 +100,36 @@
     (merge ctx m)))
 
 (defmethod insert :measurements [x session ctx]
-  (let [m     (select-keys ctx [:device-id type])]
-    (insert* :measurements
-             (->> (dissoc x
-                          ::table
-                          ::start
-                          ::end)
-                  (merge
-                   (generators/generate-measurements (:id x))
-                   m)))))
 
-(defn insert-seq
+  (when (contains? x :value)
+    (let [m (select-keys ctx [:device_id :type])]
+      (insert* session :measurements (->> (dissoc x ::table)
+                                          (merge
+                                           m)))
+      ))
+  ctx)
+
+(defn insert-vector
   ([xs session]
-     (insert-seq xs session {}))
+     (insert-vector xs session {}))
   ([xs session ctx]
      (loop [[x & more] xs ctx ctx]
        (when x
-         (recur more (if (vector? x)
-                       (insert-seq x session ctx)
-                       (insert x session ctx)))))))
+         (recur more (cond
+                      (vector? x) (do (println "vector")
+                                      (insert-vector x session ctx ))
+                      (seq? x) (do (println "seq:" (::prior ctx))
+                                   (doseq [y x]
+                                     (insert (merge (::prior ctx)
+                                                    y)
+                                             session
+                                             ctx)))
+                      (map? x) (do (println "map")
+                                   (insert x session (assoc ctx ::prior x)))
+                      :else (throw (ex-info (str "Invalid value " x) {}))
+                      ))))))
 
 (defn load-fixture [session fixture]
   (let [data (compile-element fixture)]
-    ;; (clojure.pprint/pprint data)
-    (insert-seq data session)))
+    (clojure.pprint/pprint data)
+    (insert-vector data session)))

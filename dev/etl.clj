@@ -447,27 +447,28 @@
   (doseq [x xs]
      (dbnew/execute session (hayt/insert table (hayt/values x)))))
 
-(defn readings [n period & more]
-  [:measurements (map #(hash-map :value %
-                                 :period period) (range n))])
+(defn readings [n]
+  (map #(hash-map :value (str %) :month 201405 :timestamp (t/date-time 2014 5 n)) (range n)))
 
 (defn load-total-kwh-sample [system]
   (dbnew/with-session [session (:hecuba-session system)]
-    (fixture/load-fixture session [:programmes.A1
-                                   [:projects.A1
-                                    [:entities.A1 {:address_street_two "A1 Flat, A1 road, A1 Town, A1 1AA"}
-                                     [:devices.D1
-                                      [:sensors.gasConsumption
+    (fixture/load-fixture session [:programmes#A1
+                                   [:projects#A1
+                                    [:entities#A1 {:address_street_two "A1 Flat, A1 road, A1 Town, A1 1AA"}
+                                     [:devices#D1
+                                      [:sensors#gasConsumption
                                        {:unit "m^3"
+                                        :period "PULSE"
                                         :etl.fixture/start (t/date-time 2014 5 1)
                                         :etl.fixture/end  (t/date-time 2014 5 1)}
-                                       (readings 100 "PULSE")]]
-                                     [:devices.D2
-                                      [:sensors.electricityConsumption
+                                       [:measurements] (readings 2)]]
+                                     [:devices#D2
+                                      [:sensors#electricityConsumption
                                        {:unit "kwh"
+                                        :period "CUMULATIVE"
                                         :etl.fixture/start (t/date-time 2014 5 1)
                                         :etl.fixture/end  (t/date-time 2014 5 1)}
-                                       (readings 100 "CUMULATIVE")]]]]])))
+                                       [:measurements (readings 2)]]]]]])))
 
 ;; To load users from .hecuba.edn: (load-user-data)
 ;; To load data from CSV files: (load-csv system)
