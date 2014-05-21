@@ -430,29 +430,46 @@
                                                       (keep identity)
                                                       (remove empty?))))))
 
+(defmulti devices-table-html (fn [devices owner] (:fetching devices)))
+(defmethod devices-table-html :fetching [devices owner]
+  (fetching-row devices))
+
+(defmethod devices-table-html :no-data [devices owner]
+  (no-data-row devices))
+
+(defmethod devices-table-html :error [devices owner]
+  (error-row devices))
+
+(defmethod devices-table-html :has-data [devices owner]
+  (let [table-id   "devices-table"
+        history    (om/get-shared owner :history)]
+    [:div.row
+     [:div.col-md-12
+      [:table {:className "table table-hover"}
+       [:thead
+        [:tr [:th "Name"] [:th "Description"] [:th "Privacy"]]]
+       [:tbody
+        (for [row (sort-by :name (:data devices))]
+          (let [{:keys [id location description privacy]} row
+                name (:name location)]
+            [:tr {:onClick (fn [_ _]
+                             (om/update! devices :selected id)
+                             (history/update-token-ids! history :devices id)
+                             (fixed-scroll-to-element "sensors-div"))
+                  :className (if (= id (:selected devices)) "success")
+                  :id (str table-id "-selected")}
+             [:td name]
+             [:td description]
+             [:td privacy]]))]]]]))
+
+(defmethod devices-table-html :default [devices owner]
+  [:div.row [:div.col-md-12]])
+
 (defn devices-table [devices owner]
   (reify
     om/IRender
     (render [_]
-      (let [table-id   "devices-table"
-            history    (om/get-shared owner :history)]
-        (html
-         [:table {:className "table table-hover"}
-          [:thead
-           [:tr [:th "Name"] [:th "Description"] [:th "Privacy"]]]
-          [:tbody
-           (for [row (sort-by :name (:data devices))]
-             (let [{:keys [id location description privacy]} row
-                   name (:name location)]
-               [:tr {:onClick (fn [_ _]
-                                (om/update! devices :selected id)
-                                (history/update-token-ids! history :devices id)
-                                (fixed-scroll-to-element "sensors-div"))
-                     :className (if (= id (:selected devices)) "success")
-                     :id (str table-id "-selected")}
-                [:td name]
-                [:td description]
-                [:td privacy]]))]])))))
+      (html (devices-table-html devices owner)))))
 
 (defn devices-div [data owner]
   (reify
@@ -469,15 +486,16 @@
         (if (and new-property-id
                  (not (= (:property-id devices) new-property-id)))
           (do
-            (om/update! devices :fetching true)
+            (om/update! devices :fetching :fetching)
             (GET (str "/4/entities/" new-property-id "/devices/")
                  {:handler  (fn [x]
                               (println "Fetching devices for property: " new-property-id)
                               (om/update! devices :fetching false)
                               (om/update! devices :data (mapv slugify-device x))
+                              (om/update! devices :fetching (if (empty? x) :no-data :has-data))
                               (om/update! devices :selected nil))
                   :error-handler (fn [{:keys [status status-text]}]
-                                   (om/update! devices :fetching false)
+                                   (om/update! devices :fetching :error)
                                    (om/update! devices :error-status status)
                                    (om/update! devices :error-text status-text))
                   ;; FIXME: This should be application/edn
@@ -505,8 +523,7 @@
                   (title-for projects)]]
             [:li [:a
                   {:onClick (back-to-properties history)}
-                  (title-for properties)]
-             " " (when (:fetching devices) [:span {:class "glyphicon glyphicon-cloud-download spinner"}])]]
+                  (title-for properties)]]]
            (om/build devices-table devices {:opts {:histkey :devices}})]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
