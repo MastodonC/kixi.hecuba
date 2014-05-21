@@ -443,7 +443,7 @@
       (let [{:keys [programmes projects properties devices active-components]} data
             history (om/get-shared owner :history)]
         (html
-         [:div.row#devices-id
+         [:div.row#devices-div
           [:div {:class (str "col-md-12 " (if (:property-id devices) "" "hidden"))}
            [:h2  "Devices"]
            [:ul {:class "breadcrumb"}
