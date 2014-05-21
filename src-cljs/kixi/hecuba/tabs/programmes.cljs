@@ -369,7 +369,9 @@
 (defn slugify-device
   "Create a user friendly slug for a device"
   [device]
-  (assoc device :slug (apply str (interpose ", " (keep identity (vector (:name device) (:description device)))))))
+  (assoc device :slug (apply str (interpose ", " (->> (vector (:name device) (:description device))
+                                                      (keep identity)
+                                                      (remove empty?))))))
 
 (defn devices-table [devices owner]
   (reify
