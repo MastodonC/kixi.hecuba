@@ -35,6 +35,22 @@ We are using Vagrant to manage dev environments.
 + ``vagrant up`` (This will download stuff the first time and will be slow, after that it will be quicker)
 + You will now have all the services required running in a virtual machine with the ports forwarded for access from your local machine
 
+### First Time Test Data
+
++ Log into the vagrant box using ``vagrant ssh``
++ Copy the contents of hecuba-schema.sql onto the box you've ssh'd
+  into using vi or similar.
++ create the test schema ``cqlsh kixi-dev -f hecuba-schema.sql``
+* Start cqlsh with the right hostname ``cqlsh kixi-dev``
+
+Back on your host machine do the following:
+
++ Start a repl in your favourite way.
++ Start the application with (go)
++ (require 'etl)
++ (etl/load-user-data) to create the users
++ (etl/load-csv system) to add some test programmes, projects, etc
+
 ## Start an EC2 instance
 
 + make sure you have foreman installed
