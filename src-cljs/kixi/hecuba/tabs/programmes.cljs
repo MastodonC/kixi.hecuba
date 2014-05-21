@@ -163,9 +163,13 @@
         (html
          [:table {:className "table table-hover"}
           [:thead
-           [:tr [:th "ID"] [:th "Organisations"] [:th "Name"] [:th "Created At"]]]
+           [:tr
+            [:th "Name"]
+            [:th "Organisations"]
+            [:th "ID"]
+            [:th "Created At"]]]
           [:tbody
-           (for [row (sort-by :id (:data programmes))]
+           (for [row (sort-by :name (:data programmes))]
              (let [{:keys [id lead-organisations name description created-at]} row]
                [:tr {:onClick (fn [_ _]
                                 (om/update! programmes :selected id)
@@ -173,7 +177,10 @@
                                 (fixed-scroll-to-element "projects-div"))
                      :className (if (= id (:selected programmes)) "success")
                      :id (str table-id "-selected")}
-                [:td id [:a {:id (str "row-" id)}]] [:td lead-organisations] [:td name] [:td created-at]]))]])))))
+                [:td name]
+                [:td lead-organisations]
+                [:td id]
+                [:td created-at]]))]])))))
 
 (defn programmes-div [data owner]
   (reify
