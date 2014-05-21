@@ -295,32 +295,50 @@
                                                         (keep identity)
                                                         (remove empty?))))))
 
+(defmulti properties-table-html (fn [properties owner] (:fetching properties)))
+(defmethod properties-table-html :fetching [properties owner]
+  [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching properties for selected project." ]]])
+
+(defmethod properties-table-html :no-data [properties owner]
+  [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data available for this selection."]]])
+
+(defmethod properties-table-html :error [properties owner]
+  [:div.row
+   [:div.col-md-12.text-center
+    [:p.lead {:style {:padding-top 30}}
+     "There has been an error. Please contact " [:a {:href "mailto:support@mastodonc.com"} "support@mastodonc.com"]]
+    [:p "Error Code: " (:error-status properties) " Message: " (:error-text properties)]]])
+
+(defmethod properties-table-html :has-data [properties owner]
+  (let [table-id "properties-table"
+        history  (om/get-shared owner :history)]
+    [:div.row
+     [:div.col-md-12
+      [:table {:className "table table-hover"}
+       [:thead
+        [:tr [:th "Property Code"] [:th "Address"] [:th "Region"] [:th "Country"]]]
+       [:tbody
+        (for [row (sort-by :address-street-two (:data properties))]
+          (let [{:keys [id property-code address-street-two address-country address-region]} row]
+            [:tr {:onClick (fn [_ _]
+                             (om/update! properties :selected id)
+                             (history/update-token-ids! history :properties id)
+                             (fixed-scroll-to-element "devices-div"))
+                  :className (if (= id (:selected properties)) "success")
+                  :id (str table-id "-selected")}
+             [:td property-code]
+             [:td address-street-two]
+             [:td address-region]
+             [:td address-country]]))]]]]))
+
+(defmethod properties-table-html :default [properties owner]
+  [:div.row [:div.col-md-12]])
+
 (defn properties-table [properties owner]
   (reify
     om/IRender
     (render [_]
-      (let [table-id   "properties-table"
-            history    (om/get-shared owner :history)]
-        (if (:fetching properties)
-          (html
-           [:p "Fetching data..."])
-          (html
-           [:table {:className "table table-hover"}
-            [:thead
-             [:tr [:th "Property Code"] [:th "Address"] [:th "Region"] [:th "Country"]]]
-            [:tbody
-             (for [row (sort-by :address-street-two (:data properties))]
-               (let [{:keys [id property-code address-street-two address-country address-region]} row]
-                 [:tr {:onClick (fn [_ _]
-                                  (om/update! properties :selected id)
-                                  (history/update-token-ids! history :properties id)
-                                  (fixed-scroll-to-element "devices-div"))
-                       :className (if (= id (:selected properties)) "success")
-                       :id (str table-id "-selected")}
-                  [:td property-code]
-                  [:td address-street-two]
-                  [:td address-region]
-                  [:td address-country]]))]]))))))
+      (html (properties-table-html properties owner)))))
 
 (defn properties-div [data owner]
   (reify
@@ -337,15 +355,15 @@
         (if (and new-project-id
                  (not (= (:project-id properties) new-project-id)))
           (do
-            (om/update! properties :fetching true)
+            (om/update! properties :fetching :fetching)
             (GET (str "/4/projects/" new-project-id "/properties/")
                  {:handler  (fn [x]
                               (println "Fetching properties for project: " new-project-id)
-                              (om/update! properties :fetching false)
                               (om/update! properties :data (mapv slugify-property x))
+                              (om/update! properties :fetching (if (empty? x) :no-data :has-data))
                               (om/update! properties :selected nil))
                   :error-handler (fn [{:keys [status status-text]}]
-                                   (om/update! properties :fetching false)
+                                   (om/update! properties :fetching :error)
                                    (om/update! properties :error-status status)
                                    (om/update! properties :error-text status-text))
                   :headers {"Accept" "application/edn"}
@@ -368,7 +386,7 @@
                   (title-for programmes)]]
             [:li [:a
                   {:onClick (back-to-projects history)}
-                  (title-for projects)] " " (when (:fetching properties) [:span {:class "glyphicon glyphicon-cloud-download spinner"}])]]
+                  (title-for projects)]]]
            (om/build properties-table properties {:opts {:histkey :properties}})]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
