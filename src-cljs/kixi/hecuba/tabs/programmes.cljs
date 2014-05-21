@@ -525,7 +525,7 @@
              (bs/panel "Average (mean)" (str (.toFixed (js/Number. series-1-mean) 3) " " unit))]
             [:div {:class "col-md-3"}
              (bs/panel "Range" (str (.toFixed (js/Number. (- series-1-max series-1-min)) 3) " " unit))]]
-           [:div.row#summary-stats [:div.col-md-12]]))))))
+           [:div.row#summary-stats [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data."]]]))))))
 
 (defn sensors-div [data owner]
   (reify
