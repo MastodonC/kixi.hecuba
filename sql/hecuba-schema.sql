@@ -1,3 +1,5 @@
+drop keyspace test;
+
 CREATE KEYSPACE test WITH replication = {
   'class': 'SimpleStrategy',
   'replication_factor': '1'

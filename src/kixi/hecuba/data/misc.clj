@@ -52,16 +52,16 @@
   or with a check older than a week."
   [querier validation-type]
   (let [last-week        (Long/parseLong (tf/unparse int-time-formatter (t/minus (t/now) (t/weeks 1))))
-        sensors-metadata (items querier :sensor-metadata)
+        sensors-metadata (items querier :sensor_metadata)
         sensors          (filter #(or (= "" (validation-type %))
                                       (<= (Long/parseLong (validation-type %)) last-week)) sensors-metadata)]
-    (map #(merge (first (items querier :sensor [[= :device-id (:device-id %)] [= :type (:type  %)]])) %) sensors)))
+    (map #(merge (first (items querier :sensor [[= :device_id (:device_id %)] [= :type (:type  %)]])) %) sensors)))
 
 (defn all-sensors
   "Given a querier, retrieves all sensors data joined with their metadata."
   [querier]
-  (let [all-sensors-metadata (items querier :sensor-metadata)]
-    (map #(merge (first (items querier :sensor [[= :device-id (:device-id %)] [= :type (:type %)]])) %) all-sensors-metadata)))
+  (let [all-sensors-metadata (items querier :sensor_metadata)]
+    (map #(merge (first (items querier :sensor [[= :device_id (:device_id %)] [= :type (:type %)]])) %) all-sensors-metadata)))
 
 (defn start-end-dates
   "Given a sensor, table and where clause, returns start and end dates for (re)calculations."
@@ -123,22 +123,22 @@
   Returns sequence of maps."
   [querier]
   (let [where [= :mislabelled "true"]]
-    (items querier :sensor-metadata where)))
+    (items querier :sensor_metadata where)))
 
 (defn reset-date-range
   "Given querier, commander, sensor, column and start/end dates, update these dates in sensor metadata."
-  [querier commander {:keys [device-id type period]} col start-date end-date]
-  (let [where               [[= :device-id device-id] [= :type type]]
-        current-metadata    (first (items querier :sensor-metadata where))
+  [querier commander {:keys [device_id type period]} col start-date end-date]
+  (let [where               [[= :device_id device_id] [= :type type]]
+        current-metadata    (first (items querier :sensor_metadata where))
         current-range       (-> current-metadata col read-string)
         current-start       (-> current-range :start (Long/parseLong))
         current-end         (-> current-range :end (Long/parseLong))]
     (when-not (and (< current-start (Long/parseLong start-date))
                    (> current-end (Long/parseLong end-date)))
-      (update! commander :sensor-metadata {col nil} where))))
+      (update! commander :sensor_metadata {col nil} where))))
 
 (defn update-date-range [commander col where t existing-range]
   (cond
-   (empty? existing-range) (update! commander :sensor-metadata {col (str {:start (str t) :end (str t)})} where)
-   (< t (Long/parseLong (:start (read-string existing-range)))) (update! commander :sensor-metadata {col (update-metadata existing-range {:start (str t)})} where)
-   (> t (Long/parseLong (:end (read-string existing-range)))) (update! commander :sensor-metadata {col (update-metadata existing-range {:end (str t)})} where)))
+   (empty? existing-range) (update! commander :sensor_metadata {col (str {:start (str t) :end (str t)})} where)
+   (< t (Long/parseLong (:start (read-string existing-range)))) (update! commander :sensor_metadata {col (update-metadata existing-range {:start (str t)})} where)
+   (> t (Long/parseLong (:end (read-string existing-range)))) (update! commander :sensor_metadata {col (update-metadata existing-range {:end (str t)})} where)))

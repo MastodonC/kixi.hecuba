@@ -14,23 +14,23 @@
   (let [request       (:request ctx)
         method        (:request-method request)
         route-params  (:route-params request)
-        entity-id     (:entity-id route-params)
-        entity        (hecuba/item querier :entity entity-id)]
+        entity_id     (:entity_id route-params)
+        entity        (hecuba/item querier :entity entity_id)]
     (case method
       :post (not (nil? entity))
-      :get (let [items (hecuba/items querier :profile [[= :entity-id entity-id]])]
+      :get (let [items (hecuba/items querier :profile [[= :entity_id entity_id]])]
              {::items items}))))
 
 (defn index-malformed? [ctx]
   (let [request (:request ctx)
         {:keys [route-params request-method]} request
-        entity-id (:entity-id route-params)]
+        entity_id (:entity_id route-params)]
     (case request-method
       :post (let [body (decode-body request)]
               ;; We need to assert a few things
               (if
                 (or
-                  (not= (:entity-id body) entity-id))
+                  (not= (:entity_id body) entity_id))
                 true                  ; it's malformed, game over
                 [false {:body body}]  ; it's not malformed, return the body now we've read it
                 ))
@@ -39,28 +39,28 @@
 (defn index-post! [commander querier ctx]
   (let [request       (-> ctx :request)
         profile       (-> ctx :body)
-        entity-id     (-> profile :entity-id)
+        entity_id     (-> profile :entity_id)
         timestamp     (-> profile :timestamp)
         [username _]  (sec/get-username-password request querier)
-        user-id       (-> (hecuba/items querier :user [[= :username username]]) first :id)
+        user_id       (-> (hecuba/items querier :user [[= :username username]]) first :id)
         ]
-    (when (and entity-id timestamp)
-      (when-not (empty? (hecuba/item querier :entity entity-id))
+    (when (and entity_id timestamp)
+      (when-not (empty? (hecuba/item querier :entity entity_id))
         {:profile-id (hecuba/upsert!
                         commander
                         :profile (-> profile
-                                     (assoc :user-id user-id)
+                                     (assoc :user_id user_id)
                                      (update-stringified-lists
-                                       [:airflow-measurements :chps
-                                        :conservatories :door-sets
-                                        :extensions :floors :heat-pumps
-                                        :heating-systems :hot-water-systems
-                                        :low-energy-lights :photovoltaics
-                                        :roof-rooms :roofs :small-hydros
-                                        :solar-thermals :storeys :thermal-images
-                                        :ventilation-systems :walls
-                                        :wind-turbines :window-sets])
-                                     (update-in [:profile-data] json/encode)
+                                       [:airflow_measurements :chps
+                                        :conservatories :door_sets
+                                        :extensions :floors :heat_pumps
+                                        :heating_systems :hot_water_systems
+                                        :low_energy_lights :photovoltaics
+                                        :roof_rooms :roofs :small_hydros
+                                        :solar_thermals :storeys :thermal_images
+                                        :ventilation_systems :walls
+                                        :wind_turbines :window_sets])
+                                     (update-in [:profile_data] json/encode)
                                      ))}))))
 
 (defn index-handle-ok [ctx]
@@ -69,26 +69,23 @@
          {routes :modular.bidi/routes
           route-params :route-params} :request} ctx]
     (util/render-items ctx (->> items
-                                (map #(dissoc % :user-id))
-                                (map #(update-in % [:thermal-images] json/decode))
+                                (map #(dissoc % :user_id))
+                                (map #(update-in % [:thermal_images] json/decode))
                                 (map #(update-in % [:storeys] json/decode))
                                 (map #(update-in % [:walls] json/decode))
-                                (map #(update-in % [:roofs] json/decode))
-                                (map util/downcast-to-json)
-                                (map util/camelify)
-                                json/encode))))
+                                (map #(update-in % [:roofs] json/decode))))))
 
 (defn index-handle-created [handlers ctx]
-  (let [{{routes :modular.bidi/routes {entity-id :entity-id} :route-params} :request
+  (let [{{routes :modular.bidi/routes {entity_id :entity_id} :route-params} :request
          profile-id :profile-id} ctx]
     (if-not (empty? profile-id)
       (let [location
             (bidi/path-for routes (:profile @handlers)
-                           :entity-id entity-id
+                           :entity_id entity_id
                            :profile-id profile-id)]
         (when-not location
           (throw (ex-info "No path resolved for Location header"
-                          {:entity-id entity-id
+                          {:entity_id entity_id
                            :profile-id profile-id})))
         (ring-response {:headers {"Location" location}
                         :body (json/encode {:location location
@@ -98,7 +95,7 @@
                       :body "Provide valid entityId and timestamp."}))))
 
 (defn resource-exists? [querier ctx]
-  (let [{{{:keys [entity-id profile-id]} :route-params} :request} ctx
+  (let [{{{:keys [entity_id profile-id]} :route-params} :request} ctx
         item (hecuba/item querier :profile profile-id)]
     (if-not (empty? item)
       {::item (-> item
@@ -108,25 +105,25 @@
 
 (defn resource-delete-enacted? [commander ctx]
   (let [{item ::item} ctx
-        device-id (:device-id item)
-        entity-id (:entity-id item)
-        response1 (hecuba/delete! commander :device [[= :id device-id]])
-        response2 (hecuba/delete! commander :sensor [[= :device-id device-id]])
-        response3 (hecuba/delete! commander :sensor-metadata [[= :device-id device-id]])
-        response4 (hecuba/delete! commander :entity {:devices device-id} [[= :id entity-id]])]
+        device_id (:device_id item)
+        entity_id (:entity_id item)
+        response1 (hecuba/delete! commander :device [[= :id device_id]])
+        response2 (hecuba/delete! commander :sensor [[= :device_id device_id]])
+        response3 (hecuba/delete! commander :sensor_metadata [[= :device_id device_id]])
+        response4 (hecuba/delete! commander :entity {:devices device_id} [[= :id entity_id]])]
     (every? empty? [response1 response2 response3 response4])))
 
 (defn resource-put! [commander querier ctx]
   (let [{request :request} ctx]
     (if-let [item (::item ctx)]
       (let [body          (decode-body request)
-            entity-id     (-> item :entity-id)
+            entity_id     (-> item :entity_id)
             [username _]  (sec/get-username-password request querier)
-            user-id       (-> (hecuba/items querier :user [[= :username username]]) first :id)
+            user_id       (-> (hecuba/items querier :user [[= :username username]]) first :id)
             profile-id     (-> item :profile-id)]
         (hecuba/upsert! commander :profile (-> body
                                                (assoc :id profile-id)
-                                               (assoc :user-id user-id)
+                                               (assoc :user_id user_id)
                                                ;; TODO: add storeys, walls, etc.
                                                stringify-values)))
       (ring-response {:status 404 :body "Please provide valid entityId and timestamp"}))))
@@ -134,11 +131,7 @@
 (defn resource-handle-ok [querier ctx]
   (let [{item ::item} ctx]
     (-> item
-        (dissoc :user-id)
-        ;; TODO add storeys, walls, etc.
-        util/downcast-to-json
-        util/camelify
-        json/encode)))
+        (dissoc :user_id))))
 
 (defn resource-respond-with-entity [ctx]
   (let [request (:request ctx)

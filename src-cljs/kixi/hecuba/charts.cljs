@@ -36,29 +36,29 @@
 (defn get-measurements [data sensors start-date end-date]
   (when (and start-date end-date (not (empty? sensors)))
     (doseq [sensor sensors]
-      (let [[device-id type entity-id] (str/split sensor #"-")
+      (let [[device_id type entity_id] (str/split sensor #"-")
             resource (case (interval start-date end-date)
                        :raw "measurements"
-                       :hourly-rollups "hourly_rollups"
-                       :daily-rollups "daily_rollups")
-            url      (str "/4/entities/" entity-id "/devices/" device-id "/" resource "/" type "?startDate="
+                       :hourly_rollups "hourly_rollups"
+                       :daily_rollups "daily_rollups")
+            url      (str "/4/entities/" entity_id "/devices/" device_id "/" resource "/" type "?startDate="
                           start-date "&endDate=" end-date)
-            sensor (str/join "-" [device-id type])]
+            sensor (str/join "-" [device_id type])]
         
         (GET url {:handler #(om/update! data [:chart :measurements]
                                         (concat (:measurements (:chart @data))
                                                 (into []
                                                       (map (fn [m] 
-                                                             (assoc m "sensor" sensor "entity-id" entity-id)) 
+                                                             (assoc m "sensor" sensor "entity_id" entity_id)) 
                                                            (get % "measurements")))))})))))
 
 (defmulti update-measurements (fn [data checked] (:selection-key checked)))
 
 (defmethod update-measurements :properties [data {:keys [checked new-selected]}]
-  (om/update! data [:chart :measurements] (remove #(= (get % "entity-id") new-selected) (:measurements (:chart @data))))
+  (om/update! data [:chart :measurements] (remove #(= (get % "entity_id") new-selected) (:measurements (:chart @data))))
   ;; TODO Clears sensors belonging to deselected property - there must be a better way of doing this.
-  (let [sensors-to-keep (into #{} (remove (fn [s] (let [[device-id type entity-id] (str/split s #"-")]
-                                                    (= new-selected entity-id))) (:sensors (:selected @data))))]
+  (let [sensors-to-keep (into #{} (remove (fn [s] (let [[device_id type entity_id] (str/split s #"-")]
+                                                    (= new-selected entity_id))) (:sensors (:selected @data))))]
     (om/update! data [:selected :sensors]  sensors-to-keep)
     (om/update! data [:chart :sensors] sensors-to-keep)))
 
@@ -75,13 +75,13 @@
           start-date (:start-date (:range chart))
           end-date   (:end-date (:range chart))]
       (get-measurements data sensors start-date end-date))
-    (let [[device-id type entity-id] (str/split new-selected #"-")
-          sensor                     (str/join "-" [device-id type])]
+    (let [[device_id type entity_id] (str/split new-selected #"-")
+          sensor                     (str/join "-" [device_id type])]
       (om/update! data [:chart :measurements] (remove #(= (get % "sensor") sensor) (:measurements (:chart @data)))))))
 
 (defn- select-sensor [data history value]
-  (let [[device-id type unit entity-id] (str/split value #"-")
-        new-sensor                      (str/join "-" [device-id type entity-id])
+  (let [[device_id type unit entity_id] (str/split value #"-")
+        new-sensor                      (str/join "-" [device_id type entity_id])
         current-unit                    (-> @data :chart :unit)]
 
     (if (or (empty? current-unit) (= current-unit unit))
@@ -90,7 +90,7 @@
         (om/update! data [:chart :sensors] (:sensors (:selected @data)))
         (om/update! data [:chart :unit] unit)
         (om/update! data [:sensors :data] (into [] (map (fn [s]
-                                                          (if (and (= (:device-id s) device-id)
+                                                          (if (and (= (:device_id s) device_id)
                                                                    (= (:type s) type))
                                                             (assoc-in s [:checked] true)
                                                             s)) (:data (:sensors @data)))))
@@ -101,14 +101,14 @@
       (om/update! data [:chart :message] "Selected sensors must be of the same unit."))))
 
 (defn- deselect-sensor [data history value]
-  (let [[device-id type unit entity-id] (str/split value #"-")
-        new-sensor                      (str/join "-" [device-id type entity-id])]
+  (let [[device_id type unit entity_id] (str/split value #"-")
+        new-sensor                      (str/join "-" [device_id type entity_id])]
        (om/update! data [:selected :sensors] (disj (:sensors (:selected @data)) new-sensor))
        (om/update! data [:chart :sensors] (:sensors (:selected @data)))
        (om/update! data [:chart :message] "")
        (update-measurements data {:selection-key :sensors :checked false :new-selected new-sensor})
        (om/update! data [:sensors :data] (into [] (map (fn [s]
-                                                         (if (and (= (:device-id s) device-id)
+                                                         (if (and (= (:device_id s) device_id)
                                                                   (= (:type s) type))
                                                            (assoc-in s [:checked] false)
                                                            s)) (:data (:sensors @data)))))
@@ -125,16 +125,16 @@
                                 (merge {:id k} (reader/read-string v))) (reader/read-string devices)))
         new-sensors    (mapcat (fn [device]
                                  (map (fn [reading]
-                                        (let [device-id (:id device)
+                                        (let [device_id (:id device)
                                               type      (get reading "type")
-                                              entity-id (:entity-id device)]
-                                          {:device-id device-id
+                                              entity_id (:entity_id device)]
+                                          {:device_id device_id
                                            :type type
-                                           :entity-id entity-id
+                                           :entity_id entity_id
                                            :unit (get reading "unit")
                                            :description (:description device)
                                            :checked (should-be-checked? data
-                                                                        (str/join "-" [device-id type entity-id]))}
+                                                                        (str/join "-" [device_id type entity_id]))}
                                           )) (:readings device))) new-devices)]
     (om/update! data [:properties :data] (into [] (map (fn [p]
                                                          (if (= (:id p) value)
@@ -153,7 +153,7 @@
   ;; TOFIX history clears everything below the updated element, which does not work with multiple selections. need to modify history component to support that. in the meantime history is (re)set on each selection
   (history/update-token-ids! history :properties (str/join ";" (:properties (:selected @data))))
   (history/update-token-ids! history :sensors (str/join ";" (:sensors (:selected @data))))
-  (om/update! data [:sensors :data] (remove #(= (:entity-id %) value) (:data (:sensors @data))))
+  (om/update! data [:sensors :data] (remove #(= (:entity_id %) value) (:data (:sensors @data))))
   (om/update! data [:chart :sensors] (:sensors (:selected @data)))
   (when (empty? (-> @data :selected :sensors))
     (om/update! data [:chart :unit] "")
@@ -209,8 +209,8 @@
     (update-measurements data {:selection-key :range :checked nil})))
 
 (defn update-chart-sensors [data history new-selected checked]
-  (let [[device-id type unit entity-id] (str/split new-selected #"-")
-        new-sensor                      (str/join "-" [device-id type entity-id])
+  (let [[device_id type unit entity_id] (str/split new-selected #"-")
+        new-sensor                      (str/join "-" [device_id type entity_id])
         current-unit                    (:unit (:chart @data))]
 
     (om/update! data [:selected :sensors] ((if checked conj disj) (:sensors (:selected @data)) new-sensor))
@@ -221,7 +221,7 @@
       (do
         (om/update! data [:chart :unit] unit)
         (om/update! data [:sensors :data] (into [] (map (fn [s]
-                                                          (if (and (= (:device-id s) device-id)
+                                                          (if (and (= (:device_id s) device_id)
                                                                    (= (:type s) type))
                                                             (assoc-in s [:checked] checked)
                                                             s)) (:data (:sensors @data)))))
@@ -242,16 +242,16 @@
                                 (merge {:id k} (reader/read-string v))) (reader/read-string (:devices new-property)))
           new-sensors    (mapcat (fn [device]
                                    (map (fn [reading]
-                                          (let [device-id (:id device)
+                                          (let [device_id (:id device)
                                                 type      (get reading "type")
-                                                entity-id (:entity-id device)]
-                                            {:device-id device-id
+                                                entity_id (:entity_id device)]
+                                            {:device_id device_id
                                              :type type
-                                             :entity-id entity-id
+                                             :entity_id entity_id
                                              :unit (get reading "unit")
                                              :description (:description device)
                                              :checked (should-be-checked? data
-                                                       (str/join "-" [device-id type entity-id]))}
+                                                       (str/join "-" [device_id type entity_id]))}
                                             )) (:readings device))) new-devices)]
       (om/update! data [:sensors :data] (concat (:data (:sensors @data)) new-sensors))
       (om/update! data [:selected :properties] (conj (:properties (:selected @data)) new-selected))
@@ -259,7 +259,7 @@
     (do
       (om/update! data [:selected :properties] (disj (:properties (:selected @data)) new-selected))
       (history/update-token-ids! history :properties (str/join "&" (:properties (:selected @data))))
-      (om/update! data [:sensors :data] (remove #(= (:entity-id %) new-selected) (:data (:sensors @data))))))
+      (om/update! data [:sensors :data] (remove #(= (:entity_id %) new-selected) (:data (:sensors @data))))))
 
   (om/update! data [:properties :data] (into []
                                              (map (fn [p]

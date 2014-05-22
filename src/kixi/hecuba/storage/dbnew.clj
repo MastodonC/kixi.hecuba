@@ -1,13 +1,12 @@
 (ns kixi.hecuba.storage.dbnew
-    "Implementations of commander and querier."
-  (:require  [camel-snake-kebab :refer (->snake_case_keyword ->kebab-case-keyword ->camelCaseString ->snake_case_string)]
-             [qbits.alia :as alia]
-             [qbits.hayt :as hayt]
-             [qbits.alia.codec.joda-time] ; necessary to get the codec installed.
-             [kixi.hecuba.hash :refer (sha1)]
-             [kixi.hecuba.protocols :as hecuba]
-             [com.stuartsierra.component :as component]
-             [clojure.tools.logging :as log]))
+  "Implementations of commander and querier."
+  (:require [qbits.alia :as alia]
+            [qbits.hayt :as hayt]
+            [qbits.alia.codec.joda-time] ; necessary to get the codec installed.
+            [kixi.hecuba.hash :refer (sha1)]
+            [kixi.hecuba.protocols :as hecuba]
+            [com.stuartsierra.component :as component]
+            [clojure.tools.logging :as log]))
 
 (require 'qbits.alia.codec.joda-time)
 
@@ -16,10 +15,6 @@
 ;
 ; mpenet thinks this might cause performance problems
 (extend-protocol qbits.hayt.cql/CQLEntities
-   clojure.lang.Keyword
-   (cql-identifier [x] (if (= x :*)
-                         "*"
-                         (->snake_case_string x)))
    org.joda.time.ReadableInstant
    (cql-value [x]
      (.getMillis x)))
@@ -47,25 +42,6 @@
   (let [raw-cql (hayt/->raw x)]
     (log/log 'kixi.hecuba.storage.db.CQL :debug  nil raw-cql)
     raw-cql))
-
-(defn- to-clj
-  "Convert to kebab form after reading from Cassandra."
-  [payload]
-  (when payload
-    (reduce-kv (fn [s k v]
-                 (try
-                   (conj s [(->kebab-case-keyword k)
-                            (str v)])
-                   (catch Exception e (do (println "exception on keyword: " k v) s))
-                   )) {} payload)))
-
-(defmulti ->clj #(if (seq? %) :multiple :single))
-
-(defmethod ->clj :multiple [xs]
-  (map to-clj xs))
-
-(defmethod ->clj :single [x]
-  (to-clj x))
 
 (defrecord CassandraSession [opts]
   component/Lifecycle

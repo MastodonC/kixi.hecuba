@@ -8,7 +8,7 @@
 
 (defn measurements-trigger [q commander querier]
   (go (loop [msg (<! q)]
-        (v/update-sensor-metadata msg commander querier)
+        (v/update-sensor_metadata msg commander querier)
         (recur (<! q)))))
 
 (defn configure-triggers [queue commander querier]

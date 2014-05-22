@@ -164,9 +164,9 @@
                        (merge {:id k} (reader/read-string v))) payload)]
     (map (fn [device] (into {}
                             (map (fn [reading] 
-                                   {:device-id (:id device)
+                                   {:device_id (:id device)
                                     :type (get reading "type")
-                                    :entity-id (:entity-id device)
+                                    :entity_id (:entity_id device)
                                     :unit (get reading "unit")
                                     :description (:description device)}) (:readings device)))) devices)))
 
@@ -174,14 +174,14 @@
   (fn [the-item owner]
     (om/component
      (let [type      (get the-item :type)
-           device-id (get the-item :device-id)
-           entity-id (get the-item :entity-id)
+           device_id (get the-item :device_id)
+           entity_id (get the-item :entity_id)
            unit      (get the-item :unit)
            history   (om/get-shared owner :history)]
        (dom/tr #js {:className "gradeA" :width "100%" :style (if (:hidden the-item) #js {:display "none"} {})} 
                (dom/td nil type)
-               (dom/td nil device-id)
-               (dom/td nil entity-id)
+               (dom/td nil device_id)
+               (dom/td nil entity_id)
                (dom/td nil unit)
                (dom/td nil (dom/div #js {:className "checkbox"}
                                     (dom/input
@@ -191,7 +191,7 @@
                                           :onChange
                                           (fn [e]
                                             (let [checked   (= (.. e -target -checked) true)
-                                                  new-id    (string/join "-" [device-id type unit entity-id])]
+                                                  new-id    (string/join "-" [device_id type unit entity_id])]
 
                                               (put! selection {:checked checked
                                                                :selection-key :sensors

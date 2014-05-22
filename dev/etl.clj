@@ -1,6 +1,5 @@
 (ns etl
-  (:require [camel-snake-kebab :refer (->camelCaseString)]
-            [cheshire.core :refer (encode)]
+  (:require [cheshire.core :refer (encode)]
             [clj-time.coerce :as tc]
             [clj-time.core :as t]
             [clj-time.format :as tf]
@@ -31,39 +30,39 @@
 
 (def custom-formatter (tf/formatter "yyyy-MM-dd'T'HH:mm:ss.SSSZ"))
 
-(defn difference-series-batch
+(defn difference_series-batch
   "Retrieves all sensors that need to have difference series calculated and performs calculations."
   [commander querier item]
   (let [sensors (m/all-sensors querier)]
     (doseq [s sensors]
-      (let [device-id (:device-id s)
+      (let [device_id (:device_id s)
             type      (:type s)
             period    (:period s)
-            where     {:device-id device-id :type type}
-            range     (m/start-end-dates :difference-series s where)
+            where     {:device_id device_id :type type}
+            range     (m/start-end-dates :difference_series s where)
             new-item  (assoc item :sensor s :range range)]
         (when range
-          (calc/difference-series commander querier new-item)
-          (m/reset-date-range querier commander s :difference-series (:start-date range) (:end-date range)))))))
+          (calc/difference_series commander querier new-item)
+          (m/reset-date-range querier commander s :difference_series (:start-date range) (:end-date range)))))))
 
 (defn rollups
   "Retrieves all sensors that need to have hourly measurements rolled up and performs calculations."
   [commander querier item]
   (let [sensors (m/all-sensors querier)]
     (doseq [s sensors]
-      (let [device-id  (:device-id s)
+      (let [device_id  (:device_id s)
             type       (:type s)
             period     (:period s)
             table      (case period
-                         "CUMULATIVE" :difference-series
+                         "CUMULATIVE" :difference_series
                          "INSTANT"    :measurement
                          "PULSE"      :measurement)
-            where      {:device-id device-id :type type}
+            where      {:device_id device_id :type type}
             range      (m/start-end-dates :rollups s where)
             new-item   (assoc item :sensor s :range range)]
         (when range
-          (calc/hourly-rollups commander querier new-item)
-          (calc/daily-rollups commander querier new-item)
+          (calc/hourly_rollups commander querier new-item)
+          (calc/daily_rollups commander querier new-item)
           (m/reset-date-range querier commander s :rollups (:start-date range) (:end-date range)))))))
 
 (defn post-resource [post-uri content-type data]
@@ -81,7 +80,7 @@
     (when (>= (:status response) 400)
       (println "Error status returned on HTTP request")
       (pprint response)
-      (throw (ex-info (format "Failed to post resource, status is %d" (:status response)) {})))
+      (throw (ex-info (format "Failed to post resource, status is %d, body is %s" (:status response) (:body response)) {})))
     response))
 
 (defn extract-data
@@ -108,22 +107,22 @@
                              programme)
                   location (get-in response [:headers :location])
                   _ (assert location)
-                  programme-id (get-in (match-route routes location) [:params :programme-id])]
+                  programme_id (get-in (match-route routes location) [:params :programme_id])]
 
-              [id programme-id]
+              [id programme_id]
               )))))
 
 (defn load-project-data
-  [data {:keys [host port routes handlers programme-id-map]}]
+  [data {:keys [host port routes handlers programme_id-map]}]
   ;;(assert handler "Warning! no handler found")
   (into {}
         (for [project data]
           (let [id (:id project)
                 ;; TODO Should we turn CSV keys into kebab form?
-                programme-id (get programme-id-map (:programme_id project))
+                programme_id (get programme_id-map (:programme_id project))
 
-                path (if programme-id
-                       (path-for routes (:projects handlers) :programme-id programme-id)
+                path (if programme_id
+                       (path-for routes (:projects handlers) :programme_id programme_id)
                        (path-for routes (:allprojects handlers)))
 
                 response (post-resource
@@ -131,26 +130,26 @@
                            "application/edn"
                            ;; We have to update the simple numeric id
                            ;; with the generated sha1 id
-                           (assoc project :programme_id programme-id))
+                           (assoc project :programme_id programme_id))
 
                 location (get-in response [:headers :location])
-                project-id (get-in (match-route routes location) [:params :project-id])]
+                project_id (get-in (match-route routes location) [:params :project_id])]
 
-            [id project-id]
+            [id project_id]
             ))))
 
 (defn load-entity-data
-  [data {:keys [host port routes handlers project-id-map]}]
+  [data {:keys [host port routes handlers project_id-map]}]
   (into {}
         (for [entity data]
           (do
             (let [id (:id entity)
                   ;; TODO Should we turn CSV keys into kebab form?
-                  project-id (get project-id-map (:project_id entity))
-                  property-code (-> entity :uuid)
+                  project_id (get project_id-map (:project_id entity))
+                  property_code (-> entity :uuid)
 
-                  path (if project-id
-                         (path-for routes (:entities handlers) :project-id project-id)
+                  path (if project_id
+                         (path-for routes (:entities handlers) :project_id project_id)
                          (path-for routes (:allentities handlers)))
 
                   response (post-resource
@@ -160,21 +159,13 @@
                             ;; with the generated sha1 id
                             (-> entity
                                 (dissoc :uuid)
-                                (assoc :project-id project-id :property-code property-code)))
+                                (assoc :project_id project_id :property_code property_code)))
 
                   location (get-in response [:headers :location])
-                  entity-id (get-in (match-route routes location) [:params :entity-id])]
+                  entity_id (get-in (match-route routes location) [:params :entity_id])]
 
-              [id entity-id]
+              [id entity_id]
               )))))
-
-(defn jsonify [x]
-  (reduce-kv
-   (fn [s k v]
-     (conj s
-           [(->camelCaseString k)
-            v]))
-   {} x))
 
 ;; Loads data from CSV exports from MySQL database. Usage: (load-csv system)
 (defn load-csv [system]
@@ -197,7 +188,7 @@
                                         :port port
                                         :routes routes
                                         :handlers (-> system :amon-api :handlers)
-                                        :programme-id-map programme-map}))]
+                                        :programme_id-map programme-map}))]
 
         (let [entity-map
               (as-> (extract-data (io/file (-> config :etl :data-directory)) "properties.csv") %
@@ -209,31 +200,31 @@
                                          :port port
                                          :routes routes
                                          :handlers (-> system :amon-api :handlers)
-                                         :project-id-map project-map}))]
+                                         :project_id-map project-map}))]
 
           ;; We'll create the device here.
           ;; Let's find a nice property
 
 
-          (let [entity-id (get entity-map "64")]
-            (doseq [device (generators/generate-device-sample entity-id 3)]
+          (let [entity_id (get entity-map "64")]
+            (doseq [device (generators/generate-device-sample entity_id 3)]
               (let [sensors (generators/generate-sensor-sample "CUMULATIVE" 3)
 
                     response
                     (post-resource
                      (format "http://%s:%d%s" host port
                              (path-for (-> system :bidi-ring-handler :routes)
-                                       (-> system :amon-api :handlers :devices) :entity-id entity-id))
+                                       (-> system :amon-api :handlers :devices) :entity_id entity_id))
                      "application/json"
 
 
-                     (jsonify (-> device
-                                  (assoc :readings (map jsonify sensors)) ; TODO: make jsonify deep, then won't need to call it here
-                                  (dissoc :device-id) ; Don't need device-id, it gets generated by liberator
-                                  )))
-                    ;; Take location, parse out entity-id and device-id
+                     (-> device
+                         (assoc :readings sensors)
+                         (dissoc :device_id) ; Don't need device_id, it gets generated by liberator
+                         ))
+                    ;; Take location, parse out entity_id and device_id
                     location (get-in response [:headers :location])
-                    ;; Use entity-id and device-id to get measurements URL
+                    ;; Use entity_id and device_id to get measurements URL
                     measurements-uri (apply path-for routes (-> system :amon-api :handlers :measurements)
                                             (apply concat (:params (match-route routes location))))
                     ]
@@ -244,34 +235,33 @@
                 (let [response
                       (post-resource (format "http://%s:%d%s" host port measurements-uri)
                                      "application/json"
-                                     (jsonify {:measurements
-                                               (map
-                                                (fn [x] (update-in x [:timestamp] #(tf/unparse custom-formatter  (clj-time.coerce/from-date %))))
-                                                (mapcat generators/measurements sensors))}))]
+                                     {:measurements
+                                      (map
+                                       (fn [x] (update-in x [:timestamp] #(tf/unparse custom-formatter  (clj-time.coerce/from-date %))))
+                                       (mapcat generators/measurements sensors))})]
                   )
 
                 )))
 
           ;;;;; Insert measurements with readings above median ;;;;;;
 
-          (let [entity-id (get entity-map "33")] ;; Woodbine Cottage
-            (doseq [device (generators/generate-device-sample entity-id 3)]
+          (let [entity_id (get entity-map "33")] ;; Woodbine Cottage
+            (doseq [device (generators/generate-device-sample entity_id 3)]
               (let [sensors (generators/generate-sensor-sample "INSTANT" 3)
 
                     response
                     (post-resource
                      (format "http://%s:%d%s" host port
                              (path-for (-> system :bidi-ring-handler :routes)
-                                       (-> system :amon-api :handlers :devices) :entity-id entity-id))
+                                       (-> system :amon-api :handlers :devices) :entity_id entity_id))
                      "application/json"
 
-                     (jsonify (-> device
-                                  (assoc :readings (map jsonify sensors)) ; TODO: make jsonify deep, then won't need to call it here
-                                  (dissoc :device-id) ; Don't need device-id, it gets generated by liberator
-                                  )))
-                    ;; Take location, parse out entity-id and device-id
+                     (-> device
+                         (assoc :readings sensors)
+                         (dissoc :device_id)))
+                    ;; Take location, parse out entity_id and device_id
                     location (get-in response [:headers :location])
-                    ;; Use entity-id and device-id to get measurements URL
+                    ;; Use entity_id and device_id to get measurements URL
                     measurements-uri (apply path-for routes (-> system :amon-api :handlers :measurements)
                                             (apply concat (:params (match-route routes location))))
                     ]
@@ -282,16 +272,16 @@
                 (let [response
                       (post-resource (format "http://%s:%d%s" host port measurements-uri)
                                      "application/json"
-                                     (jsonify {:measurements
-                                               (map
-                                                (fn [x] (update-in x [:timestamp] #(tf/unparse custom-formatter (clj-time.coerce/from-date %))))
-                                                (mapcat generators/generate-measurements-above-median sensors))}))]))))
+                                     {:measurements
+                                      (map
+                                       (fn [x] (update-in x [:timestamp] #(tf/unparse custom-formatter (clj-time.coerce/from-date %))))
+                                       (mapcat generators/generate-measurements-above-median sensors))})]))))
 
 
           ;;;;; Insert  measurements ;;;;;;
 
-          (let [entity-id (get entity-map "38")] ;; Willow Cottage
-            (doseq [device (generators/generate-device-sample entity-id 1)]
+          (let [entity_id (get entity-map "38")] ;; Willow Cottage
+            (doseq [device (generators/generate-device-sample entity_id 1)]
               (let [sensors1 (generators/generate-sensor-sample "CUMULATIVE" 2)
                     sensors2 (generators/generate-sensor-sample "PULSE" 1)
                     sensors3 (generators/generate-sensor-sample "INSTANT" 3)
@@ -300,11 +290,11 @@
                     response1
                     (post-resource (format "http://%s:%d%s" host port
                                            (path-for (-> system :bidi-ring-handler :routes)
-                                                     (-> system :amon-api :handlers :devices) :entity-id entity-id))
+                                                     (-> system :amon-api :handlers :devices) :entity_id entity_id))
                                    "application/json"
-                                   (jsonify (-> device
-                                                (assoc :readings (map jsonify sensors1))
-                                                (dissoc :device-id))))
+                                   (-> device
+                                       (assoc :readings sensors1)
+                                       (dissoc :device_id)))
                     location1 (get-in response1 [:headers :location])
                     measurements-uri1 (apply path-for routes (-> system :amon-api :handlers :measurements)
                                              (apply concat (:params (match-route routes location1))))
@@ -312,11 +302,11 @@
                     ;; Errored measurements
                     response2 (post-resource (format "http://%s:%d%s" host port
                                                      (path-for (-> system :bidi-ring-handler :routes)
-                                                               (-> system :amon-api :handlers :devices) :entity-id entity-id))
+                                                               (-> system :amon-api :handlers :devices) :entity_id entity_id))
                                              "application/json"
-                                             (jsonify (-> device
-                                                          (assoc :readings (map jsonify sensors2))
-                                                          (dissoc :device-id))))
+                                             (-> device
+                                                 (assoc :readings sensors2)
+                                                 (dissoc :device_id)))
                     location2 (get-in response2 [:headers :location])
                     measurements-uri2 (apply path-for routes (-> system :amon-api :handlers :measurements)
                                              (apply concat (:params (match-route routes location2))))
@@ -324,11 +314,11 @@
                     ;; Instant measurements
                     response3 (post-resource (format "http://%s:%d%s" host port
                                                      (path-for (-> system :bidi-ring-handler :routes)
-                                                               (-> system :amon-api :handlers :devices) :entity-id entity-id))
+                                                               (-> system :amon-api :handlers :devices) :entity_id entity_id))
                                              "application/json"
-                                             (jsonify (-> device
-                                                          (assoc :readings (map jsonify sensors3))
-                                                          (dissoc :device-id))))
+                                             (-> device
+                                                 (assoc :readings sensors3)
+                                                 (dissoc :device_id)))
                     location3 (get-in response3 [:headers :location])
                     measurements-uri3 (apply path-for routes (-> system :amon-api :handlers :measurements)
                                              (apply concat (:params (match-route routes location3))))
@@ -339,31 +329,31 @@
                 (let [response1
                       (post-resource (format "http://%s:%d%s" host port measurements-uri1)
                                      "application/json"
-                                     (jsonify {:measurements
-                                               (map
-                                                (fn [x] (update-in x [:timestamp] #(tf/unparse custom-formatter (clj-time.coerce/from-date %))))
-                                                (mapcat generators/mislabelled-measurements sensors1))}))
+                                     {:measurements
+                                      (map
+                                       (fn [x] (update-in x [:timestamp] #(tf/unparse custom-formatter (clj-time.coerce/from-date %))))
+                                       (mapcat generators/mislabelled-measurements sensors1))})
                       response2
                       (post-resource (format "http://%s:%d%s" host port measurements-uri2)
                                      "application/json"
-                                     (jsonify {:measurements
-                                               (map
-                                                (fn [x] (update-in x [:timestamp] #(tf/unparse custom-formatter (clj-time.coerce/from-date %))))
-                                                (mapcat generators/generate-invalid-measurements sensors2))}))
+                                     {:measurements
+                                      (map
+                                       (fn [x] (update-in x [:timestamp] #(tf/unparse custom-formatter (clj-time.coerce/from-date %))))
+                                       (mapcat generators/generate-invalid-measurements sensors2))})
 
                       response3
                       (post-resource (format "http://%s:%d%s" host port measurements-uri3)
                                      "application/json"
-                                     (jsonify {:measurements
-                                               (map
-                                                (fn [x] (update-in x [:timestamp] #(tf/unparse custom-formatter (clj-time.coerce/from-date %))))
-                                                (mapcat generators/measurements sensors3))}))
+                                     {:measurements
+                                      (map
+                                       (fn [x] (update-in x [:timestamp] #(tf/unparse custom-formatter (clj-time.coerce/from-date %))))
+                                       (mapcat generators/measurements sensors3))})
 
                       ]))))))
       (let [commander (-> system :store :commander)
             querier   (-> system :store :querier)]
 
-        (difference-series-batch commander querier {})
+        (difference_series-batch commander querier {})
         (rollups commander querier {})))
     (catch Exception e
       (log/error e "ETL failed:"))))
@@ -391,42 +381,42 @@
   [t] (.parse (java.text.SimpleDateFormat.  "yyyy-MM-dd HH:mm:ssZ") t))
 
 (defn load-sensor-sample [system]
-  (let [programme-id "2312312314"
-        project-id "32523453"
+  (let [programme_id "2312312314"
+        project_id "32523453"
         property-id "34653464"
-        device-id "fe5ab5bf19a7265276ffe90e4c0050037de923e2"]
+        device_id "fe5ab5bf19a7265276ffe90e4c0050037de923e2"]
    (dbnew/with-session [session (:hecuba-session system)]
 
      (dbnew/execute session
                     (hayt/insert :programmes
-                                 (hayt/values {:id programme-id
+                                 (hayt/values {:id programme_id
                                                :name "AAA_Calculated_Test Programme"})))
      (dbnew/execute session
                     (hayt/insert :projects
-                                 (hayt/values {:id project-id
+                                 (hayt/values {:id project_id
                                                :name "AAA_Calculated_Test Project"
-                                               :programme_id programme-id
+                                               :programme_id programme_id
                                                })))
      (dbnew/execute session
                     (hayt/insert :entities
                                  (hayt/values {:id property-id
                                                :name "AAA_Calculated_Test Properties"
                                                :address_street_two "A1 Flat, A1 road, A1 Town, A1 1AA"
-                                               :project_id project-id})))
+                                               :project_id project_id})))
      (dbnew/execute session
                     (hayt/insert :devices
-                                 (hayt/values {:id device-id
+                                 (hayt/values {:id device_id
                                                :name "AAA_Calculated_Test Device"
                                                :entity_id property-id})))
      (dbnew/execute session
                     (hayt/insert :sensors
-                                 (hayt/values {:device_id device-id
+                                 (hayt/values {:device_id device_id
                                                :period "PULSE"
                                                :unit "m^3"
                                                :type "gasConsumption"})))
      (dbnew/execute session
                     (hayt/insert :sensor_metadata
-                                 (hayt/values {:device_id device-id
+                                 (hayt/values {:device_id device_id
                                                :lower_ts (.getMillis (t/date-time 2014 1))
                                                :upper_ts (.getMillis (t/date-time 2014 2))
                                                :rollups "{:start \"20140101000000\", :end \"20140201000000\"}"

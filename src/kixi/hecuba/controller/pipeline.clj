@@ -13,9 +13,9 @@
         data-quality-q        (new-queue {:name "data-quality-q" :queue-size 50})
         median-calculation-q  (new-queue {:name "median-calculation-q" :queue-size 50})
         mislabelled-sensors-q (new-queue {:name "mislabelled-sensors-q" :queue-size 50})
-        difference-series-q   (new-queue {:name "difference-series-q" :queue-size 50})
+        difference_series-q   (new-queue {:name "difference_series-q" :queue-size 50})
         rollups-q             (new-queue {:name "rollups-q" :queue-size 50})
-        spike-check-q         (new-queue {:name "spike-check-q" :queue-size 50})
+        spike_check-q         (new-queue {:name "spike_check-q" :queue-size 50})
         synthetic-readings-q  (new-queue {:name "synthetic-readings-q" :queue-size 50})
         resolution-q          (new-queue {:name "resolution-q" :queue-size 50})
         diff-series-res-q     (new-queue {:name "diff-series-res-q" :queue-size 50})
@@ -27,10 +27,10 @@
           :data-quality (condp = type
                           :median-calculation  (produce-item item median-calculation-q)
                           :mislabelled-sensors (produce-item item mislabelled-sensors-q)
-                          :spike-check         (produce-item item spike-check-q)
+                          :spike_check         (produce-item item spike_check-q)
                           :resolution          (produce-item item resolution-q))
           :calculated-datasets (condp = type
-                                 :difference-series  (produce-item item difference-series-q)
+                                 :difference_series  (produce-item item difference_series-q)
                                  :rollups            (produce-item item rollups-q)
                                  :synthetic-readings (produce-item item synthetic-readings-q)
                                  :diff-series-res    (produce-item item diff-series-res-q)
@@ -40,100 +40,100 @@
       (log/info "Starting median calculation.")
       (let [sensors (misc/all-sensors querier)]
         (doseq [s sensors]
-          (let [device-id (:device-id s)
+          (let [device_id (:device_id s)
                 type      (:type s)
                 period    (:period s)
-                where     {:device-id device-id :type type}
+                where     {:device_id device_id :type type}
                 table     (case period
-                            "CUMULATIVE" :difference-series
+                            "CUMULATIVE" :difference_series
                             "INSTANT"    :measurement
                             "PULSE"      :measurement)
-                range     (misc/start-end-dates :median-calc-check s where)
+                range     (misc/start-end-dates :median_calc_check s where)
                 new-item  (assoc item :sensor s :range range)]
             (when (and range (not= period "PULSE"))
               (checks/median-calculation commander querier table new-item)
-              (misc/reset-date-range querier commander s :median-calc-check (:start-date range) (:end-date range))))))
+              (misc/reset-date-range querier commander s :median_calc_check (:start-date range) (:end-date range))))))
       (log/info "Finished median calculation."))
 
     (defnconsumer mislabelled-sensors-q [item]
       (log/info "Starting mislabelled sensors check.")
       (let [sensors (misc/all-sensors querier)]
         (doseq [s sensors]
-          (let [device-id (:device-id s)
+          (let [device_id (:device_id s)
                 type      (:type s)
                 period    (:period s)
-                where     {:device-id device-id :type type}
-                range     (misc/start-end-dates :mislabelled-sensors-check s where)
+                where     {:device_id device_id :type type}
+                range     (misc/start-end-dates :mislabelled_sensors_check s where)
                 new-item  (assoc item :sensor s :range range)]
             (when range
               (checks/mislabelled-sensors commander querier new-item)
-              (misc/reset-date-range querier commander s :mislabelled-sensors-check (:start-date range) (:end-date range))))))
+              (misc/reset-date-range querier commander s :mislabelled_sensors_check (:start-date range) (:end-date range))))))
       (log/info "Finished mislabelled sensors check."))
 
-    (defnconsumer difference-series-q [item]
+    (defnconsumer difference_series-q [item]
       (log/info "Starting calculation of difference series.")
       (let [sensors (misc/all-sensors querier)]
         (doseq [s sensors]
-          (let [device-id (:device-id s)
+          (let [device_id (:device_id s)
                 type      (:type s)
                 period    (:period s)
-                where     {:device-id device-id :type type}
-                range     (misc/start-end-dates :difference-series s where)
+                where     {:device_id device_id :type type}
+                range     (misc/start-end-dates :difference_series s where)
                 new-item  (assoc item :sensor s :range range)]
             (when range
-              (calculate/difference-series commander querier new-item)
-              (misc/reset-date-range querier commander s :difference-series (:start-date range) (:end-date range))))))
+              (calculate/difference_series commander querier new-item)
+              (misc/reset-date-range querier commander s :difference_series (:start-date range) (:end-date range))))))
       (log/info "Finished calculation of difference series."))
 
     (defnconsumer diff-series-res-q [item]
       (log/info "Starting calculation of difference series from resolution.")
       (let [sensors (misc/all-sensors querier)]
         (doseq [s sensors]
-          (let [device-id (:device-id s)
+          (let [device_id (:device_id s)
                 type      (:type s)
                 period    (:period s)
-                where     {:device-id device-id :type type}
-                range     (misc/start-end-dates :difference-series s where)
+                where     {:device_id device_id :type type}
+                range     (misc/start-end-dates :difference_series s where)
                 new-item  (assoc item :sensor s :range range)]
             (when range
-              (calculate/difference-series-from-resolution store new-item)
-              ;; TODO either we totally replace existing difference-series calc with a new one, or we need to create a new start/end column for it
-              (misc/reset-date-range querier commander s :difference-series (:start-date range) (:end-date range))))))
+              (calculate/difference_series-from-resolution store new-item)
+              ;; TODO either we totally replace existing difference_series calc with a new one, or we need to create a new start/end column for it
+              (misc/reset-date-range querier commander s :difference_series (:start-date range) (:end-date range))))))
       (log/info "Finished calculation of difference series from resolution."))
 
     (defnconsumer rollups-q [item]
       (log/info "Starting rollups.")
       (let [sensors (misc/all-sensors querier)]
         (doseq [s sensors]
-          (let [device-id  (:device-id s)
+          (let [device_id  (:device_id s)
                 type       (:type s)
                 period     (:period s)
                 table      (case period
-                             "CUMULATIVE" :difference-series
+                             "CUMULATIVE" :difference_series
                              "INSTANT"    :measurement
                              "PULSE"      :measurement)
-                where      {:device-id device-id :type type}
+                where      {:device_id device_id :type type}
                 range      (misc/start-end-dates :rollups s where)
                 new-item   (assoc item :sensor s :range range)]
             (when range
-              (calculate/hourly-rollups commander querier new-item)
-              (calculate/daily-rollups commander querier new-item)
+              (calculate/hourly_rollups commander querier new-item)
+              (calculate/daily_rollups commander querier new-item)
               (misc/reset-date-range querier commander s :rollups (:start-date range) (:end-date range))))))
       (log/info "Finished rollups."))
 
-    (defnconsumer spike-check-q [item]
+    (defnconsumer spike_check-q [item]
       (log/info "Starting median spike check.")
       (let [sensors (misc/all-sensors querier)]
         (doseq [s sensors]
-          (let [device-id (:device-id s)
+          (let [device_id (:device_id s)
                 type      (:type s)
                 period    (:period s)
-                where     {:device-id device-id :type type}
-                range     (misc/start-end-dates :spike-check s where)
+                where     {:device_id device_id :type type}
+                range     (misc/start-end-dates :spike_check s where)
                 new-item  (assoc item :sensor s :range range)]
             (when (and range (not= period "PULSE"))
-              (checks/median-spike-check commander querier new-item)
-              (misc/reset-date-range querier commander s :spike-check (:start-date range) (:end-date range))))))
+              (checks/median-spike_check commander querier new-item)
+              (misc/reset-date-range querier commander s :spike_check (:start-date range) (:end-date range))))))
       (log/info "Finished median spike check."))
 
     (defnconsumer synthetic-readings-q [item]
@@ -142,10 +142,10 @@
     (defnconsumer resolution-q [item]
       (calculate/resolution store item))
 
-    (producer-of fanout-q median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q rollups-q synthetic-readings-q
+    (producer-of fanout-q median-calculation-q mislabelled-sensors-q spike_check-q difference_series-q rollups-q synthetic-readings-q
                  resolution-q diff-series-res-q)
 
-    (list fanout-q #{median-calculation-q mislabelled-sensors-q spike-check-q difference-series-q rollups-q synthetic-readings-q
+    (list fanout-q #{median-calculation-q mislabelled-sensors-q spike_check-q difference_series-q rollups-q synthetic-readings-q
                      resolution-q diff-series-res-q})))
 
 (defrecord Pipeline []

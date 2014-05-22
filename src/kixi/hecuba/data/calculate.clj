@@ -36,24 +36,24 @@
   (when (and (not (nil? first-coll)) ;; Sequence might not have an even number of measurements
              (not (nil? (first rest-coll))))
     (let [d         (get-difference rest-coll first-coll)
-          device-id (:device-id first-coll)
+          device_id (:device_id first-coll)
           type      (:type first-coll)
           timestamp (m/to-timestamp (:timestamp (first rest-coll)))
           month     (Integer/parseInt (:month first-coll))]
-      (upsert! commander :difference-series {:timestamp timestamp
+      (upsert! commander :difference_series {:timestamp timestamp
                                              :value d
-                                             :device-id device-id
+                                             :device_id device_id
                                              :type type
                                              :month month})))
   rest-coll)
 
-(defn calculate-difference-series
+(defn calculate-difference_series
   "Takes a commander, querier, sensor and a start date. Retrieves an hour worth of data and calculates the difference
   series. Difference series is inserted into another table."
-  [commander querier {:keys [device-id type period]} start-date]
+  [commander querier {:keys [device_id type period]} start-date]
   (let [end-date     (m/add-hour start-date)
         month        (m/get-month-partition-key start-date)
-        where        [[= :device-id device-id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
+        where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
         measurements (m/decassandraify-measurements (items querier :measurement where))]
     (when-not (empty? measurements)
       (loop [m measurements]
@@ -61,14 +61,14 @@
           (recur (diff-and-insert commander (first m) (rest m))))))
     end-date))
 
-(defn difference-series
+(defn difference_series
   "Takes commander, querier, sensor and date range and calculates difference series for that range."
   [commander querier {:keys [sensor range]}]
   (let [start  (m/int-format-to-timestamp (:start-date range))
         end    (m/int-format-to-timestamp (:end-date range))]
     (loop [start-date start]
       (when-not (.before end start-date)
-        (recur (calculate-difference-series commander querier sensor start-date))))))
+        (recur (calculate-difference_series commander querier sensor start-date))))))
 
 ;;;;;;; Difference series using resolution ;;;;;;;;;
 
@@ -92,13 +92,13 @@
   "Returns a lazy sequence of measurements for a sensor matching type and device_id for a specified
   datetime range."
   [store sensor {:keys [start-date end-date]} page]
-  (let [device-id  (:device_id sensor)
+  (let [device_id  (:device_id sensor)
         type       (:type sensor)
         next-start (t/plus start-date page)]
     (dbnew/with-session [session (:hecuba-session store)]
       (lazy-cat (dbnew/execute session
                                (hayt/select :measurements
-                                            (hayt/where [[= :device_id device-id]
+                                            (hayt/where [[= :device_id device_id]
                                                          [= :type type]
                                                          [= :month (m/get-month-partition-key start-date)]
                                                          [>= :timestamp start-date]
@@ -120,7 +120,7 @@
   (quantize-timestamp m 60))
 
 ;; TODO Should we trigger resolution calculation if it's not present? At the moment it's a separate job.
-(defn difference-series-from-resolution
+(defn difference_series-from-resolution
   "Takes store, sensor and a range of dates and calculates difference series using resolution
   stored in the sensor data. If resolution is not specified, calculation is not done."
   [store {:keys [sensor range]}]
@@ -134,24 +134,24 @@
 ;;;;;;;;;;; Rollups of measurements ;;;;;;;;;
 
 (defn daily-batch
-  [commander querier {:keys [device-id type period]} start-date]
+  [commander querier {:keys [device_id type period]} start-date]
   (let [end-date     (m/add-day start-date)
         year         (m/get-year-partition-key start-date)
-        where        [[= :device-id device-id] [= :type type] [= :year year] [>= :timestamp start-date] [< :timestamp end-date]]
-        measurements (m/decassandraify-measurements (items querier :hourly-rollups where))
+        where        [[= :device_id device_id] [= :type type] [= :year year] [>= :timestamp start-date] [< :timestamp end-date]]
+        measurements (m/decassandraify-measurements (items querier :hourly_rollups where))
         funct        (case period
                        "CUMULATIVE" (fn [measurements] (reduce + (map :value measurements)))
                        "INSTANT"    (fn [measurements] (/ (reduce + (map :value measurements)) (count measurements)))
                        "PULSE"      (fn [measurements] (reduce + (map :value measurements))))]
     (when-not (empty? measurements)
-      (upsert! commander :daily-rollups {:value (str (funct measurements))
+      (upsert! commander :daily_rollups {:value (str (funct measurements))
                                          :timestamp start-date
-                                         :device-id device-id
+                                         :device_id device_id
                                          :type type}))
     end-date))
 
 
-(defn daily-rollups
+(defn daily_rollups
   "Calculates daily rollups for given sensor and date range."
   [commander querier {:keys [sensor range]}]
   (let [start         (m/int-format-to-timestamp (:start-date range))
@@ -161,10 +161,10 @@
         (recur (daily-batch commander querier sensor start-date))))))
 
 (defn hour-batch
-  [commander querier {:keys [device-id type period]} start-date table]
+  [commander querier {:keys [device_id type period]} start-date table]
   (let [end-date     (m/add-hour start-date)
         month        (m/get-month-partition-key start-date)
-        where        [[= :device-id device-id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
+        where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
         measurements (m/decassandraify-measurements (items querier table where))
         filtered     (filter #(number? %) (map :value measurements))
         funct        (case period
@@ -174,16 +174,16 @@
     (when-not (empty? filtered)
       (let [invalid (/ (count filtered) (count measurements))]
         (when-not (and (not= invalid 1) (> invalid 0.10))
-          (upsert! commander :hourly-rollups {:value (str (funct filtered))
+          (upsert! commander :hourly_rollups {:value (str (funct filtered))
                                               :timestamp end-date
                                               :year (m/get-year-partition-key start-date)
-                                              :device-id device-id
+                                              :device_id device_id
                                               :type type}))))
     end-date))
 
-(defn hourly-rollups
+(defn hourly_rollups
   "Calculates hourly rollups for given sensor and date range.
-  Example of item: {:sensor {:device-id \"f11a21b8e5e6b97eacba2632db4a2037a43f4791\" :type \"temperatureGround\"
+  Example of item: {:sensor {:device_id \"f11a21b8e5e6b97eacba2632db4a2037a43f4791\" :type \"temperatureGround\"
                    :period \"CUMULATIVE\"} :range {:start-date \"Sat Mar 01 00:00:00 UTC 2014\"
                    :end-date \"Sun Mar 02 23:00:00 UTC 2014\"}}"
   [commander querier {:keys [sensor range]}]
@@ -191,7 +191,7 @@
         end           (m/int-format-to-timestamp (:end-date range))
         period        (:period sensor)
         table         (case period
-                        "CUMULATIVE" :difference-series
+                        "CUMULATIVE" :difference_series
                         "INSTANT"    :measurement
                         "PULSE"      :measurement)]
     (loop [start-date  start]
@@ -232,11 +232,11 @@
   [{:keys [members]} store]
   (dbnew/with-session [session (:hecuba-session store)]
     (let [parse-sensor (comp next (partial re-matches #"(\w+)-(\w+)"))
-          sensor (fn [[type device-id]]
-                   (dbnew/->clj (dbnew/execute session
-                                               (hayt/select :sensors
-                                                            (hayt/where [[= :type type]
-                                                                         [= :device_id device-id]])))))]
+          sensor (fn [[type device_id]]
+                   (dbnew/execute session
+                                  (hayt/select :sensors
+                                               (hayt/where [[= :type type]
+                                                            [= :device_id device_id]]))))]
       (mapcat sensor (->> members
                        (keep parse-sensor)
                        (into (hash-set)))))))

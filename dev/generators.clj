@@ -48,9 +48,9 @@
                                :min "0"
                                :max (str (rand-int 100))
                                :correction nil
-                               :correctedUnit nil
-                               :correctionFactor nil
-                               :correctionFactorBreakdown nil
+                               :corrected_unit nil
+                               :correction_factor nil
+                               :correction_factor_breakdown nil
                                :events 0
                                :errors 0
                                :status "Not enough data"
@@ -67,18 +67,18 @@
    :longitude (str (rand 1))})
 
 (defn generate-device-sample
-  ([entity-id]
-     (first (generate-device-sample entity-id 1)))
-  ([entity-id n]
+  ([entity_id]
+     (first (generate-device-sample entity_id 1)))
+  ([entity_id n]
      (take n (repeatedly n
-                         #(hash-map :device-id (str (uuid))
+                         #(hash-map :device_id (str (uuid))
                                     :description (first (gen/sample (gen/not-empty gen/string-alpha-numeric) 1))
-                                    :parent-id (uuid)
-                                    :entity_id entity-id
+                                    :parent_id (uuid)
+                                    :entity_id entity_id
                                     :location (location-gen)
                                     :metadata nil
                                     :privacy (first (gen/sample (gen/not-empty (gen/elements ["public" "private"])) 1))
-                                    :meteringPointId (uuid))))))
+                                    :metering_point_id (uuid))))))
 
 ;;;;;;;;;;;;;;;;; Generate measurements ;;;;;;;;;;;;;;;;
 

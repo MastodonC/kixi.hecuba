@@ -19,25 +19,25 @@
    [qbits.hayt :as hayt]
    ))
 
-(defn sensor-metadata-for [store sensor-id]
-  (let [{:keys [type device-id]} sensor-id]
+(defn sensor_metadata-for [store sensor-id]
+  (let [{:keys [type device_id]} sensor-id]
     (dbnew/with-session [session (:hecuba-session store)]
       (first (dbnew/execute session
                             (hayt/select
                              :sensor_metadata
-                             (hayt/where [[= :device_id device-id]
+                             (hayt/where [[= :device_id device_id]
                                           [= :type type]])))))))
 
-(defn- mk-bounds-from [store type device-id]
-  (let [sm  (sensor-metadata-for store {:type type :device-id device-id})
+(defn- mk-bounds-from [store type device_id]
+  (let [sm  (sensor_metadata-for store {:type type :device_id device_id})
         {:keys [lower_ts upper_ts]} sm]
     (vector (atom (or (tc/to-date-time lower_ts) (org.joda.time.DateTime. Long/MAX_VALUE) ))
             (atom (or (tc/to-date-time upper_ts) (org.joda.time.DateTime. 0))))))
 
-(defn resolve-start-end [store type device-id start end]
+(defn resolve-start-end [store type device_id start end]
   (mapv tc/to-date-time
        (if (not (and start end))
-         (let [sm (sensor-metadata-for store {:type type :device-id device-id})
+         (let [sm (sensor_metadata-for store {:type type :device_id device_id})
                _ (log/info "sm: " sm)
                [lower upper] ((juxt :lower_ts :upper_ts) sm)]
            [(or start lower)
@@ -46,19 +46,19 @@
 
 (defn all-measurements
   "Returns a sequence of all the measurements for a sensor
-   matching (type,device-id). The sequence pages to the database in the
+   matching (type,device_id). The sequence pages to the database in the
    background. The page size is a clj-time Period representing a range
    in the timestamp column. page size defaults to (clj-time/hours 1)"
   ([store sensor-id & [opts]]
-     (let [{:keys [type device-id]} sensor-id
+     (let [{:keys [type device_id]} sensor-id
            {:keys [page start end] :or {page (t/hours 1)}} opts
-           [start end] (resolve-start-end store type device-id start end )
+           [start end] (resolve-start-end store type device_id start end )
            _ (log/info "s: " start ", e:" end)
            next-start (t/plus start page)]
        (dbnew/with-session [session (:hecuba-session store)]
          (lazy-cat (dbnew/execute session
                                   (hayt/select :measurements
-                                               (hayt/where [[= :device_id device-id]
+                                               (hayt/where [[= :device_id device_id]
                                                             [= :type type]
                                                             [= :month (m/get-month-partition-key start)]
                                                             [>= :timestamp start]
@@ -71,20 +71,19 @@
   (let [request                (:request ctx)
         {:keys [route-params
                 query-string]} request
-        {:keys [device-id
+        {:keys [device_id
                 reading-type]} route-params
         decoded-params         (util/decode-query-params query-string)
         start-date             (util/to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
         end-date               (util/to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
         measurements           nil ;; TODO
         ]
-    (util/downcast-to-json {:measurements (->> measurements
-                                               (map (fn [m]
-                                                      (-> m
-                                                          util/parse-value
-                                                          (update-in [:timestamp] util/db-to-iso)
-                                                          (dissoc :month :metadata :device-id)
-                                                          util/camelify))))})))
+    {:measurements (->> measurements
+                        (map (fn [m]
+                               (-> m
+                                   util/parse-value
+                                   (update-in [:timestamp] util/db-to-iso)
+                                   (dissoc :month :metadata :device_id)))))}))
 
 
 
@@ -104,21 +103,21 @@
   (let [{:keys [commander querier]} store
         request       (:request ctx)
         route-params  (:route-params request)
-        device-id     (:device-id route-params)
+        device_id     (:device_id route-params)
         topic         (get-in queue ["measurements"])
         measurements  (:measurements (decode-body request))
-        type          (get (first  measurements) "type")]
-    (if (and device-id type (not (empty? (first (hecuba/items querier :sensor [[= :device-id device-id] [= :type type]])))))
-      (let [[lower upper] (mk-bounds-from store-new type device-id)
+        type          (-> measurements first :type)]
+    (if (and device_id type (not-empty (hecuba/item querier :sensor [[= :device_id device_id] [= :type type]])))
+      (let [[lower upper] (mk-bounds-from store-new type device_id)
             update-bounds! (fn [t] (swap! lower min-date t) (swap! upper max-date t))]
         (doseq [measurement measurements]
-          (let [t  (util/db-timestamp (get measurement "timestamp"))
+          (let [t  (util/db-timestamp (:timestamp measurement))
                 m  (stringify-values measurement)
-                m2 {:device-id device-id
+                m2 {:device_id device_id
                     :type      type
                     :timestamp t
-                    :value     (get m "value")
-                    :error     (get m "error")
+                    :value     (:value m)
+                    :error     (:error m)
                     :month     (util/get-month-partition-key t)
                     :metadata  "{}"}]
             (->> m2
@@ -126,31 +125,30 @@
                  (hecuba/upsert! commander :measurement))
             (update-bounds! t)
             (q/put-on-queue topic m2)))
-          (hecuba/upsert! commander :sensor-metadata {:device-id device-id
+          (hecuba/upsert! commander :sensor_metadata {:device_id device_id
                                                       :type type
                                                       :lower_ts @lower
                                                       :upper_ts @upper})
 
-        (hecuba/upsert! commander :sensor-metadata {:device-id device-id
+        (hecuba/upsert! commander :sensor_metadata {:device_id device_id
                                                     :type type
                                                     :lower_ts @lower
                                                     :upper_ts @upper})
         {:response {:status 202 :body "Accepted"}})
-      {:response {:status 400 :body "Provide valid deviceId and type."}})))
+      {:response {:status 400 :body "Provide valid device_id and type."}})))
 
 (defn index-handle-ok [store store-new ctx]
   (let [{:keys [querier]} store
         request (:request ctx)
         route-params (:route-params request)
-        device-id (:device-id route-params)
-        where [[= :device_id device-id]]
+        device_id (:device_id route-params)
+        where [[= :device_id device_id]]
         measurements (hecuba/items querier :measurement where)]
-    (util/downcast-to-json {:measurements (->> measurements
-                                               (map #(-> %
-                                                         util/parse-value
-                                                         (update-in [:timestamp] util/db-to-iso)
-                                                         (dissoc :metadata :device-id :month)
-                                                         util/camelify)))})))
+    {:measurements (->> measurements
+                        (map #(-> %
+                                  util/parse-value
+                                  (update-in [:timestamp] util/db-to-iso)
+                                  (dissoc :metadata :device_id :month))))}))
 
 (defn index-handle-created [ctx]
   (ring-response (:response ctx)))
@@ -158,11 +156,11 @@
 (defn measurements-by-reading-handle-ok [store store-new ctx]
   (let [{:keys [request]} ctx
         {:keys [route-params]} request
-        {:keys [device-id sensor-type timestamp]} route-params
+        {:keys [device_id sensor-type timestamp]} route-params
         measurement (dbnew/with-session [session (:hecuba-session store)]
                       (dbnew/execute session
                                      (hayt/select :measurements
-                                                  (hayt/where [[= :device_id device-id]
+                                                  (hayt/where [[= :device_id device_id]
                                                                [= :type sensor-type]
                                                                [= :timestamp timestamp]]))))]
     (util/render-item request measurement)))

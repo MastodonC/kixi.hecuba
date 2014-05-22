@@ -40,5 +40,5 @@
         interval  (t/in-minutes (t/interval start end))]
     (cond
      (<= interval 1440) :raw
-     (and (> interval 1440) (< interval 20160)) :hourly-rollups
-     (>= interval 20160) :daily-rollups)))
+     (and (> interval 1440) (< interval 20160)) :hourly_rollups
+     (>= interval 20160) :daily_rollups)))

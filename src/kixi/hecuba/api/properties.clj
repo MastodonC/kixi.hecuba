@@ -7,26 +7,23 @@
    [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex routes-from ) :as util]
    [liberator.core :refer (defresource)]))
 
-(defn- project-id-from [ctx]
-  (get-in ctx [:request :route-params :project-id]))
+(defn- project_id-from [ctx]
+  (get-in ctx [:request :route-params :project_id]))
 
 (defn index-handle-ok [querier handlers ctx]
   (let [request (:request ctx)]
-    (let [coll (->> (if (project-id-from ctx)
-                      (hecuba/items querier :entity [[= :project-id (-> (:route-params request) :project-id)]])
+    (let [coll (->> (if (project_id-from ctx)
+                      (hecuba/items querier :entity [[= :project_id (-> (:route-params request) :project_id)]])
                       (hecuba/items querier :entity))
                     (map #(-> %
-                              (assoc :device-ids (map :id (hecuba/items querier :device [[= :entity-id (:id %)]]))
+                              (assoc :device_ids (map :id (hecuba/items querier :device [[= :entity_id (:id %)]]))
                                      :href (bidi/path-for (routes-from ctx)
-                                                          (:entity @handlers) :entity-id (:id %))))))
-          scoll (sort-by :address-street-two coll)]
+                                                          (:entity @handlers) :entity_id (:id %))))))
+          scoll (sort-by :address_street_two coll)]
 
       (case (get-in ctx [:representation :media-type])
         "text/html" (util/render-items request scoll)
-        "application/json" (->> scoll
-                                (map util/downcast-to-json)
-                                (map util/camelify)
-                                json/encode)
+        "application/json" scoll
         scoll))))
 
 (defresource index [{:keys [commander querier]} handlers]

@@ -74,9 +74,9 @@
   (let [m {:id (str (generators/uuid))
            :entity_id (:entity_id ctx)}
         device (-> (generators/generate-device-sample (:entity_id x))
-                   (dissoc :device-id)
+                   (dissoc :device_id)
                    (update-in [:meteringPointId] str)
-                   (update-in [:parent-id] str)
+                   (update-in [:parent_id] str)
                    (update-in [:location] pr-str))]
 
     (insert* session (merge x device m))

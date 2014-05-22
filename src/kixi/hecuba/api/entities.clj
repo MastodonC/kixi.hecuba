@@ -13,30 +13,32 @@
 (defn index-post! [commander querier ctx]
   (let [request           (-> ctx :request)
         entity            (-> request decode-body)
-        project-id        (-> entity :project-id)
-        property-code     (-> entity :property-code)
+        _ (prn "entity:" entity)
+        project_id        (-> entity :project_id)
+        property_code     (-> entity :property_code)
+
         [username _]      (sec/get-username-password request querier)
-        user-id           (-> (hecuba/items querier :user [[= :username username]]) first :id)]
-    (when (and project-id property-code)
-      (when-not (empty? (hecuba/item querier :project project-id))
-        {::entity-id  (hecuba/upsert! commander :entity (-> entity
-                                                            (assoc :user-id user-id)
-                                                            (dissoc :device-ids)
+        user_id           (-> (hecuba/items querier :user [[= :username username]]) first :id)]
+    (when (and project_id property_code)
+      (when-not (empty? (hecuba/item querier :project project_id))
+        {::entity_id  (hecuba/upsert! commander :entity (-> entity
+                                                            (assoc :user_id user_id)
+                                                            (dissoc :device_ids)
                                                             (update-stringified-lists [:documents
                                                                                        :photos
                                                                                        :notes])
-                                                            (update-in [:property-data] json/encode)
+                                                            (update-in [:property_data] json/encode)
                                                             ))}))))
 
 (defn index-handle-created [handlers ctx]
   (let [request (:request ctx)
         routes  (:modular.bidi/routes request)
-        id      (::entity-id ctx)]
-    (if-not (empty? id)
-      (let [location (bidi/path-for routes (:entity @handlers) :entity-id id)]
+        id      (::entity_id ctx)]
+    (if id
+      (let [location (bidi/path-for routes (:entity @handlers) :entity_id id)]
         (when-not location
           (throw (ex-info "No path resolved for Location header"
-                          {:entity-id id})))
+                          {:entity_id id})))
         (ring-response {:headers {"Location" location}
                         :body (json/encode {:location location
                                             :status "OK"
@@ -45,29 +47,29 @@
                       :body "Provide valid projectId and propertyCode."}))))
 
 (defn resource-exists? [querier ctx]
-  (let [id (get-in ctx [:request :route-params :entity-id])]
+  (let [id (get-in ctx [:request :route-params :entity_id])]
     (when-let [item (hecuba/item querier :entity id)]
       {::item item})))
 
 (defn resource-handle-ok [querier ctx]
   (let [request      (:request ctx)
         route-params (:route-params request)
-        ids          (map :id (hecuba/items querier :device [[= :entity-id (:entity-id route-params)]]))
+        ids          (map :id (hecuba/items querier :device [[= :entity_id (:entity_id route-params)]]))
         item         (::item ctx)]
     (util/render-item request (-> item
-                                  (assoc :device-ids ids)
-                                  (dissoc :user-id :devices)))))
+                                  (assoc :device_ids ids)
+                                  (dissoc :user_id :devices)))))
 
 (defn resource-put! [commander querier ctx]
   (let [request      (:request ctx)
         entity       (-> request decode-body stringify-values)
-        entity-id    (-> entity :entity-id)
+        entity_id    (-> entity :entity_id)
         [username _] (sec/get-username-password request querier)
-        user-id      (-> (hecuba/items querier :user [[=  :username username]]) first :id)]
+        user_id      (-> (hecuba/items querier :user [[=  :username username]]) first :id)]
       (hecuba/upsert! commander :entity (-> entity
-                                            (assoc :user-id user-id
-                                                   :id entity-id)
-                                            (dissoc :device-ids)))))
+                                            (assoc :user_id user_id
+                                                   :id entity_id)
+                                            (dissoc :device_ids)))))
 
 (defn resource-delete! [commander ctx]
   (hecuba/delete! commander :entity [[= :id (get-in ctx [::item :id])]]))
