@@ -98,11 +98,11 @@
                                                                nav-event)]
         (let [[start-date end-date] search
               entity_id        (get ids :properties)
-              sensor-id        (get ids :sensors)
-              [type device_id] (str/split sensor-id #"-")]
+              sensor_id        (get ids :sensors)
+              [type device_id] (str/split sensor_id #"-")]
 
           (om/update! data :range {:start-date start-date :end-date end-date})
-          (om/update! data :sensors sensor-id)
+          (om/update! data :sensors sensor_id)
           (om/update! data :measurements [])
 
           ;; TODO ajax call should not be made on each change, only on this particular cursor update.
@@ -383,7 +383,7 @@
         (when-not new-project_id
           (om/update! properties :data [])
           (om/update! properties :selected nil))
-        
+
         (if (and new-project_id
                  (not (= (:project_id properties) new-project_id)))
           (do
@@ -482,9 +482,9 @@
         (when-not new-property-id
           (om/update! devices :data [])
           (om/update! devices :selected nil))
-        
+
         (if (and new-property-id
-                 (not (= (:property-id devices) new-property-id)))
+                 (not (= (:property_id devices) new-property-id)))
           (do
             (om/update! devices :fetching :fetching)
             (GET (str "/4/entities/" new-property-id "/devices/")
@@ -502,7 +502,7 @@
                   :headers {"Accept" "application/json"}
                   :response-format :json
                   :keywords? true})))
-        (om/update! devices :property-id new-property-id)
+        (om/update! devices :property_id new-property-id)
 
         ;; handle selection in devices table
         (om/update! devices :selected (:devices active-components))))
@@ -512,7 +512,7 @@
             history (om/get-shared owner :history)]
         (html
          [:div.row#devices-div
-          [:div {:class (str "col-md-12 " (if (:property-id devices) "" "hidden"))}
+          [:div {:class (str "col-md-12 " (if (:property_id devices) "" "hidden"))}
            [:h2  "Devices"]
            [:ul {:class "breadcrumb"}
             [:li [:a
@@ -551,8 +551,8 @@
            [:tr [:th "Type"] [:th "Unit"] [:th "Period"] [:th "Device"] [:th "Status"]]]
           [:tbody
            (for [row (sort-by :type (-> sensors :data :readings))]
-             (let [{:keys [deviceId type unit period status]} row
-                   id (str type "-" deviceId)]
+             (let [{:keys [device_id type unit period status]} row
+                   id (str type "-" device_id)]
                [:tr {:onClick (fn [_ _]
                                 (om/update! sensors :selected id)
                                 (om/update! chart :sensor id)
@@ -563,10 +563,10 @@
                 [:td type]
                 [:td unit]
                 [:td period]
-                [:td deviceId]
+                [:td device_id]
                 [:td (status-label status)]]))]])))))
 
-(defn chart-summary 
+(defn chart-summary
   "Show min, max, delta and average of chart data."
   [chart owner]
   (reify
@@ -600,19 +600,19 @@
     (did-update [_ prev-props prev-state]
       (let [{:keys [sensors active-components]} data
             new-device_id                       (:devices active-components)
-            property-id                         (:properties active-components)]
+            property_id                         (:properties active-components)]
 
         ;; handle selection perties table
         (when-not new-device_id
           (om/update! sensors :data [])
           (om/update! sensors :selected nil))
-        
+
         (if (and new-device_id
                  (not= (:device_id sensors) new-device_id))
           (do
             (om/update! sensors :fetching true)
             ;; "/4/entities/:properties/devices/:devices"
-            (GET (str "/4/entities/" property-id "/devices/" new-device_id)
+            (GET (str "/4/entities/" property_id "/devices/" new-device_id)
                  {:handler  (fn [x]
                               (println "Fetching sensors for device: " new-device_id)
                               (om/update! sensors :fetching false)
@@ -673,7 +673,7 @@
 
         ;; handle navigation changes
         (history-loop (tap-history) data)
-        
+
         (chart-ajax (tap-history)
                     (:chart data)
                     {:template "/4/entities/:properties/devices/:devices/measurements?startDate=:start-date&endDate=:end-date"
@@ -692,5 +692,3 @@
              ;; (om/build sensor/define-data-set-button data)
 
              ]))))
-
-

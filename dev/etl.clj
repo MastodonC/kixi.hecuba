@@ -66,6 +66,7 @@
           (m/reset-date-range querier commander s :rollups (:start-date range) (:end-date range)))))))
 
 (defn post-resource [post-uri content-type data]
+  (pr-str "DATA:" data)
   (let [response
         @(http-request
           {:method :post
@@ -383,7 +384,7 @@
 (defn load-sensor-sample [system]
   (let [programme_id "2312312314"
         project_id "32523453"
-        property-id "34653464"
+        property_id "34653464"
         device_id "fe5ab5bf19a7265276ffe90e4c0050037de923e2"]
    (dbnew/with-session [session (:hecuba-session system)]
 
@@ -399,7 +400,7 @@
                                                })))
      (dbnew/execute session
                     (hayt/insert :entities
-                                 (hayt/values {:id property-id
+                                 (hayt/values {:id property_id
                                                :name "AAA_Calculated_Test Properties"
                                                :address_street_two "A1 Flat, A1 road, A1 Town, A1 1AA"
                                                :project_id project_id})))
@@ -407,7 +408,7 @@
                     (hayt/insert :devices
                                  (hayt/values {:id device_id
                                                :name "AAA_Calculated_Test Device"
-                                               :entity_id property-id})))
+                                               :entity_id property_id})))
      (dbnew/execute session
                     (hayt/insert :sensors
                                  (hayt/values {:device_id device_id

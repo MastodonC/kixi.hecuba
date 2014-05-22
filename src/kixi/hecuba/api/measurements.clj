@@ -19,8 +19,8 @@
    [qbits.hayt :as hayt]
    ))
 
-(defn sensor_metadata-for [store sensor-id]
-  (let [{:keys [type device_id]} sensor-id]
+(defn sensor_metadata-for [store sensor_id]
+  (let [{:keys [type device_id]} sensor_id]
     (dbnew/with-session [session (:hecuba-session store)]
       (first (dbnew/execute session
                             (hayt/select
@@ -49,8 +49,8 @@
    matching (type,device_id). The sequence pages to the database in the
    background. The page size is a clj-time Period representing a range
    in the timestamp column. page size defaults to (clj-time/hours 1)"
-  ([store sensor-id & [opts]]
-     (let [{:keys [type device_id]} sensor-id
+  ([store sensor_id & [opts]]
+     (let [{:keys [type device_id]} sensor_id
            {:keys [page start end] :or {page (t/hours 1)}} opts
            [start end] (resolve-start-end store type device_id start end )
            _ (log/info "s: " start ", e:" end)
@@ -65,7 +65,7 @@
                                                             [< :timestamp next-start]]))
                                   nil)
                    (when (t/before? next-start end)
-                     (all-measurements store sensor-id (merge opts {:start next-start :end end}))))))))
+                     (all-measurements store sensor_id (merge opts {:start next-start :end end}))))))))
 
 (defn measurements-slice-handle-ok [store store-new ctx]
   (let [request                (:request ctx)
@@ -99,6 +99,12 @@
         dt2' (tc/to-date-time dt2)]
     (if (t/before? dt1' dt2') dt2' dt1')))
 
+(defn- sensor-exists? [session device_id type]
+  (first (dbnew/execute session
+                  (hayt/select :sensors
+                               (hayt/where [[= :device_id device_id]
+                                            [= :type type]])))))
+
 (defn index-post! [store store-new queue ctx]
   (let [{:keys [commander querier]} store
         request       (:request ctx)
@@ -107,35 +113,37 @@
         topic         (get-in queue ["measurements"])
         measurements  (:measurements (decode-body request))
         type          (-> measurements first :type)]
-    (if (and device_id type (not-empty (hecuba/item querier :sensor [[= :device_id device_id] [= :type type]])))
-      (let [[lower upper] (mk-bounds-from store-new type device_id)
-            update-bounds! (fn [t] (swap! lower min-date t) (swap! upper max-date t))]
-        (doseq [measurement measurements]
-          (let [t  (util/db-timestamp (:timestamp measurement))
-                m  (stringify-values measurement)
-                m2 {:device_id device_id
-                    :type      type
-                    :timestamp t
-                    :value     (:value m)
-                    :error     (:error m)
-                    :month     (util/get-month-partition-key t)
-                    :metadata  "{}"}]
-            (->> m2
-                 (v/validate commander querier)
-                 (hecuba/upsert! commander :measurement))
-            (update-bounds! t)
-            (q/put-on-queue topic m2)))
+    (dbnew/with-session [session (:hecuba-session store-new)]
+      (if (sensor-exists? session device_id type)
+        (let [[lower upper] (mk-bounds-from store-new type device_id)
+              update-bounds! (fn [t] (swap! lower min-date t) (swap! upper max-date t))]
+          (doseq [measurement measurements]
+            (let [t  (util/db-timestamp (:timestamp measurement))
+                  m  (stringify-values measurement)
+                  m2 {:device_id device_id
+                      :type      type
+                      :timestamp t
+                      :value     (:value m)
+                      :error     (:error m)
+                      :month     (util/get-month-partition-key t)
+                      :metadata  "{}"}]
+              (->> m2
+                   (v/validate commander querier)
+                   (hecuba/upsert! commander :measurement))
+
+              (update-bounds! t)
+              (q/put-on-queue topic m2)))
           (hecuba/upsert! commander :sensor_metadata {:device_id device_id
                                                       :type type
                                                       :lower_ts @lower
                                                       :upper_ts @upper})
 
-        (hecuba/upsert! commander :sensor_metadata {:device_id device_id
-                                                    :type type
-                                                    :lower_ts @lower
-                                                    :upper_ts @upper})
-        {:response {:status 202 :body "Accepted"}})
-      {:response {:status 400 :body "Provide valid device_id and type."}})))
+          (hecuba/upsert! commander :sensor_metadata {:device_id device_id
+                                                      :type type
+                                                      :lower_ts @lower
+                                                      :upper_ts @upper})
+          {:response {:status 202 :body "Accepted"}})
+        {:response {:status 400 :body "Provide valid device_id and type."}}))))
 
 (defn index-handle-ok [store store-new ctx]
   (let [{:keys [querier]} store

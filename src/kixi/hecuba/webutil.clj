@@ -28,6 +28,7 @@
   (read-edn-body [body] (io! (edn/read (java.io.PushbackReader. (io/reader body)))))
   (read-json-body [body] (io! (decode-stream (io/reader body) keyword))))
 
+;; TODO - this is not the right place for these - where is?
 (add-encoder java.util.UUID
              (fn [c jsonGenerator]
                (.writeString jsonGenerator (str c))))

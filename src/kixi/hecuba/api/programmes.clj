@@ -21,7 +21,6 @@
                                     :href (bidi/path-for routes programme :programme_id (:id %))))))]
     (util/render-items request items)))
 
-
 (defn index-post! [querier commander ctx]
   (let [request (:request ctx)
         [username _]  (sec/get-username-password request querier)

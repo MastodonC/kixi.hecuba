@@ -25,8 +25,8 @@
   "Validates and inserts measurments. Updates metadata when errors are doscovered.
   Updates counters."
   [m commander querier sensor]
-  (let [errors (-> sensor first :errors read-string)
-        events (-> sensor first :events read-string)
+  (let [errors (-> sensor first :errors)
+        events (-> sensor first :events)
         where  [[= :device_id (:device_id m)] [= :type (:type m)]]]
     (if (is-broken? errors events)
       (update! commander :sensor {:status "Broken"} where)
@@ -38,7 +38,7 @@
   [commander sensor m]
   (let [metadata (-> m :metadata)
         where    [[= :device_id (:device_id m)] [= :type (:type m)]]
-        errors   (-> sensor first :errors read-string)]
+        errors   (-> sensor first :errors)]
     (update! commander :sensor {:errors (inc errors)} where)
     (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "true"}))))
 
@@ -55,12 +55,11 @@
   Updates metadata accordingly."
   [m commander querier sensor]
   (let [metadata (-> m :metadata)
-        errors   (-> sensor first :errors read-string)
+        errors   (-> sensor first :errors)
         median   (-> sensor first :median)]
     (cond
-     (empty? median) (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "n/a"}))
      (nil? median) (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "n/a"}))
-     (larger-than-median (read-string median) m) (label-spike commander sensor m)
+     (larger-than-median median m) (label-spike commander sensor m)
      :else (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "false"})))))
 
 (defn label-invalid-value
@@ -68,7 +67,7 @@
    Increaments error counter of the sensor."
   [commander querier sensor where m]
   (let [metadata (-> m :metadata)
-        errors   (-> sensor first :errors read-string)]
+        errors   (-> sensor first :errors)]
     (update! commander :sensor {:errors (inc errors)} where)
     (assoc-in m [:metadata] (m/update-metadata metadata {:is-number "false"}))))
 
@@ -91,7 +90,7 @@
         type      (-> m :type)
         where     [[= :device_id device_id] [= :type type]]
         sensor    (items querier :sensor where)
-        events    (-> sensor first :events read-string)]
+        events    (-> sensor first :events)]
 
     (if (= events 1440) (reset-counters! commander where))
     (update! commander :sensor {:events (inc events)} where)
