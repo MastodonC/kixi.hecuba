@@ -30,7 +30,7 @@
 
 (def custom-formatter (tf/formatter "yyyy-MM-dd'T'HH:mm:ss.SSSZ"))
 
-(defn difference_series-batch
+(defn difference-series-batch
   "Retrieves all sensors that need to have difference series calculated and performs calculations."
   [commander querier item]
   (let [sensors (m/all-sensors querier)]
@@ -353,7 +353,7 @@
       (let [commander (-> system :store :commander)
             querier   (-> system :store :querier)]
 
-        (difference_series-batch commander querier {})
+        (difference-series-batch commander querier {})
         (rollups commander querier {})))
     (catch Exception e
       (log/error e "ETL failed:"))))
