@@ -78,7 +78,7 @@
   (let [metadata  (-> m :metadata)
         where     [[= :device_id (:device_id m)] [= :type (:type m)]]
         value     (:value m)]
-    (if (and (not (empty? value)) (m/numbers-as-strings?) value)
+    (if (and (not (empty? value)) (m/numbers-as-strings? value))
       (assoc-in m [:metadata] (m/update-metadata metadata {:is-number "true"}))
       (label-invalid-value commander querier sensor where m))))
 
