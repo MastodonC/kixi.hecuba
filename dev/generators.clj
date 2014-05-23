@@ -34,25 +34,28 @@
    (= "co2" type) "ppm"
    :else ""))
 
-(defn generate-sensor-sample [period n]
-  (take n (repeatedly n #(let [type (first (gen/sample (type-gen) 1))
-                               unit (unit-gen type)]
-                           {:type type
-                            :unit unit
-                            :resolution (str (rand-int 60))
-                            :accuracy (str (rand-int 100))
-                            :period (first (gen/sample (gen/elements [period])))
-                            :min "0"
-                            :max (str (rand-int 100))
-                            :correction nil
-                            :correctedUnit nil
-                            :correctionFactor nil
-                            :correctionFactorBreakdown nil
-                            :events 0
-                            :errors 0
-                            :status "Not enough data"
-                           ; :median nil
-                            }))))
+(defn generate-sensor-sample
+  ([period]
+     (first (generate-sensor-sample period 1)))
+  ([period n]
+     (take n (repeatedly n #(let [type (first (gen/sample (type-gen) 1))
+                                  unit (unit-gen type)]
+                              {:type type
+                               :unit unit
+                               :resolution (str (rand-int 60))
+                               :accuracy (str (rand-int 100))
+                               :period (first (gen/sample (gen/elements [period])))
+                               :min "0"
+                               :max (str (rand-int 100))
+                               :correction nil
+                               :corrected_unit nil
+                               :correction_factor nil
+                               :correction_factor_breakdown nil
+                               :events 0
+                               :errors 0
+                               :status "Not enough data"
+                                        ; :median nil
+                               })))))
 
 
 ;;;;;;;;;;;;;;; Generate devices ;;;;;;;;;;;;;;
@@ -64,16 +67,18 @@
    :longitude (str (rand 1))})
 
 (defn generate-device-sample
-  [entity-id n]
-  (take n (repeatedly n
-                      #(hash-map :device-id (str (uuid))
-                                 :description (first (gen/sample (gen/not-empty gen/string-alpha-numeric) 1))
-                                 :parent-id (uuid)
-                                 :entity-id entity-id
-                                 :location (location-gen)
-                                 :metadata nil
-                                 :privacy (first (gen/sample (gen/not-empty (gen/elements ["public" "private"])) 1))
-                                 :meteringPointId (uuid)))))
+  ([entity_id]
+     (first (generate-device-sample entity_id 1)))
+  ([entity_id n]
+     (take n (repeatedly n
+                         #(hash-map :device_id (str (uuid))
+                                    :description (first (gen/sample (gen/not-empty gen/string-alpha-numeric) 1))
+                                    :parent_id (uuid)
+                                    :entity_id entity_id
+                                    :location (location-gen)
+                                    :metadata nil
+                                    :privacy (first (gen/sample (gen/not-empty (gen/elements ["public" "private"])) 1))
+                                    :metering_point_id (uuid))))))
 
 ;;;;;;;;;;;;;;;;; Generate measurements ;;;;;;;;;;;;;;;;
 
@@ -154,4 +159,3 @@
   [sensor]
   (let [sensor (assoc-in sensor [:period] "INSTANT")]
     (generate-measurements sensor)))
-

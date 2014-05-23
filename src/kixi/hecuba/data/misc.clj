@@ -7,7 +7,7 @@
 
 ;;;;; Time conversion functions ;;;;;
 
-(defn hourly-timestamp [t] 
+(defn hourly-timestamp [t]
   (tc/to-date (tf/unparse (tf/formatters :date-hour) (tc/from-date t))))
 (defn daily-timestamp [t]
   (tc/to-date (tf/unparse (tf/formatters :date) (tc/from-date t))))
@@ -24,6 +24,10 @@
 
 (defn get-year-partition-key [timestamp] (Long/parseLong (format "%4d" (t/year (tc/from-date timestamp)))))
 
+(defn truncate-seconds [t]
+  (let [time-str (tf/unparse (tf/formatter "yyyy-MM-dd'T'HH:mm") (tc/from-date t))]
+    (tc/to-date  (tf/parse (tf/formatter "yyyy-MM-dd'T'HH:mm") time-str))))
+
 ;; Return int representation of month partition key
 (defmulti get-month-partition-key type)
 (defmethod get-month-partition-key java.util.Date [t]
@@ -32,10 +36,10 @@
 (defmethod get-month-partition-key java.lang.String [t]
  (let [timestamp (tf/parse int-time-formatter t)] (Long/parseLong (format "%4d%02d" (t/year timestamp) (t/month timestamp)))))
 
-;; Returns integer representation of last check timestamp. 
+;; Returns integer representation of last check timestamp.
 (defmulti last-check-int-format type)
 (defmethod last-check-int-format org.joda.time.DateTime [t] (Long/parseLong (tf/unparse int-time-formatter t)))
-(defmethod last-check-int-format java.lang.String [t] 
+(defmethod last-check-int-format java.lang.String [t]
   (let [timestamp (tf/parse db-date-formatter t)] (Long/parseLong (tf/unparse int-time-formatter timestamp))))
 (defmethod last-check-int-format java.util.Date [t]
   (let [timestamp (tc/from-date t)] (Long/parseLong (tf/unparse int-time-formatter timestamp))))
@@ -48,20 +52,20 @@
   or with a check older than a week."
   [querier validation-type]
   (let [last-week        (Long/parseLong (tf/unparse int-time-formatter (t/minus (t/now) (t/weeks 1))))
-        sensors-metadata (items querier :sensor-metadata)
+        sensors-metadata (items querier :sensor_metadata)
         sensors          (filter #(or (= "" (validation-type %))
                                       (<= (Long/parseLong (validation-type %)) last-week)) sensors-metadata)]
-    (map #(merge (first (items querier :sensor [[= :device-id (:device-id %)] [= :type (:type  %)]])) %) sensors)))
+    (map #(merge (first (items querier :sensor [[= :device_id (:device_id %)] [= :type (:type  %)]])) %) sensors)))
 
 (defn all-sensors
-  "Given a querier, retrieces all sensors data joined with their metadata."
+  "Given a querier, retrieves all sensors data joined with their metadata."
   [querier]
-  (let [all-sensors-metadata (items querier :sensor-metadata)]
-    (map #(merge (first (items querier :sensor [[= :device-id (:device-id %)] [= :type (:type %)]])) %) all-sensors-metadata)))
+  (let [all-sensors-metadata (items querier :sensor_metadata)]
+    (map #(merge (first (items querier :sensor [[= :device_id (:device_id %)] [= :type (:type %)]])) %) all-sensors-metadata)))
 
 (defn start-end-dates
   "Given a sensor, table and where clause, returns start and end dates for (re)calculations."
-  [querier table column sensor where]
+  [column sensor where]
   (let [range      (-> sensor column)]
     (when-not (empty? range)
       {:start-date (:start (read-string range)) :end-date (:end (read-string range))})))
@@ -119,22 +123,22 @@
   Returns sequence of maps."
   [querier]
   (let [where [= :mislabelled "true"]]
-    (items querier :sensor-metadata where)))
+    (items querier :sensor_metadata where)))
 
 (defn reset-date-range
   "Given querier, commander, sensor, column and start/end dates, update these dates in sensor metadata."
-  [querier commander {:keys [device-id type period]} col start-date end-date]
-  (let [where               [[= :device-id device-id] [= :type type]]
-        current-metadata    (first (items querier :sensor-metadata where))
+  [querier commander {:keys [device_id type period]} col start-date end-date]
+  (let [where               [[= :device_id device_id] [= :type type]]
+        current-metadata    (first (items querier :sensor_metadata where))
         current-range       (-> current-metadata col read-string)
         current-start       (-> current-range :start (Long/parseLong))
         current-end         (-> current-range :end (Long/parseLong))]
     (when-not (and (< current-start (Long/parseLong start-date))
-                   (> current-end (Long/parseLong end-date))) 
-      (update! commander :sensor-metadata {col nil} where))))
+                   (> current-end (Long/parseLong end-date)))
+      (update! commander :sensor_metadata {col nil} where))))
 
 (defn update-date-range [commander col where t existing-range]
   (cond
-   (empty? existing-range) (update! commander :sensor-metadata {col (str {:start (str t) :end (str t)})} where)
-   (< t (Long/parseLong (:start (read-string existing-range)))) (update! commander :sensor-metadata {col (update-metadata existing-range {:start (str t)})} where)
-   (> t (Long/parseLong (:end (read-string existing-range)))) (update! commander :sensor-metadata {col (update-metadata existing-range {:end (str t)})} where)))
+   (empty? existing-range) (update! commander :sensor_metadata {col (str {:start (str t) :end (str t)})} where)
+   (< t (Long/parseLong (:start (read-string existing-range)))) (update! commander :sensor_metadata {col (update-metadata existing-range {:start (str t)})} where)
+   (> t (Long/parseLong (:end (read-string existing-range)))) (update! commander :sensor_metadata {col (update-metadata existing-range {:end (str t)})} where)))

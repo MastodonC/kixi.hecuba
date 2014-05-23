@@ -24,5 +24,4 @@
           :shared {:history (history/new-history [:programmes :projects :properties :devices :sensors :measurements])}})
 
 ;; Useful for debugging in dev
-;; (om/root ankha/inspector app-model {:target (.getElementById js/document "ankha")})
-
+(om/root ankha/inspector app-model {:target (.getElementById js/document "ankha")})

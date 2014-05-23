@@ -7,6 +7,7 @@
   :plugins [[lein-cljsbuild "1.0.3"]]
 
   :dependencies [[org.clojure/clojure "1.5.1"]
+                 [org.clojure/data.csv "0.1.2"]
 
                  ;; tools.trace for liberator
                  [org.clojure/tools.trace "0.7.8"]
@@ -41,11 +42,10 @@
                  [com.andrewmcveigh/cljs-time "0.1.3"]
                  [sablono "0.2.17"]
 
-                 ;; for debugging
                  [ankha "0.1.2"]
 
                  [clj-kafka "0.2.0-0.8" :exclusions [org.slf4j/slf4j-simple org.apache.zookeeper/zookeeper]]
-                 [camel-snake-kebab "0.1.4"]
+
                  [cc.qbits/alia "2.0.0-rc1" :exclusions [com.google.guava/guava org.flatland/useful]]
                  [cc.qbits/hayt "2.0.0-beta4"]
 
@@ -59,7 +59,7 @@
                  [clj-time "0.6.0"]
                  [org.clojure/data.json "0.2.4"]
 
-                 [kixi/pipe "0.15.1"]
+                 [kixi/pipe "0.15.3"]
 
                  [thheller/shadow-build "0.5.0" :exclusions [org.clojure/clojurescript]]
                  ]

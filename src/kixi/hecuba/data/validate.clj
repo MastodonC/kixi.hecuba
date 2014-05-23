@@ -1,6 +1,6 @@
 (ns kixi.hecuba.data.validate
  "Data quality assurance and validation."
- (:require [clj-time.core :as t]   
+ (:require [clj-time.core :as t]
            [kixi.hecuba.protocols :refer (upsert! update! delete! item items)]
            [kixi.hecuba.data.misc :as m]))
 
@@ -25,9 +25,9 @@
   "Validates and inserts measurments. Updates metadata when errors are doscovered.
   Updates counters."
   [m commander querier sensor]
-  (let [errors (-> sensor first :errors read-string)
-        events (-> sensor first :events read-string)
-        where  [[= :device-id (:device-id m)] [= :type (:type m)]]]
+  (let [errors (-> sensor first :errors)
+        events (-> sensor first :events)
+        where  [[= :device_id (:device_id m)] [= :type (:type m)]]]
     (if (is-broken? errors events)
       (update! commander :sensor {:status "Broken"} where)
       (update! commander :sensor {:status "OK"} where))
@@ -37,8 +37,8 @@
   "Increment error counter and label median spike in metadata."
   [commander sensor m]
   (let [metadata (-> m :metadata)
-        where    [[= :device-id (:device-id m)] [= :type (:type m)]]
-        errors   (-> sensor first :errors read-string)]
+        where    [[= :device_id (:device_id m)] [= :type (:type m)]]
+        errors   (-> sensor first :errors)]
     (update! commander :sensor {:errors (inc errors)} where)
     (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "true"}))))
 
@@ -55,20 +55,19 @@
   Updates metadata accordingly."
   [m commander querier sensor]
   (let [metadata (-> m :metadata)
-        errors   (-> sensor first :errors read-string)
+        errors   (-> sensor first :errors)
         median   (-> sensor first :median)]
-    (cond 
-     (empty? median) (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "n/a"}))
+    (cond
      (nil? median) (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "n/a"}))
-     (larger-than-median (read-string median) m) (label-spike commander sensor m)
+     (larger-than-median median m) (label-spike commander sensor m)
      :else (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "false"})))))
 
 (defn label-invalid-value
   "Labels measurement as having invalid value.
    Increaments error counter of the sensor."
   [commander querier sensor where m]
-  (let [metadata (-> m :metadata)   
-        errors   (-> sensor first :errors read-string)]  
+  (let [metadata (-> m :metadata)
+        errors   (-> sensor first :errors)]
     (update! commander :sensor {:errors (inc errors)} where)
     (assoc-in m [:metadata] (m/update-metadata metadata {:is-number "false"}))))
 
@@ -77,7 +76,7 @@
   Updates metadata accordingly."
   [m commander querier sensor]
   (let [metadata  (-> m :metadata)
-        where     [[= :device-id (:device-id m)] [= :type (:type m)]]
+        where     [[= :device_id (:device_id m)] [= :type (:type m)]]
         value     (:value m)]
     (if (and (not (empty? value)) (m/numbers-as-strings?) value)
       (assoc-in m [:metadata] (m/update-metadata metadata {:is-number "true"}))
@@ -87,12 +86,12 @@
   "Measurement map is pipelines through a number of validation
   functions. Returns map of measurement with updated metadata."
   [commander querier m]
-  (let [device-id (-> m :device-id)
+  (let [device_id (-> m :device_id)
         type      (-> m :type)
-        where     [[= :device-id device-id] [= :type type]]
+        where     [[= :device_id device_id] [= :type type]]
         sensor    (items querier :sensor where)
-        events    (-> sensor first :events read-string)]
-    
+        events    (-> sensor first :events)]
+
     (if (= events 1440) (reset-counters! commander where))
     (update! commander :sensor {:events (inc events)} where)
 
@@ -104,22 +103,17 @@
 
 ;; Sensor metadata functions that are triggered by core.async queue worker.
 
-(defn update-sensor-metadata
+(defn update-sensor_metadata
   "Updates start and end dates when new measurement is received."
   [m commander querier]
-  (let [device-id         (:device-id m)
+  (let [device_id         (or (:device_id m) (:device_id m))
         type              (:type m)
-        where             [[= :device-id device-id] [= :type type]]
-        sensor-metadata   (items querier :sensor-metadata where)
+        where             [[= :device_id device_id] [= :type type]]
+        sensor_metadata   (items querier :sensor_metadata where)
         timestamp         (m/last-check-int-format (:timestamp m))]
 
-    (m/update-date-range commander :rollups where timestamp (:rollups (first sensor-metadata)))
-    (m/update-date-range commander :mislabelled-sensors-check where timestamp (:mislabelled-sensors-check (first sensor-metadata)))
-    (m/update-date-range commander :difference-series where timestamp (:difference-series (first sensor-metadata)))
-    (m/update-date-range commander :median-calc-check where timestamp (:median-calc-check (first sensor-metadata)))
-    (m/update-date-range commander :spike-check where timestamp (:spike-check (first sensor-metadata)))))
-
-
-
-
-
+    (m/update-date-range commander :rollups where timestamp (:rollups (first sensor_metadata)))
+    (m/update-date-range commander :mislabelled_sensors_check where timestamp (:mislabelled_sensors_check (first sensor_metadata)))
+    (m/update-date-range commander :difference_series where timestamp (:difference_series (first sensor_metadata)))
+    (m/update-date-range commander :median_calc_check where timestamp (:median_calc_check (first sensor_metadata)))
+    (m/update-date-range commander :spike_check where timestamp (:spike_check (first sensor_metadata)))))

@@ -14,23 +14,23 @@
   (let [request      (:request ctx)
         method       (:request-method request)
         route-params (:route-params request)
-        entity-id    (:entity-id route-params)
-        entity       (hecuba/item querier :entity entity-id)]
+        entity_id    (:entity_id route-params)
+        entity       (hecuba/item querier :entity entity_id)]
     (case method
       :post (not (nil? entity))
-      :get (let [items (hecuba/items querier :device [[= :entity-id entity-id]])]
+      :get (let [items (hecuba/items querier :device [[= :entity_id entity_id]])]
              {::items items}))))
 
 (defn index-malformed? [ctx]
   (let [request (:request ctx)
         {:keys [route-params request-method]} request
-        entity-id (:entity-id route-params)]
+        entity_id (:entity_id route-params)]
     (case request-method
       :post (let [body (decode-body request)]
               ;; We need to assert a few things
               (if
                   (or
-                   (not= (:entity-id body) entity-id))
+                   (not= (:entity_id body) entity_id))
                 true                      ; it's malformed, game over
                 [false {:body body}] ; it's not malformed, return the body now we've read it
                 ))
@@ -38,51 +38,47 @@
 
 (defn index-post! [querier commander ctx]
   (let [{:keys [request body]} ctx
-        entity-id     (-> request :route-params :entity-id)
+        entity_id     (-> request :route-params :entity_id)
         [username _]  (sec/get-username-password request querier)
-        user-id       (-> (hecuba/items querier :user [[= :username username]]) first :id)]
+        user_id       (-> (hecuba/items querier :user [[= :username username]]) first :id)]
 
-    (when-not (empty? (first (hecuba/items querier :entity [[= :id entity-id]])))
+    (when-not (empty? (first (hecuba/items querier :entity [[= :id entity_id]])))
       (let [device    (-> body
-                          (assoc :user-id user-id)
+                          (assoc :user_id user_id)
                           (update-in [:metadata] json/encode)
                           (update-in [:location] json/encode)
-                          (dissoc :readings)
-                          stringify-values)
-            device-id (hecuba/upsert! commander :device device)]
+                          (dissoc :readings))
+            device_id (hecuba/upsert! commander :device device)]
 
-        (hecuba/update! commander :entity {:devices [+ {device-id (str body)}]} [[= :id entity-id]])
+        (hecuba/update! commander :entity {:devices [+ {device_id (str body)}]} [[= :id entity_id]])
 
         (doseq [reading (:readings body)]
           (let [sensor (-> reading
                            stringify-values
-                           (assoc :device-id device-id)
+                           (assoc :device_id device_id)
                            (assoc :errors 0)
                            (assoc :events 0))]
-            (hecuba/upsert! commander :sensor (util/->shallow-kebab-map sensor))
-            (hecuba/upsert! commander :sensor-metadata (util/->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])}))))
-        {:device-id device-id}))))
+            (hecuba/upsert! commander :sensor sensor)
+            (hecuba/upsert! commander :sensor_metadata {:device_id device_id :type (:type reading)})))
+        {:device_id device_id}))))
 
 (defn index-handle-ok [ctx]
   (let [{items ::items {mime :media-type} :representation {routes :modular.bidi/routes route-params :route-params} :request} ctx]
     (util/render-items ctx (->> items
-                                (map #(dissoc % :user-id))
+                                (map #(dissoc % :user_id))
                                 (map #(update-in % [:location] json/decode))
-                                (map #(update-in % [:metadata] json/decode))
-                                (map util/downcast-to-json)
-                                (map util/camelify)
-                                json/encode))))
+                                (map #(update-in % [:metadata] json/decode))))))
 
 (defn index-handle-created [handlers ctx]
-  (let [{{routes :modular.bidi/routes {entity-id :entity-id} :route-params} :request device-id :device-id} ctx]
-    (if-not (empty? device-id)
+  (let [{{routes :modular.bidi/routes {entity_id :entity_id} :route-params} :request device_id :device_id} ctx]
+    (if-not (empty? device_id)
       (let [location
             (bidi/path-for routes (:device @handlers)
-                           :entity-id entity-id
-                           :device-id device-id)]
+                           :entity_id entity_id
+                           :device_id device_id)]
         (when-not location (throw (ex-info "No path resolved for Location header"
-                                           {:entity-id entity-id
-                                            :device-id device-id})))
+                                           {:entity_id entity_id
+                                            :device_id device_id})))
         (ring-response {:headers {"Location" location}
                         :body (json/encode {:location location
                                             :status "OK"
@@ -90,11 +86,11 @@
       (ring-response {:status 422 :body "Provide valid entityId."}))))
 
 (defn resource-exists? [querier ctx]
-  (let [{{{:keys [entity-id device-id]} :route-params} :request} ctx
-        item (hecuba/item querier :device device-id)]
+  (let [{{{:keys [entity_id device_id]} :route-params} :request} ctx
+        item (hecuba/item querier :device device_id)]
     (if-not (empty? item)
       {::item (-> item
-                  (assoc :device-id device-id)
+                  (assoc :device_id device_id)
                   (dissoc :id))}
       false)))
 
@@ -102,25 +98,25 @@
 ;; that should put something in the context which is then checked here.
 (defn resource-delete-enacted? [commander ctx]
   (let [{item ::item} ctx
-        device-id (:device-id item)
-        entity-id (:entity-id item)
-        response1 (hecuba/delete! commander :device [[= :id device-id]])
-        response2 (hecuba/delete! commander :sensor [[= :device-id device-id]])
-        response3 (hecuba/delete! commander :sensor-metadata [[= :device-id device-id]])
-        response4 (hecuba/delete! commander :entity {:devices device-id} [[= :id entity-id]])]
+        device_id (:device_id item)
+        entity_id (:entity_id item)
+        response1 (hecuba/delete! commander :device [[= :id device_id]])
+        response2 (hecuba/delete! commander :sensor [[= :device_id device_id]])
+        response3 (hecuba/delete! commander :sensor_metadata [[= :device_id device_id]])
+        response4 (hecuba/delete! commander :entity {:devices device_id} [[= :id entity_id]])]
     (every? empty? [response1 response2 response3 response4])))
 
 (defn resource-put! [querier commander ctx]
   (let [{request :request} ctx]
     (if-let [item (::item ctx)]
       (let [body          (decode-body request)
-            entity-id     (-> item :entity-id)
+            entity_id     (-> item :entity_id)
             [username _]  (sec/get-username-password request querier)
-            user-id       (-> (hecuba/items querier :user [[= :username username]]) first :id)
-            device-id     (-> item :device-id)]
+            user_id       (-> (hecuba/items querier :user [[= :username username]]) first :id)
+            device_id     (-> item :device_id)]
         (hecuba/upsert! commander :device (-> body
-                                              (assoc :id device-id)
-                                              (assoc :user-id user-id)
+                                              (assoc :id device_id)
+                                              (assoc :user_id user_id)
                                               (dissoc :readings)
                                               (update-in [:location] json/encode)
                                               (update-in [:metadata] json/encode)
@@ -130,25 +126,22 @@
         (doseq [reading (:readings body)]
           (let [sensor (-> reading
                            stringify-values
-                           (assoc :device-id device-id)
+                           (assoc :device_id device_id)
                            (assoc :errors 0)
                            (assoc :events 0))]
-            (hecuba/upsert! commander :sensor (util/->shallow-kebab-map sensor))
-            (hecuba/upsert! commander :sensor-metadata
-                            (util/->shallow-kebab-map {:device-id device-id :type (get-in reading ["type"])})))))
+            (hecuba/upsert! commander :sensor sensor)
+            (hecuba/upsert! commander :sensor_metadata
+                            {:device_id device_id :type (:type reading)}))))
       (ring-response {:status 404 :body "Please provide valid entityId and deviceId"}))))
 
 (defn resource-handle-ok [querier ctx]
   (let [{item ::item} ctx]
     (-> item
-        (assoc :readings (map #(dissoc % :user-id) (hecuba/items querier :sensor [[= :device-id (:device-id item)]])))
-        ;; (assoc :measurements (hecuba/items querier :measurement {:device-id (:id item)}))
+        (assoc :readings (map #(dissoc % :user_id) (hecuba/items querier :sensor [[= :device_id (:device_id item)]])))
+        ;; (assoc :measurements (hecuba/items querier :measurement {:device_id (:id item)}))
         (update-in [:location] json/decode)
         (update-in [:metadata] json/decode)
-        (dissoc :user-id)
-        util/downcast-to-json
-        util/camelify
-        json/encode)))
+        (dissoc :user_id))))
 
 (defn resource-respond-with-entity [ctx]
   (let [request (:request ctx)

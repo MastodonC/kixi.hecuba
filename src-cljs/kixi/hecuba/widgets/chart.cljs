@@ -28,10 +28,10 @@
 (defn- draw-chart [cursor measurements]
   (let [Chart            (.-chart dimple)
         svg              (.newSvg dimple "#chart" "100%" 600)
-        [type device-id] (-> (get-in cursor [:sensor])
+        [type device_id] (-> (get-in cursor [:sensor])
                              str
                              (str/split #"-"))
-        data             (into [] (map #(assoc % :id device-id) measurements))
+        data             (into [] (map #(assoc % :id device_id) measurements))
         unit             (get-in cursor [:unit])
         dimple-chart     (.setBounds (Chart. svg) "5%" "15%" "80%" "50%")
         x                (.addCategoryAxis dimple-chart "x" "timestamp")

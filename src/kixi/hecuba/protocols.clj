@@ -16,3 +16,8 @@
     [_ type where limit]
     [_ type where paginate-key per-page]
     [_ type where paginate-key per-page last-key]))
+
+(defprotocol Cassandra
+  (-execute [session query opts])
+  (-execute-async [session query opts])
+  (-execute-chan [session query opts]))

@@ -10,32 +10,28 @@
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]))
 
-(defn- entity-id-from [ctx]
-  (get-in ctx [:request :route-params :entity-id]))
+(defn- entity_id-from [ctx]
+  (get-in ctx [:request :route-params :entity_id]))
 
-(defn- device-id-from [ctx]
-  (get-in ctx [:request :route-params :device-id]))
+(defn- device_id-from [ctx]
+  (get-in ctx [:request :route-params :device_id]))
 
 (defn metadata-exists? [querier ctx]
-  (when-let [items (hecuba/items querier :sensor-metadata [[= :device-id (device-id-from ctx)]])]
+  (when-let [items (hecuba/items querier :sensor_metadata [[= :device_id (device_id-from ctx)]])]
     {::items items}))
 
 (defn metadata-handle-ok [ctx]
-    {::items ctx}
-         ;downcast-to-json
-         ;camelify
-         ;encode
-         )
+    {::items ctx})
 
 (defn index-by-property-handle-ok [querier ctx]
   (let [request (:request ctx)
         devices (hecuba/items querier
                               :device
-                              [[= :entity-id (entity-id-from ctx)]])
+                              [[= :entity_id (entity_id-from ctx)]])
         sensors (mapcat (fn [{:keys [id location]}]
                           (map #(assoc % :location (json/decode location))
                                (hecuba/items querier
-                                             :sensor [[= :device-id id]])))
+                                             :sensor [[= :device_id id]])))
                         devices)]
     (util/render-items request sensors)))
 

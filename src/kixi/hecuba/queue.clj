@@ -5,7 +5,8 @@
             [clojure.core.async :refer [<! >! chan put! sliding-buffer close! go]]))
 
 (defn put-on-queue [q message]
-  (go (>! q message)))
+  (when q
+    (put! q message)))
 
 (defn create-channels [config]
   (let [topics (:topics config)]

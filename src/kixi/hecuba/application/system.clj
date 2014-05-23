@@ -22,7 +22,7 @@
    [kixi.hecuba.user :refer (new-user-api)]
    [kixi.hecuba.cljs :refer (new-cljs-routes)]
    [kixi.hecuba.storage.db :refer (new-cluster new-session new-direct-store)]
-
+   [kixi.hecuba.storage.dbnew :as dbnew]
    [shadow.cljs.build :as cljs]
 
    ;; Misc
@@ -31,12 +31,31 @@
    [clojure.tools.reader.reader-types :refer (indexing-push-back-reader source-logging-push-back-reader)]
    [clojure.java.io :as io]))
 
+(defn combine
+  "Merge maps, recursively merging nested maps whose keys collide."
+  ([] {})
+  ([m] m)
+  ([m1 m2]
+    (reduce (fn [m1 [k2 v2]]
+              (if-let [v1 (get m1 k2)]
+                (if (and (map? v1) (map? v2))
+                  (assoc m1 k2 (combine v1 v2))
+                  (assoc m1 k2 v2))
+                (assoc m1 k2 v2)))
+            m1 m2))
+  ([m1 m2 & more]
+    (apply combine (combine m1 m2) more)))
+
 (defn config []
   (let [f (io/file (System/getProperty "user.home") ".hecuba.edn")]
     (when (.exists f)
-      (clojure.tools.reader/read
-       (indexing-push-back-reader
-        (java.io.PushbackReader. (io/reader f)))))))
+      (combine
+       (clojure.tools.reader/read
+        (indexing-push-back-reader
+         (java.io.PushbackReader. (io/reader "resources/default.hecuba.edn")))) ;; TODO change path once we deploy from jar
+       (clojure.tools.reader/read
+        (indexing-push-back-reader
+         (java.io.PushbackReader. (io/reader f)))))))) 
 
 
 (defn define-modules [state]
@@ -151,6 +170,9 @@
     (-> (component/system-map
          :cluster (new-cluster (:cassandra-cluster cfg))
          :session (new-session (:cassandra-session cfg))
+         :cluster-new (dbnew/new-cluster (:cassandra-cluster cfg))
+         :hecuba-session (dbnew/new-session (:hecuba-session cfg))
+         :store-new (dbnew/new-store)
          :store (new-direct-store)
          :pipeline (new-pipeline)
          :scheduler (kixipipe.scheduler/mk-session cfg)
@@ -163,13 +185,14 @@
          :amon-api (new-amon-api "/4")
          :user-api (new-user-api)
          :cljs-routes (new-cljs-routes (:cljs-builder cfg)))
-
         (mod/system-using
          {:main-routes [:store]
-          :amon-api [:store :queue :queue-worker :session]
+          :amon-api [:store :store-new :session]
           :user-api [:store]
           :store [:session]
+          :store-new [:hecuba-session :queue]
           :queue-worker [:queue :store]
-          :pipeline [:store]
+          :pipeline [:store :store-new]
           :scheduler [:pipeline]
+          :hecuba-session {:cluster :cluster-new} ;; TODO remove temp rename -> [:cluster]
           :session [:cluster]}))))

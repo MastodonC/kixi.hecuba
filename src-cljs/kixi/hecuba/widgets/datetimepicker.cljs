@@ -26,7 +26,7 @@
   (let [formatter (tf/formatter "yyyy-MM-dd HH:mm:ss")
         start     (tf/parse formatter start-date)
         end       (tf/parse formatter end-date)]
-    
+
     (cond
      (t/after? start end)       (invalid-dates data start-date end-date)
      (= start-date end-date)    (invalid-dates data start-date end-date)
@@ -73,6 +73,7 @@
                                            :className  "btn btn-primary btn-large"
                                            :onClick
                                            (fn [e]
+                                             (println "HOOOOO")
                                              (let [start (-> (om/get-node owner "dateFrom") .-value)
                                                    end   (-> (om/get-node owner "dateTo") .-value)]
                                                (evaluate-dates data history start end)))}

@@ -7,14 +7,18 @@
 (defmacro defreplmethods
   [name & options]
   `(let [options# (apply hash-map '~options)]
-     (defn 
+     (defn
        ~name
        []
        (submit-item (-> system :pipeline :head)
                     (merge options#)))))
 
 (defreplmethods rollups-> :dest :calculated-datasets :type :rollups)
-(defreplmethods difference-series-> :dest :calculated-datasets :type :difference-series)
+(defreplmethods difference_series-> :dest :calculated-datasets :type :difference_series)
 (defreplmethods median-calculation-> :dest :data-quality :type :median-calculation)
 (defreplmethods mislabelled-check-> :dest :data-quality :type :mislabelled-sensors)
-(defreplmethods median-spike-check-> :dest :data-quality :type :spike-check)
+(defreplmethods median-spike_check-> :dest :data-quality :type :spike_check)
+(defreplmethods synthetic-readings-> :dest :calculated-datasets :type :synthetic-readings)
+(defreplmethods resolution-> :dest :data-quality :type :resolution)
+(defreplmethods resolution-> :dest :calculated-datasets :type :diff-series-res)
+

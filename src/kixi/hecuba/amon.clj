@@ -1,8 +1,6 @@
 (ns kixi.hecuba.amon
   (:require
    [bidi.bidi :as bidi]
-   [camel-snake-kebab :as csk :refer (->kebab-case-keyword)]
-   [cheshire.core :as json]
    [clj-time.coerce :as tc]
    [clj-time.core :as t]
    [clj-time.format :as tf]
@@ -41,32 +39,32 @@
     (resolve-handler [this m] nil)
     (unresolve-handler [this m] nil))
 
-(defn make-handlers [opts queue]
+(defn make-handlers [store store-new queue]
   (let [p (promise)]
-    @(deliver p {:programmes          (programmes/index opts p)
-                 :programme           (programmes/resource opts p)
+    @(deliver p {:programmes          (programmes/index store p)
+                 :programme           (programmes/resource store p)
 
-                 :projects            (projects/index opts p)
-                 :allprojects         (projects/index opts p)
-                 :project             (projects/resource opts p)
+                 :projects            (projects/index store p)
+                 :allprojects         (projects/index store p)
+                 :project             (projects/resource store p)
 
-                 :properties          (properties/index opts p)
-                 :entities            (entities/index opts p)
-                 :entity              (entities/resource opts p)
+                 :properties          (properties/index store p)
+                 :entities            (entities/index store p)
+                 :entity              (entities/resource store p)
 
-                 :devices             (devices/index opts p)
-                 :device              (devices/resource opts p)
-                 :sensor-metadata     (sensors/metadata opts p)
-                 :measurements        (measurements/index opts queue p)
-                 :measurement         (measurements/measurements-by-reading opts p)
-                 :measurement-slice   (measurements/measurements-slice opts p)
-                 :hourly-rollups      (rollups/hourly-rollups opts p)
-                 :daily-rollups       (rollups/daily-rollups opts p)
-                 :sensors-by-property (sensors/index-by-property opts p)
-                 :datasets            (datasets/index opts p)
-                 :dataset             (datasets/resource opts p)
-                 :profiles            (profiles/index opts p)
-                 :profile             (profiles/resource opts p)
+                 :devices             (devices/index store p)
+                 :device              (devices/resource store p)
+                 :sensor_metadata     (sensors/metadata store p)
+                 :measurements        (measurements/index store store-new queue p)
+                 :measurement         (measurements/measurements-by-reading store store-new p)
+                 :measurement-slice   (measurements/measurements-slice store store-new p)
+                 :hourly_rollups      (rollups/hourly_rollups store p)
+                 :daily_rollups       (rollups/daily_rollups store p)
+                 :sensors-by-property (sensors/index-by-property store p)
+                 :datasets            (datasets/index store p)
+                 :dataset             (datasets/resource store p)
+                 :profiles            (profiles/index store p)
+                 :profile             (profiles/resource store p)
                  })))
 
 
@@ -76,59 +74,57 @@
         [
          ["programmes/" (:programmes handlers)]
          ["programmes" (bidi/->Redirect 301 (:programmes handlers))]
-         [["programmes/" [sha1-regex :programme-id]] (:programme handlers)]
-         [["programmes/" [sha1-regex :programme-id] "/projects/"] (:projects handlers)]
-         [["programmes/" [sha1-regex :programme-id] "/projects"] (bidi/->Redirect 301 (:projects handlers))]
+         [["programmes/" [sha1-regex :programme_id]] (:programme handlers)]
+         [["programmes/" [sha1-regex :programme_id] "/projects/"] (:projects handlers)]
+         [["programmes/" [sha1-regex :programme_id] "/projects"] (bidi/->Redirect 301 (:projects handlers))]
 
          ["projects/" (:allprojects handlers)]
          ["projects" (bidi/->Redirect 301 (:allprojects handlers))]
-         [["projects/" [sha1-regex :project-id]] (:project handlers)]
-         [["projects/" [sha1-regex :project-id] "/properties/"] (:properties handlers)]
-         [["projects/" [sha1-regex :project-id] "/properties"] (bidi/->Redirect 301 (:properties handlers))]
+         [["projects/" [sha1-regex :project_id]] (:project handlers)]
+         [["projects/" [sha1-regex :project_id] "/properties/"] (:properties handlers)]
+         [["projects/" [sha1-regex :project_id] "/properties"] (bidi/->Redirect 301 (:properties handlers))]
 
 
          ["entities/" (:entities handlers)]
          ["entities" (bidi/->Redirect 301 (:entities handlers))]
-         [["entities/" [sha1-regex :entity-id]] (:entity handlers)]
-         [["entities/" [sha1-regex :entity-id] "/datasets/"] (:datasets handlers)]
-         [["entities/" [sha1-regex :entity-id] "/datasets"] (bidi/->Redirect 301 (:datasets handlers))]
+         [["entities/" [sha1-regex :entity_id]] (:entity handlers)]
+         [["entities/" [sha1-regex :entity_id] "/datasets/"] (:datasets handlers)]
+         [["entities/" [sha1-regex :entity_id] "/datasets"] (bidi/->Redirect 301 (:datasets handlers))]
 
-         [["entities/" [sha1-regex :entity-id] "/datasets/" :name] (:dataset handlers)]
-         [["entities/" [sha1-regex :entity-id] "/sensors/"] (:sensors-by-property handlers)]
-         [["entities/" [sha1-regex :entity-id] "/sensors"] (bidi/->Redirect 301 (:sensors-by-property handlers))]
+         [["entities/" [sha1-regex :entity_id] "/datasets/" :name] (:dataset handlers)]
+         [["entities/" [sha1-regex :entity_id] "/sensors/"] (:sensors-by-property handlers)]
+         [["entities/" [sha1-regex :entity_id] "/sensors"] (bidi/->Redirect 301 (:sensors-by-property handlers))]
 
-         [["entities/" [sha1-regex :entity-id] "/devices/"] (:devices handlers)]
-         [["entities/" [sha1-regex :entity-id] "/devices"] (bidi/->Redirect 301 (:devices handlers))]
+         [["entities/" [sha1-regex :entity_id] "/devices/"] (:devices handlers)]
+         [["entities/" [sha1-regex :entity_id] "/devices"] (bidi/->Redirect 301 (:devices handlers))]
 
 
-         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id]] (:device handlers)]
-         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/metadata/"] (:sensor-metadata handlers)]
-         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/metadata/"] (bidi/->Redirect 301 (:sensor-metadata handlers))]
+         [["entities/" [sha1-regex :entity_id] "/devices/" [sha1-regex :device_id]] (:device handlers)]
+         [["entities/" [sha1-regex :entity_id] "/devices/" [sha1-regex :device_id] "/metadata/"] (:sensor_metadata handlers)]
+         [["entities/" [sha1-regex :entity_id] "/devices/" [sha1-regex :device_id] "/metadata/"] (bidi/->Redirect 301 (:sensor_metadata handlers))]
 
-         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements/"] (:measurements handlers)]
-         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements"] (bidi/->Redirect 301 (:measurements handlers))]
+         [["entities/" [sha1-regex :entity_id] "/devices/" [sha1-regex :device_id] "/measurements/"] (:measurements handlers)]
+         [["entities/" [sha1-regex :entity_id] "/devices/" [sha1-regex :device_id] "/measurements"] (bidi/->Redirect 301 (:measurements handlers))]
 
-         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements/" :reading-type] (:measurement-slice handlers)]
-         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/measurements/" :reading-type "/" :timestamp] (:measurement handlers)]
-         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/hourly_rollups/" :reading-type] (:hourly-rollups handlers)]
-         [["entities/" [sha1-regex :entity-id] "/devices/" [sha1-regex :device-id] "/daily_rollups/" :reading-type] (:daily-rollups handlers)]
+         [["entities/" [sha1-regex :entity_id] "/devices/" [sha1-regex :device_id] "/measurements/" :reading-type] (:measurement-slice handlers)]
+         [["entities/" [sha1-regex :entity_id] "/devices/" [sha1-regex :device_id] "/measurements/" :reading-type "/" :timestamp] (:measurement handlers)]
+         [["entities/" [sha1-regex :entity_id] "/devices/" [sha1-regex :device_id] "/hourly_rollups/" :reading-type] (:hourly_rollups handlers)]
+         [["entities/" [sha1-regex :entity_id] "/devices/" [sha1-regex :device_id] "/daily_rollups/" :reading-type] (:daily_rollups handlers)]
 
-         [["entities/" [sha1-regex :entity-id] "/profiles/"] (:profiles handlers)]
-         [["entities/" [sha1-regex :entity-id] "/profiles"] (bidi/->Redirect 301 (:profiles handlers))]
-         [["entities/" [sha1-regex :entity-id] "/profiles/" [sha1-regex :profile-id]] (:profile handlers)]
+         [["entities/" [sha1-regex :entity_id] "/profiles/"] (:profiles handlers)]
+         [["entities/" [sha1-regex :entity_id] "/profiles"] (bidi/->Redirect 301 (:profiles handlers))]
+         [["entities/" [sha1-regex :entity_id] "/profiles/" [sha1-regex :profile-id]] (:profile handlers)]
          ]
         wrap-cookies)])
 
 (defrecord AmonApi [context]
   component/Lifecycle
   (start [this]
-    (log/info "AmonApi starting")
-    (if-let [store (get-in this [:store])]
-      (let [handlers  (make-handlers store (get-in this [:queue :queue]))]
-        (assoc this
-          :handlers handlers
-          :routes (make-routes handlers)))
-      (throw (ex-info "No store!" {:this this}))))
+    (log/info "AmonApi starting - " this)
+    (let [handlers  (make-handlers (:store this) (:store-new this) (get-in this [:queue :queue]))]
+      (assoc this
+        :handlers handlers
+        :routes (make-routes handlers))))
   (stop [this] this)
 
   modular.bidi/BidiRoutesContributor

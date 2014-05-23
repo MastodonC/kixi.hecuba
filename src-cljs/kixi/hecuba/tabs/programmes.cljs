@@ -97,28 +97,28 @@
                                                                selection-key
                                                                nav-event)]
         (let [[start-date end-date] search
-              entity-id        (get ids :properties)
-              sensor-id        (get ids :sensors)
-              [type device-id] (str/split sensor-id #"-")]
+              entity_id        (get ids :properties)
+              sensor_id        (get ids :sensors)
+              [type device_id] (str/split sensor_id #"-")]
 
           (om/update! data :range {:start-date start-date :end-date end-date})
-          (om/update! data :sensors sensor-id)
+          (om/update! data :sensors sensor_id)
           (om/update! data :measurements [])
 
           ;; TODO ajax call should not be made on each change, only on this particular cursor update.
           (when (and (not (empty? start-date))
                      (not (empty? end-date))
-                     (not (nil? device-id))
-                     (not (nil? entity-id))
+                     (not (nil? device_id))
+                     (not (nil? entity_id))
                      (not (nil? type)))
 
             ;; FIXME Should be a multimethod
             (let [url (case (interval start-date end-date)
-                        :raw (str "/4/entities/" entity-id "/devices/" device-id "/measurements/"
+                        :raw (str "/4/entities/" entity_id "/devices/" device_id "/measurements/"
                                   type "?startDate=" start-date "&endDate=" end-date)
-                        :hourly-rollups (str "/4/entities/" entity-id "/devices/" device-id "/hourly_rollups/"
+                        :hourly_rollups (str "/4/entities/" entity_id "/devices/" device_id "/hourly_rollups/"
                                              type "?startDate=" start-date "&endDate=" end-date)
-                        :daily-rollups (str "/4/entities/" entity-id "/devices/" device-id "/daily_rollups/"
+                        :daily_rollups (str "/4/entities/" entity_id "/devices/" device_id "/daily_rollups/"
                                             type "?startDate=" start-date "&endDate=" end-date))]
               (GET url
                    {:handler #(om/update! data :measurements %)
@@ -183,7 +183,7 @@
             [:th "Created At"]]]
           [:tbody
            (for [row (sort-by :name (:data programmes))]
-             (let [{:keys [id lead-organisations name description created-at]} row]
+             (let [{:keys [id lead_organisations name description created_at]} row]
                [:tr {:onClick (fn [_ _]
                                 (om/update! programmes :selected id)
                                 (history/update-token-ids! history :programmes id)
@@ -191,17 +191,17 @@
                      :className (if (= id (:selected programmes)) "success")
                      :id (str table-id "-selected")}
                 [:td name]
-                [:td lead-organisations]
+                [:td lead_organisations]
                 [:td id]
-                [:td created-at]]))]])))))
+                [:td created_at]]))]])))))
 
 (defn programmes-div [data owner]
   (reify
     om/IDidUpdate
     (did-update [_ prev-props prev-state]
       (let [{:keys [programmes active-components]} data
-            programme-id (:programmes active-components)]
-        (when-not programme-id
+            programme_id (:programmes active-components)]
+        (when-not programme_id
           (om/update! programmes :selected nil))
 
         (if (not (seq (:data programmes)))
@@ -250,7 +250,7 @@
         [:tr [:th "Name"] [:th "Type"] [:th "Description"] [:th "Created At"] [:th "Organisation"] [:th "Project Code"]]]
        [:tbody
         (for [row (sort-by :id (:data projects))]
-          (let [{:keys [id name type-of description created-at organisation project-code]} row]
+          (let [{:keys [id name type_of description created_at organisation project_code]} row]
             [:tr {:onClick (fn [_ _]
                              (om/update! projects :selected id)
                              (history/update-token-ids! history :projects id)
@@ -258,11 +258,11 @@
                   :className (if (= id (:selected projects)) "success")
                   :id (str table-id "-selected")}
              [:td name]
-             [:td type-of]
+             [:td type_of]
              [:td description]
-             [:td created-at]
+             [:td created_at]
              [:td organisation]
-             [:td project-code]]))]]]]))
+             [:td project_code]]))]]]]))
 
 (defmethod projects-table-html :default [projects owner]
   [:div.row [:div.col-md-12]])
@@ -278,21 +278,21 @@
     om/IDidUpdate
     (did-update [_ prev-props prev-state]
       (let [{:keys [programmes projects active-components]} data
-            new-programme-id (:programmes active-components)]
+            new-programme_id (:programmes active-components)]
 
         ;; handle selection in programme table
-        (when-not new-programme-id
+        (when-not new-programme_id
           (om/update! projects :data [])
           (om/update! projects :selected nil))
 
         ;; get the data if we have a new id
-        (if (and new-programme-id
-                 (not (= (:programme-id projects) new-programme-id)))
+        (if (and new-programme_id
+                 (not (= (:programme_id projects) new-programme_id)))
           (do
             (om/update! projects :fetching :fetching)
-            (GET (str "/4/programmes/" new-programme-id "/projects/")
+            (GET (str "/4/programmes/" new-programme_id "/projects/")
                  {:handler  (fn [x]
-                              (println "Fetching projects for programme: " new-programme-id)
+                              (println "Fetching projects for programme: " new-programme_id)
                               (om/update! projects :data (mapv slugify-project x))
                               (om/update! projects :fetching (if (empty? x) :no-data :has-data))
                               (om/update! projects :selected nil))
@@ -304,7 +304,7 @@
                   :response-format :text})))
 
         ;; update our current id with the new one
-        (om/update! projects :programme-id new-programme-id)
+        (om/update! projects :programme_id new-programme_id)
 
         ;; handle selection in projects table
         (om/update! projects :selected (:projects active-components))))
@@ -314,7 +314,7 @@
             history (om/get-shared owner :history)]
         (html
          [:div.row#projects-div
-          [:div {:class (str "col-md-12 " (if (:programme-id projects) "" "hidden"))}
+          [:div {:class (str "col-md-12 " (if (:programme_id projects) "" "hidden"))}
            [:h2 "Projects"]
            [:ul {:class "breadcrumb"}
             [:li [:a
@@ -327,7 +327,7 @@
 (defn slugify-property
   "Create a slug for a property in the UI"
   [property]
-  (assoc property :slug (apply str (interpose ", " (->> (vector (:property-code property) (:address-street-two property))
+  (assoc property :slug (apply str (interpose ", " (->> (vector (:property_code property) (:address_street_two property))
                                                         (keep identity)
                                                         (remove empty?))))))
 
@@ -350,17 +350,17 @@
        [:thead
         [:tr [:th "Property Code"] [:th "Address"] [:th "Region"] [:th "Country"]]]
        [:tbody
-        (for [row (sort-by :address-street-two (:data properties))]
-          (let [{:keys [id property-code address-street-two address-country address-region]} row]
+        (for [row (sort-by :address_street_two (:data properties))]
+          (let [{:keys [id property_code address_street_two address-country address_region]} row]
             [:tr {:onClick (fn [_ _]
                              (om/update! properties :selected id)
                              (history/update-token-ids! history :properties id)
                              (fixed-scroll-to-element "devices-div"))
                   :className (if (= id (:selected properties)) "success")
                   :id (str table-id "-selected")}
-             [:td property-code]
-             [:td address-street-two]
-             [:td address-region]
+             [:td property_code]
+             [:td address_street_two]
+             [:td address_region]
              [:td address-country]]))]]]]))
 
 (defmethod properties-table-html :default [properties owner]
@@ -377,20 +377,20 @@
     om/IDidUpdate
     (did-update [_ prev-props prev-state]
       (let [{:keys [projects properties active-components]} data
-            new-project-id (:projects active-components)]
+            new-project_id (:projects active-components)]
 
         ;; handle selection in projects table
-        (when-not new-project-id
+        (when-not new-project_id
           (om/update! properties :data [])
           (om/update! properties :selected nil))
-        
-        (if (and new-project-id
-                 (not (= (:project-id properties) new-project-id)))
+
+        (if (and new-project_id
+                 (not (= (:project_id properties) new-project_id)))
           (do
             (om/update! properties :fetching :fetching)
-            (GET (str "/4/projects/" new-project-id "/properties/")
+            (GET (str "/4/projects/" new-project_id "/properties/")
                  {:handler  (fn [x]
-                              (println "Fetching properties for project: " new-project-id)
+                              (println "Fetching properties for project: " new-project_id)
                               (om/update! properties :data (mapv slugify-property x))
                               (om/update! properties :fetching (if (empty? x) :no-data :has-data))
                               (om/update! properties :selected nil))
@@ -400,7 +400,7 @@
                                    (om/update! properties :error-text status-text))
                   :headers {"Accept" "application/edn"}
                   :response-format :text})))
-        (om/update! properties :project-id new-project-id)
+        (om/update! properties :project_id new-project_id)
 
         ;; handle selection on properties table
         (om/update! properties :selected (:properties active-components))))
@@ -410,7 +410,7 @@
             history (om/get-shared owner :history)]
         (html
          [:div.row#properties-div
-          [:div {:class (str "col-md-12 " (if (:project-id properties) "" "hidden"))}
+          [:div {:class (str "col-md-12 " (if (:project_id properties) "" "hidden"))}
            [:h2 "Properties"]
            [:ul {:class "breadcrumb"}
             [:li [:a
@@ -482,9 +482,9 @@
         (when-not new-property-id
           (om/update! devices :data [])
           (om/update! devices :selected nil))
-        
+
         (if (and new-property-id
-                 (not (= (:property-id devices) new-property-id)))
+                 (not (= (:property_id devices) new-property-id)))
           (do
             (om/update! devices :fetching :fetching)
             (GET (str "/4/entities/" new-property-id "/devices/")
@@ -502,7 +502,7 @@
                   :headers {"Accept" "application/json"}
                   :response-format :json
                   :keywords? true})))
-        (om/update! devices :property-id new-property-id)
+        (om/update! devices :property_id new-property-id)
 
         ;; handle selection in devices table
         (om/update! devices :selected (:devices active-components))))
@@ -512,7 +512,7 @@
             history (om/get-shared owner :history)]
         (html
          [:div.row#devices-div
-          [:div {:class (str "col-md-12 " (if (:property-id devices) "" "hidden"))}
+          [:div {:class (str "col-md-12 " (if (:property_id devices) "" "hidden"))}
            [:h2  "Devices"]
            [:ul {:class "breadcrumb"}
             [:li [:a
@@ -551,8 +551,8 @@
            [:tr [:th "Type"] [:th "Unit"] [:th "Period"] [:th "Device"] [:th "Status"]]]
           [:tbody
            (for [row (sort-by :type (-> sensors :data :readings))]
-             (let [{:keys [deviceId type unit period status]} row
-                   id (str type "-" deviceId)]
+             (let [{:keys [device_id type unit period status]} row
+                   id (str type "-" device_id)]
                [:tr {:onClick (fn [_ _]
                                 (om/update! sensors :selected id)
                                 (om/update! chart :sensor id)
@@ -563,10 +563,10 @@
                 [:td type]
                 [:td unit]
                 [:td period]
-                [:td deviceId]
+                [:td device_id]
                 [:td (status-label status)]]))]])))))
 
-(defn chart-summary 
+(defn chart-summary
   "Show min, max, delta and average of chart data."
   [chart owner]
   (reify
@@ -599,22 +599,22 @@
     om/IDidUpdate
     (did-update [_ prev-props prev-state]
       (let [{:keys [sensors active-components]} data
-            new-device-id                       (:devices active-components)
-            property-id                         (:properties active-components)]
+            new-device_id                       (:devices active-components)
+            property_id                         (:properties active-components)]
 
         ;; handle selection perties table
-        (when-not new-device-id
+        (when-not new-device_id
           (om/update! sensors :data [])
           (om/update! sensors :selected nil))
-        
-        (if (and new-device-id
-                 (not= (:device-id sensors) new-device-id))
+
+        (if (and new-device_id
+                 (not= (:device_id sensors) new-device_id))
           (do
             (om/update! sensors :fetching true)
             ;; "/4/entities/:properties/devices/:devices"
-            (GET (str "/4/entities/" property-id "/devices/" new-device-id)
+            (GET (str "/4/entities/" property_id "/devices/" new-device_id)
                  {:handler  (fn [x]
-                              (println "Fetching sensors for device: " new-device-id)
+                              (println "Fetching sensors for device: " new-device_id)
                               (om/update! sensors :fetching false)
                               (om/update! sensors :data x)
                               (om/update! sensors :selected nil))
@@ -626,7 +626,7 @@
                   :headers {"Accept" "application/json"}
                   :response-format :json
                   :keywords? true})))
-        (om/update! sensors :device-id new-device-id)
+        (om/update! sensors :device_id new-device_id)
 
         ;; handle selection in sensors table
         (om/update! sensors :selected (:sensors active-components))))
@@ -636,7 +636,7 @@
             history (om/get-shared owner :history)]
         (html
          [:div.row#sensors-div
-          [:div {:class (str "col-md-12 "  (if (:device-id sensors) "" "hidden"))}
+          [:div {:class (str "col-md-12 "  (if (:device_id sensors) "" "hidden"))}
            [:h2 {:id "sensors"} "Sensors"]
            [:ul {:class "breadcrumb"}
             [:li [:a
@@ -673,7 +673,7 @@
 
         ;; handle navigation changes
         (history-loop (tap-history) data)
-        
+
         (chart-ajax (tap-history)
                     (:chart data)
                     {:template "/4/entities/:properties/devices/:devices/measurements?startDate=:start-date&endDate=:end-date"
@@ -692,5 +692,3 @@
              ;; (om/build sensor/define-data-set-button data)
 
              ]))))
-
-

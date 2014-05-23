@@ -1,3 +1,5 @@
+drop keyspace test;
+
 CREATE KEYSPACE test WITH replication = {
   'class': 'SimpleStrategy',
   'replication_factor': '1'
@@ -27,10 +29,13 @@ CREATE TABLE daily_rollups (
   compaction={'class': 'SizeTieredCompactionStrategy'} AND
   compression={'sstable_compression': 'SnappyCompressor'};
 
-CREATE TABLE data_sets (
+CREATE TABLE datasets (
   entity_id text,
   name text,
-  members text,
+  members set<text>,
+  operation text,
+  type text,
+  device_id text,
   PRIMARY KEY (entity_id, name)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
@@ -302,6 +307,8 @@ CREATE TABLE sensor_metadata (
   mislabelled_sensors_check text,
   rollups text,
   spike_check text,
+  lower_ts timestamp,
+  upper_ts timestamp,
   PRIMARY KEY (device_id, type)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND

@@ -3,7 +3,7 @@
    [clojure.java.io :as io]
    [clojure.edn :as edn]
    [cheshire.core :refer (decode decode-stream encode)]
-   [camel-snake-kebab :as csk]
+   [cheshire.generate :refer (add-encoder)]
    [hiccup.core :refer (html)]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.data.misc :as misc]
@@ -26,7 +26,18 @@
   (read-json-body [body] (decode body keyword))
   org.httpkit.BytesInputStream
   (read-edn-body [body] (io! (edn/read (java.io.PushbackReader. (io/reader body)))))
-  (read-json-body [body] (io! (decode-stream (io/reader body)))))
+  (read-json-body [body] (io! (decode-stream (io/reader body) keyword))))
+
+;; TODO - this is not the right place for these - where is?
+(add-encoder java.util.UUID
+             (fn [c jsonGenerator]
+               (.writeString jsonGenerator (str c))))
+(add-encoder java.util.Date
+             (fn [c jsonGenerator]
+               (.writeString jsonGenerator (str c))))
+(add-encoder clojure.lang.Keyword
+             (fn [c jsonGenerator]
+               (.writeString jsonGenerator (name c))))
 
 (defn uuid [] (java.util.UUID/randomUUID))
 
@@ -47,45 +58,10 @@
      (sec/authorized-with-basic-auth? req querier)
      (sec/authorized-with-cookie? req querier))))
 
-;; Note: whether we need to stringify the values, I'm not sure.
-(defn ->shallow-kebab-map
-  "Turn the keys of the given map into kebab-case keywords."
-  [m]
-  (reduce-kv (fn [s k v] (conj s [(csk/->kebab-case-keyword k) v])) {} m))
-
-(defn downcast-to-json
-  "For JSON serialization we need to widen the types contained in the structure."
-  [x]
-  (postwalk
-   #(cond
-     (instance? java.util.UUID %) (str %)
-     (instance? java.util.Date %) (str %)
-     (keyword? %) (name %)
-     (instance? java.lang.Double %) %
-     (instance? java.lang.Long %) %
-     (instance? java.lang.Integer %) %
-     (instance? clojure.lang.Symbol %) %
-     (or (coll? %) (string? %)) %
-     (nil? %) nil
-     :otherwise (throw (ex-info (format "No JSON type for %s"
-                                        (type %))
-                                {:value %
-                                 :type (type %)})))
-   x))
-
-(defn camelify
-  "For JSON serialization we need to widen the types contained in the structure."
-  [x]
-  (postwalk
-   #(cond
-     (map? %) (reduce-kv (fn [s k v] (conj s [(csk/->camelCaseString k) v])) {} %)
-     :otherwise %)
-   x))
-
 (defmulti decode-body :content-type :default "application/json")
 
-(defmethod decode-body "application/json" [{body :body}] (some-> body read-json-body ->shallow-kebab-map))
-(defmethod decode-body "application/edn" [{body :body}] (some-> body read-edn-body ->shallow-kebab-map))
+(defmethod decode-body "application/json" [{body :body}] (some-> body read-json-body))
+(defmethod decode-body "application/edn" [{body :body}] (some-> body read-edn-body))
 
 (defmulti render-items :content-type :default :unknown)
 (defmethod render-items :unknown [_ items]
@@ -99,13 +75,13 @@
     (let [DEBUG false]
       (html [:body
              [:h2 "Fields"]
-             [:ul (for [k fields] [:li (csk/->snake_case_string (name k))])]
+             [:ul (for [k fields] [:li (name k)])]
              [:h2 "Items"]
              [:table
               [:thead
                [:tr
                 [:th "Name"]
-                (for [k fields] [:th (string/replace (csk/->Snake_case_string k) "_" " ")])
+                (for [k fields] [:th (string/replace k "_" " ")])
                 (when DEBUG [:th "Debug"])]]
               [:tbody
                (for [p items]
@@ -118,10 +94,7 @@
   (pr-str (vec items)))
 
 (defmethod render-items "application/json" [_ items]
-  (map #(-> %
-             downcast-to-json
-             camelify
-             encode) items))
+  (map encode items))
 
 (defmulti render-item :content-type :default :unknown)
 (defmethod render-item :unknown [_ item]
@@ -138,7 +111,7 @@
 
 (defmethod render-item "application/edn" [_ item] (pr-str item))
 
-(defmethod render-item "application/json" [_ item] (-> item downcast-to-json camelify encode))  
+(defmethod render-item "application/json" [_ item] (encode item))
 
 (defn assoc-conj
   "Associate a key with a value in a map. If the key already exists in the map,
@@ -189,7 +162,7 @@
         in-range-inclusive? (complement (fn [t] (t/after? t end-date)))]
     (take-while in-range-inclusive? (tp/periodic-seq start-date step))))
 
-(defn parse-value 
+(defn parse-value
   "AMON API specifies that when value is not present, error must be returned and vice versa."
   [measurement]
   (let [value (:value measurement)]
