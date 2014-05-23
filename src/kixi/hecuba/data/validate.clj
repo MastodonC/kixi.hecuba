@@ -27,6 +27,25 @@
                  (hayt/update :sensors
                               (hayt/set-columns delta)
                               (hayt/where (where-from sensor)))))
+(defn- update-sensor-metadata [session sensor-metadata delta]
+  (db/execute session
+                 (hayt/update :sensors
+                              (hayt/set-columns delta)
+                              (hayt/where (where-from sensor-metadata)))))
+
+
+;; TODO this is duplicated in misc.  - resolve.
+(defn update-metadata
+  [metadata-str new-map-entry]
+  (let [metadata (read-string metadata-str)]
+    (str (conj metadata new-map-entry))))
+
+(defn update-date-range [session col where t metadata]
+  (let [existing-range (get metadata col)]
+    (cond
+     (empty? existing-range) (update-sensor-metadata {col (str {:start (str t) :end (str t)})} where)
+     (< t (Long/parseLong (:start (read-string existing-range)))) (update-sensor-metadata session metadata {col (update-metadata existing-range {:start (str t)})} where)
+     (> t (Long/parseLong (:end (read-string existing-range)))) (update-sensor-metadata {col (update-metadata existing-range {:end (str t)})} where))))
 
 (defn- status-from-measurement-errors
   "If 10% of measurements are invalid, device is broken."
@@ -115,18 +134,21 @@
           (broken-sensor-check session sensor)))))
 
 ;; Sensor metadata functions that are triggered by core.async queue worker.
+(defn- get-sensor-metadata [session where]
+  (first (db/execute session
+                     (hayt/select :sensor_metadata
+                                  (hayt/where where)))))
 
 (defn update-sensor-metadata
   "Updates start and end dates when new measurement is received."
-  [m commander querier]
-  (let [device_id         (:device_id m)
-        type              (:type m)
-        where             [[= :device_id device_id] [= :type type]]
-        sensor_metadata   (items querier :sensor_metadata where)
-        timestamp         (m/last-check-int-format (:timestamp m))]
+  [m store]
+  (db/with-session [session (:hecuba-session store)]
+    (let [where     (where-from m)
+          metadata  (get-sensor-metadata session where)
+          timestamp (m/last-check-int-format (:timestamp m))]
 
-    (m/update-date-range commander :rollups where timestamp (:rollups (first sensor_metadata)))
-    (m/update-date-range commander :mislabelled_sensors_check where timestamp (:mislabelled_sensors_check (first sensor_metadata)))
-    (m/update-date-range commander :difference_series where timestamp (:difference_series (first sensor_metadata)))
-    (m/update-date-range commander :median_calc_check where timestamp (:median_calc_check (first sensor_metadata)))
-    (m/update-date-range commander :spike_check where timestamp (:spike_check (first sensor_metadata)))))
+      (update-date-range session :rollups where timestamp metadata)
+      (update-date-range session :mislabelled_sensors_check where timestamp metadata)
+      (update-date-range session :difference_series where timestamp metadata)
+      (update-date-range session :median_calc_check where timestamp metadata)
+      (update-date-range session :spike_check where timestamp metadata))))

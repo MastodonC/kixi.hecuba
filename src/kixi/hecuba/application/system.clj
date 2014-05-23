@@ -55,7 +55,7 @@
          (java.io.PushbackReader. (io/reader "resources/default.hecuba.edn")))) ;; TODO change path once we deploy from jar
        (clojure.tools.reader/read
         (indexing-push-back-reader
-         (java.io.PushbackReader. (io/reader f)))))))) 
+         (java.io.PushbackReader. (io/reader f))))))))
 
 
 (defn define-modules [state]
@@ -191,7 +191,8 @@
           :user-api [:store]
           :store [:session]
           :store-new [:hecuba-session :queue]
-          :queue-worker [:queue :store]
+          :queue-worker {:queue :queue
+                         :store :store-new} ;; TODO remove temp rename -> [:queue :store]
           :pipeline [:store :store-new]
           :scheduler [:pipeline]
           :hecuba-session {:cluster :cluster-new} ;; TODO remove temp rename -> [:cluster]

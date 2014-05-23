@@ -136,9 +136,3 @@
     (when-not (and (< current-start (Long/parseLong start-date))
                    (> current-end (Long/parseLong end-date)))
       (update! commander :sensor_metadata {col nil} where))))
-
-(defn update-date-range [commander col where t existing-range]
-  (cond
-   (empty? existing-range) (update! commander :sensor_metadata {col (str {:start (str t) :end (str t)})} where)
-   (< t (Long/parseLong (:start (read-string existing-range)))) (update! commander :sensor_metadata {col (update-metadata existing-range {:start (str t)})} where)
-   (> t (Long/parseLong (:end (read-string existing-range)))) (update! commander :sensor_metadata {col (update-metadata existing-range {:end (str t)})} where)))
