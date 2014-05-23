@@ -44,7 +44,7 @@
   <logger name="org.quartz.core.QuartzSchedulerThread" level="INFO" />
 
   <!-- log all CQL -->
-  <logger name="kixi.hecuba.storage.db" level="DEBUG"/>
+  <logger name="kixi.hecuba.storage.db.CQL" level="DEBUG"/>
 
   <logger name="user" level="ALL" />
   <logger name="application" level="ALL" />
