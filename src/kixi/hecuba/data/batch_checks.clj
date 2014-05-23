@@ -72,7 +72,7 @@
                                                                                {:median-spike spike}))))))
     end-date))
 
-(defn median-spike_check
+(defn median-spike-check
   "Check of median spikes. It re-checks all measurements that have had median calculated."
   [commander querier {:keys [sensor range]}]
   (let [start  (m/int-format-to-timestamp (:start-date range))

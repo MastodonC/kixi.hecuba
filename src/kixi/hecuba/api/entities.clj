@@ -27,6 +27,7 @@
                                                             (update-stringified-lists [:documents
                                                                                        :photos
                                                                                        :notes])
+                                                            (update-in [:metering_point_ids] str)
                                                             (update-in [:property_data] json/encode)
                                                             ))}))))
 

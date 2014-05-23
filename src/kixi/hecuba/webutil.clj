@@ -151,7 +151,7 @@
 
 (def formatter (tf/formatter (t/default-time-zone) "yyyy-MM-dd'T'HH:mm:ssZ" "yyyy-MM-dd HH:mm:ss"))
 (defn to-db-format [date] (tf/parse formatter date))
-(defn db-to-iso [s] (let [date (misc/to-timestamp s)] (tf/unparse formatter (tc/from-date date))))
+(defn db-to-iso [date] (tf/unparse formatter (tc/from-date date)))
 
 (defn time-range
   "Return a lazy sequence of DateTime's from start to end, incremented

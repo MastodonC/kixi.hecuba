@@ -47,7 +47,7 @@
                                              :month month})))
   rest-coll)
 
-(defn calculate-difference_series
+(defn calculate-difference-series
   "Takes a commander, querier, sensor and a start date. Retrieves an hour worth of data and calculates the difference
   series. Difference series is inserted into another table."
   [commander querier {:keys [device_id type period]} start-date]
@@ -61,14 +61,14 @@
           (recur (diff-and-insert commander (first m) (rest m))))))
     end-date))
 
-(defn difference_series
+(defn difference-series
   "Takes commander, querier, sensor and date range and calculates difference series for that range."
   [commander querier {:keys [sensor range]}]
   (let [start  (m/int-format-to-timestamp (:start-date range))
         end    (m/int-format-to-timestamp (:end-date range))]
     (loop [start-date start]
       (when-not (.before end start-date)
-        (recur (calculate-difference_series commander querier sensor start-date))))))
+        (recur (calculate-difference-series commander querier sensor start-date))))))
 
 ;;;;;;; Difference series using resolution ;;;;;;;;;
 
@@ -120,7 +120,7 @@
   (quantize-timestamp m 60))
 
 ;; TODO Should we trigger resolution calculation if it's not present? At the moment it's a separate job.
-(defn difference_series-from-resolution
+(defn difference-series-from-resolution
   "Takes store, sensor and a range of dates and calculates difference series using resolution
   stored in the sensor data. If resolution is not specified, calculation is not done."
   [store {:keys [sensor range]}]
@@ -151,7 +151,7 @@
     end-date))
 
 
-(defn daily_rollups
+(defn daily-rollups
   "Calculates daily rollups for given sensor and date range."
   [commander querier {:keys [sensor range]}]
   (let [start         (m/int-format-to-timestamp (:start-date range))
@@ -181,7 +181,7 @@
                                               :type type}))))
     end-date))
 
-(defn hourly_rollups
+(defn hourly-rollups
   "Calculates hourly rollups for given sensor and date range.
   Example of item: {:sensor {:device_id \"f11a21b8e5e6b97eacba2632db4a2037a43f4791\" :type \"temperatureGround\"
                    :period \"CUMULATIVE\"} :range {:start-date \"Sat Mar 01 00:00:00 UTC 2014\"

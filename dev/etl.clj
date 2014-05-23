@@ -42,7 +42,7 @@
             range     (m/start-end-dates :difference_series s where)
             new-item  (assoc item :sensor s :range range)]
         (when range
-          (calc/difference_series commander querier new-item)
+          (calc/difference-series commander querier new-item)
           (m/reset-date-range querier commander s :difference_series (:start-date range) (:end-date range)))))))
 
 (defn rollups
@@ -61,8 +61,8 @@
             range      (m/start-end-dates :rollups s where)
             new-item   (assoc item :sensor s :range range)]
         (when range
-          (calc/hourly_rollups commander querier new-item)
-          (calc/daily_rollups commander querier new-item)
+          (calc/hourly-rollups commander querier new-item)
+          (calc/daily-rollups commander querier new-item)
           (m/reset-date-range querier commander s :rollups (:start-date range) (:end-date range)))))))
 
 (defn post-resource [post-uri content-type data]
