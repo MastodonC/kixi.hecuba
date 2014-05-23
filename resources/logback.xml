@@ -43,8 +43,8 @@
   <logger name="org.eclipse.jetty" level="INFO" />
   <logger name="org.quartz.core.QuartzSchedulerThread" level="INFO" />
 
-  <!-- log all CQL -->
-  <logger name="kixi.hecuba.storage.db.CQL" level="DEBUG"/>
+  <!-- log all CQL-->
+  <logger name="kixi.hecuba.storage.db.CQL" level="INFO"/>
 
   <logger name="user" level="ALL" />
   <logger name="application" level="ALL" />

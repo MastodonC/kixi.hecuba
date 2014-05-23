@@ -78,6 +78,23 @@
                 [<= :timestamp (tc/to-date end-date)]]]
     (mapcat (fn [month] (hecuba/items querier :measurement (conj where [= :month month]))) months)))
 
+(defn- parse-measurements [measurements]
+  (map (fn [m]
+         (-> m
+             util/parse-value
+             (update-in [:timestamp] util/db-to-iso)
+             (dissoc :month :metadata :device_id))) measurements))
+
+(defmulti format-measurements (fn [request measurements] (:content-type request)))
+
+(defmethod format-measurements "application/json" [request measurements]
+  {:measurements (parse-measurements measurements)})
+
+(defmethod format-measurements "text/csv" [request measurements]
+  (->> measurements
+       parse-measurements
+       (util/render-items request)))
+
 (defn measurements-slice-handle-ok [store store-new ctx]
   (let [request                (:request ctx)
         querier                (:querier store)
@@ -88,14 +105,9 @@
         decoded-params         (util/decode-query-params query-string)
         start-date             (util/to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
         end-date               (util/to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
-        measurements           (retrieve-measurements querier start-date end-date device_id reading-type)
-        ]
-    {:measurements (->> measurements
-                        (map (fn [m]
-                               (-> m
-                                   util/parse-value
-                                   (update-in [:timestamp] util/db-to-iso)
-                                   (dissoc :month :metadata :device_id)))))}))
+        measurements           (retrieve-measurements querier start-date end-date device_id reading-type)]
+
+    (format-measurements request measurements)))
 
 (defn- min-date [dt1 dt2]
   (let [dt1' (tc/to-date-time dt1)
@@ -184,8 +196,8 @@
 
 (defresource measurements-slice [store store-new handlers]
   :allowed-methods #{:get}
-  :available-media-types #{"application/json"}
-  :known-content-type? #{"application/json"}
+  :available-media-types #{"application/json" "text/csv"}
+  :known-content-type? #{"application/json" "text/csv"}
   :authorized? (authorized? (:querier store) :measurement)
   :handle-ok (partial measurements-slice-handle-ok store store-new))
 
