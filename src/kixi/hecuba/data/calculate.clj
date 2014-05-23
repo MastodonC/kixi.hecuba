@@ -19,61 +19,9 @@
 (defn metadata-is-number? [{:keys [metadata]}]
   (truthy? (:is-number (read-string metadata))))
 
-(defn get-difference
-  "Returns difference if both values are numbers, otherwise returns N/A."
-  [rest-coll first-coll]
-  (let [m (first rest-coll)
-        n first-coll]
-    (if (and (= "true" (get-in m [:metadata :is-number]))
-             (= "true" (get-in n [:metadata :is-number])))
-      (str (- (:value m) (:value n)))
-      "N/A")))
-
-(defn diff-and-insert
-  "Calculates difference and inserts it to differece_series table.
-  Column's header is the end of the calculated interval."
-  [commander first-coll rest-coll]
-  (when (and (not (nil? first-coll)) ;; Sequence might not have an even number of measurements
-             (not (nil? (first rest-coll))))
-    (let [d         (get-difference rest-coll first-coll)
-          device_id (:device_id first-coll)
-          type      (:type first-coll)
-          timestamp (m/to-timestamp (:timestamp (first rest-coll)))
-          month     (Integer/parseInt (:month first-coll))]
-      (upsert! commander :difference_series {:timestamp timestamp
-                                             :value d
-                                             :device_id device_id
-                                             :type type
-                                             :month month})))
-  rest-coll)
-
-(defn calculate-difference-series
-  "Takes a commander, querier, sensor and a start date. Retrieves an hour worth of data and calculates the difference
-  series. Difference series is inserted into another table."
-  [commander querier {:keys [device_id type period]} start-date]
-  (let [end-date     (m/add-hour start-date)
-        month        (m/get-month-partition-key start-date)
-        where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
-        measurements (m/decassandraify-measurements (items querier :measurement where))]
-    (when-not (empty? measurements)
-      (loop [m measurements]
-        (when-not (empty? m)
-          (recur (diff-and-insert commander (first m) (rest m))))))
-    end-date))
-
-(defn difference-series
-  "Takes commander, querier, sensor and date range and calculates difference series for that range."
-  [commander querier {:keys [sensor range]}]
-  (let [start  (m/int-format-to-timestamp (:start-date range))
-        end    (m/int-format-to-timestamp (:end-date range))]
-    (loop [start-date start]
-      (when-not (.before end start-date)
-        (recur (calculate-difference-series commander querier sensor start-date))))))
-
 ;;;;;;; Difference series using resolution ;;;;;;;;;
 
-;; TODO validate whether the timestamp of the difference should be of n-1 or n (at the moment it's n-1
-(defn get-difference-new [m n]
+(defn get-difference [m n]
   [[:timestamp (:timestamp m)]
    [:value (if (every? metadata-is-number? [m n]) (str (- (read-string (:value n)) (read-string (:value m)))) "N/A")]
    [:device_id (:device_id m)]
@@ -86,7 +34,7 @@
   (dbnew/with-session [session (:hecuba-session store)]
     (do-map #(dbnew/execute session
                             (hayt/insert :difference_series
-                                         (hayt/values (get-difference-new %1 %2)))) coll (rest coll))))
+                                         (hayt/values (get-difference %1 %2)))) coll (rest coll))))
 
 (defn measurements-for-range
   "Returns a lazy sequence of measurements for a sensor matching type and device_id for a specified
@@ -105,7 +53,7 @@
                                                          [< :timestamp next-start]]))
                                nil)
                 (when (t/before? next-start end-date)
-                  (measurements-for-range store sensor {:start next-start :end end-date} page))))))
+                  (measurements-for-range store sensor {:start-date next-start :end-date end-date} page))))))
 
 (defmulti quantize-timestamp (fn [m resolution] resolution))
 
@@ -124,7 +72,9 @@
   "Takes store, sensor and a range of dates and calculates difference series using resolution
   stored in the sensor data. If resolution is not specified, calculation is not done."
   [store {:keys [sensor range]}]
-  (let [measurements (measurements-for-range store sensor range (t/hours 1))
+  (let [to-datetime  (fn [s] (tf/parse (tf/formatter "yyyyMMddHHmmss") s))
+        dt-range     {:start-date (to-datetime (:start-date range)) :end-date (to-datetime (:end-date range))}
+        measurements (measurements-for-range store sensor dt-range (t/hours 1))
         resolution   (:resolution sensor)]
     (when (and (not (empty? measurements)) (not (nil? resolution)))
       (let [quantized (map #(quantize-timestamp % resolution) measurements)]

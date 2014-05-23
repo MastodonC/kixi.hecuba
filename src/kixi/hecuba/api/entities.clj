@@ -13,7 +13,6 @@
 (defn index-post! [commander querier ctx]
   (let [request           (-> ctx :request)
         entity            (-> request decode-body)
-        _ (prn "entity:" entity)
         project_id        (-> entity :project_id)
         property_code     (-> entity :property_code)
 

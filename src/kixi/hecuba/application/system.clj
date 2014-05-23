@@ -187,7 +187,7 @@
          :cljs-routes (new-cljs-routes (:cljs-builder cfg)))
         (mod/system-using
          {:main-routes [:store]
-          :amon-api [:store :store-new :session]
+          :amon-api [:store :store-new :session :queue]
           :user-api [:store]
           :store [:session]
           :store-new [:hecuba-session :queue]

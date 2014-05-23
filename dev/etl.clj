@@ -32,7 +32,7 @@
 
 (defn difference-series-batch
   "Retrieves all sensors that need to have difference series calculated and performs calculations."
-  [commander querier item]
+  [commander querier store item]
   (let [sensors (m/all-sensors querier)]
     (doseq [s sensors]
       (let [device_id (:device_id s)
@@ -42,7 +42,7 @@
             range     (m/start-end-dates :difference_series s where)
             new-item  (assoc item :sensor s :range range)]
         (when range
-          (calc/difference-series commander querier new-item)
+          (calc/difference-series-from-resolution store new-item)
           (m/reset-date-range querier commander s :difference_series (:start-date range) (:end-date range)))))))
 
 (defn rollups
@@ -352,9 +352,10 @@
 
                       ]))))))
       (let [commander (-> system :store :commander)
-            querier   (-> system :store :querier)]
+            querier   (-> system :store :querier)
+            store-new (-> system :store-new)]
 
-        (difference-series-batch commander querier {})
+        (difference-series-batch commander querier store-new {})
         (rollups commander querier {})))
     (catch Exception e
       (log/error e "ETL failed:"))))

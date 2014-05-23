@@ -103,10 +103,10 @@
 
 ;; Sensor metadata functions that are triggered by core.async queue worker.
 
-(defn update-sensor_metadata
+(defn update-sensor-metadata
   "Updates start and end dates when new measurement is received."
   [m commander querier]
-  (let [device_id         (or (:device_id m) (:device_id m))
+  (let [device_id         (:device_id m)
         type              (:type m)
         where             [[= :device_id device_id] [= :type type]]
         sensor_metadata   (items querier :sensor_metadata where)

@@ -66,7 +66,7 @@
 (defn start-end-dates
   "Given a sensor, table and where clause, returns start and end dates for (re)calculations."
   [column sensor where]
-  (let [range      (-> sensor column)]
+  (let [range (-> sensor column)]
     (when-not (empty? range)
       {:start-date (:start (read-string range)) :end-date (:end (read-string range))})))
 
