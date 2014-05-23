@@ -25,7 +25,7 @@
             :location        "{\"name\": \"Synthetic\", \"latitude\": \"0\", \"longitude\": \"0\"}"
             :metadata        nil
             :privacy         "private"
-            :meteringPointId (str (uuid))
+            :metering_point_id (str (uuid))
             :synthetic       true
             ))
 
@@ -39,9 +39,9 @@
    :min                       "0"
    :max                       "100"
    :correction                nil
-   :correctedUnit             nil
-   :correctionFactor          nil
-   :correctionFactorBreakdown nil
+   :corrected_unit             nil
+   :correction_factor          nil
+   :correction_factor_breakdown nil
    :events                    0
    :errors                    0
    :status                    "Not enough data"

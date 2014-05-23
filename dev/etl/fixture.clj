@@ -75,7 +75,7 @@
            :entity_id (:entity_id ctx)}
         device (-> (generators/generate-device-sample (:entity_id x))
                    (dissoc :device_id)
-                   (update-in [:meteringPointId] str)
+                   (update-in [:metering_point_id] str)
                    (update-in [:parent_id] str)
                    (update-in [:location] pr-str))]
 
