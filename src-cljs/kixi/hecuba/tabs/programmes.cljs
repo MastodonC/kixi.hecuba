@@ -19,9 +19,10 @@
 
 ;; our banner is 50px so we need to tweak the scrolling
 (defn fixed-scroll-to-element [element]
-  (-> (.getElementById js/document element)
-      .scrollIntoView)
-  (.scrollBy js/window 0 -50))
+  (let [rect (-> (.getElementById js/document element)
+                 .getBoundingClientRect)
+        top (.-top rect)]
+    (.scrollBy js/window 0 (- top 50))))
 
 (defn scroll-to-element [element]
   (-> (.getElementById js/document element)
@@ -149,17 +150,17 @@
     type))
 
 (defn error-row [data]
-  [:div.row
+  [:div.row {:style {:min-height "300px"}}
    [:div.col-md-12.text-center
     [:p.lead {:style {:padding-top 30}}
      "There has been an error. Please contact " [:a {:href "mailto:support@mastodonc.com"} "support@mastodonc.com"]]
     [:p "Error Code: " (:error-status data) " Message: " (:error-text data)]]])
 
 (defn no-data-row [data]
-  [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data available for this selection."]]])
+  [:div.row {:style {:min-height "300px"}} [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data available for this selection."]]])
 
 (defn fetching-row [data]
-  [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching properties for selected project." ]]])
+  [:div.row {:style {:min-height "300px"}} [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching properties for selected project." ]]])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; programmes
