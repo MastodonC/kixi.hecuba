@@ -67,8 +67,20 @@
                    (when (t/before? next-start end)
                      (all-measurements store sensor_id (merge opts {:start next-start :end end}))))))))
 
+(defn retrieve-measurements 
+  "Iterate over a sequence of months and concatanate measurements retrieved from the database."
+  [querier start-date end-date device-id reading-type]
+  (let [range  (time-range start-date end-date (t/months 1))
+        months (map #(util/get-month-partition-key (tc/to-date %)) range)
+        where  [[= :device_id device-id]
+                [= :type reading-type]
+                [>= :timestamp (tc/to-date start-date)]
+                [<= :timestamp (tc/to-date end-date)]]]
+    (mapcat (fn [month] (hecuba/items querier :measurement (conj where [= :month month]))) months)))
+
 (defn measurements-slice-handle-ok [store store-new ctx]
   (let [request                (:request ctx)
+        querier                (:querier store)
         {:keys [route-params
                 query-string]} request
         {:keys [device_id
@@ -76,7 +88,7 @@
         decoded-params         (util/decode-query-params query-string)
         start-date             (util/to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
         end-date               (util/to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
-        measurements           nil ;; TODO
+        measurements           (retrieve-measurements querier start-date end-date device_id reading-type)
         ]
     {:measurements (->> measurements
                         (map (fn [m]
@@ -84,10 +96,6 @@
                                    util/parse-value
                                    (update-in [:timestamp] util/db-to-iso)
                                    (dissoc :month :metadata :device_id)))))}))
-
-
-
-
 
 (defn- min-date [dt1 dt2]
   (let [dt1' (tc/to-date-time dt1)
