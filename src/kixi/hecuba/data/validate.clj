@@ -13,7 +13,7 @@
 (defn- reset-counters!
   "Resets the counters for a given sensor."
   [session where]
-  (dbnew/execute session
+  (db/execute session
    (hayt/update :sensors
                 (hayt/set-columns {:events 0
                                    :errors 0})
@@ -23,7 +23,7 @@
   [[= :device_id (:device_id m)] [= :type (:type m)]])
 
 (defn- update-sensor [session sensor delta]
-  (dbnew/execute session
+  (db/execute session
                  (hayt/update :sensors
                               (hayt/set-columns delta)
                               (hayt/where (where-from sensor)))))
@@ -52,7 +52,7 @@
   "Increment error counter and label median spike in metadata."
   [store sensor m]
   (let [metadata (-> m :metadata)]
-    (dbnew/with-session [session (:hecuba-session store)]
+    (db/with-session [session (:hecuba-session store)]
       (update-sensor session (where-from m) {:errors (hayt/inc-by 1)})
       (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "true"})))))
 
@@ -94,7 +94,7 @@
       (label-invalid-value session sensor (where-from m)))))
 
 (defn- sensor-exists? [session m]
-  (first (dbnew/execute session
+  (first (db/execute session
                   (hayt/select :sensors
                                (hayt/where (where-from m))))))
 
@@ -102,7 +102,7 @@
   "Measurement map is pipelines through a number of validation
   functions. Returns map of measurement with updated metadata."
   [store m]
-  (dbnew/with-session [session (:hecuba-session store)]
+  (db/with-session [session (:hecuba-session store)]
     (let [sensor (sensor-exists? session m)
           events (-> sensor first :events)
           where  (where-from m)
