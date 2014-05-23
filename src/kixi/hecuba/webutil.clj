@@ -14,7 +14,8 @@
    [clj-time.periodic :as tp]
    [clojure.pprint :refer (pprint)]
    [clojure.walk :refer (postwalk)]
-   [liberator.core :as liberator]))
+   [liberator.core :as liberator]
+   [clojure.data.csv :as csv]))
 
 (defprotocol Body
   (read-edn-body [body])
@@ -95,6 +96,12 @@
 
 (defmethod render-items "application/json" [_ items]
   (map encode items))
+
+(defmethod render-items "text/csv" [_ items]
+  (let [headers (into [] (map name (keys (first items))))]
+    (with-out-str
+      (csv/write-csv *out* [headers] :newline :cr+lf :separator \,)
+      (csv/write-csv *out* (map vals items) :newline :cr+lf :separator \,))))
 
 (defmulti render-item :content-type :default :unknown)
 (defmethod render-item :unknown [_ item]
