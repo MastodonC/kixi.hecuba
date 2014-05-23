@@ -1,46 +1,60 @@
 (ns kixi.hecuba.data.validate
  "Data quality assurance and validation."
  (:require [clj-time.core :as t]
-           [kixi.hecuba.protocols :refer (upsert! update! delete! item items)]
-           [kixi.hecuba.data.misc :as m]))
+           [kixi.hecuba.data.misc :as m]
+           [kixi.hecuba.storage.dbnew :as db]
+           [qbits.hayt :as hayt]))
 
 
 ;;;;;;;;;; Validation on insert ;;;;;;;;;;;;
 
 ;; Sensor status and counters ;;;
 
-(defn reset-counters!
+(defn- reset-counters!
   "Resets the counters for a given sensor."
-  [commander where]
-  (update! commander :sensor {:events 0} where)
-  (update! commander :sensor {:errors 0} where))
+  [session where]
+  (dbnew/execute session
+   (hayt/update :sensors
+                (hayt/set-columns {:events 0
+                                   :errors 0})
+                (hayt/where where))))
 
-(defn is-broken?
+(defn- where-from [m]
+  [[= :device_id (:device_id m)] [= :type (:type m)]])
+
+(defn- update-sensor [session sensor delta]
+  (dbnew/execute session
+                 (hayt/update :sensors
+                              (hayt/set-columns delta)
+                              (hayt/where (where-from sensor)))))
+
+(defn- status-from-measurement-errors
   "If 10% of measurements are invalid, device is broken."
-  [errors events]
-  (when (and (not (zero? errors)) (not (zero? events)))
-    (> (/ errors events) 0.1)))
+  [sensor]
+  (let [errors (-> sensor first :errors)
+        events (-> sensor first :events)]
+    (if (and (not (zero? errors))
+             (not (zero? events))
+             (> (/ errors events) 0.1))
+      "Broken"
+      "Ok")))
 
-(defn broken-sensor-check
+(defn- broken-sensor-check
   "Validates and inserts measurments. Updates metadata when errors are doscovered.
   Updates counters."
-  [m commander querier sensor]
-  (let [errors (-> sensor first :errors)
-        events (-> sensor first :events)
-        where  [[= :device_id (:device_id m)] [= :type (:type m)]]]
-    (if (is-broken? errors events)
-      (update! commander :sensor {:status "Broken"} where)
-      (update! commander :sensor {:status "OK"} where))
-    m))
+  [m session sensor]
+  (update-sensor session sensor
+                 {:status (status-from-measurement-errors sensor)})
+  m)
+
 
 (defn label-spike
   "Increment error counter and label median spike in metadata."
-  [commander sensor m]
-  (let [metadata (-> m :metadata)
-        where    [[= :device_id (:device_id m)] [= :type (:type m)]]
-        errors   (-> sensor first :errors)]
-    (update! commander :sensor {:errors (inc errors)} where)
-    (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "true"}))))
+  [store sensor m]
+  (let [metadata (-> m :metadata)]
+    (dbnew/with-session [session (:hecuba-session store)]
+      (update-sensor session (where-from m) {:errors (hayt/inc-by 1)})
+      (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "true"})))))
 
 (defn larger-than-median
   "Find readings that are larger than median."
@@ -53,53 +67,52 @@
 (defn median-check
   "Checks if a measurement is 200x median. If so, increments error counter.
   Updates metadata accordingly."
-  [m commander querier sensor]
+  [m session sensor]
   (let [metadata (-> m :metadata)
-        errors   (-> sensor first :errors)
         median   (-> sensor first :median)]
     (cond
      (nil? median) (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "n/a"}))
-     (larger-than-median median m) (label-spike commander sensor m)
+     (larger-than-median median m) (label-spike session m)
      :else (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "false"})))))
 
-(defn label-invalid-value
+(defn- label-invalid-value
   "Labels measurement as having invalid value.
-   Increaments error counter of the sensor."
-  [commander querier sensor where m]
-  (let [metadata (-> m :metadata)
-        errors   (-> sensor first :errors)]
-    (update! commander :sensor {:errors (inc errors)} where)
+   Increments error counter of the sensor."
+  [session sensor where m]
+  (let [metadata (-> m :metadata)]
+    (update-sensor session where {:errors (hayt/inc-by 1)})
     (assoc-in m [:metadata] (m/update-metadata metadata {:is-number "false"}))))
 
-(defn number-check
+(defn- number-check
   "Checks if value is a number. If not, increments error counter.
   Updates metadata accordingly."
-  [m commander querier sensor]
+  [m session sensor]
   (let [metadata  (-> m :metadata)
-        where     [[= :device_id (:device_id m)] [= :type (:type m)]]
         value     (:value m)]
     (if (and (not (empty? value)) (m/numbers-as-strings? value))
       (assoc-in m [:metadata] (m/update-metadata metadata {:is-number "true"}))
-      (label-invalid-value commander querier sensor where m))))
+      (label-invalid-value session sensor (where-from m)))))
+
+(defn- sensor-exists? [session m]
+  (first (dbnew/execute session
+                  (hayt/select :sensors
+                               (hayt/where (where-from m))))))
 
 (defn validate
   "Measurement map is pipelines through a number of validation
   functions. Returns map of measurement with updated metadata."
-  [commander querier m]
-  (let [device_id (-> m :device_id)
-        type      (-> m :type)
-        where     [[= :device_id device_id] [= :type type]]
-        sensor    (items querier :sensor where)
-        events    (-> sensor first :events)]
-
-    (if (= events 1440) (reset-counters! commander where))
-    (update! commander :sensor {:events (inc events)} where)
-
-    (-> m
-        (number-check commander querier sensor)
-        (median-check commander querier sensor)
-        (broken-sensor-check commander querier sensor))))
-
+  [store m]
+  (dbnew/with-session [session (:hecuba-session store)]
+    (let [sensor (sensor-exists? session m)
+          events (-> sensor first :events)
+          where  (where-from m)
+          ]
+      (when (= events 1440) (reset-counters! session where))
+      (update-sensor session where {:events (hayt/inc-by 1)})
+      (-> m
+          (number-check session sensor)
+          (median-check session sensor)
+          (broken-sensor-check session sensor)))))
 
 ;; Sensor metadata functions that are triggered by core.async queue worker.
 

@@ -31,7 +31,7 @@
 (defn mislabelled-check
   "Takes an hour worth of measurements and checks if the sensor is labelled correctly according to
   rules in labelled-correctly?"
-  [commander querier {:keys [device_id type period] :as sensor} start-date]
+  [store {:keys [device_id type period] :as sensor} start-date]
   (let [end-date     (m/add-hour start-date)
         month        (m/get-month-partition-key start-date)
         where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
@@ -46,7 +46,7 @@
 
 (defn mislabelled-sensors
   "Checks for mislabelled sensors."
-  [commander querier {:keys [sensor range]}]
+  [store {:keys [sensor range]}]
   (let [start  (m/int-format-to-timestamp (:start-date range))
         end    (m/int-format-to-timestamp (:end-date range))]
     (loop [start-date start]
@@ -58,7 +58,7 @@
 (defn label-spikes
   "Checks a sequence of measurement against the most recent recorded median. Overwrites the measurement with updated
   metadata."
-  [commander querier {:keys [device_id type median] :as sensor} start-date]
+  [store {:keys [device_id type median] :as sensor} start-date]
   (let [end-date     (m/add-hour start-date)
         month        (m/get-month-partition-key start-date)
         where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
@@ -74,7 +74,7 @@
 
 (defn median-spike-check
   "Check of median spikes. It re-checks all measurements that have had median calculated."
-  [commander querier {:keys [sensor range]}]
+  [store {:keys [sensor range]}]
   (let [start  (m/int-format-to-timestamp (:start-date range))
         end    (m/int-format-to-timestamp (:end-date range))]
     (loop [start-date start]
@@ -99,7 +99,7 @@
 
 (defn update-median
   "Calculates and updates median for a given sensor."
-  [commander querier table {:keys [device_id type period]} start-date]
+  [store table {:keys [device_id type period]} start-date]
   (let [end-date     (m/add-hour start-date)
         month        (m/get-month-partition-key start-date)
         where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
@@ -115,7 +115,7 @@
   "Retrieves all sensors that either have not had median calculated or the calculation took place over a week ago.
   It iterates over the list of sensors, returns measurements for each and performs calculation.
   Measurements are retrieved in batches."
-  [commander querier table {:keys [sensor range]}]
+  [store table {:keys [sensor range]}]
   (let [period  (-> sensor :period)
         start   (m/int-format-to-timestamp (:start-date range))
         end     (m/int-format-to-timestamp (:end-date range))]

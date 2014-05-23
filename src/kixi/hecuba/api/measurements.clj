@@ -67,7 +67,7 @@
                    (when (t/before? next-start end)
                      (all-measurements store sensor_id (merge opts {:start next-start :end end}))))))))
 
-(defn retrieve-measurements 
+(defn retrieve-measurements
   "Iterate over a sequence of months and concatanate measurements retrieved from the database."
   [querier start-date end-date device-id reading-type]
   (let [range  (time-range start-date end-date (t/months 1))
@@ -148,7 +148,7 @@
                       :month     (util/get-month-partition-key t)
                       :metadata  "{}"}]
               (->> m2
-                   (v/validate commander querier)
+                   (v/validate store-new)
                    (hecuba/upsert! commander :measurement))
 
               (update-bounds! t)

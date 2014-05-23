@@ -17,8 +17,7 @@
         spike-check-q         (new-queue {:name "spike-check-q" :queue-size 50})
         synthetic-readings-q  (new-queue {:name "synthetic-readings-q" :queue-size 50})
         resolution-q          (new-queue {:name "resolution-q" :queue-size 50})
-        diff-series-res-q     (new-queue {:name "diff-series-res-q" :queue-size 50})
-        ]
+        diff-series-res-q     (new-queue {:name "diff-series-res-q" :queue-size 50})]
 
     (defnconsumer fanout-q [{:keys [dest type] :as item}]
       (let [item (dissoc item :dest)]
@@ -49,7 +48,7 @@
                 range     (misc/start-end-dates :median_calc_check s where)
                 new-item  (assoc item :sensor s :range range)]
             (when (and range (not= period "PULSE"))
-              (checks/median-calculation commander querier table new-item)
+              (checks/median-calculation store table new-item)
               (misc/reset-date-range querier commander s :median_calc_check (:start-date range) (:end-date range))))))
       (log/info "Finished median calculation."))
 
@@ -64,7 +63,7 @@
                 range     (misc/start-end-dates :mislabelled_sensors_check s where)
                 new-item  (assoc item :sensor s :range range)]
             (when range
-              (checks/mislabelled-sensors commander querier new-item)
+              (checks/mislabelled-sensors store new-item)
               (misc/reset-date-range querier commander s :mislabelled_sensors_check (:start-date range) (:end-date range))))))
       (log/info "Finished mislabelled sensors check."))
 
@@ -114,7 +113,7 @@
                 range     (misc/start-end-dates :spike_check s where)
                 new-item  (assoc item :sensor s :range range)]
             (when (and range (not= period "PULSE"))
-              (checks/median-spike-check commander querier new-item)
+              (checks/median-spike-check store new-item)
               (misc/reset-date-range querier commander s :spike_check (:start-date range) (:end-date range))))))
       (log/info "Finished median spike check."))
 
