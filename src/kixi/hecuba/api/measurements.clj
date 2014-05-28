@@ -85,15 +85,15 @@
              (update-in [:timestamp] util/db-to-iso)
              (dissoc :month :metadata :device_id))) measurements))
 
-(defmulti format-measurements (fn [request measurements] (:content-type request)))
+(defmulti format-measurements (fn [ctx measurements] (-> ctx :representation :media-type)))
 
-(defmethod format-measurements "application/json" [request measurements]
+(defmethod format-measurements "application/json" [ctx measurements]
   {:measurements (parse-measurements measurements)})
 
-(defmethod format-measurements "text/csv" [request measurements]
+(defmethod format-measurements "text/csv" [ctx measurements]
   (->> measurements
        parse-measurements
-       (util/render-items request)))
+       (util/render-items (:request ctx))))
 
 (defn measurements-slice-handle-ok [store store-new ctx]
   (let [request                (:request ctx)
@@ -107,7 +107,7 @@
         end-date               (util/to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
         measurements           (retrieve-measurements querier start-date end-date device_id reading-type)]
 
-    (format-measurements request measurements)))
+    (format-measurements ctx measurements)))
 
 (defn- min-date [dt1 dt2]
   (let [dt1' (tc/to-date-time dt1)
