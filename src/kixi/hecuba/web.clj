@@ -16,22 +16,14 @@
    [com.stuartsierra.component :as component]))
 
 (defn index [req]
-  {:status 200 :body (slurp (io/resource "sb-admin/index.html"))})
+  {:status 200 :body (slurp (io/resource "site/index.html"))})
 
 (defn programmes [req]
-  {:status 200 :body (slurp (io/resource "sb-admin/programmes.html"))})
+  {:status 200 :body (slurp (io/resource "site/programmes.html"))})
 
 (defn charts [req]
-  {:status 200 :body (slurp (io/resource "sb-admin/charts.html"))})
+  {:status 200 :body (slurp (io/resource "site/charts.html"))})
 
-(defn maps [req]
-  {:status 200 :body (slurp (io/resource "hecuba/map.html"))})
-
-(defn counters [req]
-  {:status 200 :body (slurp (io/resource "hecuba/counters.html"))})
-
-(defn readings [req]
-  {:status 200 :body (slurp (io/resource "reading.html"))})
 
 (defn- ensure-authenticated [h querier login-form]
   (fn [req]
@@ -104,7 +96,7 @@
 
 (defn make-routes [handlers {:keys [querier commander]}]
   ["/"
-   [["" (->Redirect 301 programmes)]
+   [["" (:index handlers)]
     ["index.html" (:index handlers)]
 
     ["login.html" (->WrapMiddleware (:login-form handlers) wrap-cookies)]
@@ -116,13 +108,7 @@
     ["charts/" charts]
     ["charts" (->Redirect 301 charts)]
 
-    ["counters.html" counters]
-    ["map.html" maps]
-
-    (kixi.hecuba.web.messages/create-routes querier commander)
-
-    ["hecuba-js/react.js" (->Resources {:prefix "sb-admin/"})]
-    ["" (->ResourcesMaybe {:prefix "sb-admin/"})]
+    ["" (->ResourcesMaybe {:prefix "site/"})]
     [#".*" (fn [req] {:status 404 :body "Not Found (Hecuba)"})] ; need a template!
     ]])
 
