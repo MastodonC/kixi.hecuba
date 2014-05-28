@@ -21,7 +21,6 @@
                  [juxt/modular "0.2.0"]
                  [juxt.modular/http-kit "0.2.0"]
                  [juxt.modular/bidi "0.2.1"]
-                 [cylon "0.1.0" :exclusions [ring/ring-core]]
 
                  ;; EDN reader with location metadata - for configuration
                  [org.clojure/tools.reader "0.8.3"]
