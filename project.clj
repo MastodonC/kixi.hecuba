@@ -15,7 +15,7 @@
                  [org.clojure/clojurescript "0.0-2202"]
                  [org.clojure/core.async "0.1.267.0-0d7780-alpha" :scope "provided"]
 
-                 [kixi/bidi "1.10.3-p0-b569a50"]
+                 [kixi/bidi "1.10.3-p0-b569a50" :exclusions [org.clojure/core.match]]
 
                  ;; Modular
                  [juxt/modular "0.2.0"]
