@@ -14,10 +14,10 @@
   "Resets the counters for a given sensor."
   [session where]
   (db/execute session
-   (hayt/update :sensors
-                (hayt/set-columns {:events 0
-                                   :errors 0})
-                (hayt/where where))))
+              (hayt/update :sensors
+                           (hayt/set-columns {:events 0
+                                              :errors 0})
+                           (hayt/where where))))
 
 (defn- where-from [m]
   [[= :device_id (:device_id m)] [= :type (:type m)]])
@@ -69,8 +69,8 @@
   "Increment error counter and label median spike in metadata."
   [store sensor m]
   (db/with-session [session (:hecuba-session store)]
-    (let [errors (-> sensor first :errors)]
-      (update-sensor session sensor {:errors (if-not (empty? errors) (inc errors) 1)})
+    (let [errors (get sensor :errors)]
+      (update-sensor session sensor {:errors (if-not (nil? errors) (inc errors) 1)})
       (assoc-in m [:metadata "median-spike"] "true"))))
 
 (defn larger-than-median
@@ -116,10 +116,11 @@
   [store m]
   (db/with-session [session (:hecuba-session store)]
     (let [sensor (sensor-exists? session m)
-          events (-> sensor first :events)
+          events (get sensor :events)
           where  (where-from m)]
-      (when (= events 1440) (reset-counters! session where))
-      (update-sensor session sensor {:events (if-not (empty? events) (inc events) 1)})
+      (if (= events 1440) 
+        (reset-counters! session where)
+        (update-sensor session sensor {:events (if-not (nil? events) (inc events) 1)}))
       (-> m
           (number-check session sensor)
           (median-check session sensor)
