@@ -69,14 +69,16 @@
 
 (defn retrieve-measurements
   "Iterate over a sequence of months and concatanate measurements retrieved from the database."
-  [querier start-date end-date device-id reading-type]
+  [session start-date end-date device-id reading-type]
   (let [range  (time-range start-date end-date (t/months 1))
         months (map #(util/get-month-partition-key (tc/to-date %)) range)
         where  [[= :device_id device-id]
                 [= :type reading-type]
                 [>= :timestamp (tc/to-date start-date)]
                 [<= :timestamp (tc/to-date end-date)]]]
-    (mapcat (fn [month] (hecuba/items querier :measurement (conj where [= :month month]))) months)))
+    (mapcat (fn [month] (dbnew/execute session
+                          (hayt/select :measurements
+                                       (hayt/where (conj where [= :month month]))))) months)))
 
 (defn- parse-measurements [measurements]
   (map (fn [m]
@@ -97,7 +99,7 @@
 
 (defn measurements-slice-handle-ok [store store-new ctx]
   (let [request                (:request ctx)
-        querier                (:querier store)
+        session                (:hecuba-session store-new)
         {:keys [route-params
                 query-string]} request
         {:keys [device_id
@@ -105,7 +107,7 @@
         decoded-params         (util/decode-query-params query-string)
         start-date             (util/to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
         end-date               (util/to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
-        measurements           (retrieve-measurements querier start-date end-date device_id reading-type)]
+        measurements           (retrieve-measurements session start-date end-date device_id reading-type)]
 
     (format-measurements ctx measurements)))
 
@@ -125,9 +127,11 @@
                                (hayt/where [[= :device_id device_id]
                                             [= :type type]])))))
 
-(defn index-post! [store store-new queue ctx]
-  (let [{:keys [commander querier]} store
-        request       (:request ctx)
+(defn- insert-measurement [session m]
+  (dbnew/execute session (hayt/insert :measurements (hayt/values m))))
+
+(defn index-post! [store-new queue ctx]
+  (let [request       (:request ctx)
         route-params  (:route-params request)
         device_id     (:device_id route-params)
         topic         (get-in queue ["measurements"])
@@ -149,43 +153,49 @@
                       :metadata  {}}]
               (->> m2
                    (v/validate store-new)
-                   (hecuba/upsert! commander :measurement))
+                   (insert-measurement session))
 
               (update-bounds! t)
               (q/put-on-queue topic m2)))
-          (hecuba/upsert! commander :sensor_metadata {:device_id device_id
-                                                      :type type
-                                                      :lower_ts @lower
-                                                      :upper_ts @upper})
+          (dbnew/execute session
+                         (hayt/insert :sensor_metadata 
+                                      (hayt/values {:device_id device_id
+                                                    :type type
+                                                    :lower_ts @lower
+                                                    :upper_ts @upper})))
 
-          (hecuba/upsert! commander :sensor_metadata {:device_id device_id
-                                                      :type type
-                                                      :lower_ts @lower
-                                                      :upper_ts @upper})
+          (dbnew/execute session
+                         (hayt/insert :sensor_metadata
+                                      (hayt/values {:device_id device_id
+                                                    :type type
+                                                    :lower_ts @lower
+                                                    :upper_ts @upper})))
           {:response {:status 202 :body "Accepted"}})
         {:response {:status 400 :body "Provide valid device_id and type."}}))))
 
-(defn index-handle-ok [store store-new ctx]
-  (let [{:keys [querier]} store
-        request (:request ctx)
-        route-params (:route-params request)
-        device_id (:device_id route-params)
-        where [[= :device_id device_id]]
-        measurements (hecuba/items querier :measurement where)]
-    {:measurements (->> measurements
-                        (map #(-> %
-                                  util/parse-value
-                                  (update-in [:timestamp] util/db-to-iso)
-                                  (dissoc :metadata :device_id :month))))}))
+(defn index-handle-ok [store-new ctx]
+  (dbnew/with-session [session (:hecuba-session store-new)]
+    (let [request (:request ctx)
+          route-params (:route-params request)
+          device_id (:device_id route-params)
+          where [[= :device_id device_id]]
+          measurements (dbnew/execute session
+                                      (hayt/select :measurements
+                                                   (hayt/where where)))]
+      {:measurements (->> measurements
+                          (map #(-> %
+                                    util/parse-value
+                                    (update-in [:timestamp] util/db-to-iso)
+                                    (dissoc :metadata :device_id :month))))})))
 
 (defn index-handle-created [ctx]
   (ring-response (:response ctx)))
 
-(defn measurements-by-reading-handle-ok [store store-new ctx]
+(defn measurements-by-reading-handle-ok [store-new ctx]
   (let [{:keys [request]} ctx
         {:keys [route-params]} request
         {:keys [device_id sensor-type timestamp]} route-params
-        measurement (dbnew/with-session [session (:hecuba-session store)]
+        measurement (dbnew/with-session [session (:hecuba-session store-new)]
                       (dbnew/execute session
                                      (hayt/select :measurements
                                                   (hayt/where [[= :device_id device_id]
@@ -199,19 +209,19 @@
   :available-media-types #{"application/json" "text/csv"}
   :known-content-type? #{"application/json" "text/csv"}
   :authorized? (authorized? (:querier store) :measurement)
-  :handle-ok (partial measurements-slice-handle-ok store store-new))
+  :handle-ok (partial measurements-slice-handle-ok store-new))
 
 (defresource index [store store-new queue handlers]
   :allowed-methods #{:post :get}
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}
   :authorized? (authorized? (:querier store) :measurement)
-  :post! (partial index-post! store store-new queue)
-  :handle-ok (partial index-handle-ok store store-new )
+  :post! (partial index-post! store-new queue)
+  :handle-ok (partial index-handle-ok store-new)
   :handle-created index-handle-created)
 
 (defresource measurements-by-reading [store store-new handlers]
   :allowed-methods #{:get}
   :available-media-types #{"application/json"}
   :authorized? (authorized? (:querier store) :measurement)
-  :handle-ok (partial measurements-by-reading-handle-ok store store-new))
+  :handle-ok (partial measurements-by-reading-handle-ok store-new))
