@@ -6,6 +6,12 @@
             [kixi.hecuba.storage.dbnew :as db]
             [qbits.hayt :as hayt]))
 
+
+(def truthy? #{"true"})
+
+(defn metadata-is-number? [{:keys [metadata] :as m}]
+  (truthy? (get metadata "is-number")))
+
 ;;;;; Time conversion functions ;;;;;
 
 (defn hourly-timestamp [t]
@@ -13,17 +19,13 @@
 (defn daily-timestamp [t]
   (tc/to-date (tf/unparse (tf/formatters :date) (tc/from-date t))))
 
-(defn add-hour [t] (java.util.Date. (+ (.getTime t) (* 60 60 1000))))
-(defn add-day [t]  (java.util.Date. (+ (.getTime t) (* 24 60 60 1000))))
-
-
 (def int-time-formatter (tf/formatter "yyyyMMddHHmmss"))
 (defn int-format-to-timestamp [t] (tc/to-date (tf/parse int-time-formatter t)))
 
 (def db-date-formatter (tf/formatter "EEE MMM dd HH:mm:ss z yyyy"))
 (defn to-timestamp [t] (.parse (java.text.SimpleDateFormat. "EEE MMM dd HH:mm:ss z yyyy") t))
 
-(defn get-year-partition-key [timestamp] (Long/parseLong (format "%4d" (t/year (tc/from-date timestamp)))))
+(defn get-year-partition-key [timestamp] (Long/parseLong (format "%4d" (t/year timestamp))))
 
 (defn truncate-seconds [t]
   (let [time-str (tf/unparse (tf/formatter "yyyy-MM-dd'T'HH:mm") (tc/from-date t))]
@@ -76,7 +78,7 @@
   [column sensor where]
   (let [range (-> sensor column)]
     (when-not (empty? range)
-      {:start-date (:start (read-string range)) :end-date (:end (read-string range))})))
+      {:start-date (tc/from-date (get range "start")) :end-date (tc/from-date (get range "end"))})))
 
 
 ;;;;; Parsing of measurements ;;;;;
@@ -87,14 +89,6 @@
 (defn parse-double [txt]
   (Double/parseDouble txt))
 
-(defn update-metadata
-  [store table column map-key new-value where]
-  (db/with-session [session (:hecuba-session store)]
-    (db/execute session
-                (hayt/update table
-                             (hayt/set-columns {column [+ {map-key new-value}]})
-                             (hayt/where where)))))
-
 (defn parse-value
   [m]
   (assoc-in m [:value] (parse-double (:value m))))
@@ -103,24 +97,11 @@
   [m]
   (sort-by :timestamp m) m)
 
-(defn cassandraify-measurement
-  "Converts values into formats expected by the measurements table."
-  [m]
-  (-> m
-      (assoc-in [:month] (read-string (:month m)))
-      (assoc-in [:timestamp] (to-timestamp (:timestamp m)))
-      (assoc-in [:metadata] (str (:metadata m)))
-      (assoc-in [:value] (str (:value m)))))
-
 (defn decassandraify-measurements
   "Takes measurements in the format returned from the database.
    Returns a list of maps, with all values parsed approprietly."
-  [m]
-  (map (fn [m]
-         (-> m
-             (assoc-in [:value] (let [value (:value m)] (if-not (empty? value) (read-string value) nil)))
-             (assoc-in [:metadata] (when-let [metadata (:metadata m)] (read-string metadata)))))
-       m))
+  [measurements]
+  (map (fn [m] (assoc-in m [:value] (let [value (:value m)] (if-not (empty? value) (read-string value) nil)))) measurements))
 
 (defn find-broken-sensors
   "Finds sensors with bad metadata and label as broken.
@@ -146,9 +127,9 @@
   (db/with-session [session (:hecuba-session store)]
     (let [where               [[= :device_id device_id] [= :type type]]
           current-metadata    (first (db/execute session (hayt/select :sensor_metadata (hayt/where where))))
-          current-range       (-> current-metadata col read-string)
-          current-start       (-> current-range :start (Long/parseLong))
-          current-end         (-> current-range :end (Long/parseLong))]
-      (when-not (and (< current-start (Long/parseLong start-date))
-                     (> current-end (Long/parseLong end-date)))
-        (db/execute (hayt/update :sensor_metadata {col nil} (hayt/where where)))))))
+          current-range       (get current-metadata col)
+          current-start       (tc/from-date (get current-range "start"))
+          current-end         (tc/from-date (get current-range "end"))]
+      (when-not (and (t/before? current-start start-date)
+                     (t/after? current-end end-date))
+        (db/execute session (hayt/update :sensor_metadata (hayt/set-columns {col nil}) (hayt/where where)))))))

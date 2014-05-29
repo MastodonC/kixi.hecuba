@@ -146,7 +146,7 @@
                       :value     (:value m)
                       :error     (:error m)
                       :month     (util/get-month-partition-key t)
-                      :metadata  "{}"}]
+                      :metadata  {}}]
               (->> m2
                    (v/validate store-new)
                    (hecuba/upsert! commander :measurement))

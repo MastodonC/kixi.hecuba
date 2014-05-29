@@ -175,7 +175,6 @@ CREATE TABLE measurements (
   month int,
   "timestamp" timestamp,
   error text,
-  metadata text,
   meta_data map<text, text>,
   value text,
   PRIMARY KEY (device_id, type, month, "timestamp")

@@ -32,8 +32,8 @@
 
 (defn difference-series-batch
   "Retrieves all sensors that need to have difference series calculated and performs calculations."
-  [commander querier store item]
-  (let [sensors (m/all-sensors querier)]
+  [store item]
+  (let [sensors (m/all-sensors store)]
     (doseq [s sensors]
       (let [device_id (:device_id s)
             type      (:type s)
@@ -43,12 +43,12 @@
             new-item  (assoc item :sensor s :range range)]
         (when range
           (calc/difference-series-from-resolution store new-item)
-          (m/reset-date-range querier commander s :difference_series (:start-date range) (:end-date range)))))))
+          (m/reset-date-range store s :difference_series (:start-date range) (:end-date range)))))))
 
 (defn rollups
   "Retrieves all sensors that need to have hourly measurements rolled up and performs calculations."
-  [commander querier item]
-  (let [sensors (m/all-sensors querier)]
+  [store item]
+  (let [sensors (m/all-sensors store)]
     (doseq [s sensors]
       (let [device_id  (:device_id s)
             type       (:type s)
@@ -61,9 +61,9 @@
             range      (m/start-end-dates :rollups s where)
             new-item   (assoc item :sensor s :range range)]
         (when range
-          (calc/hourly-rollups commander querier new-item)
-          (calc/daily-rollups commander querier new-item)
-          (m/reset-date-range querier commander s :rollups (:start-date range) (:end-date range)))))))
+          (calc/hourly-rollups store new-item)
+          (calc/daily-rollups store new-item)
+          (m/reset-date-range store s :rollups (:start-date range) (:end-date range)))))))
 
 (defn post-resource [post-uri content-type data]
   (pr-str "DATA:" data)
@@ -351,12 +351,10 @@
                                        (mapcat generators/measurements sensors3))})
 
                       ]))))))
-      (let [commander (-> system :store :commander)
-            querier   (-> system :store :querier)
-            store-new (-> system :store-new)]
+      (let [store (-> system :store-new)]
 
-        (difference-series-batch commander querier store-new {})
-        (rollups commander querier {})))
+        (difference-series-batch store {})
+        (rollups store {})))
     (catch Exception e
       (log/error e "ETL failed:"))))
 

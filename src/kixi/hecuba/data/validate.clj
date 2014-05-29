@@ -71,15 +71,12 @@
   (db/with-session [session (:hecuba-session store)]
     (let [errors (-> sensor first :errors)]
       (update-sensor session sensor {:errors (if-not (empty? errors) (inc errors) 1)})
-      (assoc-in m [:meta_data] {"median-spike" "true"}))))
+      (assoc-in m [:metadata "median-spike"] "true"))))
 
 (defn larger-than-median
   "Find readings that are larger than median."
   ([median measurement] (larger-than-median median measurement 200))
-  ([median measurement n] (when (and
-                                 (not (zero? median))
-                                 (not (nil? median))
-                                 (number? (:value measurement))) (>= (-> measurement :value read-string) (* n median)))))
+  ([median measurement n] (>= (-> measurement :value read-string) (* n median))))
 
 (defn median-check
   "Checks if a measurement is 200x median. If so, increments error counter.
@@ -87,9 +84,9 @@
   [m session sensor]
   (let [median (-> sensor first :median)]
     (cond
-     (nil? median) (assoc-in m [:meta_data] {"median-spike" "n/a"})
+     (or (empty? median) (zero? median)) (assoc-in m [:metadata "median-spike"] "n/a")
      (larger-than-median median m) (label-spike session m)
-     :else (assoc-in m [:meta_data] {"median-spike" "false"}))))
+     :else (assoc-in m [:metadata "median-spike"] "false"))))
 
 (defn- label-invalid-value
   "Labels measurement as having invalid value.
@@ -97,7 +94,7 @@
   [session sensor where m]
   (let [errors (-> sensor first :errors)]
     (update-sensor session sensor {:errors (if-not (empty? errors) (inc errors) 1)})
-    (assoc-in m [:meta_data] {"is-number" "false"})))
+    (assoc-in m [:metadata "is-number"] "false")))
 
 (defn- number-check
   "Checks if value is a number. If not, increments error counter.
@@ -105,7 +102,7 @@
   [m session sensor]
   (let [value     (:value m)]
     (if (and (not (empty? value)) (m/numbers-as-strings? value))
-      (assoc-in m [:meta_data] {"is-number" "true"})
+      (assoc-in m [:metadata "is-number"] "true")
       (label-invalid-value session sensor (where-from m) m))))
 
 (defn- sensor-exists? [session m]
