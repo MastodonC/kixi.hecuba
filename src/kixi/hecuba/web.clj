@@ -24,6 +24,8 @@
 (defn charts [req]
   {:status 200 :body (slurp (io/resource "site/charts.html"))})
 
+(defn not-found [req]
+  {:status 404 :body (slurp (io/resource "site/not-found.html"))})
 
 (defn- ensure-authenticated [h querier login-form]
   (fn [req]
@@ -90,6 +92,7 @@
         lh (login-handler opts p)]
     @(deliver p
               {:index index
+               :not-found not-found
                :login-handler lh
                :login-form (login-form lh)
                :programmes programmes})))
@@ -109,7 +112,7 @@
     ["charts" (->Redirect 301 charts)]
 
     ["" (->ResourcesMaybe {:prefix "site/"})]
-    [#".*" (fn [req] {:status 404 :body "Not Found (Hecuba)"})] ; need a template!
+    [#".*" (:not-found handlers)]
     ]])
 
 (defrecord MainRoutes [context]
