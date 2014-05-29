@@ -3,7 +3,8 @@
   (:require [clj-time.core :as t]
             [clj-time.format :as tf]
             [clj-time.coerce :as tc]
-            [kixi.hecuba.protocols :refer (items item update!)]))
+            [kixi.hecuba.storage.dbnew :as db]
+            [qbits.hayt :as hayt]))
 
 ;;;;; Time conversion functions ;;;;;
 
@@ -50,18 +51,25 @@
 (defn sensors-to-check
   "Finds sensors that needs to have data quality checked: with no check performed
   or with a check older than a week."
-  [querier validation-type]
-  (let [last-week        (Long/parseLong (tf/unparse int-time-formatter (t/minus (t/now) (t/weeks 1))))
-        sensors-metadata (items querier :sensor_metadata)
-        sensors          (filter #(or (= "" (validation-type %))
-                                      (<= (Long/parseLong (validation-type %)) last-week)) sensors-metadata)]
-    (map #(merge (first (items querier :sensor [[= :device_id (:device_id %)] [= :type (:type  %)]])) %) sensors)))
+  [store validation-type]
+  (db/with-session [session (:hecuba-session store)]
+    (let [last-week        (Long/parseLong (tf/unparse int-time-formatter (t/minus (t/now) (t/weeks 1))))
+          sensors-metadata (db/execute session (hayt/select :sensor_metadata))
+          sensors          (filter #(or (= "" (validation-type %))
+                                        (<= (Long/parseLong (validation-type %)) last-week)) sensors-metadata)]
+      (map #(merge (first (db/execute session (hayt/select :sensors 
+                                                           (hayt/where [[= :device_id (:device_id %)] [= :type (:type  %)]])
+                                                           ))) %) sensors))))
 
 (defn all-sensors
   "Given a querier, retrieves all sensors data joined with their metadata."
-  [querier]
-  (let [all-sensors-metadata (items querier :sensor_metadata)]
-    (map #(merge (first (items querier :sensor [[= :device_id (:device_id %)] [= :type (:type %)]])) %) all-sensors-metadata)))
+  [store]
+  (db/with-session [session (:hecuba-session store)]
+    (let [all-sensors-metadata (db/execute session (hayt/select :sensor_metadata))]
+      (map #(merge (first (db/execute session 
+                                      (hayt/select :sensors
+                                                   (hayt/where [[= :device_id (:device_id %)] [= :type (:type %)]]))))
+                   %) all-sensors-metadata))))
 
 (defn start-end-dates
   "Given a sensor, table and where clause, returns start and end dates for (re)calculations."
@@ -80,9 +88,12 @@
   (Double/parseDouble txt))
 
 (defn update-metadata
-  [metadata-str new-map-entry]
-  (let [metadata (read-string metadata-str)]
-    (str (conj metadata new-map-entry))))
+  [store table column map-key new-value where]
+  (db/with-session [session (:hecuba-session store)]
+    (db/execute session
+                (hayt/update table
+                             (hayt/set-columns {column [+ {map-key new-value}]})
+                             (hayt/where where)))))
 
 (defn parse-value
   [m]
@@ -114,25 +125,30 @@
 (defn find-broken-sensors
   "Finds sensors with bad metadata and label as broken.
   Returns sequence of maps."
-  [querier]
+  [store]
   (let [where [= :status "Broken"]]
-    (items querier :sensor where)))
+    (db/with-session [session (:hecuba-session store)]
+      (db/execute session
+                  (hayt/select :sensors (hayt/where where))))))
 
 (defn find-mislabelled-sensors
   "Finds sensots that are marked as mislabelled.
   Returns sequence of maps."
-  [querier]
+  [store]
   (let [where [= :mislabelled "true"]]
-    (items querier :sensor_metadata where)))
+    (db/with-session [session (:hecuba-session store)]
+      (db/execute session
+                  (hayt/select :sensor_metadata (hayt/where where))))))
 
 (defn reset-date-range
   "Given querier, commander, sensor, column and start/end dates, update these dates in sensor metadata."
-  [querier commander {:keys [device_id type period]} col start-date end-date]
-  (let [where               [[= :device_id device_id] [= :type type]]
-        current-metadata    (first (items querier :sensor_metadata where))
-        current-range       (-> current-metadata col read-string)
-        current-start       (-> current-range :start (Long/parseLong))
-        current-end         (-> current-range :end (Long/parseLong))]
-    (when-not (and (< current-start (Long/parseLong start-date))
-                   (> current-end (Long/parseLong end-date)))
-      (update! commander :sensor_metadata {col nil} where))))
+  [store {:keys [device_id type period]} col start-date end-date]
+  (db/with-session [session (:hecuba-session store)]
+    (let [where               [[= :device_id device_id] [= :type type]]
+          current-metadata    (first (db/execute session (hayt/select :sensor_metadata (hayt/where where))))
+          current-range       (-> current-metadata col read-string)
+          current-start       (-> current-range :start (Long/parseLong))
+          current-end         (-> current-range :end (Long/parseLong))]
+      (when-not (and (< current-start (Long/parseLong start-date))
+                     (> current-end (Long/parseLong end-date)))
+        (db/execute (hayt/update :sensor_metadata {col nil} (hayt/where where)))))))

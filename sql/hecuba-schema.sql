@@ -176,6 +176,7 @@ CREATE TABLE measurements (
   "timestamp" timestamp,
   error text,
   metadata text,
+  meta_data map<text, text>,
   value text,
   PRIMARY KEY (device_id, type, month, "timestamp")
 ) WITH
@@ -301,12 +302,12 @@ CREATE INDEX projects_programme_id_idx_1 ON projects (programme_id);
 CREATE TABLE sensor_metadata (
   device_id text,
   type text,
-  difference_series text,
-  median_calc_check text,
+  difference_series map<text, timestamp>,
+  median_calc_check map<text, timestamp>,
   mislabelled text,
-  mislabelled_sensors_check text,
-  rollups text,
-  spike_check text,
+  mislabelled_sensors_check map<text, timestamp>,
+  rollups map<text, timestamp>,
+  spike_check map<text, timestamp>,
   lower_ts timestamp,
   upper_ts timestamp,
   PRIMARY KEY (device_id, type)

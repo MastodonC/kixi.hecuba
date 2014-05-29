@@ -191,8 +191,7 @@
           :user-api [:store]
           :store [:session]
           :store-new [:hecuba-session :queue]
-          :queue-worker {:queue :queue
-                         :store :store-new} ;; TODO remove temp rename -> [:queue :store]
+          :queue-worker [:queue :store-new :store]
           :pipeline [:store :store-new]
           :scheduler [:pipeline]
           :hecuba-session {:cluster :cluster-new} ;; TODO remove temp rename -> [:cluster]

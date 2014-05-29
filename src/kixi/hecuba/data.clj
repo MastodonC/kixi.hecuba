@@ -20,7 +20,7 @@
   (start [this]
     (log/info "QueueWorker starting")
     (let [queue (get-in this [:queue :queue])
-          store (:store this)]
+          store (:store-new this)]
       (configure-triggers queue store)
       this))
   (stop [this]

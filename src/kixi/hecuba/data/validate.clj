@@ -40,23 +40,21 @@
   (let [metadata (read-string metadata-str)]
     (str (conj metadata new-map-entry))))
 
-(defn update-date-range [session col where t metadata]
-  (let [existing-range (get metadata col)]
-    (cond
-     (empty? existing-range) (update-sensor-metadata {col (str {:start (str t) :end (str t)})} where)
-     (< t (Long/parseLong (:start (read-string existing-range)))) (update-sensor-metadata session metadata {col (update-metadata existing-range {:start (str t)})} where)
-     (> t (Long/parseLong (:end (read-string existing-range)))) (update-sensor-metadata {col (update-metadata existing-range {:end (str t)})} where))))
+
 
 (defn- status-from-measurement-errors
   "If 10% of measurements are invalid, device is broken."
   [sensor]
   (let [errors (-> sensor first :errors)
         events (-> sensor first :events)]
-    (if (and (not (zero? errors))
-             (not (zero? events))
-             (> (/ errors events) 0.1))
-      "Broken"
-      "Ok")))
+    (if (and (not (empty? errors))
+             (not (empty? events)))
+      (if (and (not (zero? errors))
+               (not (zero? events))
+               (> (/ errors events) 0.1))
+        "Broken"
+        "Ok"))
+    "N/A"))
 
 (defn- broken-sensor-check
   "Validates and inserts measurments. Updates metadata when errors are doscovered.
@@ -70,10 +68,10 @@
 (defn label-spike
   "Increment error counter and label median spike in metadata."
   [store sensor m]
-  (let [metadata (-> m :metadata)]
-    (db/with-session [session (:hecuba-session store)]
-      (update-sensor session (where-from m) {:errors (hayt/inc-by 1)})
-      (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "true"})))))
+  (db/with-session [session (:hecuba-session store)]
+    (let [errors (-> sensor first :errors)]
+      (update-sensor session sensor {:errors (if-not (empty? errors) (inc errors) 1)})
+      (assoc-in m [:meta_data] {"median-spike" "true"}))))
 
 (defn larger-than-median
   "Find readings that are larger than median."
@@ -87,30 +85,28 @@
   "Checks if a measurement is 200x median. If so, increments error counter.
   Updates metadata accordingly."
   [m session sensor]
-  (let [metadata (-> m :metadata)
-        median   (-> sensor first :median)]
+  (let [median (-> sensor first :median)]
     (cond
-     (nil? median) (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "n/a"}))
+     (nil? median) (assoc-in m [:meta_data] {"median-spike" "n/a"})
      (larger-than-median median m) (label-spike session m)
-     :else (assoc-in m [:metadata] (m/update-metadata metadata {:median-spike "false"})))))
+     :else (assoc-in m [:meta_data] {"median-spike" "false"}))))
 
 (defn- label-invalid-value
   "Labels measurement as having invalid value.
    Increments error counter of the sensor."
   [session sensor where m]
-  (let [metadata (-> m :metadata)]
-    (update-sensor session where {:errors (hayt/inc-by 1)})
-    (assoc-in m [:metadata] (m/update-metadata metadata {:is-number "false"}))))
+  (let [errors (-> sensor first :errors)]
+    (update-sensor session sensor {:errors (if-not (empty? errors) (inc errors) 1)})
+    (assoc-in m [:meta_data] {"is-number" "false"})))
 
 (defn- number-check
   "Checks if value is a number. If not, increments error counter.
   Updates metadata accordingly."
   [m session sensor]
-  (let [metadata  (-> m :metadata)
-        value     (:value m)]
+  (let [value     (:value m)]
     (if (and (not (empty? value)) (m/numbers-as-strings? value))
-      (assoc-in m [:metadata] (m/update-metadata metadata {:is-number "true"}))
-      (label-invalid-value session sensor (where-from m)))))
+      (assoc-in m [:meta_data] {"is-number" "true"})
+      (label-invalid-value session sensor (where-from m) m))))
 
 (defn- sensor-exists? [session m]
   (first (db/execute session
@@ -124,10 +120,9 @@
   (db/with-session [session (:hecuba-session store)]
     (let [sensor (sensor-exists? session m)
           events (-> sensor first :events)
-          where  (where-from m)
-          ]
+          where  (where-from m)]
       (when (= events 1440) (reset-counters! session where))
-      (update-sensor session where {:events (hayt/inc-by 1)})
+      (update-sensor session sensor {:events (if-not (empty? events) (inc events) 1)})
       (-> m
           (number-check session sensor)
           (median-check session sensor)
@@ -139,16 +134,25 @@
                      (hayt/select :sensor_metadata
                                   (hayt/where where)))))
 
+(defn- update-date-range [t metadata column]
+  (let [existing-range (get metadata column)]
+    (cond
+     (empty? existing-range) {"start" t "end" t}
+     (.before t (get existing-range "start")) {"start" t} 
+     (.after t (get existing-range "end")) {"end" t})))
+
 (defn update-sensor-metadata
   "Updates start and end dates when new measurement is received."
   [m store]
   (db/with-session [session (:hecuba-session store)]
     (let [where     (where-from m)
           metadata  (get-sensor-metadata session where)
-          timestamp (m/last-check-int-format (:timestamp m))]
-
-      (update-date-range session :rollups where timestamp metadata)
-      (update-date-range session :mislabelled_sensors_check where timestamp metadata)
-      (update-date-range session :difference_series where timestamp metadata)
-      (update-date-range session :median_calc_check where timestamp metadata)
-      (update-date-range session :spike_check where timestamp metadata))))
+          t         (:timestamp m)]
+      (db/execute session
+                  (hayt/update :sensor_metadata
+                               (hayt/set-columns {:rollups [+ (update-date-range t metadata :rollups)]
+                                                  :mislabelled_sensors_check [+ (update-date-range t metadata :mislabelled_sensors_check)]
+                                                  :difference_series [+ (update-date-range t metadata :difference_series)]
+                                                  :median_calc_check [+ (update-date-range t metadata :median_calc_check)]
+                                                  :spike_check [+ (update-date-range t metadata :spike_check)]})
+                               (hayt/where where))))))
