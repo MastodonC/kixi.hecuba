@@ -383,7 +383,8 @@
   (let [programme_id "2312312314"
         project_id "32523453"
         property_id "34653464"
-        device_id "fe5ab5bf19a7265276ffe90e4c0050037de923e2"]
+        device_id_1 "fe5ab5bf19a7265276ffe90e4c0050037de923e2"
+        device_id_2 "aaaab5bf19a7265276ffe90e4c0050037de923e2"]
    (db/with-session [session (:hecuba-session system)]
 
      (db/execute session
@@ -404,25 +405,42 @@
                                             :project_id project_id})))
      (db/execute session
                  (hayt/insert :devices
-                              (hayt/values {:id device_id
-                                            :name "AAA_Calculated_Test Device"
+                              (hayt/values {:id device_id_1
+                                            :name "AAA_Calculated_Test Device 1"
                                             :entity_id property_id})))
      (db/execute session
+                 (hayt/insert :devices
+                              (hayt/values {:id device_id_2
+                                            :name "AAA_Calculated_Test Device 2"
+                                            :entity_id property_id})))
+
+     (db/execute session
                  (hayt/insert :sensors
-                              (hayt/values {:device_id device_id
+                              (hayt/values {:device_id device_id_1
                                             :period "PULSE"
                                             :unit "m^3"
                                             :type "gasConsumption"})))
      (db/execute session
+                 (hayt/insert :sensors
+                              (hayt/values {:device_id device_id_2
+                                            :period "CUMULATIVE"
+                                            :unit "kwh"
+                                            :type "electricityConsumption"})))
+     (db/execute session
                  (hayt/insert :sensor_metadata
-                              (hayt/values {:device_id device_id
+                              (hayt/values {:device_id device_id_1
                                             :lower_ts (.getMillis (t/date-time 2014 1))
                                             :upper_ts (.getMillis (t/date-time 2014 2))
                                             :rollups {"start" (db-timestamp "2014-01-01 00:00:00+0000") 
                                                       "end" (db-timestamp "2014-02-01 00:00:00+0000")}
                                             :type "gasConsumption"})))
+
+     (db/execute session
+                 (hayt/insert :sensor_metadata
+                              (hayt/values {:device_id device_id_2
+                                            :type "electricityConsumption"})))
      
-     (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
+    #_ (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
        (doseq [m (map #(zipmap [:device_id :type :month :timestamp :error :metadata :value] %) (rest (csv/read-csv in-file )))]
          (db/execute session
                      (hayt/insert :measurements
@@ -430,9 +448,18 @@
                                    (-> m
                                        (update-in [:metadata] #(walk/stringify-keys (read-string %)))
                                        (update-in [:timestamp] db-timestamp)
-                                       (update-in [:month] #(Integer/parseInt %))))))))))
+                                       (update-in [:month] #(Integer/parseInt %))))))))
 
-  )
+     (let [url "http://127.0.0.1:8000/4/entities/34653464/devices/aaaab5bf19a7265276ffe90e4c0050037de923e2/measurements/"
+           measurements (generators/measurements  {:type "electricityConsumption"
+                                                   :unit "kWh"
+                                                   :period "CUMULATIVE"
+                                                   :events 0
+                                                   :errors 0})
+           response (post-resource url "application/json" {:measurements
+                                                           (map (fn [x] (update-in x [:timestamp]
+                                                                                   #(tf/unparse custom-formatter (tc/from-date %))))
+                                                                measurements)})]))))
 
 (defn insert-all [session table xs]
   (doseq [x xs]

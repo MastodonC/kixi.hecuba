@@ -119,7 +119,9 @@
       (log/info "Finished median spike check."))
 
     (defnconsumer synthetic-readings-q [item]
-      (calculate/generate-synthetic-readings store item))
+      (log/info "Starting synthetic readings job.")
+      (calculate/generate-synthetic-readings store item)
+      (log/info "Finished synthetic readings job."))
 
     (defnconsumer resolution-q [item]
       (log/info "Starting resolution check.")

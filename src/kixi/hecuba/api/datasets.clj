@@ -62,7 +62,8 @@
 ;;TODO - duplication with calculate - resolve.
 (defn output-unit-for [t]
   (case (.toUpperCase t)
-    "VOL2KWH" "kWh"))
+    "VOL2KWH" "kWh"
+    "TOTAL-VOL2KWH" "kWh"))
 
 (defn output-type-for [t]
   (str "converted_" t))

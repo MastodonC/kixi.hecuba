@@ -188,6 +188,7 @@
 
 
 (defn insert-measurement [store m ]
+  (prn "m: " m)
   (db/with-session [session (:hecuba-session store)]
     (db/execute session
                 (hayt/insert :measurements
@@ -229,20 +230,21 @@
       (q/put-on-queue topic m)
       (insert-measurement store m))))
 
+;; TODO Should we get all kWh sensors for an entity or should the user provide those?
 (defmethod calculate-data-set :total-vol2kwh [ds store]
   (let [topic               (get-in (:queue store) [:queue "measurements"])
         sensors             (sensors-for-dataset ds store)
-        get-measurements    (fn [s] (measurements/all-measurements store s))
-        {:keys [device_id]} ds
-        calculate-total  (fn [])]
+        get-measurements    (fn [s] (prn "getting measurements for: " s) (measurements/all-measurements store s))
+        {:keys [device_id]} ds]
     (map (fn [& m] (->> {:value (reduce + m)
                          :device_id device_id
                          :type (output-type-for "total-vol2kwh")
                          :timestamp (:timestamp m)}
                         (q/put-on-queue topic)
-                        (insert-measurement store))) (for [s sensors] (get-measurements s)))))
+                        (insert-measurement store))) (doseq [s sensors] (get-measurements s)))))
 
 (defn generate-synthetic-readings [store item]
   (let [data-sets (datasets/all-datasets store)]
     (doseq [ds data-sets]
+      (log/info "Calculating dataset for: " ds)
       (calculate-data-set ds store))))
