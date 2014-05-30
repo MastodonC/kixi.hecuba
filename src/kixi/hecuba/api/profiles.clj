@@ -63,17 +63,55 @@
                                      (update-in [:profile_data] json/encode)
                                      ))}))))
 
+(defn add-profile-keys [& pairs]
+  (->> pairs
+       (map-indexed
+         (fn [index pair]
+           (let [k     (first pair)
+                 v (last  pair)]
+           {(str "profile_" index "_key")   k
+            (str "profile_" index "_value") v})))
+       (into {})
+       ))
+
+(defn explode-associated-items [association items]
+  ; WIP should actually namespace the inner keys
+  {association (json/encode items)})
+(defn explode-nested-item [item-name item]
+  ; WIP should actually namespace the inner keys
+  {item-name (json/decode item)})
+
+(defn explode-items [p]
+  (->> p
+       (map
+         (fn [pair]
+           (let [k  (key pair)
+               raw-v  (val pair)]
+             (if (coll? raw-v)
+               (explode-associated-items k raw-v)
+               (try (explode-nested-item k raw-v)
+                    (catch Exception e
+                           {k raw-v}))))))
+       (into {})))
+
 (defn index-handle-ok [ctx]
   (let [{items ::items
          {mime :media-type} :representation
          {routes :modular.bidi/routes
-          route-params :route-params} :request} ctx]
-    (util/render-items ctx (->> items
-                                (map #(dissoc % :user_id))
-                                (map #(update-in % [:thermal_images] json/decode))
-                                (map #(update-in % [:storeys] json/decode))
-                                (map #(update-in % [:walls] json/decode))
-                                (map #(update-in % [:roofs] json/decode))))))
+          route-params :route-params} :request} ctx
+        userless-items (->> items
+                            (map #(dissoc % :user_id)))
+        exploded-items (->> items
+                            (map #(dissoc % :user_id))
+                            (map #(explode-items %)))
+        formatted-items (if (= "text/csv" mime)
+                          ; serving tall csv style profiles
+                          (apply util/map-longest add-profile-keys ["" ""] exploded-items)
+                          ; serving json profiles
+                          userless-items)
+        ]
+
+        (util/render-items ctx formatted-items)))
 
 (defn index-handle-created [handlers ctx]
   (let [{{routes :modular.bidi/routes {entity_id :entity_id} :route-params} :request
@@ -129,9 +167,11 @@
       (ring-response {:status 404 :body "Please provide valid entityId and timestamp"}))))
 
 (defn resource-handle-ok [querier ctx]
-  (let [{item ::item} ctx]
-    (-> item
-        (dissoc :user_id))))
+  (let [request       (:request ctx)
+        route-params  (:route-params request)
+        item          (::item ctx)]
+    (util/render-item request (-> item
+                                  (dissoc :user_id)))))
 
 (defn resource-respond-with-entity [ctx]
   (let [request (:request ctx)
@@ -142,8 +182,8 @@
 
 (defresource index [{:keys [commander querier]} handlers]
   :allowed-methods #{:get :post}
-  :available-media-types #{"application/json"}
-  :known-content-type? #{"application/json"}
+  :available-media-types #{"text/csv" "application/json"}
+  :known-content-type? #{"text/csv" "application/json"}
   :authorized? (authorized? querier :profile)
   :exists? (partial index-exists? querier)
   :malformed? index-malformed?
