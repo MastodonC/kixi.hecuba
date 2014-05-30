@@ -197,7 +197,8 @@
 (defn output-unit-for [t]
   (log/error t)
   (case t
-    "vol2Kwh" "kWh"))
+    "vol2kwh" "kWh"
+    "total-vol2kwh" "kWh"))
 
 (defn output-type-for [t]
   (str "converted_" t))
@@ -230,8 +231,17 @@
       (insert-measurement store m))))
 
 (defmethod calculate-data-set :total-vol2kwh [ds store]
-
-  )
+  (let [topic               (get-in (:queue store) [:queue "measurements"])
+        sensors             (sensors-for-dataset ds store)
+        get-measurements    (fn [s] (measurements/all-measurements store s))
+        {:keys [device_id]} ds
+        calculate-total  (fn [])]
+    (map (fn [& m] (->> {:value (reduce + m)
+                         :device_id device_id
+                         :type (output-type-for "total-vol2kwh")
+                         :timestamp (:timestamp m)}
+                        (q/put-on-queue topic)
+                        (insert-measurement store))) (for [s sensors] (get-measurements s)))))
 
 (defn generate-synthetic-readings [store item]
   (let [data-sets (datasets/all-datasets store)]

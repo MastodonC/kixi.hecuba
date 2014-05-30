@@ -3,31 +3,35 @@
    [bidi.bidi :as bidi]
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
-   [kixi.hecuba.protocols :as hecuba]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
    [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex routes-from)]
    [liberator.core :refer (defresource)]
-   [liberator.representation :refer (ring-response)]))
+   [liberator.representation :refer (ring-response)]
+   [qbits.hayt :as hayt]
+   [kixi.hecuba.storage.dbnew :as db]
+   [kixi.hecuba.storage.sha1 :as sha1]))
 
-(defn index-handle-ok [querier handlers ctx]
-  (let [request (:request ctx)
-        routes (:modular.bidi/routes request)
-        {:keys [projects programme]} @handlers
-        items (->> (hecuba/items querier :programme)
-                   (map #(-> %
-                             (dissoc :user_id)
-                             (assoc :projects (bidi/path-for routes projects :programme_id (:id %))
-                                    :href (bidi/path-for routes programme :programme_id (:id %))))))]
-    (util/render-items request items)))
+(defn index-handle-ok [store handlers ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (let [request (:request ctx)
+          routes  (:modular.bidi/routes request)
+          {:keys  [projects programme]} @handlers
+          items   (db/execute session (hayt/select :programmes))]
+      (util/render-items request (map #(-> %
+                                           (dissoc :user_id)
+                                           (assoc :projects (bidi/path-for routes projects :programme_id (:id %))
+                                                  :href (bidi/path-for routes programme :programme_id (:id %)))) items)))))
 
-(defn index-post! [querier commander ctx]
-  (let [request (:request ctx)
-        [username _]  (sec/get-username-password request querier)
-        user_id       (-> (hecuba/items querier :user [[= :username username]]) first :id)
-        programme     (-> request decode-body stringify-values)]
-    {::programme_id (hecuba/upsert! commander
-                                   :programme (assoc programme :user_id user_id))}))
+(defn index-post! [store ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (let [request (:request ctx)
+          [username _]  (sec/get-username-password request store)
+          user_id       (->  (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+          programme     (-> request decode-body stringify-values)
+          programme_id  (if-let [id (:id programme)] id (sha1/gen-key :programme programme))]
+      (db/execute session (hayt/insert :programmes (hayt/values (assoc programme :user_id user_id :id programme_id))))
+      {::programme_id programme_id})))
 
 (defn index-handle-created [handlers ctx]
     (let [request (:request ctx)
@@ -39,10 +43,13 @@
                                           :status "OK" :version "4"})})))
 
 
-(defn resource-exists? [querier ctx]
-  (when-let [item (hecuba/item querier
-                               :programme (get-in ctx [:request :route-params :programme_id]))]
-    {::item item}))
+(defn resource-exists? [store ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (when-let [item (-> (db/execute session 
+                                    (hayt/select :programmes 
+                                                 (hayt/where [[= :id (get-in ctx [:request :route-params :programme_id])]])))
+                        first)]
+      {::item item})))
 
 (defn resource-handle-ok [handlers ctx]
   (let [request (:request ctx)]
@@ -54,20 +61,19 @@
                                                          :programme_id (:id item)))
                               (dissoc item :user_id)))))
 
-(defresource index [{:keys [commander querier]} handlers]
+(defresource index [store handlers]
   :allowed-methods #{:get :post}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
-  :authorized? (authorized? querier :programme)
-  :handle-ok (partial index-handle-ok querier handlers)
-  :post! (partial index-post! querier commander)
+  :authorized? (authorized? store :programme)
+  :handle-ok (partial index-handle-ok store handlers)
+  :post! (partial index-post! store)
   :handle-created (partial index-handle-created handlers))
 
-(defresource resource [{:keys [commander querier]} handlers]
+(defresource resource [store handlers]
   :allowed-methods #{:get}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
-  :authorized? (authorized? querier :programme)
-  :exists? (partial resource-exists? querier)
-  :handle-ok (partial resource-handle-ok handlers)
-)
+  :authorized? (authorized? store :programme)
+  :exists? (partial resource-exists? store)
+  :handle-ok (partial resource-handle-ok handlers))

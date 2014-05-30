@@ -47,7 +47,7 @@
   component/Lifecycle
   (start [this]
     (assoc this :session
-           (alia/connect (get-in this [:cluster :instance])
+           (alia/connect (get-in this [:cluster-new :instance])
                          (:keyspace opts))))
   (stop [this]
     (when-let [session (:session this)]

@@ -3,23 +3,26 @@
    [bidi.bidi :as bidi]
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
-   [kixi.hecuba.protocols :as hecuba]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
    [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values update-stringified-lists sha1-regex)]
    [liberator.core :refer (defresource)]
-   [liberator.representation :refer (ring-response)]))
+   [liberator.representation :refer (ring-response)]
+   [qbits.hayt :as hayt]
+   [kixi.hecuba.storage.dbnew :as db]
+   [kixi.hecuba.storage.sha1 :as sha1]))
 
-(defn index-exists? [querier ctx]
-  (let [request       (:request ctx)
-        method        (:request-method request)
-        route-params  (:route-params request)
-        entity_id     (:entity_id route-params)
-        entity        (hecuba/item querier :entity entity_id)]
-    (case method
-      :post (not (nil? entity))
-      :get (let [items (hecuba/items querier :profile [[= :entity_id entity_id]])]
-             {::items items}))))
+(defn index-exists? [store ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (let [request       (:request ctx)
+          method        (:request-method request)
+          route-params  (:route-params request)
+          entity_id     (:entity_id route-params)
+          entity        (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first)]
+      (case method
+        :post (not (nil? entity))
+        :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
+               {::items items})))))
 
 (defn index-malformed? [ctx]
   (let [request (:request ctx)
@@ -36,32 +39,32 @@
                 ))
       false)))
 
-(defn index-post! [commander querier ctx]
-  (let [request       (-> ctx :request)
-        profile       (-> ctx :body)
-        entity_id     (-> profile :entity_id)
-        timestamp     (-> profile :timestamp)
-        [username _]  (sec/get-username-password request querier)
-        user_id       (-> (hecuba/items querier :user [[= :username username]]) first :id)
-        ]
-    (when (and entity_id timestamp)
-      (when-not (empty? (hecuba/item querier :entity entity_id))
-        {:profile-id (hecuba/upsert!
-                        commander
-                        :profile (-> profile
-                                     (assoc :user_id user_id)
-                                     (update-stringified-lists
-                                       [:airflow_measurements :chps
-                                        :conservatories :door_sets
-                                        :extensions :floors :heat_pumps
-                                        :heating_systems :hot_water_systems
-                                        :low_energy_lights :photovoltaics
-                                        :roof_rooms :roofs :small_hydros
-                                        :solar_thermals :storeys :thermal_images
-                                        :ventilation_systems :walls
-                                        :wind_turbines :window_sets])
-                                     (update-in [:profile_data] json/encode)
-                                     ))}))))
+(defn index-post! [store ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (let [request       (-> ctx :request)
+          profile       (-> ctx :body)
+          entity_id     (-> profile :entity_id)
+          timestamp     (-> profile :timestamp)
+          [username _]  (sec/get-username-password request store)
+          user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+          profile_id    (sha1/gen-key :profile profile)]
+      (when (and entity_id timestamp)
+        (when-not (empty? (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first))
+          (db/execute session (hayt/insert :profiles (-> profile
+                                                         (assoc :user_id user_id)
+                                                         (update-stringified-lists
+                                                          [:airflow_measurements :chps
+                                                           :conservatories :door_sets
+                                                           :extensions :floors :heat_pumps
+                                                           :heating_systems :hot_water_systems
+                                                           :low_energy_lights :photovoltaics
+                                                           :roof_rooms :roofs :small_hydros
+                                                           :solar_thermals :storeys :thermal_images
+                                                           :ventilation_systems :walls
+                                                           :wind_turbines :window_sets])
+                                                         (update-in [:profile_data] json/encode)
+                                                         )))
+          {:profile_id profile_id})))))
 
 (defn index-handle-ok [ctx]
   (let [{items ::items
@@ -77,58 +80,57 @@
 
 (defn index-handle-created [handlers ctx]
   (let [{{routes :modular.bidi/routes {entity_id :entity_id} :route-params} :request
-         profile-id :profile-id} ctx]
-    (if-not (empty? profile-id)
+         profile_id :profile_id} ctx]
+    (if-not (empty? profile_id)
       (let [location
             (bidi/path-for routes (:profile @handlers)
                            :entity_id entity_id
-                           :profile-id profile-id)]
+                           :profile_id profile_id)]
         (when-not location
           (throw (ex-info "No path resolved for Location header"
                           {:entity_id entity_id
-                           :profile-id profile-id})))
+                           :profile_id profile_id})))
         (ring-response {:headers {"Location" location}
                         :body (json/encode {:location location
                                             :status "OK"
                                             :version "4"})}))
       (ring-response {:status 422
-                      :body "Provide valid entityId and timestamp."}))))
+                      :body "Provide valid entity_id and timestamp."}))))
 
-(defn resource-exists? [querier ctx]
-  (let [{{{:keys [entity_id profile-id]} :route-params} :request} ctx
-        item (hecuba/item querier :profile profile-id)]
-    (if-not (empty? item)
-      {::item (-> item
-                  (assoc :profile-id profile-id)
-                  (dissoc :id))}
-      false)))
+(defn resource-exists? [store ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (let [{{{:keys [entity_id profile_id]} :route-params} :request} ctx
+          item (-> (db/execute session :profiles (hayt/where [[= :id profile_id]])) first)]
+      (if-not (empty? item)
+        {::item (-> item
+                    (assoc :profile_id profile_id)
+                    (dissoc :id))}
+        false))))
 
-(defn resource-delete-enacted? [commander ctx]
-  (let [{item ::item} ctx
-        device_id (:device_id item)
-        entity_id (:entity_id item)
-        response1 (hecuba/delete! commander :device [[= :id device_id]])
-        response2 (hecuba/delete! commander :sensor [[= :device_id device_id]])
-        response3 (hecuba/delete! commander :sensor_metadata [[= :device_id device_id]])
-        response4 (hecuba/delete! commander :entity {:devices device_id} [[= :id entity_id]])]
-    (every? empty? [response1 response2 response3 response4])))
+(defn resource-delete-enacted? [store ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (let [{item ::item} ctx
+          profile_id (:profile_id item)
+          response (db/execute session (hayt/delete :profiles (hayt/where [[= :id profile_id]])))]
+      (empty? response))))
 
-(defn resource-put! [commander querier ctx]
-  (let [{request :request} ctx]
-    (if-let [item (::item ctx)]
-      (let [body          (decode-body request)
-            entity_id     (-> item :entity_id)
-            [username _]  (sec/get-username-password request querier)
-            user_id       (-> (hecuba/items querier :user [[= :username username]]) first :id)
-            profile-id     (-> item :profile-id)]
-        (hecuba/upsert! commander :profile (-> body
-                                               (assoc :id profile-id)
-                                               (assoc :user_id user_id)
-                                               ;; TODO: add storeys, walls, etc.
-                                               stringify-values)))
-      (ring-response {:status 404 :body "Please provide valid entityId and timestamp"}))))
+(defn resource-put! [store ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (let [{request :request} ctx]
+      (if-let [item (::item ctx)]
+        (let [body          (decode-body request)
+              entity_id     (-> item :entity_id)
+              [username _]  (sec/get-username-password request store)
+              user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+              profile_id     (-> item :profile-id)]
+          (db/execute session (hayt/insert :profiles (hayt/values (-> body
+                                                                      (assoc :id profile_id)
+                                                                      (assoc :user_id user_id)
+                                                                      ;; TODO: add storeys, walls, etc.
+                                                                      stringify-values)))))
+        (ring-response {:status 404 :body "Please provide valid entityId and timestamp"})))))
 
-(defn resource-handle-ok [querier ctx]
+(defn resource-handle-ok [store ctx]
   (let [{item ::item} ctx]
     (-> item
         (dissoc :user_id))))
@@ -140,25 +142,25 @@
      (= method :delete) false
       :else true)))
 
-(defresource index [{:keys [commander querier]} handlers]
+(defresource index [store handlers]
   :allowed-methods #{:get :post}
   :available-media-types #{"application/json"}
   :known-content-type? #{"application/json"}
-  :authorized? (authorized? querier :profile)
-  :exists? (partial index-exists? querier)
+  :authorized? (authorized? store :profile)
+  :exists? (partial index-exists? store)
   :malformed? index-malformed?
-  :post! (partial index-post! commander querier)
+  :post! (partial index-post! store)
   :handle-ok (partial index-handle-ok)
   :handle-created (partial index-handle-created handlers))
 
-(defresource resource [{:keys [commander querier]} handlers]
+(defresource resource [store handlers]
   :allowed-methods #{:get :delete :putj}
   :available-media-types #{"application/json"}
-  :authorized? (authorized? querier :profile)
-  :exists? (partial resource-exists? querier)
-  :delete-enacted? (partial resource-delete-enacted? commander)
+  :authorized? (authorized? store :profile)
+  :exists? (partial resource-exists? store)
+  :delete-enacted? (partial resource-delete-enacted? store)
   :respond-with-entity? (partial resource-respond-with-entity)
   :new? (constantly false)
   :can-put-to-missing? (constantly false)
-  :put! (partial resource-put! commander querier)
-  :handle-ok (partial resource-handle-ok querier))
+  :put! (partial resource-put! store)
+  :handle-ok (partial resource-handle-ok store))

@@ -419,7 +419,8 @@
                                  (hayt/values {:device_id device_id
                                                :lower_ts (.getMillis (t/date-time 2014 1))
                                                :upper_ts (.getMillis (t/date-time 2014 2))
-                                               :rollups "{:start \"20140101000000\", :end \"20140201000000\"}"
+                                               :rollups {"start" (db-timestamp "2014-01-01 00:00:00+0000") 
+                                                         "end" (db-timestamp "2014-02-01 00:00:00+0000")}
                                                :type "gasConsumption"})))
 
      (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
@@ -428,6 +429,7 @@
                         (hayt/insert :measurements
                                      (hayt/values
                                       (-> m
+                                          (update-in [:metadata] #(walk/stringify-keys (read-string %)))
                                           (update-in [:timestamp] db-timestamp)
                                           (update-in [:month] #(Integer/parseInt %))))))))))
 

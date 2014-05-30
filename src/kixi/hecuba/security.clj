@@ -1,6 +1,7 @@
 (ns kixi.hecuba.security
   (:require
-   [kixi.hecuba.protocols :refer (item items upsert!)])
+   [qbits.hayt :as hayt]
+   [kixi.hecuba.storage.dbnew :as db])
   (:import
    java.security.SecureRandom
    javax.crypto.SecretKeyFactory
@@ -39,7 +40,7 @@ http://adambard.com/blog/3-wrong-ways-to-store-a-password/"
   (= (pbkdf2 password salt) hash))
 
 (defn get-username-password
-  [{headers :headers :as request} querier]
+  [{headers :headers :as request} store]
   (when-let [auth (get headers "authorization")]
     (when-let [basic-creds (second (re-matches #"\QBasic\E\s+(.*)" auth))]
       (->> (String. (DatatypeConverter/parseBase64Binary basic-creds) "UTF-8")
@@ -51,30 +52,37 @@ http://adambard.com/blog/3-wrong-ways-to-store-a-password/"
 #_(create-hash (SecureRandom.) "secret")
 #_(verify-password "secret" {:hash "32767a445d5a4dbadb153d2654b1505a7ac0f20947a45d38", :salt "usz0fFalxZcwdAVnRFrE9ZC+k1L4pz8u/MuS1w0FRjQ=", :username "bob"})
 
-(defn authorized? [username password querier]
-  (when-let [stored-user (item querier :user username)]
-    (verify-password password stored-user)))
+(defn authorized? [username password store]
+  (db/with-session [session (:hecuba-session store)]
+    (when-let [stored-user (->  (db/execute session (hayt/select :users (hayt/where [[= :id username]]))) first)]
+      (verify-password password stored-user))))
 
 (defn authorized-with-basic-auth?
-  [req querier]
-  (when-let [[username password] (get-username-password req querier)]
-           (authorized? username password querier)))
+  [req store]
+  (when-let [[username password] (get-username-password req store)]
+           (authorized? username password store)))
 
 (def session-expiry-in-secs (* 6 60 60 1000))
 
 (defn some-time-ago [secs]
   (java.util.Date. (- (.getTime (java.util.Date.)) (* secs 1000))))
 
-(defn authorized-with-cookie? [{{{id :value} "session"} :cookies} querier]
-  (when id
-    (when-let [session (items querier :user-session [[= :id id] [> :timestamp (some-time-ago session-expiry-in-secs)]])]
-      session)))
+(defn authorized-with-cookie? [{{{id :value} "session"} :cookies} store]
+  (db/with-session [session (:hecuba-session store)]
+    (when id
+      (when-let [session (db/execute session
+                                     (hayt/select :user_sessions
+                                                  (hayt/where [[= :id id] 
+                                                               [> :timestamp (some-time-ago session-expiry-in-secs)]])))]
+        session))))
 
-(defn create-session-cookie [username {:keys [commander]}]
-  (let [id (str (java.util.UUID/randomUUID))]
-    (upsert! commander :user-session {:id id :user username :timestamp (java.util.Date.)})
-    ;; Adding 20 for good measure and testing
-    {"session" {:value id :max-age (+ 20 session-expiry-in-secs)}}))
+(defn create-session-cookie [username store]
+  (db/with-session [session (:hecuba-session store)]
+    (let [id (str (java.util.UUID/randomUUID))]
+      (db/execute session
+                  (hayt/insert :user_sessions (hayt/values {:id id :user username :timestamp (java.util.Date.)})))
+      ;; Adding 20 for good measure and testing
+      {"session" {:value id :max-age (+ 20 session-expiry-in-secs)}})))
 
 (defn make-rng []
   (SecureRandom.))

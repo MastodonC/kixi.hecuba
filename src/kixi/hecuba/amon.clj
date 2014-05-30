@@ -1,16 +1,9 @@
 (ns kixi.hecuba.amon
   (:require
    [bidi.bidi :as bidi]
-   [clj-time.coerce :as tc]
-   [clj-time.core :as t]
-   [clj-time.format :as tf]
-   [clojure.edn :as edn]
-   [clojure.java.io :as io]
-   [clojure.string :as string]
    [clojure.tools.logging :as log]
    [clojure.walk :refer (postwalk)]
    [com.stuartsierra.component :as component]
-   [hiccup.core :refer (html)]
    [kixi.hecuba.api.datasets :as datasets]
    [kixi.hecuba.api.devices :as devices]
    [kixi.hecuba.api.entities :as entities]
@@ -21,16 +14,10 @@
    [kixi.hecuba.api.properties :as properties]
    [kixi.hecuba.api.rollups :as rollups]
    [kixi.hecuba.api.sensors :as sensors]
-   [kixi.hecuba.data.misc :as misc]
-   [kixi.hecuba.data.validate :as v]
-   [kixi.hecuba.protocols :refer (upsert! delete! update! item items)]
-   [kixi.hecuba.queue :as q]
-   [kixi.hecuba.security :as sec]
-   [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
-   [ring.middleware.cookies :refer (wrap-cookies)]))
+   [ring.middleware.cookies :refer (wrap-cookies)]
+   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex)]))
 
 
 ;; TODO - this is a hack - malcolm to advise.
@@ -39,7 +26,7 @@
     (resolve-handler [this m] nil)
     (unresolve-handler [this m] nil))
 
-(defn make-handlers [store store-new queue]
+(defn make-handlers [store queue]
   (let [p (promise)]
     @(deliver p {:programmes          (programmes/index store p)
                  :programme           (programmes/resource store p)
@@ -55,9 +42,9 @@
                  :devices             (devices/index store p)
                  :device              (devices/resource store p)
                  :sensor_metadata     (sensors/metadata store p)
-                 :measurements        (measurements/index store store-new queue p)
-                 :measurement         (measurements/measurements-by-reading store store-new p)
-                 :measurement-slice   (measurements/measurements-slice store store-new p)
+                 :measurements        (measurements/index store queue p)
+                 :measurement         (measurements/measurements-by-reading store p)
+                 :measurement-slice   (measurements/measurements-slice store p)
                  :hourly_rollups      (rollups/hourly_rollups store p)
                  :daily_rollups       (rollups/daily_rollups store p)
                  :sensors-by-property (sensors/index-by-property store p)
@@ -121,7 +108,7 @@
   component/Lifecycle
   (start [this]
     (log/info "AmonApi starting - " this)
-    (let [handlers  (make-handlers (:store this) (:store-new this) (get-in this [:queue :queue]))]
+    (let [handlers  (make-handlers (:store-new this) (get-in this [:queue :queue]))]
       (assoc this
         :handlers handlers
         :routes (make-routes handlers))))
