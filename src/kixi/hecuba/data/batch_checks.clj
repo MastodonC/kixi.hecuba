@@ -2,8 +2,7 @@
   "Batch validation jobs scheduled using quartz scheduler."
   (:require [clj-time.core :as t]
             [com.stuartsierra.frequencies :as freq]
-            [kixi.hecuba.protocols :refer (upsert! update! delete! item items)]
-            [kixi.hecuba.storage.dbnew :as db]
+            [kixi.hecuba.storage.db :as db]
             [qbits.hayt :as hayt]
             [kixi.hecuba.data.misc :as m]
             [kixi.hecuba.data.validate :as v]))

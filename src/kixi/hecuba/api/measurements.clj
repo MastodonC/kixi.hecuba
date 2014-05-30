@@ -10,13 +10,12 @@
    [kixi.hecuba.data.validate :as v]
    [kixi.hecuba.queue :as q]
    [kixi.hecuba.security :as sec]
-   [kixi.hecuba.storage.dbnew :as db]
+   [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.webutil :as util]
    [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex time-range)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
-   [qbits.hayt :as hayt]
-   ))
+   [qbits.hayt :as hayt]))
 
 (defn sensor_metadata-for [store sensor_id]
   (let [{:keys [type device_id]} sensor_id]

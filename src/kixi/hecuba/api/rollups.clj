@@ -11,7 +11,7 @@
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
-   [kixi.hecuba.storage.dbnew :as db]))
+   [kixi.hecuba.storage.db :as db]))
 
 (defn retrieve-hourly-measurements
   "Iterate over a sequence of months and concatanate measurements retrieved from the database."

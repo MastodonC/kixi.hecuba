@@ -9,7 +9,7 @@
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
-   [kixi.hecuba.storage.dbnew :as db]
+   [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.storage.sha1 :as sha1]))
 
 (defn index-exists? [store ctx]
@@ -128,7 +128,7 @@
                                                                       (assoc :user_id user_id)
                                                                       ;; TODO: add storeys, walls, etc.
                                                                       stringify-values)))))
-        (ring-response {:status 404 :body "Please provide valid entityId and timestamp"})))))
+        (ring-response {:status 404 :body "Please provide valid entity_id and timestamp"})))))
 
 (defn resource-handle-ok [store ctx]
   (let [{item ::item} ctx]

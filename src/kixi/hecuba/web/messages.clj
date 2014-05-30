@@ -1,7 +1,6 @@
 (ns kixi.hecuba.web.messages
   (:require
    [liberator.core :refer (defresource)]
-   [kixi.hecuba.protocols :refer (upsert! item items)]
    [kixi.hecuba.hash :refer (sha1)]
    [bidi.bidi :refer (->Redirect path-for)]
    [clojure.edn :as edn]))
@@ -24,7 +23,7 @@
                 :time "4:34PM"}])
 
 
-(defresource messages-resource [querier commander]
+(defresource messages-resource [store]
   :allowed-methods #{:get}
   :available-media-types base-media-types
   :exists? (fn [_] {::messages (map #(assoc % :id (sha1 (:message %))) messages)})
@@ -33,8 +32,8 @@
                  "application/edn" (pr-str messages)
                  messages)))
 
-(defn create-routes [querier commander]
-  (let [messages (messages-resource querier commander)]
+(defn create-routes [store]
+  (let [messages (messages-resource store)]
     [""
      [["messages/" messages]
       ["messages" (->Redirect 307 messages)]]]))

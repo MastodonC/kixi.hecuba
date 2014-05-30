@@ -136,7 +136,7 @@
   component/Lifecycle
   (start [this]
     (log/info "Pipeline starting")
-    (let [store         (-> this :store-new)
+    (let [store         (-> this :store)
           [head others] (build-pipeline store)]
       (-> this
           (assoc :head head)

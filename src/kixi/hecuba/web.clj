@@ -119,7 +119,7 @@
   component/Lifecycle
   (start [this]
     (log/info "MainRoutes starting")
-    (if-let [store (get-in this [:store-new])]
+    (if-let [store (get-in this [:store])]
       (assoc this :routes (make-routes (make-handlers store) store))
       (throw (ex-info "No store!" {:this this}))))
   (stop [this]

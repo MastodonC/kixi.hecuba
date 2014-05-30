@@ -8,7 +8,7 @@
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
    [kixi.hecuba.webutil :refer (decode-body authorized? uuid routes-from)]
-   [kixi.hecuba.storage.dbnew :as db]
+   [kixi.hecuba.storage.db :as db]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [kixi.hecuba.storage.sha1 :as sha1]))

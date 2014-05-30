@@ -8,8 +8,7 @@
             [kixi.hecuba.api.datasets :as datasets]
             [kixi.hecuba.api.measurements :as measurements]
             [kixi.hecuba.data.misc :as m]
-            [kixi.hecuba.protocols :refer (upsert! update! delete! item items)]
-            [kixi.hecuba.storage.dbnew :as db]
+            [kixi.hecuba.storage.db :as db]
             [qbits.hayt :as hayt]
             [kixi.hecuba.queue :as q]))
 

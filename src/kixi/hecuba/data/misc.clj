@@ -3,7 +3,7 @@
   (:require [clj-time.core :as t]
             [clj-time.format :as tf]
             [clj-time.coerce :as tc]
-            [kixi.hecuba.storage.dbnew :as db]
+            [kixi.hecuba.storage.db :as db]
             [qbits.hayt :as hayt]))
 
 

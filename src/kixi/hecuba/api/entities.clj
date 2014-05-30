@@ -9,7 +9,7 @@
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
-   [kixi.hecuba.storage.dbnew :as db]
+   [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.storage.sha1 :as sha1]))
 
 (defn index-post! [store ctx]

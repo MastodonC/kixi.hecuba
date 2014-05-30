@@ -7,7 +7,7 @@
    [kixi.hecuba.security :refer (create-hash authorized-with-basic-auth? make-rng)]
    [com.stuartsierra.component :as component]
    [clojure.tools.logging :as log]
-   [kixi.hecuba.storage.dbnew :as db]
+   [kixi.hecuba.storage.db :as db]
    [qbits.hayt :as hayt]
    [kixi.hecuba.storage.sha1 :as sha1]))
 
@@ -56,7 +56,7 @@
   component/Lifecycle
   (start [this]
     (log/info "UserApi starting")
-    (if-let [store (get-in this [:store-new])]
+    (if-let [store (get-in this [:store])]
       (let [handlers (make-handlers (merge {:store store} {:rng (make-rng)}))]
         (assoc this :handlers handlers :routes (make-routes handlers)))
       (throw (ex-info "No store!" {:this this}))))

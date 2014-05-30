@@ -1,7 +1,7 @@
 (ns kixi.hecuba.security
   (:require
    [qbits.hayt :as hayt]
-   [kixi.hecuba.storage.dbnew :as db])
+   [kixi.hecuba.storage.db :as db])
   (:import
    java.security.SecureRandom
    javax.crypto.SecretKeyFactory
@@ -70,11 +70,11 @@ http://adambard.com/blog/3-wrong-ways-to-store-a-password/"
 (defn authorized-with-cookie? [{{{id :value} "session"} :cookies} store]
   (db/with-session [session (:hecuba-session store)]
     (when id
-      (when-let [session (db/execute session
+      (when-let [auth-session (db/execute session
                                      (hayt/select :user_sessions
                                                   (hayt/where [[= :id id] 
                                                                [> :timestamp (some-time-ago session-expiry-in-secs)]])))]
-        session))))
+        auth-session))))
 
 (defn create-session-cookie [username store]
   (db/with-session [session (:hecuba-session store)]

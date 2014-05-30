@@ -108,7 +108,7 @@
   component/Lifecycle
   (start [this]
     (log/info "AmonApi starting - " this)
-    (let [handlers  (make-handlers (:store-new this) (get-in this [:queue :queue]))]
+    (let [handlers  (make-handlers (:store this) (get-in this [:queue :queue]))]
       (assoc this
         :handlers handlers
         :routes (make-routes handlers))))

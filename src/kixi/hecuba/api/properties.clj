@@ -6,7 +6,7 @@
    [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex routes-from ) :as util]
    [liberator.core :refer (defresource)]
    [qbits.hayt :as hayt]
-   [kixi.hecuba.storage.dbnew :as db]))
+   [kixi.hecuba.storage.db :as db]))
 
 (defn- project_id-from [ctx]
   (get-in ctx [:request :route-params :project_id]))

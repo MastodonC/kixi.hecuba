@@ -2,7 +2,7 @@
  "Data quality assurance and validation."
  (:require [clj-time.core :as t]
            [kixi.hecuba.data.misc :as m]
-           [kixi.hecuba.storage.dbnew :as db]
+           [kixi.hecuba.storage.db :as db]
            [qbits.hayt :as hayt]))
 
 

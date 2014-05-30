@@ -14,8 +14,7 @@
             [etl.fixture :as fixture]
             [kixi.hecuba.data.calculate :as calc]
             [kixi.hecuba.data.misc :as m]
-            [kixi.hecuba.protocols :refer (items)]
-            [kixi.hecuba.storage.dbnew :as dbnew]
+            [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.webutil :as util]
             [org.httpkit.client :refer (request) :rename {request http-request}]
             [qbits.hayt :as hayt]
@@ -385,65 +384,65 @@
         project_id "32523453"
         property_id "34653464"
         device_id "fe5ab5bf19a7265276ffe90e4c0050037de923e2"]
-   (dbnew/with-session [session (:hecuba-session system)]
+   (db/with-session [session (:hecuba-session system)]
 
-     (dbnew/execute session
-                    (hayt/insert :programmes
-                                 (hayt/values {:id programme_id
-                                               :name "AAA_Calculated_Test Programme"})))
-     (dbnew/execute session
-                    (hayt/insert :projects
-                                 (hayt/values {:id project_id
-                                               :name "AAA_Calculated_Test Project"
-                                               :programme_id programme_id
-                                               })))
-     (dbnew/execute session
-                    (hayt/insert :entities
-                                 (hayt/values {:id property_id
-                                               :name "AAA_Calculated_Test Properties"
-                                               :address_street_two "A1 Flat, A1 road, A1 Town, A1 1AA"
-                                               :project_id project_id})))
-     (dbnew/execute session
-                    (hayt/insert :devices
-                                 (hayt/values {:id device_id
-                                               :name "AAA_Calculated_Test Device"
-                                               :entity_id property_id})))
-     (dbnew/execute session
-                    (hayt/insert :sensors
-                                 (hayt/values {:device_id device_id
-                                               :period "PULSE"
-                                               :unit "m^3"
-                                               :type "gasConsumption"})))
-     (dbnew/execute session
-                    (hayt/insert :sensor_metadata
-                                 (hayt/values {:device_id device_id
-                                               :lower_ts (.getMillis (t/date-time 2014 1))
-                                               :upper_ts (.getMillis (t/date-time 2014 2))
-                                               :rollups {"start" (db-timestamp "2014-01-01 00:00:00+0000") 
-                                                         "end" (db-timestamp "2014-02-01 00:00:00+0000")}
-                                               :type "gasConsumption"})))
-
+     (db/execute session
+                 (hayt/insert :programmes
+                              (hayt/values {:id programme_id
+                                            :name "AAA_Calculated_Test Programme"})))
+     (db/execute session
+                 (hayt/insert :projects
+                              (hayt/values {:id project_id
+                                            :name "AAA_Calculated_Test Project"
+                                            :programme_id programme_id
+                                            })))
+     (db/execute session
+                 (hayt/insert :entities
+                              (hayt/values {:id property_id
+                                            :name "AAA_Calculated_Test Properties"
+                                            :address_street_two "A1 Flat, A1 road, A1 Town, A1 1AA"
+                                            :project_id project_id})))
+     (db/execute session
+                 (hayt/insert :devices
+                              (hayt/values {:id device_id
+                                            :name "AAA_Calculated_Test Device"
+                                            :entity_id property_id})))
+     (db/execute session
+                 (hayt/insert :sensors
+                              (hayt/values {:device_id device_id
+                                            :period "PULSE"
+                                            :unit "m^3"
+                                            :type "gasConsumption"})))
+     (db/execute session
+                 (hayt/insert :sensor_metadata
+                              (hayt/values {:device_id device_id
+                                            :lower_ts (.getMillis (t/date-time 2014 1))
+                                            :upper_ts (.getMillis (t/date-time 2014 2))
+                                            :rollups {"start" (db-timestamp "2014-01-01 00:00:00+0000") 
+                                                      "end" (db-timestamp "2014-02-01 00:00:00+0000")}
+                                            :type "gasConsumption"})))
+     
      (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
        (doseq [m (map #(zipmap [:device_id :type :month :timestamp :error :metadata :value] %) (rest (csv/read-csv in-file )))]
-         (dbnew/execute session
-                        (hayt/insert :measurements
-                                     (hayt/values
-                                      (-> m
-                                          (update-in [:metadata] #(walk/stringify-keys (read-string %)))
-                                          (update-in [:timestamp] db-timestamp)
-                                          (update-in [:month] #(Integer/parseInt %))))))))))
+         (db/execute session
+                     (hayt/insert :measurements
+                                  (hayt/values
+                                   (-> m
+                                       (update-in [:metadata] #(walk/stringify-keys (read-string %)))
+                                       (update-in [:timestamp] db-timestamp)
+                                       (update-in [:month] #(Integer/parseInt %))))))))))
 
   )
 
 (defn insert-all [session table xs]
   (doseq [x xs]
-     (dbnew/execute session (hayt/insert table (hayt/values x)))))
+     (db/execute session (hayt/insert table (hayt/values x)))))
 
 (defn readings [n]
   (map #(hash-map :value (str %) :month 201405 :timestamp (t/date-time 2014 5 n)) (range n)))
 
 (defn load-total-kwh-sample [system]
-  (dbnew/with-session [session (:hecuba-session system)]
+  (db/with-session [session (:hecuba-session system)]
     (fixture/load-fixture session [:programmes#A1
                                    [:projects#A1
                                     [:entities#A1 {:address_street_two "A1 Flat, A1 road, A1 Town, A1 1AA"}
