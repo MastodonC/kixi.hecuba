@@ -67,31 +67,60 @@
   (->> pairs
        (map-indexed
          (fn [index pair]
-           (let [k     (first pair)
+           (let [k (first pair)
                  v (last  pair)]
            {(str "profile_" index "_key")   k
             (str "profile_" index "_value") v})))
-       (into {})
-       ))
+       (into {})))
 
-(defn explode-associated-items [association items]
-  ; WIP should actually namespace the inner keys
-  {association (json/encode items)})
-(defn explode-nested-item [item-name item]
-  ; WIP should actually namespace the inner keys
-  {item-name (json/decode item)})
+(defn attribute-type [attr]
+  (if (coll? attr)
+       :associated-items
+       (try
+         (if (map? (json/decode attr))
+           :nested-item
+           :attribute)
+          (catch Exception e
+                 :attribute))))
 
-(defn explode-items [p]
-  (->> p
+(defn explode-nested-item [item-name item-string]
+  ; WIP should actually namespace the inner keys
+  (let [item (json/decode item-string)]
+    (->> item
+         (map
+           (fn [pair]
+             { (keyword (str item-name "_" (key pair))) (val pair) }))
+         (into {}))))
+
+(defn explode-associated-items [association-name items]
+  ; WIP should actually namespace the inner keys
+  (->> items
+       (map-indexed
+         (fn [index item]
+           (let [item-name (str association-name "_" index)]
+             (case (attribute-type item)
+               :nested-item (explode-nested-item (str association-name "_" index) item)
+               :attribute   { (keyword item-name) item }))))
+       (into {})))
+
+(defn explode-items [profile]
+  (->> profile
        (map
-         (fn [pair]
-           (let [k  (key pair)
-               raw-v  (val pair)]
-             (if (coll? raw-v)
-               (explode-associated-items k raw-v)
-               (try (explode-nested-item k raw-v)
-                    (catch Exception e
-                           {k raw-v}))))))
+         (fn [attribute]
+           (let [attr-name   (key attribute)
+                 attr-value  (val attribute)
+                 _ (println "Considering\n\tKey: " attr-name "\n\tVal: " attr-value)]
+             (case (attribute-type attr-value)
+               :associated-items (do
+                                   (println "Found associated-items for " attr-name)
+                                   (explode-associated-items attr-name attr-value))
+               :nested-item      (do
+                                   (println "Found nested-item for " attr-name)
+                                   (explode-nested-item attr-name attr-value))
+               :attribute        (do
+                                   (println "Found standard attribute " attr-name)
+                                   attribute)))))
+
        (into {})))
 
 (defn index-handle-ok [ctx]
