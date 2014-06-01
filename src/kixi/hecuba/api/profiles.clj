@@ -84,30 +84,28 @@
                  :attribute))))
 
 (defn explode-nested-item [item-name item-string]
-  ; WIP should actually namespace the inner keys
   (let [item (json/decode item-string)]
     (->> item
          (map
            (fn [pair]
-             { (keyword (str item-name "_" (key pair))) (val pair) }))
+             { (str item-name "_" (key pair)) (val pair) }))
          (into {}))))
 
 (defn explode-associated-items [association-name items]
-  ; WIP should actually namespace the inner keys
   (->> items
        (map-indexed
          (fn [index item]
            (let [item-name (str association-name "_" index)]
              (case (attribute-type item)
                :nested-item (explode-nested-item (str association-name "_" index) item)
-               :attribute   { (keyword item-name) item }))))
+               :attribute   { item-name item }))))
        (into {})))
 
 (defn explode-items [profile]
   (->> profile
        (map
          (fn [attribute]
-           (let [attr-name   (key attribute)
+           (let [attr-name   (name (key attribute))
                  attr-value  (val attribute)
                  _ (println "Considering\n\tKey: " attr-name "\n\tVal: " attr-value)]
              (case (attribute-type attr-value)
@@ -119,7 +117,7 @@
                                    (explode-nested-item attr-name attr-value))
                :attribute        (do
                                    (println "Found standard attribute " attr-name)
-                                   attribute)))))
+                                   { attr-name attr-value})))))
 
        (into {})))
 
