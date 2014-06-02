@@ -40,8 +40,8 @@
             where     {:device_id device_id :type type}
             range     (m/start-end-dates :difference_series s where)
             new-item  (assoc item :sensor s :range range)]
-        (when range
-          (calc/difference-series-from-resolution store new-item)
+        (when (and range (= "CUMULATIVE" period))
+          (calc/difference-series store new-item)
           (m/reset-date-range store s :difference_series (:start-date range) (:end-date range)))))))
 
 (defn rollups
@@ -202,10 +202,6 @@
                                          :handlers (-> system :amon-api :handlers)
                                          :project_id-map project-map}))]
 
-          ;; We'll create the device here.
-          ;; Let's find a nice property
-
-
           (let [entity_id (get entity-map "64")]
             (doseq [device (generators/generate-device-sample entity_id 3)]
               (let [sensors (generators/generate-sensor-sample "CUMULATIVE" 3)
@@ -265,8 +261,6 @@
                     measurements-uri (apply path-for routes (-> system :amon-api :handlers :measurements)
                                             (apply concat (:params (match-route routes location))))
                     ]
-
-                                        ; (println "response to creating device is" response)
 
                 ;; POST to URL a JSON block
                 (let [response
@@ -350,7 +344,7 @@
                                        (mapcat generators/measurements sensors3))})
 
                       ]))))))
-      (let [store (-> system :store-new)]
+      (let [store (-> system :store)]
 
         (difference-series-batch store {})
         (rollups store {})))
@@ -384,7 +378,7 @@
         project_id "32523453"
         property_id "34653464"
         device_id_1 "fe5ab5bf19a7265276ffe90e4c0050037de923e2"
-        device_id_2 "aaaab5bf19a7265276ffe90e4c0050037de923e2"]
+        device_id_2 "fe5ab5bf19a7265276ffe90e4c0050037de923e2"]
    (db/with-session [session (:hecuba-session system)]
 
      (db/execute session
@@ -423,8 +417,8 @@
      (db/execute session
                  (hayt/insert :sensors
                               (hayt/values {:device_id device_id_2
-                                            :period "CUMULATIVE"
-                                            :unit "kwh"
+                                            :period "PULSE"
+                                            :unit "kWh"
                                             :type "electricityConsumption"})))
      (db/execute session
                  (hayt/insert :sensor_metadata
@@ -440,7 +434,7 @@
                               (hayt/values {:device_id device_id_2
                                             :type "electricityConsumption"})))
      
-    #_ (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
+    (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
        (doseq [m (map #(zipmap [:device_id :type :month :timestamp :error :metadata :value] %) (rest (csv/read-csv in-file )))]
          (db/execute session
                      (hayt/insert :measurements
@@ -450,10 +444,10 @@
                                        (update-in [:timestamp] db-timestamp)
                                        (update-in [:month] #(Integer/parseInt %))))))))
 
-     (let [url "http://127.0.0.1:8000/4/entities/34653464/devices/aaaab5bf19a7265276ffe90e4c0050037de923e2/measurements/"
+     (let [url "http://127.0.0.1:8000/4/entities/34653464/devices/fe5ab5bf19a7265276ffe90e4c0050037de923e2/measurements/"
            measurements (generators/measurements  {:type "electricityConsumption"
                                                    :unit "kWh"
-                                                   :period "CUMULATIVE"
+                                                   :period "PULSE"
                                                    :events 0
                                                    :errors 0})
            response (post-resource url "application/json" {:measurements

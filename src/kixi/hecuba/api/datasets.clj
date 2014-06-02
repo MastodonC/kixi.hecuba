@@ -23,33 +23,21 @@
             :parent_id       (str (uuid))
             :entity_id       entity_id
             :location        "{\"name\": \"Synthetic\", \"latitude\": \"0\", \"longitude\": \"0\"}"
-            :metadata        nil
             :privacy         "private"
             :metering_point_id (str (uuid))
-            :synthetic       true
-            ))
+            :synthetic       true))
 
 (defn synthetic-sensor [type device_id unit]
   {:device_id                 device_id
    :type                      type
    :unit                      unit
-   :resolution                "0" ;; TODO
-   :accuracy                  "0" ;; TODO
    :period                    "PULSE"
-   :min                       "0"
-   :max                       "100"
-   :correction                nil
-   :corrected_unit             nil
-   :correction_factor          nil
-   :correction_factor_breakdown nil
    :events                    0
    :errors                    0
-   :status                    "Not enough data"
-   :median                    0.0
-   :synthetic                 true
-   })
+   :status                    "N/A"
+   :synthetic                 true})
 
-(defn synthetic-sensor_metadata [type device_id]
+(defn synthetic-sensor-metadata [type device_id]
   {:type      type
    :device_id device_id})
 
@@ -63,39 +51,46 @@
 (defn output-unit-for [t]
   (case (.toUpperCase t)
     "VOL2KWH" "kWh"
-    "TOTAL-VOL2KWH" "kWh"))
+    "TOTAL-KWH" "kWh"))
 
 (defn output-type-for [t]
   (str "converted_" t))
 
+(defmulti create-output-sensors (fn [store device_id unit members operation] operation))
 
-(defn create-output-sensors [store device_id unit members]
+(defmethod create-output-sensors :total [store device_id unit _ _]
+  (db/with-session [session (:hecuba-session store)]
+    (let [type (str "total_" unit)]
+      (db/execute session (hayt/insert :sensors (hayt/values (synthetic-sensor type device_id unit))))
+      (db/execute session (hayt/insert :sensor_metadata (hayt/values (synthetic-sensor-metadata type device_id)))))))
+
+(defmethod create-output-sensors :converted [store device_id unit members operation]
   (db/with-session [session (:hecuba-session store)]
     (let [parse-sensor (comp next (partial re-matches #"(\w+)-(\w+)"))]
       (doseq [m members]
         (let [[type _ ] (parse-sensor m)
               converted-type (output-type-for type)]
           (db/execute session (hayt/insert :sensors (hayt/values (synthetic-sensor converted-type device_id unit))))
-          (db/execute session (hayt/insert :sensor_metadata (hayt/values (synthetic-sensor_metadata converted-type device_id)))))))))
+          (db/execute session (hayt/insert :sensor_metadata (hayt/values (synthetic-sensor-metadata converted-type device_id)))))))))
 
 (defn index-post! [store ctx]
    (log/info "index-post!")
    (db/with-session [session (:hecuba-session store)]
      (let [request                     (:request ctx)
            {:keys [members name operation]} (decode-body request)
+           operation-type              (if (re-matches #"total-.*" operation) :total :converted)
            members                     (into #{} members)
            entity_id                   (entity_id-from ctx)
            unit                        (output-unit-for operation)
            device                      (synthetic-device entity_id "Synthetic")
-           device_id                  (sha1/gen-key :device device)]
+           device_id                   (sha1/gen-key :device device)]
        (db/execute session (hayt/insert :devices (hayt/values (assoc device :id device_id))))
-       (create-output-sensors store device_id unit members)
+       (create-output-sensors store device_id unit members operation-type)
        (db/execute session (hayt/insert :datasets (hayt/values {:entity_id entity_id
                                                                 :name      name
                                                                 :members   members
                                                                 :operation operation
-                                                                :device_id device_id}))
-                       )
+                                                                :device_id device_id})))
        (hash-map ::name name
                  ::entity_id entity_id))))
 

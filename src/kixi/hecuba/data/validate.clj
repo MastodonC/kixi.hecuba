@@ -133,18 +133,28 @@
      (.before t (get existing-range "start")) {"start" t} 
      (.after t (get existing-range "end")) {"end" t})))
 
+(defn- update-bounds [t metadata]
+  (let [{:keys [lower_ts upper_ts]} metadata]
+    (cond
+     (and (nil? lower_ts) (nil? upper_ts)) {:upper_ts t :lower_ts t}
+     (.before t lower_ts) {:lower_ts t}
+     (.after t upper_ts) {:upper_ts t})))
+
 (defn update-sensor-metadata
   "Updates start and end dates when new measurement is received."
   [m store]
   (db/with-session [session (:hecuba-session store)]
-    (let [where     (where-from m)
-          metadata  (get-sensor-metadata session where)
-          t         (:timestamp m)]
+    (let [where      (where-from m)
+          metadata   (get-sensor-metadata session where)
+          t          (:timestamp m)
+          new-bounds (update-bounds t metadata)]
       (db/execute session
                   (hayt/update :sensor_metadata
-                               (hayt/set-columns {:rollups [+ (update-date-range t metadata :rollups)]
-                                                  :mislabelled_sensors_check [+ (update-date-range t metadata :mislabelled_sensors_check)]
-                                                  :difference_series [+ (update-date-range t metadata :difference_series)]
-                                                  :median_calc_check [+ (update-date-range t metadata :median_calc_check)]
-                                                  :spike_check [+ (update-date-range t metadata :spike_check)]})
+                               (hayt/set-columns (merge  {:rollups [+ (update-date-range t metadata :rollups)]
+                                                          :mislabelled_sensors_check [+ (update-date-range t metadata :mislabelled_sensors_check)]
+                                                          :difference_series [+ (update-date-range t metadata :difference_series)]
+                                                          :median_calc_check [+ (update-date-range t metadata :median_calc_check)]
+                                                          :spike_check [+ (update-date-range t metadata :spike_check)]}
+                                                         (when-let [lower (:lower_ts new-bounds)] {:lower_ts lower})
+                                                         (when-let [upper (:upper_ts new-bounds)] {:upper_ts upper})))
                                (hayt/where where))))))

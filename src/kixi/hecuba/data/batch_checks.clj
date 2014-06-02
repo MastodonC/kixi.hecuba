@@ -37,9 +37,9 @@
     (let [end-date     (t/plus start-date (t/hours 1))
           month        (m/get-month-partition-key start-date)
           where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
-          measurements (filter #(number? (:value %)) (m/decassandraify-measurements (db/execute session
-                                                                                                (hayt/select :measurements
-                                                                                                             (hayt/where where)))))]
+          measurements (filter #(number? (:value %)) (m/parse-measurements (db/execute session
+                                                                                       (hayt/select :measurements
+                                                                                                    (hayt/where where)))))]
       (when-not (empty? measurements)
         (db/execute session
                     (hayt/update :sensor_metadata
@@ -112,7 +112,7 @@
     (let [end-date     (t/plus start-date (t/hours 1))
           month        (m/get-month-partition-key start-date)
           where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
-          measurements (m/decassandraify-measurements (db/execute session (hayt/select table (hayt/where where))))
+          measurements (m/parse-measurements (db/execute session (hayt/select table (hayt/where where))))
           median       (cond
                         (= "CUMULATIVE" period) (median (filter #(number? (:value %)) measurements))
                         (= "INSTANT" period) (median (filter #(remove-bad-readings %) measurements)))]

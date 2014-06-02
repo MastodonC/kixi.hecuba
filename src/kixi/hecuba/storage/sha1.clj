@@ -24,7 +24,6 @@
 (defmethod gen-key :sensor [typ payload] nil)
 (defmethod gen-key :sensor_metadata [typ payload] nil)
 (defmethod gen-key :measurement [typ payload] nil)
-(defmethod gen-key :difference_series [typ payload] nil)
 (defmethod gen-key :hourly_rollups [typ payload] nil)
 (defmethod gen-key :daily_rollups [typ payload] nil)
 
