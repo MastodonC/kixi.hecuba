@@ -10,10 +10,6 @@
 
 (require 'qbits.alia.codec.joda-time)
 
-; Tweak keyword handling. We want to support keywords with '-' in
-; them. quoted identifiers are case-sensitive in CQL, so lowercase them.
-;
-; mpenet thinks this might cause performance problems
 (extend-protocol qbits.hayt.cql/CQLEntities
    org.joda.time.ReadableInstant
    (cql-value [x]

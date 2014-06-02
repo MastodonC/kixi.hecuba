@@ -27,12 +27,6 @@
                  (hayt/update :sensors
                               (hayt/set-columns delta)
                               (hayt/where (where-from sensor)))))
-(defn- update-sensor-metadata [session sensor-metadata delta]
-  (db/execute session
-                 (hayt/update :sensors
-                              (hayt/set-columns delta)
-                              (hayt/where (where-from sensor-metadata)))))
-
 
 ;; TODO this is duplicated in misc.  - resolve.
 (defn update-metadata
@@ -85,7 +79,7 @@
   (let [median (-> sensor first :median)]
     (cond
      (or (empty? median) (zero? median)) (assoc-in m [:metadata "median-spike"] "n/a")
-     (larger-than-median median m) (label-spike session m)
+     (larger-than-median median m) (label-spike session sensor m)
      :else (assoc-in m [:metadata "median-spike"] "false"))))
 
 (defn- label-invalid-value

@@ -50,7 +50,6 @@
      (let [{:keys [type device_id]} sensor_id
            {:keys [page start end] :or {page (t/hours 1)}} opts
            [start end] (resolve-start-end store type device_id start end)
-           _(prn "type: " type "device_id: " device_id "start: " start "end: " end)
            next-start (t/plus start page)]
        (db/with-session [session (:hecuba-session store)]
          (lazy-cat (db/execute session

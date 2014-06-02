@@ -31,9 +31,7 @@
     (case request-method
       :post (let [body (decode-body request)]
               ;; We need to assert a few things
-              (if
-                (or
-                  (not= (:entity_id body) entity_id))
+              (if (not= (:entity_id body) entity_id)
                 true                  ; it's malformed, game over
                 [false {:body body}]  ; it's not malformed, return the body now we've read it
                 ))

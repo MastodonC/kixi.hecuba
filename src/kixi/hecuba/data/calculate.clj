@@ -188,7 +188,6 @@
 
 
 (defn insert-measurement [store m ]
-  (prn "m: " m)
   (db/with-session [session (:hecuba-session store)]
     (db/execute session
                 (hayt/insert :measurements
