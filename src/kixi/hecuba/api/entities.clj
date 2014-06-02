@@ -14,13 +14,13 @@
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request           (-> ctx :request)
-          entity            (-> request decode-body)
-          project_id        (-> entity :project_id)
-          property_code     (-> entity :property_code)
-
-          [username _]      (sec/get-username-password request store)
-          user_id           (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)]
+    (let [request       (-> ctx :request)
+          entity        (-> request decode-body)
+          project_id    (-> entity :project_id)
+          property_code (-> entity :property_code)
+          username      (sec/get-username ctx)
+          ;; FIXME: Why user_id?
+          user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)]
       (when (and project_id property_code)
         (when-not (empty? (-> (db/execute session (hayt/select :projects (hayt/where [[= :id project_id]]))) first))
           (let [entity_id (sha1/gen-key :entity entity)]
@@ -69,11 +69,12 @@
 
 (defn resource-put! [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request      (:request ctx)
-          entity       (-> request decode-body stringify-values)
-          entity_id    (-> (::item ctx) :id)
-          [username _] (sec/get-username-password request store)
-          user_id      (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)]
+    (let [request   (:request ctx)
+          entity    (-> request decode-body stringify-values)
+          entity_id (-> (::item ctx) :id)
+          username  (sec/get-username ctx)
+          ;; FIXME: Why user_id?
+          user_id   (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)]
       (db/execute session (hayt/insert :entities (hayt/values (-> entity
                                                                   (assoc :user_id user_id :id entity_id)
                                                                   (dissoc :device_ids))))))))

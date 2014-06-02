@@ -2,8 +2,8 @@
   (:require
    [bidi.bidi :as bidi]
    [clojure.tools.logging :as log]
-   [clojure.walk :refer (postwalk)]
    [com.stuartsierra.component :as component]
+   [kixi.hecuba.security :as sec]
    [kixi.hecuba.api.datasets :as datasets]
    [kixi.hecuba.api.devices :as devices]
    [kixi.hecuba.api.entities :as entities]
@@ -14,10 +14,12 @@
    [kixi.hecuba.api.properties :as properties]
    [kixi.hecuba.api.rollups :as rollups]
    [kixi.hecuba.api.sensors :as sensors]
-   [liberator.core :refer (defresource)]
-   [liberator.representation :refer (ring-response)]
    [ring.middleware.cookies :refer (wrap-cookies)]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex)]))
+   [ring.middleware.params :refer (wrap-params)]
+   [ring.middleware.keyword-params :refer (wrap-keyword-params)]
+   [ring.middleware.nested-params :refer (wrap-nested-params)]
+   [ring.middleware.session :refer (wrap-session)]
+   [kixi.hecuba.webutil :refer (sha1-regex)]))
 
 
 ;; TODO - this is a hack - malcolm to advise.
@@ -102,7 +104,14 @@
          [["entities/" [sha1-regex :entity_id] "/profiles"] (bidi/->Redirect 301 (:profiles handlers))]
          [["entities/" [sha1-regex :entity_id] "/profiles/" [sha1-regex :profile-id]] (:profile handlers)]
          ]
-        wrap-cookies)])
+        (fn [routes]
+          (-> routes
+              sec/friend-middleware 
+              wrap-session
+              wrap-cookies
+              wrap-params
+              wrap-nested-params
+              wrap-keyword-params)))])
 
 (defrecord AmonApi [context]
   component/Lifecycle

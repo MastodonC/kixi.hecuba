@@ -2,10 +2,10 @@
   (:require
    [clojure.java.io :as io]
    [clojure.edn :as edn]
+   [clojure.tools.logging :as log]
    [cheshire.core :refer (decode decode-stream encode)]
    [cheshire.generate :refer (add-encoder)]
    [hiccup.core :refer (html)]
-   [kixi.hecuba.security :as sec]
    [kixi.hecuba.data.misc :as misc]
    [clojure.string :as string]
    [clj-time.coerce :as tc]
@@ -15,6 +15,7 @@
    [clojure.pprint :refer (pprint)]
    [clojure.walk :refer (postwalk)]
    [liberator.core :as liberator]
+   [cemerick.friend :as friend]
    [clojure.data.csv :as csv]))
 
 (defprotocol Body
@@ -53,11 +54,12 @@
 (defn update-stringified-lists [body selectors]
   (reduce update-stringified-list body selectors))
 
-(defn authorized? [querier typ]
-  (fn [{{route-params :route-params :as req} :request}]
-    (or
-     (sec/authorized-with-basic-auth? req querier)
-     (sec/authorized-with-cookie? req querier))))
+(defn authorized? [store handlers]
+  (fn [ctx]
+    (log/infof "Context: %s" ctx)
+    (let [friend-id (friend/identity (:request ctx))]
+      (log/infof "Friend ID: " friend-id)
+      friend-id)))
 
 (defmulti decode-body :content-type :default "application/json")
 

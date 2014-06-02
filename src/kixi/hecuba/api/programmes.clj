@@ -25,11 +25,12 @@
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request (:request ctx)
-          [username _]  (sec/get-username-password request store)
-          user_id       (->  (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
-          programme     (-> request decode-body stringify-values)
-          programme_id  (if-let [id (:id programme)] id (sha1/gen-key :programme programme))]
+    (let [request      (:request ctx)
+          username     (sec/get-username ctx)
+          ;; FIXME why user_id?
+          user_id      (->  (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+          programme    (-> request decode-body stringify-values)
+          programme_id (if-let [id (:id programme)] id (sha1/gen-key :programme programme))]
       (db/execute session (hayt/insert :programmes (hayt/values (assoc programme :user_id user_id :id programme_id))))
       {::programme_id programme_id})))
 

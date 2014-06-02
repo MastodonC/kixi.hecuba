@@ -27,26 +27,6 @@
 (defn not-found [req]
   {:status 404 :body (slurp (io/resource "site/not-found.html"))})
 
-(defn- ensure-authenticated [h store login-form]
-  (fn [req]
-    (if (sec/authorized-with-cookie? req store)
-      (h req)
-      {:status 302
-       :headers {"Location" (path-for (:modular.bidi/routes req) login-form)}
-       :body "Not authorized"
-       :cookies {"requested-uri" (:uri req)}}
-      )))
-
-(defrecord Secure [routes store login-form]
-  Matched
-  (resolve-handler [this m]
-    (let [r (resolve-handler routes m)]
-      (if (:handler r) (update-in r [:handler] (comp wrap-cookies
-                                                     #(ensure-authenticated % store login-form)))
-          r)))
-  (unresolve-handler [this m]
-    (unresolve-handler routes m)))
-
 (defn parse-int [s]
   (when s
     (try
@@ -57,17 +37,7 @@
   (fn [{{user "user" password "password" requested-uri "requested-uri"} :form-params
         routes :modular.bidi/routes
         {{attempts :value} "login-attempts"} :cookies}]
-    (if (and user (not-empty user) (sec/authorized? (.trim user) password store))
-      {:status 302
-       :headers {"Location" requested-uri}
-       :cookies (sec/create-session-cookie (.trim user) store)
-       :body "Well done, you're coming in!"}
-      {:status 302
-       ;; TODO Don't like this coupling of :login-form
-       :headers {"Location" (path-for routes (:login-form @handlers))}
-       :cookies {"login-attempts" {:value ((fnil inc 0) (parse-int attempts))
-                                   :max-age 10}}
-       :body "You're not allowed!"})))
+    true))
 
 (defn login-form [login-handler]
   (fn [{{{requested-uri :value} "requested-uri"
@@ -105,7 +75,7 @@
     ["login.html" (->WrapMiddleware (:login-form handlers) wrap-cookies)]
     ["auth" (->WrapMiddleware (:login-handler handlers) (comp wrap-params wrap-cookies))]
 
-    ["programmes/" (->Secure (:programmes handlers) store (:login-form handlers))]
+    ["programmes/" (:programmes handlers) store (:login-form handlers)]
     ["programmes" (->Redirect 301 programmes)]
 
     ["charts/" charts]

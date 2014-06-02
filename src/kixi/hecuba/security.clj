@@ -1,88 +1,37 @@
 (ns kixi.hecuba.security
   (:require
+   [clojure.tools.logging :as log]
    [qbits.hayt :as hayt]
-   [kixi.hecuba.storage.db :as db])
-  (:import
-   java.security.SecureRandom
-   javax.crypto.SecretKeyFactory
-   javax.crypto.spec.PBEKeySpec
-   (javax.xml.bind DatatypeConverter)))
+   [kixi.hecuba.storage.db :as db]
+   [cemerick.friend :as friend]
+   (cemerick.friend [workflows :as workflows]
+                    [credentials :as creds])))
 
+(defn get-user [user-id]
+  {:username "alice"
+   ;; :password "$2a$10$J9CJ8xfy1SrJxj0XwT5Eq.cKCKXAqR.4Cb81ikr6ilvNpszdWEVee"
+   :password "blah"
+   })
 
-;; Someone to review this block of code (remove this comment when reviewed)
-;; START_BLOCK
+(defn friend-middleware
+  "Returns a middleware that enables authentication via Friend."
+  [handler]
+  (let [friend-m {:credential-fn (partial creds/bcrypt-credential-fn get-user)
+                  :workflows
+                  ;; Note that ordering matters here. Basic first.
+                  [(workflows/http-basic :realm "/")
+                   ;; The tutorial doesn't use this one, but you
+                   ;; probably will.
+                   (workflows/interactive-form)]}]
+    (-> handler
+        (friend/authenticate friend-m))))
 
-(defn pbkdf2
-  "Get a hash for the given string and optional salt. From
-http://adambard.com/blog/3-wrong-ways-to-store-a-password/"
-  ([password salt]
-     (assert password "No password!")
-     (assert salt "No salt!")
-     (let [k (PBEKeySpec. (.toCharArray password) (.getBytes salt) 1000 192)
-           f (SecretKeyFactory/getInstance "PBKDF2WithHmacSHA1")]
-       (format "%x"
-               (java.math.BigInteger. (.getEncoded (.generateSecret f k)))))))
-
-(defn make-salt
-  "Make a base64 string representing a salt. Pass in a SecureRandom."
-  [rng]
-  (let [ba (byte-array 32)]
-    (.nextBytes rng ba)
-    (javax.xml.bind.DatatypeConverter/printBase64Binary ba)))
-
-(defn create-hash [rng password]
-  (let [salt (make-salt rng)
-        hash (pbkdf2 password salt)]
-    {:salt salt
-     :hash hash}))
-
-(defn verify-password [password {:keys [hash salt]}]
-  (= (pbkdf2 password salt) hash))
-
-(defn get-username-password
-  [{headers :headers :as request} store]
-  (when-let [auth (get headers "authorization")]
-    (when-let [basic-creds (second (re-matches #"\QBasic\E\s+(.*)" auth))]
-      (->> (String. (DatatypeConverter/parseBase64Binary basic-creds) "UTF-8")
-           (re-matches #"(.*):(.*)")
-           rest))))
-
-;; END_BLOCK
-
-#_(create-hash (SecureRandom.) "secret")
-#_(verify-password "secret" {:hash "32767a445d5a4dbadb153d2654b1505a7ac0f20947a45d38", :salt "usz0fFalxZcwdAVnRFrE9ZC+k1L4pz8u/MuS1w0FRjQ=", :username "bob"})
+;; TODO: Get it from the key where authorized? puts it
+(defn get-username
+  "Get the username from the context"
+  [ctx]
+  nil)
 
 (defn authorized? [username password store]
-  (db/with-session [session (:hecuba-session store)]
-    (when-let [stored-user (->  (db/execute session (hayt/select :users (hayt/where [[= :id username]]))) first)]
-      (verify-password password stored-user))))
+  true)
 
-(defn authorized-with-basic-auth?
-  [req store]
-  (when-let [[username password] (get-username-password req store)]
-           (authorized? username password store)))
-
-(def session-expiry-in-secs (* 6 60 60 1000))
-
-(defn some-time-ago [secs]
-  (java.util.Date. (- (.getTime (java.util.Date.)) (* secs 1000))))
-
-(defn authorized-with-cookie? [{{{id :value} "session"} :cookies} store]
-  (db/with-session [session (:hecuba-session store)]
-    (when id
-      (when-let [auth-session (db/execute session
-                                     (hayt/select :user_sessions
-                                                  (hayt/where [[= :id id] 
-                                                               [> :timestamp (some-time-ago session-expiry-in-secs)]])))]
-        auth-session))))
-
-(defn create-session-cookie [username store]
-  (db/with-session [session (:hecuba-session store)]
-    (let [id (str (java.util.UUID/randomUUID))]
-      (db/execute session
-                  (hayt/insert :user_sessions (hayt/values {:id id :user username :timestamp (java.util.Date.)})))
-      ;; Adding 20 for good measure and testing
-      {"session" {:value id :max-age (+ 20 session-expiry-in-secs)}})))
-
-(defn make-rng []
-  (SecureRandom.))

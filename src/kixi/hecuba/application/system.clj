@@ -19,7 +19,7 @@
    [kixi.hecuba.data :refer (new-queue-worker)]
    [kixi.hecuba.web :refer (new-main-routes)]
    [kixi.hecuba.amon :refer (new-amon-api)]
-   [kixi.hecuba.user :refer (new-user-api)]
+   ;; [kixi.hecuba.user :refer (new-user-api)]
    [kixi.hecuba.cljs :refer (new-cljs-routes)]
    [kixi.hecuba.storage.db :as db]
    [shadow.cljs.build :as cljs]
@@ -144,12 +144,12 @@
          :bidi-ring-handler (new-bidi-ring-handler-provider)
          :main-routes (new-main-routes)
          :amon-api (new-amon-api "/4")
-         :user-api (new-user-api)
+         ;; :user-api (new-user-api)
          :cljs-routes (new-cljs-routes (:cljs-builder cfg)))
         (mod/system-using
          {:main-routes [:store]
           :amon-api [:store :queue]
-          :user-api [:store]
+          ;; :user-api [:store]
           :store [:hecuba-session :queue]
           :queue-worker [:queue :store]
           :pipeline [:store]

@@ -35,7 +35,8 @@
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
-          [username _]  (sec/get-username-password request store)
+          username  (sec/get-username ctx)
+          ;; FIXME: Why user_id?
           user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
           project       (-> request decode-body stringify-values)
           project_id    (if-let [id (:id project)] id (sha1/gen-key :project project))]

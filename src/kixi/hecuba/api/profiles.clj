@@ -38,13 +38,14 @@
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request       (-> ctx :request)
-          profile       (-> ctx :body)
-          entity_id     (-> profile :entity_id)
-          timestamp     (-> profile :timestamp)
-          [username _]  (sec/get-username-password request store)
-          user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
-          profile_id    (sha1/gen-key :profile profile)]
+    (let [request    (-> ctx :request)
+          profile    (-> ctx :body)
+          entity_id  (-> profile :entity_id)
+          timestamp  (-> profile :timestamp)
+          username   (sec/get-username ctx)
+          ;; FIXME: Why user_id?
+          user_id    (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+          profile_id (sha1/gen-key :profile profile)]
       (when (and entity_id timestamp)
         (when-not (empty? (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first))
           (db/execute session (hayt/insert :profiles (-> profile
@@ -710,11 +711,11 @@
   (db/with-session [session (:hecuba-session store)]
     (let [{request :request} ctx]
       (if-let [item (::item ctx)]
-        (let [body          (decode-body request)
-              entity_id     (-> item :entity_id)
-              [username _]  (sec/get-username-password request store)
-              user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
-              profile_id     (-> item :profile-id)]
+        (let [body       (decode-body request)
+              entity_id  (-> item :entity_id)
+              username   (sec/get-username ctx)
+              user_id    (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+              profile_id (-> item :profile-id)]
           (db/execute session (hayt/insert :profiles (hayt/values (-> body
                                                                       (assoc :id profile_id)
                                                                       (assoc :user_id user_id)
