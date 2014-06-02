@@ -17,6 +17,9 @@
 
                  [kixi/bidi "1.10.3-p0-b569a50" :exclusions [org.clojure/core.match]]
 
+                 ;; authn and authz
+                 [com.cemerick/friend "0.2.1" :exclusions [commons-codec org.clojure/core.cache]]
+
                  ;; Modular
                  [juxt/modular "0.2.0"]
                  [juxt.modular/http-kit "0.2.0"]
