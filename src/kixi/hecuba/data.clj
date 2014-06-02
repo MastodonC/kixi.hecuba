@@ -6,23 +6,22 @@
             [clojure.core.async :refer [<! >! chan put! sliding-buffer close! go]]
             [kixi.hecuba.data.validate :as v]))
 
-(defn measurements-trigger [q commander querier]
+(defn measurements-trigger [q store]
   (go (loop [msg (<! q)]
-        (v/update-sensor-metadata msg commander querier)
+        (v/update-sensor-metadata msg store)
         (recur (<! q)))))
 
-(defn configure-triggers [queue commander querier]
+(defn configure-triggers [queue store]
   (let [measurements-q (get-in queue ["measurements"])]
-    (measurements-trigger measurements-q commander querier)))
+    (measurements-trigger measurements-q store)))
 
 (defrecord QueueWorker []
   component/Lifecycle
   (start [this]
     (log/info "QueueWorker starting")
-    (let [queue     (get-in this [:queue :queue])
-          commander (get-in this [:store :commander])
-          querier   (get-in this [:store :querier])]
-      (configure-triggers queue commander querier)
+    (let [queue (get-in this [:queue :queue])
+          store (:store this)]
+      (configure-triggers queue store)
       this))
   (stop [this]
     (log/info "QueueWorker stopping")

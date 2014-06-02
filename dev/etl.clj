@@ -14,8 +14,7 @@
             [etl.fixture :as fixture]
             [kixi.hecuba.data.calculate :as calc]
             [kixi.hecuba.data.misc :as m]
-            [kixi.hecuba.protocols :refer (items)]
-            [kixi.hecuba.storage.dbnew :as dbnew]
+            [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.webutil :as util]
             [org.httpkit.client :refer (request) :rename {request http-request}]
             [qbits.hayt :as hayt]
@@ -32,8 +31,8 @@
 
 (defn difference-series-batch
   "Retrieves all sensors that need to have difference series calculated and performs calculations."
-  [commander querier store item]
-  (let [sensors (m/all-sensors querier)]
+  [store item]
+  (let [sensors (m/all-sensors store)]
     (doseq [s sensors]
       (let [device_id (:device_id s)
             type      (:type s)
@@ -43,12 +42,12 @@
             new-item  (assoc item :sensor s :range range)]
         (when range
           (calc/difference-series-from-resolution store new-item)
-          (m/reset-date-range querier commander s :difference_series (:start-date range) (:end-date range)))))))
+          (m/reset-date-range store s :difference_series (:start-date range) (:end-date range)))))))
 
 (defn rollups
   "Retrieves all sensors that need to have hourly measurements rolled up and performs calculations."
-  [commander querier item]
-  (let [sensors (m/all-sensors querier)]
+  [store item]
+  (let [sensors (m/all-sensors store)]
     (doseq [s sensors]
       (let [device_id  (:device_id s)
             type       (:type s)
@@ -61,9 +60,9 @@
             range      (m/start-end-dates :rollups s where)
             new-item   (assoc item :sensor s :range range)]
         (when range
-          (calc/hourly-rollups commander querier new-item)
-          (calc/daily-rollups commander querier new-item)
-          (m/reset-date-range querier commander s :rollups (:start-date range) (:end-date range)))))))
+          (calc/hourly-rollups store new-item)
+          (calc/daily-rollups store new-item)
+          (m/reset-date-range store s :rollups (:start-date range) (:end-date range)))))))
 
 (defn post-resource [post-uri content-type data]
   (pr-str "DATA:" data)
@@ -351,12 +350,10 @@
                                        (mapcat generators/measurements sensors3))})
 
                       ]))))))
-      (let [commander (-> system :store :commander)
-            querier   (-> system :store :querier)
-            store-new (-> system :store-new)]
+      (let [store (-> system :store-new)]
 
-        (difference-series-batch commander querier store-new {})
-        (rollups commander querier {})))
+        (difference-series-batch store {})
+        (rollups store {})))
     (catch Exception e
       (log/error e "ETL failed:"))))
 
@@ -386,64 +383,93 @@
   (let [programme_id "2312312314"
         project_id "32523453"
         property_id "34653464"
-        device_id "fe5ab5bf19a7265276ffe90e4c0050037de923e2"]
-   (dbnew/with-session [session (:hecuba-session system)]
+        device_id_1 "fe5ab5bf19a7265276ffe90e4c0050037de923e2"
+        device_id_2 "aaaab5bf19a7265276ffe90e4c0050037de923e2"]
+   (db/with-session [session (:hecuba-session system)]
 
-     (dbnew/execute session
-                    (hayt/insert :programmes
-                                 (hayt/values {:id programme_id
-                                               :name "AAA_Calculated_Test Programme"})))
-     (dbnew/execute session
-                    (hayt/insert :projects
-                                 (hayt/values {:id project_id
-                                               :name "AAA_Calculated_Test Project"
-                                               :programme_id programme_id
-                                               })))
-     (dbnew/execute session
-                    (hayt/insert :entities
-                                 (hayt/values {:id property_id
-                                               :name "AAA_Calculated_Test Properties"
-                                               :address_street_two "A1 Flat, A1 road, A1 Town, A1 1AA"
-                                               :project_id project_id})))
-     (dbnew/execute session
-                    (hayt/insert :devices
-                                 (hayt/values {:id device_id
-                                               :name "AAA_Calculated_Test Device"
-                                               :entity_id property_id})))
-     (dbnew/execute session
-                    (hayt/insert :sensors
-                                 (hayt/values {:device_id device_id
-                                               :period "PULSE"
-                                               :unit "m^3"
-                                               :type "gasConsumption"})))
-     (dbnew/execute session
-                    (hayt/insert :sensor_metadata
-                                 (hayt/values {:device_id device_id
-                                               :lower_ts (.getMillis (t/date-time 2014 1))
-                                               :upper_ts (.getMillis (t/date-time 2014 2))
-                                               :rollups "{:start \"20140101000000\", :end \"20140201000000\"}"
-                                               :type "gasConsumption"})))
+     (db/execute session
+                 (hayt/insert :programmes
+                              (hayt/values {:id programme_id
+                                            :name "AAA_Calculated_Test Programme"})))
+     (db/execute session
+                 (hayt/insert :projects
+                              (hayt/values {:id project_id
+                                            :name "AAA_Calculated_Test Project"
+                                            :programme_id programme_id
+                                            })))
+     (db/execute session
+                 (hayt/insert :entities
+                              (hayt/values {:id property_id
+                                            :name "AAA_Calculated_Test Properties"
+                                            :address_street_two "A1 Flat, A1 road, A1 Town, A1 1AA"
+                                            :project_id project_id})))
+     (db/execute session
+                 (hayt/insert :devices
+                              (hayt/values {:id device_id_1
+                                            :name "AAA_Calculated_Test Device 1"
+                                            :entity_id property_id})))
+     (db/execute session
+                 (hayt/insert :devices
+                              (hayt/values {:id device_id_2
+                                            :name "AAA_Calculated_Test Device 2"
+                                            :entity_id property_id})))
 
-     (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
+     (db/execute session
+                 (hayt/insert :sensors
+                              (hayt/values {:device_id device_id_1
+                                            :period "PULSE"
+                                            :unit "m^3"
+                                            :type "gasConsumption"})))
+     (db/execute session
+                 (hayt/insert :sensors
+                              (hayt/values {:device_id device_id_2
+                                            :period "CUMULATIVE"
+                                            :unit "kwh"
+                                            :type "electricityConsumption"})))
+     (db/execute session
+                 (hayt/insert :sensor_metadata
+                              (hayt/values {:device_id device_id_1
+                                            :lower_ts (.getMillis (t/date-time 2014 1))
+                                            :upper_ts (.getMillis (t/date-time 2014 2))
+                                            :rollups {"start" (db-timestamp "2014-01-01 00:00:00+0000") 
+                                                      "end" (db-timestamp "2014-02-01 00:00:00+0000")}
+                                            :type "gasConsumption"})))
+
+     (db/execute session
+                 (hayt/insert :sensor_metadata
+                              (hayt/values {:device_id device_id_2
+                                            :type "electricityConsumption"})))
+     
+    #_ (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
        (doseq [m (map #(zipmap [:device_id :type :month :timestamp :error :metadata :value] %) (rest (csv/read-csv in-file )))]
-         (dbnew/execute session
-                        (hayt/insert :measurements
-                                     (hayt/values
-                                      (-> m
-                                          (update-in [:timestamp] db-timestamp)
-                                          (update-in [:month] #(Integer/parseInt %))))))))))
+         (db/execute session
+                     (hayt/insert :measurements
+                                  (hayt/values
+                                   (-> m
+                                       (update-in [:metadata] #(walk/stringify-keys (read-string %)))
+                                       (update-in [:timestamp] db-timestamp)
+                                       (update-in [:month] #(Integer/parseInt %))))))))
 
-  )
+     (let [url "http://127.0.0.1:8000/4/entities/34653464/devices/aaaab5bf19a7265276ffe90e4c0050037de923e2/measurements/"
+           measurements (generators/measurements  {:type "electricityConsumption"
+                                                   :unit "kWh"
+                                                   :period "CUMULATIVE"
+                                                   :events 0
+                                                   :errors 0})
+           response (post-resource url "application/json" {:measurements
+                                                           (map (fn [x] (update-in x [:timestamp]
+                                                                                   #(tf/unparse custom-formatter (tc/from-date %))))
+                                                                measurements)})]))))
 
 (defn insert-all [session table xs]
   (doseq [x xs]
-     (dbnew/execute session (hayt/insert table (hayt/values x)))))
+     (db/execute session (hayt/insert table (hayt/values x)))))
 
 (defn readings [n]
   (map #(hash-map :value (str %) :month 201405 :timestamp (t/date-time 2014 5 n)) (range n)))
 
 (defn load-total-kwh-sample [system]
-  (dbnew/with-session [session (:hecuba-session system)]
+  (db/with-session [session (:hecuba-session system)]
     (fixture/load-fixture session [:programmes#A1
                                    [:projects#A1
                                     [:entities#A1 {:address_street_two "A1 Flat, A1 road, A1 Town, A1 1AA"}

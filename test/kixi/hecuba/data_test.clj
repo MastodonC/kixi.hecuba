@@ -44,11 +44,6 @@
 
 ;;; 200 x median ;;;
 
-(defn less-than-200x-median?
-  "Returns true if there are no measurements that are greater than their median."
-  [measurements]
-  (v/larger-than-median (bc/median measurements)))
-
 (deftest large-median
   (let [cumulative-sensors (g/generate-sensor-sample "CUMULATIVE" 3)
         instant-sensors    (g/generate-sensor-sample "INSTANT" 3)]
