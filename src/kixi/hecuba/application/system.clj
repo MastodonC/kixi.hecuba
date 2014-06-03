@@ -145,7 +145,7 @@
          ;;:bidi-ring-handler (new-bidi-ring-handler-provider)
          ;;:main-routes (new-main-routes)
          ;;:amon-api (new-amon-api "/4")
-         :web-app (new-web-app)
+         :web-app (new-web-app cfg)
          ;; :user-api (new-user-api)
          ;;:cljs-routes (new-cljs-routes (:cljs-builder cfg))
          )

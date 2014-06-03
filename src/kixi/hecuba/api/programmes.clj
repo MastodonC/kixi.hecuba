@@ -15,13 +15,16 @@
 (defn index-handle-ok [store handlers ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
-          routes  (:modular.bidi/routes request)
-          {:keys  [projects programme]} @handlers
+          ;; routes  (:modular.bidi/routes request)
+          ;; {:keys  [projects programme]} @handlers
           items   (db/execute session (hayt/select :programmes))]
-      (util/render-items request (map #(-> %
-                                           (dissoc :user_id)
-                                           (assoc :projects (bidi/path-for routes projects :programme_id (:id %))
-                                                  :href (bidi/path-for routes programme :programme_id (:id %)))) items)))))
+      (log/infof "index-handle-ok ctx: %s" ctx)
+      items
+      ;; (util/render-items request (map #(-> %
+      ;;                                      (dissoc :user_id)
+      ;;                                      (assoc :projects (bidi/path-for routes projects :programme_id (:id %))
+      ;;                                             :href (bidi/path-for routes programme :programme_id (:id %)))) items))
+      )))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]

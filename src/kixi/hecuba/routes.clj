@@ -3,14 +3,17 @@
    [clojure.java.io :as io]
    [clojure.tools.logging :as log]
    [ring.util.response :refer (redirect)]
-   [compojure.core :refer (defroutes ANY GET POST)]
+   [compojure.core :refer (routes ANY GET POST)]
    [compojure.handler :as handler]
    [compojure.route :as route]
    [cemerick.friend :as friend]
    [com.stuartsierra.component :as component]
    [org.httpkit.server :refer (run-server)]
-   [kixi.hecuba.web-paths :refer (compojure-route)]
-   [kixi.hecuba.security :as sec]))
+   [kixi.hecuba.web-paths :refer (compojure-route amon-route)]
+   [kixi.hecuba.security :as sec]
+
+   [kixi.hecuba.api.programmes :as programmes]
+   ))
 
 (defn index-page [req]
   (log/infof "Index Session: %s" (:session req))
@@ -29,37 +32,39 @@
   (log/infof "App Session: %s" (:session req))
   {:status 200 :body (slurp (io/resource "site/app.html"))})
 
-(defroutes web-routes
-  ;; landing page
-  (GET "/" [] index-page)
-  ;; login/logout
-  (GET (compojure-route :login) [] login-form)
-  (friend/logout (ANY (compojure-route :logout) request (redirect "/")))
+(defn app-routes [store]
+  (routes
+    ;; landing page
+    (GET "/" [] index-page)
+    ;; login/logout
+    (GET (compojure-route :login) [] login-form)
+    (friend/logout (ANY (compojure-route :logout) request (redirect "/")))
 
-  ;; main application
-  (GET (compojure-route :app) [] app-page)
+    ;; main application
+    (GET (compojure-route :app) [] app-page)
 
-  ;; clojurescript
-  (route/resources "/cljs" {:root "cljs/"})
-  
-  ;; js/css/etc
-  (route/resources "/" {:root "site/"})
+    ;; clojurescript
+    (route/resources "/cljs" {:root "cljs/"})
+    
+    ;; js/css/etc
+    (route/resources "/" {:root "site/"})
 
-  ;; 404
-  (route/not-found not-found-page))
+    ;; API
+    (ANY (amon-route :programmes-index) [] (programmes/index store nil))
 
-(def app
-  (-> web-routes
-      sec/friend-middleware
-      handler/site))
+    ;; 404
+    (route/not-found not-found-page)))
 
-(defrecord Routes []
+(defrecord Routes [context]
   component/Lifecycle
   (start [this]
-    (let [server (run-server app {:port 8010})]
+    (let [app (-> (app-routes (:store this))
+                  sec/friend-middleware
+                  handler/site)
+          server (run-server app {:port 8010})]
       (assoc this ::server server)))
   (stop [this]
     ((::server this))))
 
-(defn new-web-app []
-  (->Routes))
+(defn new-web-app [context]
+  (->Routes context))
