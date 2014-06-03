@@ -68,6 +68,7 @@
                  ]
 
   :source-paths ["src" "src-cljs"]
+  :resource-paths ["resources" "target"]
 
   :jvm-opts ["-Duser.timezone=UTC"]
 

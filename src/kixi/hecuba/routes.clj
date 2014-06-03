@@ -25,11 +25,27 @@
 (defn login-form [req]
   {:status 200 :body (slurp (io/resource "site/login.html"))})
 
+(defn app-page [req]
+  (log/infof "App Session: %s" (:session req))
+  {:status 200 :body (slurp (io/resource "site/app.html"))})
+
 (defroutes web-routes
+  ;; landing page
   (GET "/" [] index-page)
+  ;; login/logout
   (GET (compojure-route :login) [] login-form)
   (friend/logout (ANY (compojure-route :logout) request (redirect "/")))
+
+  ;; main application
+  (GET (compojure-route :app) [] app-page)
+
+  ;; clojurescript
+  (route/resources "/cljs" {:root "cljs/"})
+  
+  ;; js/css/etc
   (route/resources "/" {:root "site/"})
+
+  ;; 404
   (route/not-found not-found-page))
 
 (def app
