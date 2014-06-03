@@ -9,7 +9,7 @@
 
 (defn get-user [user-id]
   (log/infof "Getting user: %s" user-id)
-  {:username "alice"
+  {:username "alice@example.com"
    :password "$2a$10$J9CJ8xfy1SrJxj0XwT5Eq.cKCKXAqR.4Cb81ikr6ilvNpszdWEVee"
    })
 

@@ -42,7 +42,7 @@
 
 (defn compojure-route
   ([route keys]
-     (apply (partial format (route paths)) keys))
+     (str "/" (apply (partial format (route paths)) keys)))
   ([route]
      (compojure-route route [])))
 
