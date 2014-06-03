@@ -15,6 +15,7 @@
                  [org.clojure/clojurescript "0.0-2202"]
                  [org.clojure/core.async "0.1.267.0-0d7780-alpha" :scope "provided"]
 
+                 [compojure "1.1.8"]
                  [kixi/bidi "1.10.3-p0-b569a50" :exclusions [org.clojure/core.match]]
 
                  ;; authn and authz
@@ -74,6 +75,7 @@
                    :dependencies [
                                   [ring-mock "0.1.5"]
                                   [org.clojure/tools.namespace "0.2.4"]
+                                  [javax.servlet/servlet-api "2.5"]
                                   ]
                    :plugins [[com.cemerick/austin "0.1.4"]] }
 
