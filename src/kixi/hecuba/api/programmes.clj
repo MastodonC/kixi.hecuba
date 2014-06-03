@@ -5,7 +5,7 @@
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex routes-from)]
+   [kixi.hecuba.webutil :refer (decode-body authorized? allowed? uuid stringify-values sha1-regex routes-from)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
@@ -67,6 +67,7 @@
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
   :authorized? (authorized? store :programme)
+  :allowed? (allowed? store :programme)
   :handle-ok (partial index-handle-ok store handlers)
   :post! (partial index-post! store)
   :handle-created (partial index-handle-created handlers))
@@ -76,5 +77,6 @@
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
   :authorized? (authorized? store :programme)
+  :allowed? (allowed? store :programme)  
   :exists? (partial resource-exists? store)
   :handle-ok (partial resource-handle-ok handlers))

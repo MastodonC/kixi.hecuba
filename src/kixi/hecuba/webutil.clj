@@ -56,10 +56,17 @@
 
 (defn authorized? [store handlers]
   (fn [ctx]
-    (log/infof "Context: %s" ctx)
+    ;;(log/infof "Context in authorized %s: %s" handlers ctx)
     (let [friend-id (friend/identity (:request ctx))]
       (log/infof "Friend ID: " friend-id)
-      friend-id)))
+      {:friend-id (or friend-id
+                      :public)})))
+
+(defn allowed? [store handlers]
+  (fn [ctx]
+    (log/infof "Context in allowed? %s" ctx)
+    (log/infof ":friend-id in allowed: %s" (:friend-id ctx))
+    true))
 
 (defmulti decode-body :content-type :default "application/json")
 

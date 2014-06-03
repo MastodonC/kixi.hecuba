@@ -19,6 +19,7 @@
    [ring.middleware.keyword-params :refer (wrap-keyword-params)]
    [ring.middleware.nested-params :refer (wrap-nested-params)]
    [ring.middleware.session :refer (wrap-session)]
+   [ring.middleware.session.cookie :refer (cookie-store)]
    [kixi.hecuba.webutil :refer (sha1-regex)]))
 
 
@@ -106,12 +107,12 @@
          ]
         (fn [routes]
           (-> routes
-              sec/friend-middleware 
+              sec/friend-middleware
               wrap-session
               wrap-cookies
-              wrap-params
+              wrap-keyword-params
               wrap-nested-params
-              wrap-keyword-params)))])
+              wrap-params)))])
 
 (defrecord AmonApi [context]
   component/Lifecycle

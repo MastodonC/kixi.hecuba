@@ -8,9 +8,9 @@
                     [credentials :as creds])))
 
 (defn get-user [user-id]
+  (log/infof "Getting user: %s" user-id)
   {:username "alice"
-   ;; :password "$2a$10$J9CJ8xfy1SrJxj0XwT5Eq.cKCKXAqR.4Cb81ikr6ilvNpszdWEVee"
-   :password "blah"
+   :password "$2a$10$J9CJ8xfy1SrJxj0XwT5Eq.cKCKXAqR.4Cb81ikr6ilvNpszdWEVee"
    })
 
 (defn friend-middleware
@@ -22,7 +22,7 @@
                   [(workflows/http-basic :realm "/")
                    ;; The tutorial doesn't use this one, but you
                    ;; probably will.
-                   (workflows/interactive-form)]}]
+                   (workflows/interactive-form :login-uri "/login")]}]
     (-> handler
         (friend/authenticate friend-m))))
 
