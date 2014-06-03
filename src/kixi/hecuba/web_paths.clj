@@ -46,6 +46,12 @@
   ([route]
      (compojure-route route [])))
 
+(defn amon-route
+  ([route keys]
+     (str "/4" (compojure-route route keys) "/"))
+  ([route]
+     (amon-route route [])))
+
 (defn path
   ([route ids]
      (apply (partial format (route paths)) ids))
