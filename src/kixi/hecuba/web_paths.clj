@@ -14,6 +14,7 @@
 
    ;; programmes
    :programmes-index "programmes"
+   :programme-resource "programmes/%s"
 
    ;; projects
    :programme-projects-index "programmes/%s/projects"
@@ -52,8 +53,6 @@
   ([route]
      (amon-route route [])))
 
-(defn path
-  ([route ids]
-     (apply (partial format (route paths)) ids))
-  ([route]
-     (path route [])))
+(defn path-string
+  [route]
+  (str "/4/" (route paths)))
