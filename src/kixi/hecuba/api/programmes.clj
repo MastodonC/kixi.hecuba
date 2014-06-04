@@ -39,11 +39,11 @@
       {::programme_id programme_id})))
 
 (defn index-handle-created [ctx]
-    (let [request (:request ctx)
-          location (format programme-resource (::programme_id ctx))]
-      (ring-response {:headers {"Location" location}
-                      :body (json/encode {:location location
-                                          :status "OK" :version "4"})})))
+  (let [request  (:request ctx)
+        location (format programme-resource (::programme_id ctx))]
+    (ring-response {:headers {"Location" location}
+                    :body (json/encode {:location location
+                                        :status "OK" :version "4"})})))
 
 (defn resource-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -55,12 +55,10 @@
 
 (defn resource-handle-ok [ctx]
   (let [request (:request ctx)]
-      (util/render-item request
-                        (as-> (::item ctx) item
-                              (dissoc item :user_id)
-                              (assoc item
-                                :projects (format programme-projects-index (:id item)))
-                              (dissoc item :user_id)))))
+    (util/render-item request
+                      (as-> (::item ctx) item
+                            (dissoc item :user_id)
+                            (assoc item :projects (format programme-projects-index (:id item)))))))
 
 (defresource index [store]
   :allowed-methods #{:get :post}
