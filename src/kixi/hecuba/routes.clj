@@ -6,13 +6,15 @@
    [compojure.core :refer (routes ANY GET POST)]
    [compojure.handler :as handler]
    [compojure.route :as route]
+   [ring.middleware.session.cookie :refer (cookie-store)]
    [cemerick.friend :as friend]
    [com.stuartsierra.component :as component]
    [org.httpkit.server :refer (run-server)]
    [kixi.hecuba.web-paths :refer (compojure-route amon-route)]
    [kixi.hecuba.security :as sec]
-
+   
    [kixi.hecuba.api.programmes :as programmes]
+   [kixi.hecuba.api.projects :as projects]
    ))
 
 (defn index-page [req]
@@ -51,6 +53,7 @@
 
     ;; API
     (ANY (amon-route :programmes-index) [] (programmes/index store))
+    (ANY (amon-route :programme-projects-index [:programme_id]) [programme_id] (projects/index store))
 
     ;; 404
     (route/not-found not-found-page)))
@@ -58,9 +61,10 @@
 (defrecord Routes [context]
   component/Lifecycle
   (start [this]
-    (let [app (-> (app-routes (:store this))
-                  sec/friend-middleware
-                  handler/site)
+    (let [store  (:store this)
+          app    (-> (app-routes store)
+                     (sec/friend-middleware store)
+                     (handler/site {:session {:store (cookie-store)}}) )
           server (run-server app {:port 8010})]
       (assoc this ::server server)))
   (stop [this]

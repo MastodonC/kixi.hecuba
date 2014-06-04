@@ -18,7 +18,9 @@
 
    ;; projects
    :programme-projects-index "programmes/%s/projects"
-   :projects-index "projects"                        
+   :programme-projects-resource "programmes/%s/projects/%s"
+   :projects-index "projects"
+   :project-resource "projects/%s"
    :project-properties-index "projects/%s/properties"
 
    ;; enitites
