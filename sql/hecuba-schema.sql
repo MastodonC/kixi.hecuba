@@ -353,6 +353,7 @@ CREATE TABLE user_sessions (
   id text,
   "timestamp" timestamp,
   user text,
+  data text,
   PRIMARY KEY (id, "timestamp")
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
@@ -375,6 +376,7 @@ CREATE TABLE users (
   hash text,
   salt text,
   username text,
+  data text,
   PRIMARY KEY (id)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND

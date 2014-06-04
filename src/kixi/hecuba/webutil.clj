@@ -54,19 +54,17 @@
 (defn update-stringified-lists [body selectors]
   (reduce update-stringified-list body selectors))
 
-(defn authorized? [store handlers]
+(defn authorized? [store]
   (fn [ctx]
-    ;;(log/infof "Context in authorized %s: %s" handlers ctx)
-    (let [friend-id (friend/identity (:request ctx))]
-      (log/infof "Friend ID: " friend-id)
-      {:friend-id (or friend-id
-                      :public)})))
+    (let [friend-id (-> ctx :request :session ::friend/identity)]
+      (log/infof "Friend ID in authorized?: %s" friend-id)
+      true)))
 
-(defn allowed? [store handlers]
+(defn allowed? [store]
   (fn [ctx]
-    (log/infof "Context in allowed? %s" ctx)
-    (log/infof ":friend-id in allowed: %s" (:friend-id ctx))
-    true))
+    (let [friend-id (-> ctx :request :session ::friend/identity)]
+      ;;(log/infof "Friend ID: %s" friend-id)
+      true)))
 
 (defmulti decode-body :content-type :default "application/json")
 
