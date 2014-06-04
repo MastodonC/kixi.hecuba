@@ -62,7 +62,7 @@
 
 (defresource index [store]
   :allowed-methods #{:get :post}
-  :available-media-types ["text/html" "application/json" "application/edn"]
+  :available-media-types ["application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
   :authorized? (authorized? store :programme)
   :allowed? (allowed? store :programme)
@@ -72,7 +72,7 @@
 
 (defresource resource [store]
   :allowed-methods #{:get}
-  :available-media-types ["text/html" "application/json" "application/edn"]
+  :available-media-types ["application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
   :authorized? (authorized? store :programme)
   :allowed? (allowed? store :programme)  
