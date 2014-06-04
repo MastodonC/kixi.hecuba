@@ -50,7 +50,7 @@
     (route/resources "/" {:root "site/"})
 
     ;; API
-    (ANY (amon-route :programmes-index) [] (programmes/index store nil))
+    (ANY (amon-route :programmes-index) [] (programmes/index store))
 
     ;; 404
     (route/not-found not-found-page)))

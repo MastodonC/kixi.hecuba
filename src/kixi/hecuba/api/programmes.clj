@@ -16,7 +16,7 @@
 (def programme-resource (p/path-string :programme-resource))
 (def programme-projects-index (p/path-string :programme-projects-index))
 
-(defn index-handle-ok [store handlers ctx]
+(defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
           items   (db/execute session (hayt/select :programmes))]
@@ -38,7 +38,7 @@
       (db/execute session (hayt/insert :programmes (hayt/values (assoc programme :user_id user_id :id programme_id))))
       {::programme_id programme_id})))
 
-(defn index-handle-created [handlers ctx]
+(defn index-handle-created [ctx]
     (let [request (:request ctx)
           location (format programme-resource (::programme_id ctx))]
       (ring-response {:headers {"Location" location}
@@ -53,7 +53,7 @@
                         first)]
       {::item item})))
 
-(defn resource-handle-ok [handlers ctx]
+(defn resource-handle-ok [ctx]
   (let [request (:request ctx)]
       (util/render-item request
                         (as-> (::item ctx) item
@@ -62,21 +62,21 @@
                                 :projects (format programme-projects-index (:id item)))
                               (dissoc item :user_id)))))
 
-(defresource index [store handlers]
+(defresource index [store]
   :allowed-methods #{:get :post}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
   :authorized? (authorized? store :programme)
   :allowed? (allowed? store :programme)
-  :handle-ok (partial index-handle-ok store handlers)
+  :handle-ok (partial index-handle-ok store)
   :post! (partial index-post! store)
-  :handle-created (partial index-handle-created handlers))
+  :handle-created (partial index-handle-created))
 
-(defresource resource [store handlers]
+(defresource resource [store]
   :allowed-methods #{:get}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
   :authorized? (authorized? store :programme)
   :allowed? (allowed? store :programme)  
   :exists? (partial resource-exists? store)
-  :handle-ok (partial resource-handle-ok handlers))
+  :handle-ok (partial resource-handle-ok))
