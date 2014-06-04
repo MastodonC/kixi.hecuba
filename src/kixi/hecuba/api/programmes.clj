@@ -1,13 +1,14 @@
 (ns kixi.hecuba.api.programmes
   (:require
-   [cheshire.core :as json]
    [clojure.tools.logging :as log]
-   [kixi.hecuba.security :as sec]
-   [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? allowed? uuid stringify-values sha1-regex routes-from)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
+   [cheshire.core :as json]
+   [cemerick.friend :as friend]
+   [kixi.hecuba.security :as sec]
+   [kixi.hecuba.webutil :as util]
+   [kixi.hecuba.webutil :refer (decode-body authorized? allowed? uuid stringify-values sha1-regex routes-from)]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.web-paths :as p]))
@@ -20,7 +21,6 @@
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
           items   (db/execute session (hayt/select :programmes))]
-      (log/infof "index-handle-ok ctx: %s" ctx)
       (map #(-> %
                 (dissoc :user_id)
                 (assoc :href (format programme-resource (:id %))
@@ -64,8 +64,8 @@
   :allowed-methods #{:get :post}
   :available-media-types ["application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
-  :authorized? (authorized? store :programme)
-  :allowed? (allowed? store :programme)
+  :authorized? (authorized? store)
+  :allowed? (allowed? store)
   :handle-ok (partial index-handle-ok store)
   :post! (partial index-post! store)
   :handle-created (partial index-handle-created))
@@ -74,7 +74,7 @@
   :allowed-methods #{:get}
   :available-media-types ["application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
-  :authorized? (authorized? store :programme)
-  :allowed? (allowed? store :programme)  
+  :authorized? (authorized? store)
+  :allowed? (allowed? store)  
   :exists? (partial resource-exists? store)
   :handle-ok (partial resource-handle-ok))
