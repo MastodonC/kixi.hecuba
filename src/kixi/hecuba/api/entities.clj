@@ -18,7 +18,7 @@
           entity        (-> request decode-body)
           project_id    (-> entity :project_id)
           property_code (-> entity :property_code)
-          username      (sec/get-username ctx)
+          username      (sec/session-username (-> ctx :request :session))
           ;; FIXME: Why user_id?
           user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)]
       (when (and project_id property_code)
@@ -72,7 +72,7 @@
     (let [request   (:request ctx)
           entity    (-> request decode-body stringify-values)
           entity_id (-> (::item ctx) :id)
-          username  (sec/get-username ctx)
+          username  (sec/session-username (-> ctx :request :session))
           ;; FIXME: Why user_id?
           user_id   (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)]
       (db/execute session (hayt/insert :entities (hayt/values (-> entity

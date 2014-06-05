@@ -42,7 +42,7 @@
           profile    (-> ctx :body)
           entity_id  (-> profile :entity_id)
           timestamp  (-> profile :timestamp)
-          username   (sec/get-username ctx)
+          username   (sec/session-username (-> ctx :request :session))
           ;; FIXME: Why user_id?
           user_id    (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
           profile_id (sha1/gen-key :profile profile)]
@@ -713,7 +713,7 @@
       (if-let [item (::item ctx)]
         (let [body       (decode-body request)
               entity_id  (-> item :entity_id)
-              username   (sec/get-username ctx)
+              username   (sec/session-username (-> ctx :request :session))
               user_id    (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
               profile_id (-> item :profile-id)]
           (db/execute session (hayt/insert :profiles (hayt/values (-> body

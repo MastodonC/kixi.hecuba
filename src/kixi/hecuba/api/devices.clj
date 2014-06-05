@@ -79,7 +79,7 @@
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [request body]} ctx
           entity_id              (-> request :route-params :entity_id)
-          username               (sec/get-username ctx)
+          username               (sec/session-username (-> ctx :request :session))
           user_id                (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)]
 
       (when-not (empty? (first (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]])))))
@@ -157,7 +157,7 @@
       (if-let [item (::item ctx)]
         (let [body          (decode-body request)
               entity_id     (-> item :entity_id)
-              username      (sec/get-username ctx)
+              username      (sec/session-username (-> ctx :request :session))
               user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
               device_id     (-> item :device_id)
               new-sensors   (map #(when (= "CUMULATIVE" (:period %)) (ext-type % "differenceSeries")) (:readings body))
