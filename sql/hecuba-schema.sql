@@ -86,29 +86,6 @@ CREATE INDEX devices_entity_id_idx_1 ON devices (entity_id);
 
 CREATE INDEX synthetic_devices_idx ON devices (synthetic);
 
-CREATE TABLE difference_series (
-  device_id text,
-  type text,
-  month int,
-  "timestamp" timestamp,
-  value text,
-  PRIMARY KEY (device_id, type, month, "timestamp")
-) WITH
-  bloom_filter_fp_chance=0.010000 AND
-  caching='KEYS_ONLY' AND
-  comment='' AND
-  dclocal_read_repair_chance=0.000000 AND
-  gc_grace_seconds=864000 AND
-  index_interval=128 AND
-  read_repair_chance=0.100000 AND
-  replicate_on_write='true' AND
-  populate_io_cache_on_flush='false' AND
-  default_time_to_live=0 AND
-  speculative_retry='99.0PERCENTILE' AND
-  memtable_flush_period_in_ms=0 AND
-  compaction={'class': 'SizeTieredCompactionStrategy'} AND
-  compression={'sstable_compression': 'SnappyCompressor'};
-
 CREATE TABLE entities (
   id text,
   address_country text,
@@ -175,7 +152,7 @@ CREATE TABLE measurements (
   month int,
   "timestamp" timestamp,
   error text,
-  meta_data map<text, text>,
+  metadata map<text, text>,
   value text,
   PRIMARY KEY (device_id, type, month, "timestamp")
 ) WITH

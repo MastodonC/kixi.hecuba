@@ -1,12 +1,12 @@
 * Calculated Datasets dev notes
 ** Summary
 *** Update existing difference series so that gaps are filled.
-*** Use hourly rollups of those difference series for calculations.
-**** May need to use a converted series m^3 -> kwh.
+Gaps are filled with "n/a".
+*** Series needs to be of the same period
+*** Implement our own '+' so that it doesn't try to add non-numbers
 *** For a defined dataset, calculate total kwh.
 **** check all sensors have same period.
 ***** TODO Do what if they're not?
-**** Create a new hourly series - each entry sum of all sensors for that hour.
 ** Define dataset
 *** Create an entry in datasets table.
 ** Test data
@@ -16,4 +16,3 @@
 **** find all sensor metadata.
 **** check hourly rollups for each exist
 **** check all sensors are of same period.
-**** If they are, sum

@@ -26,12 +26,6 @@
                           (hayt/where [[= :device_id device_id]
                                        [= :type type]])))))))
 
-(defn- mk-bounds-from [store type device_id]
-  (let [sm  (sensor_metadata-for store {:type type :device_id device_id})
-        {:keys [lower_ts upper_ts]} sm]
-    (vector (atom (or (tc/to-date-time lower_ts) (org.joda.time.DateTime. Long/MAX_VALUE) ))
-            (atom (or (tc/to-date-time upper_ts) (org.joda.time.DateTime. 0))))))
-
 (defn resolve-start-end [store type device_id start end]
   (mapv tc/to-date-time
         (if (not (and start end))
@@ -135,37 +129,20 @@
         type          (-> measurements first :type)]
     (db/with-session [session (:hecuba-session store)]
       (if (sensor-exists? session device_id type)
-        (let [[lower upper] (mk-bounds-from store type device_id)
-              update-bounds! (fn [t] (swap! lower min-date t) (swap! upper max-date t))]
-          (doseq [measurement measurements]
-            (let [t  (util/db-timestamp (:timestamp measurement))
-                  m  (stringify-values measurement)
-                  m2 {:device_id device_id
-                      :type      type
-                      :timestamp t
-                      :value     (:value m)
-                      :error     (:error m)
-                      :month     (util/get-month-partition-key t)
-                      :metadata  {}}]
-              (->> m2
-                   (v/validate store)
-                   (insert-measurement session))
-
-              (update-bounds! t)
-              (q/put-on-queue topic m2)))
-          (db/execute session
-                      (hayt/insert :sensor_metadata 
-                                   (hayt/values {:device_id device_id
-                                                 :type type
-                                                 :lower_ts @lower
-                                                 :upper_ts @upper})))
-
-          (db/execute session
-                      (hayt/insert :sensor_metadata
-                                   (hayt/values {:device_id device_id
-                                                 :type type
-                                                 :lower_ts @lower
-                                                 :upper_ts @upper})))
+        (doseq [measurement measurements]
+          (let [t  (util/db-timestamp (:timestamp measurement))
+                m  (stringify-values measurement)
+                m2 {:device_id device_id
+                    :type      type
+                    :timestamp t
+                    :value     (:value m)
+                    :error     (:error m)
+                    :month     (util/get-month-partition-key t)
+                    :metadata  {}}]
+            (->> m2
+                 (v/validate store)
+                 (insert-measurement session))
+            (q/put-on-queue topic m2))
           {:response {:status 202 :body "Accepted"}})
         {:response {:status 400 :body "Provide valid device_id and type."}}))))
 

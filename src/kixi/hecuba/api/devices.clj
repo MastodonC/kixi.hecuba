@@ -37,6 +37,11 @@
                 ))
       false)))
 
+(defn- ext-type [sensor type-ext]
+  (-> sensor
+      (update-in [:type] #(str % "_" type-ext))
+      (assoc :period "PULSE")))
+
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [request body]} ctx
@@ -45,18 +50,20 @@
           user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)]
 
       (when-not (empty? (first (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]])))))
-        (let [device    (-> body
-                            (assoc :user_id user_id)
-                            (update-in [:metadata] json/encode)
-                            (update-in [:location] json/encode)
-                            (dissoc :readings))
-              device_id (sha1/gen-key :device device)]
+        (let [device       (-> body
+                               (assoc :user_id user_id)
+                               (update-in [:metadata] json/encode)
+                               (update-in [:location] json/encode)
+                               (dissoc :readings))
+              device_id    (sha1/gen-key :device device)
+              new-sensors  (map #(when (= "CUMULATIVE" (:period %)) (ext-type % "differenceSeries")) (:readings body))
+              new-body     (update-in body [:readings] (fn [readings] (into [] (remove nil? (concat readings new-sensors)))))]
           (db/execute session (hayt/insert :devices (hayt/values (assoc device :id device_id))))
           (db/execute session (hayt/update :entities
-                                           (hayt/set-columns {:devices [+ {device_id (str body)}]})
+                                           (hayt/set-columns {:devices [+ {device_id (str new-body)}]})
                                            (hayt/where [[= :id entity_id]])))
 
-          (doseq [reading (:readings body)]
+          (doseq [reading (:readings new-body)]
             (let [sensor (-> reading
                              stringify-values
                              (assoc :device_id device_id)
@@ -120,7 +127,9 @@
               entity_id     (-> item :entity_id)
               [username _]  (sec/get-username-password request store)
               user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
-              device_id     (-> item :device_id)]
+              device_id     (-> item :device_id)
+              new-sensors   (map #(when (= "CUMULATIVE" (:period %)) (ext-type % "differenceSeries")) (:readings body))
+              new-body      (update-in body [:readings] (fn [readings] (into [] (remove nil? (concat readings new-sensors)))))]
           (db/execute session (hayt/insert :devices (hayt/values (-> body
                                                                      (assoc :id device_id)
                                                                      (assoc :user_id user_id)
@@ -128,9 +137,12 @@
                                                                      (update-in [:location] json/encode)
                                                                      (update-in [:metadata] json/encode)
                                                                      stringify-values))))
+          (db/execute session (hayt/update :entities
+                                           (hayt/set-columns {:devices [+ {device_id (str new-body)}]})
+                                           (hayt/where [[= :id entity_id]])))
           ;; TODO when new sensors are created they do not necessarilly overwrite old sensors (unless their type is the same)
           ;; We should probably allow to delete sensors through the API/UI
-          (doseq [reading (:readings body)]
+          (doseq [reading (:readings new-body)]
             (let [sensor (-> reading
                              stringify-values
                              (assoc :device_id device_id)

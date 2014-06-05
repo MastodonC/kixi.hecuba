@@ -27,9 +27,14 @@
 
 (defn get-year-partition-key [timestamp] (Long/parseLong (format "%4d" (t/year timestamp))))
 
-(defn truncate-seconds [t]
+(defmulti truncate-seconds type)
+(defmethod truncate-seconds java.util.Date [t]
   (let [time-str (tf/unparse (tf/formatter "yyyy-MM-dd'T'HH:mm") (tc/from-date t))]
     (tc/to-date  (tf/parse (tf/formatter "yyyy-MM-dd'T'HH:mm") time-str))))
+(defmethod truncate-seconds org.joda.time.DateTime [t]
+  (let [time-str (tf/unparse (tf/formatter "yyyy-MM-dd'T'HH:mm") t)]
+    (tf/parse (tf/formatter "yyyy-MM-dd'T'HH:mm") time-str)))
+
 
 ;; Return int representation of month partition key
 (defmulti get-month-partition-key type)
@@ -97,7 +102,7 @@
   [m]
   (sort-by :timestamp m) m)
 
-(defn decassandraify-measurements
+(defn parse-measurements
   "Takes measurements in the format returned from the database.
    Returns a list of maps, with all values parsed approprietly."
   [measurements]

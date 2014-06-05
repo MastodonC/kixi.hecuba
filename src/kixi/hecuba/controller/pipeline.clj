@@ -41,15 +41,16 @@
                 type      (:type s)
                 period    (:period s)
                 where     {:device_id device_id :type type}
-                table     (case period
-                            "CUMULATIVE" :difference_series
-                            "INSTANT"    :measurements
-                            "PULSE"      :measurements)
                 range     (misc/start-end-dates :median_calc_check s where)
                 new-item  (assoc item :sensor s :range range)]
-            (when (and range (not= period "PULSE"))
-              (checks/median-calculation store table new-item)
-              (misc/reset-date-range store s :median_calc_check (:start-date range) (:end-date range))))))
+            (when period
+              (let [table (case period
+                            "CUMULATIVE" :difference_series
+                            "INSTANT"    :measurements
+                            "PULSE"      :measurements)]
+                (when (and range (not= period "PULSE"))
+                  (checks/median-calculation store table new-item)
+                  (misc/reset-date-range store s :median_calc_check (:start-date range) (:end-date range))))))))
       (log/info "Finished median calculation."))
 
     (defnconsumer mislabelled-sensors-q [item]
@@ -68,7 +69,7 @@
       (log/info "Finished mislabelled sensors check."))
 
     (defnconsumer difference-series-q [item]
-      (log/info "Starting calculation of difference series from resolution.")
+      (log/info "Starting calculation of difference series.")
       (let [sensors (misc/all-sensors store)]
         (doseq [s sensors]
           (let [device_id (:device_id s)
@@ -77,10 +78,10 @@
                 where     {:device_id device_id :type type}
                 range     (misc/start-end-dates :difference_series s where)
                 new-item  (assoc item :sensor s :range range)]
-            (when range
-              (calculate/difference-series-from-resolution store new-item)
+            (when (and range (= "CUMULATIVE" period))
+              (calculate/difference-series store new-item)
               (misc/reset-date-range store s :difference_series (:start-date range) (:end-date range))))))
-      (log/info "Finished calculation of difference series from resolution."))
+      (log/info "Finished calculation of difference series."))
 
     (defnconsumer rollups-q [item]
       (log/info "Starting rollups.")
@@ -88,18 +89,19 @@
         (doseq [s sensors]
           (let [device_id  (:device_id s)
                 type       (:type s)
-                period     (:period s)
-                table      (case period
-                             "CUMULATIVE" :difference_series
-                             "INSTANT"    :measurements
-                             "PULSE"      :measurements)
-                where      {:device_id device_id :type type}
-                range      (misc/start-end-dates :rollups s where)
-                new-item   (assoc item :sensor s :range range)]
-            (when range
-              (calculate/hourly-rollups store new-item)
-              (calculate/daily-rollups store new-item)
-              (misc/reset-date-range store s :rollups (:start-date range) (:end-date range))))))
+                period     (:period s)]
+            (when period
+              (let [table (case period
+                            "CUMULATIVE" :difference_series
+                            "INSTANT"    :measurements
+                            "PULSE"      :measurements)
+                    where      {:device_id device_id :type type}
+                    range      (misc/start-end-dates :rollups s where)
+                    new-item   (assoc item :sensor s :range range)]
+                (when range
+                  (calculate/hourly-rollups store new-item)
+                  (calculate/daily-rollups store new-item)
+                  (misc/reset-date-range store s :rollups (:start-date range) (:end-date range))))))))
       (log/info "Finished rollups."))
 
     (defnconsumer spike-check-q [item]
