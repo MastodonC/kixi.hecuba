@@ -205,11 +205,11 @@
                 (hayt/insert :measurements
                              (hayt/values m)))))
 
-(def conversions {:vol2kwh {"gasConsumption" {"m^3" 10.97222
+(def conversions {"vol2kwh" {"gasConsumption" {"m^3" 10.97222
                                               "ft^3" (* 2.83 10.9722)}
                             "oilConsumption" {"m^3" 10308.34
                                               "ft^3" (* 2.83 10308.34)}}
-                  :kwh2co2 {"electricityConsumption" {"kWh" 0.517}
+                  "kwh2co2" {"electricityConsumption" {"kWh" 0.517}
                             "gasConsimption" {"kWh" 0.185}
                             "oilConsumption" {"kWh" 0.246}}})
 
@@ -299,7 +299,7 @@
 ;;;; kWh to co2
 
 (defmethod calculate-data-set :kwh2co2 [ds store]
-  (let [get-fn-and-measurements  (fn [s] [(conversion-fn s (:operation ds)) (measurements/all-measurements store s)])
+  (let [get-fn-and-measurements  (fn [s] (prn "s: " s) [(conversion-fn s (:operation ds)) (measurements/all-measurements store s)])
         convert                  (fn [[f xs]] (map f xs))
         topic (get-in (:queue store) [:queue "measurements"])
         {:keys [operation device_id]} ds]
