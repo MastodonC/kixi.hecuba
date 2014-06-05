@@ -154,7 +154,8 @@
                                                           :mislabelled_sensors_check [+ (update-date-range t metadata :mislabelled_sensors_check)]
                                                           :difference_series [+ (update-date-range t metadata :difference_series)]
                                                           :median_calc_check [+ (update-date-range t metadata :median_calc_check)]
-                                                          :spike_check [+ (update-date-range t metadata :spike_check)]}
+                                                          :spike_check [+ (update-date-range t metadata :spike_check)]
+                                                          :co2 [+ (update-date-range t metadata :co2)]}
                                                          (when-let [lower (:lower_ts new-bounds)] {:lower_ts lower})
                                                          (when-let [upper (:upper_ts new-bounds)] {:upper_ts upper})))
                                (hayt/where where))))))

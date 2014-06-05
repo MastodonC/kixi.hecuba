@@ -114,8 +114,9 @@
   (log/error t)
   (case (.toUpperCase t)
     "VOL2KWH" "kWh"
-    "TOTAL-KWH" "kWh"
-    "KWH2CO2" "co2"))
+    "TOTAL-KWH" "kWh"))
 
-(defn output-type-for [t]
-  (str "converted_" t))
+(defn output-type-for [t operation]
+  (case (.toUpperCase operation)
+    "VOL2KWH" (str "converted_" t)
+    "KWH2CO2" (str t "_converted_co2")))

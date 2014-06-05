@@ -421,6 +421,12 @@
                                             :unit "kWh"
                                             :type "electricityConsumption"})))
      (db/execute session
+                 (hayt/insert :sensors
+                              (hayt/values {:device_id device_id_2
+                                            :period "PULSE"
+                                            :unit "co2"
+                                            :type "electricityConsumption_converted_co2"})))
+     (db/execute session
                  (hayt/insert :sensor_metadata
                               (hayt/values {:device_id device_id_1
                                             :lower_ts (.getMillis (t/date-time 2014 1))
@@ -434,7 +440,12 @@
                               (hayt/values {:device_id device_id_2
                                             :type "electricityConsumption"})))
      
-    (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
+     (db/execute session
+                 (hayt/insert :sensor_metadata
+                              (hayt/values {:device_id device_id_2
+                                            :type "electricityConsumption_converted_co2"})))
+     
+     (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
        (doseq [m (map #(zipmap [:device_id :type :month :timestamp :error :metadata :value] %) (rest (csv/read-csv in-file )))]
          (db/execute session
                      (hayt/insert :measurements
@@ -443,7 +454,7 @@
                                        (update-in [:metadata] #(walk/stringify-keys (read-string %)))
                                        (update-in [:timestamp] db-timestamp)
                                        (update-in [:month] #(Integer/parseInt %))))))))
-
+     
      (let [url "http://127.0.0.1:8000/4/entities/34653464/devices/fe5ab5bf19a7265276ffe90e4c0050037de923e2/measurements/"
            measurements (generators/measurements  {:type "electricityConsumption"
                                                    :unit "kWh"

@@ -13,7 +13,43 @@
             [qbits.hayt :as hayt]
             [kixi.hecuba.queue :as q]))
 
-;;;;;;; Difference series using resolution ;;;;;;;;;
+;; Helpers
+
+(defn sensors-for-dataset
+  "Returns all the sensors for the given dataset."
+  [{:keys [members]} store]
+  (db/with-session [session (:hecuba-session store)]
+    (let [parsed-sensors (map (fn [s] (into [] (next (re-matches #"(\w+)-(\w+)" s)))) members)
+          sensor (fn [[type device_id]]
+                   (db/execute session
+                               (hayt/select :sensors
+                                            (hayt/where [[= :type type]
+                                                         [= :device_id device_id]]))))]
+      (mapcat sensor parsed-sensors))))
+
+
+(defn insert-measurement [store m ]
+  (db/with-session [session (:hecuba-session store)]
+    (db/execute session
+                (hayt/insert :measurements
+                             (hayt/values m)))))
+
+(def conversions {"vol2kwh" {"gasConsumption" {"m^3" 10.97222
+                                              "ft^3" (* 2.83 10.9722)}
+                            "oilConsumption" {"m^3" 10308.34
+                                              "ft^3" (* 2.83 10308.34)}}
+                  "kwh2co2" {"electricityConsumption" {"kWh" 0.517}
+                            "gasConsimption" {"kWh" 0.185}
+                            "oilConsumption" {"kWh" 0.246}}})
+
+(defn conversion-fn [{:keys [type unit]} operation]
+  (let [factor (get-in conversions [operation type unit])]
+    (fn [m]
+      (cond-> m (m/metadata-is-number? m)
+              (assoc :value (str (* factor (read-string (:value m))))
+                     :type (m/output-type-for type operation))))))
+
+;;;;;;; Difference series ;;;;;;;;;
 
 (defn- ext-type [type] (str type "_differenceSeries"))
 
@@ -86,6 +122,19 @@
             filled-measurements (map #(merge template-reading (get grouped-readings (:timestamp %) %)) expected-timestamps)]
         (diff-and-insert store filled-measurements)))))
 
+
+;;;; Convert kWh to co2
+
+(defn convert-to-co2 [store {:keys [sensor range]}]
+  (let [get-fn-and-measurements (fn [s] [(conversion-fn s "kwh2co2") (measurements-for-range store s range (t/hours 1))])
+        convert                 (fn [[f xs]] (map f xs))
+        topic (get-in (:queue store) [:queue "measurements"])
+        {:keys [device_id]} sensor]
+    (doseq [m  (->> sensor
+                    get-fn-and-measurements
+                    convert)]
+      (q/put-on-queue topic m)
+      (insert-measurement store m))))
 
 ;;;;;;;;;;; Rollups of measurements ;;;;;;;;;
 
@@ -186,40 +235,6 @@
 
 ;;;;;; Calculated datasets ;;;;;;;;;;;
 
-(defn sensors-for-dataset
-  "Returns all the sensors for the given dataset."
-  [{:keys [members]} store]
-  (db/with-session [session (:hecuba-session store)]
-    (let [parsed-sensors (map (fn [s] (into [] (next (re-matches #"(\w+)-(\w+)" s)))) members)
-          sensor (fn [[type device_id]]
-                   (db/execute session
-                               (hayt/select :sensors
-                                            (hayt/where [[= :type type]
-                                                         [= :device_id device_id]]))))]
-      (mapcat sensor parsed-sensors))))
-
-
-(defn insert-measurement [store m ]
-  (db/with-session [session (:hecuba-session store)]
-    (db/execute session
-                (hayt/insert :measurements
-                             (hayt/values m)))))
-
-(def conversions {"vol2kwh" {"gasConsumption" {"m^3" 10.97222
-                                              "ft^3" (* 2.83 10.9722)}
-                            "oilConsumption" {"m^3" 10308.34
-                                              "ft^3" (* 2.83 10308.34)}}
-                  "kwh2co2" {"electricityConsumption" {"kWh" 0.517}
-                            "gasConsimption" {"kWh" 0.185}
-                            "oilConsumption" {"kWh" 0.246}}})
-
-(defn conversion-fn [{:keys [type unit]} operation]
-  (let [factor (get-in conversions [operation type unit])]
-    (fn [m]
-      (cond-> m (m/metadata-is-number? m)
-              (assoc :value (str (* factor (read-string (:value m))))
-                     :type (m/output-type-for type))))))
-
 (defmulti calculate-data-set (comp keyword :operation))
 
 (defmethod calculate-data-set :vol2kwh [ds store]
@@ -295,20 +310,6 @@
                                                     :type "total_kWh")) padded)]
           (q/put-on-queue topic m)
           (insert-measurement store m))))))
-
-;;;; kWh to co2
-
-(defmethod calculate-data-set :kwh2co2 [ds store]
-  (let [get-fn-and-measurements  (fn [s] (prn "s: " s) [(conversion-fn s (:operation ds)) (measurements/all-measurements store s)])
-        convert                  (fn [[f xs]] (map f xs))
-        topic (get-in (:queue store) [:queue "measurements"])
-        {:keys [operation device_id]} ds]
-    (doseq [m  (->> (sensors-for-dataset ds store)
-                    (map get-fn-and-measurements)
-                    (mapcat convert)
-                    (map #(assoc % :device_id device_id)))]
-      (q/put-on-queue topic m)
-      (insert-measurement store m))))
 
 (defn generate-synthetic-readings [store item]
   (let [data-sets (datasets/all-datasets store)]
