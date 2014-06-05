@@ -12,6 +12,7 @@
    [org.httpkit.server :refer (run-server)]
    [kixi.hecuba.web-paths :refer (compojure-route amon-route)]
    [kixi.hecuba.security :as sec]
+   [kixi.hecuba.session :refer (cassandra-store)]
    
    [kixi.hecuba.api.programmes :as programmes]
    [kixi.hecuba.api.projects :as projects]
@@ -20,7 +21,6 @@
 (defn index-page [req]
   (log/infof "Index Session: %s" (:session req))
   {:status 200
-   :session (assoc (:session req) :index-hit "Y")
    :body (slurp (io/resource "site/index.html"))})
 
 (defn not-found-page [req]
@@ -64,7 +64,7 @@
     (let [store  (:store this)
           app    (-> (app-routes store)
                      (sec/friend-middleware store)
-                     (handler/site {:session {:store (cookie-store)}}) )
+                     (handler/site {:session {:store (cassandra-store store)}}))
           server (run-server app {:port 8010})]
       (assoc this ::server server)))
   (stop [this]

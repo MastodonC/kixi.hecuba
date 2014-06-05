@@ -57,13 +57,13 @@
 (defn authorized? [store]
   (fn [ctx]
     (let [friend-id (-> ctx :request :session ::friend/identity)]
-      (log/infof "Friend ID in authorized?: %s" friend-id)
+      (log/debugf "Friend ID in authorized?: %s" friend-id)
       true)))
 
 (defn allowed? [store]
   (fn [ctx]
     (let [friend-id (-> ctx :request :session ::friend/identity)]
-      ;;(log/infof "Friend ID: %s" friend-id)
+      (log/debugf "Friend ID in allowed?: %s" friend-id)
       true)))
 
 (defmulti decode-body :content-type :default "application/json")
