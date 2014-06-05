@@ -7,6 +7,7 @@
    [kixi.hecuba.queue :as q]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
+   [kixi.hecuba.data.misc :as misc]
    [kixi.hecuba.webutil :refer (decode-body authorized? uuid routes-from)]
    [kixi.hecuba.storage.db :as db]
    [liberator.core :refer (defresource)]
@@ -47,15 +48,6 @@
 (defn- name-from [ctx]
   (get-in ctx [:request :route-params :name]))
 
-;;TODO - duplication with calculate - resolve.
-(defn output-unit-for [t]
-  (case (.toUpperCase t)
-    "VOL2KWH" "kWh"
-    "TOTAL-KWH" "kWh"))
-
-(defn output-type-for [t]
-  (str "converted_" t))
-
 (defmulti create-output-sensors (fn [store device_id unit members operation] operation))
 
 (defmethod create-output-sensors :total [store device_id unit _ _]
@@ -69,7 +61,7 @@
     (let [parse-sensor (comp next (partial re-matches #"(\w+)-(\w+)"))]
       (doseq [m members]
         (let [[type _ ] (parse-sensor m)
-              converted-type (output-type-for type)]
+              converted-type (misc/output-type-for type)]
           (db/execute session (hayt/insert :sensors (hayt/values (synthetic-sensor converted-type device_id unit))))
           (db/execute session (hayt/insert :sensor_metadata (hayt/values (synthetic-sensor-metadata converted-type device_id)))))))))
 
@@ -81,7 +73,7 @@
            operation-type              (if (re-matches #"total-.*" operation) :total :converted)
            members                     (into #{} members)
            entity_id                   (entity_id-from ctx)
-           unit                        (output-unit-for operation)
+           unit                        (misc/output-unit-for operation)
            device                      (synthetic-device entity_id "Synthetic")
            device_id                   (sha1/gen-key :device device)]
        (db/execute session (hayt/insert :devices (hayt/values (assoc device :id device_id))))
@@ -139,7 +131,7 @@
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
           {:keys [members name operation]} (decode-body request)
-          converted-type              (output-type-for operation)]
+          converted-type              (misc/output-type-for operation)]
 
       (db/execute session (hayt/insert :datasets (hayt/values {:entity_id (entity_id-from ctx)
                                                                :name      (name-from ctx)

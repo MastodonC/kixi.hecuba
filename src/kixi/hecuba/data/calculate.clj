@@ -205,32 +205,25 @@
                 (hayt/insert :measurements
                              (hayt/values m)))))
 
-(defn output-unit-for [t]
-  (log/error t)
-  (case t
-    "vol2kwh" "kWh"
-    "total-vol2kwh" "kWh"
-    "kwh2co2" "co2"))
+(def conversions {:vol2kwh {"gasConsumption" {"m^3" 10.97222
+                                              "ft^3" (* 2.83 10.9722)}
+                            "oilConsumption" {"m^3" 10308.34
+                                              "ft^3" (* 2.83 10308.34)}}
+                  :kwh2co2 {"electricityConsumption" {"kWh" 0.517}
+                            "gasConsimption" {"kWh" 0.185}
+                            "oilConsumption" {"kWh" 0.246}}})
 
-(defn output-type-for [t]
-  (str "converted_" t))
-
-(def conversions {"gasConsumption" {"m^3" 10.97222
-                                    "ft^3" (* 2.83 10.9722)}
-                  "oilConsumption" {"m^3" 10308.34
-                                    "ft^3" (* 2.83 10308.34)}})
-
-(defn conversion-fn [{:keys [type unit]}]
-  (let [factor (get-in conversions [type unit])]
+(defn conversion-fn [{:keys [type unit]} operation]
+  (let [factor (get-in conversions [operation type unit])]
     (fn [m]
       (cond-> m (m/metadata-is-number? m)
               (assoc :value (str (* factor (read-string (:value m))))
-                     :type (output-type-for type))))))
+                     :type (m/output-type-for type))))))
 
 (defmulti calculate-data-set (comp keyword :operation))
 
 (defmethod calculate-data-set :vol2kwh [ds store]
-  (let [get-fn-and-measurements  (fn [s] [(conversion-fn s) (measurements/all-measurements store s)])
+  (let [get-fn-and-measurements  (fn [s] [(conversion-fn s (:operation ds)) (measurements/all-measurements store s)])
         convert                  (fn [[f xs]] (map f xs))
         topic (get-in (:queue store) [:queue "measurements"])
         {:keys [operation device_id]} ds]
@@ -240,6 +233,8 @@
                     (map #(assoc % :device_id device_id)))]
       (q/put-on-queue topic m)
       (insert-measurement store m))))
+
+;;;;; Total kwh ;;;;;
 
 (defn- sum 
   "Adds all numeric values in a sequence of measurements. Some measurements might contain
@@ -301,8 +296,10 @@
           (q/put-on-queue topic m)
           (insert-measurement store m))))))
 
+;;;; kWh to co2
+
 (defmethod calculate-data-set :kwh2co2 [ds store]
-  (let [get-fn-and-measurements  (fn [s] [(conversion-fn s) (measurements/all-measurements store s)])
+  (let [get-fn-and-measurements  (fn [s] [(conversion-fn s (:operation ds)) (measurements/all-measurements store s)])
         convert                  (fn [[f xs]] (map f xs))
         topic (get-in (:queue store) [:queue "measurements"])
         {:keys [operation device_id]} ds]
