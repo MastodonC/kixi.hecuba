@@ -141,14 +141,7 @@
          :queue (new-queue (:queue cfg))
          :queue-worker (new-queue-worker)
          :cljs-builder (new-cljs-builder)
-         ;;:web-server (new-webserver (:web-server cfg))
-         ;;:bidi-ring-handler (new-bidi-ring-handler-provider)
-         ;;:main-routes (new-main-routes)
-         ;;:amon-api (new-amon-api "/4")
-         :web-app (new-web-app cfg)
-         ;; :user-api (new-user-api)
-         ;;:cljs-routes (new-cljs-routes (:cljs-builder cfg))
-         )
+         :web-app (new-web-app cfg))
         (mod/system-using
          {;; :main-routes [:store]
           ;; :amon-api [:store :queue]
