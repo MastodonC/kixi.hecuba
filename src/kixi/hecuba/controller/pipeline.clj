@@ -94,6 +94,7 @@
                 where     {:device_id device_id :type type}
                 range     (misc/start-end-dates :co2 s where)
                 new-item  (assoc item :sensor s :range range)]
+            ;; TODO should only convert oil, gas and electricity so all the rest needs to be filtered out (add regex)
             (when (and range
                        (= "KWH" (.toUpperCase unit))
                        (= "PULSE" period)

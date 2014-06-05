@@ -39,8 +39,8 @@
                             "oilConsumption" {"m^3" 10308.34
                                               "ft^3" (* 2.83 10308.34)}}
                   "kwh2co2" {"electricityConsumption" {"kWh" 0.517}
-                            "gasConsimption" {"kWh" 0.185}
-                            "oilConsumption" {"kWh" 0.246}}})
+                             "gasConsumption" {"kWh" 0.185}
+                             "oilConsumption" {"kWh" 0.246}}})
 
 (defn conversion-fn [{:keys [type unit]} operation]
   (let [factor (get-in conversions [operation type unit])]
