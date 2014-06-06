@@ -37,51 +37,52 @@
 
 (defn app-routes [store]
   (routes
-    ;; landing page
-    (GET "/" [] index-page)
-    ;; login/logout
-    (GET (compojure-route :login) [] login-form)
-    (friend/logout (ANY (compojure-route :logout) request (redirect "/")))
+   ;; landing page
+   (GET "/" [] index-page)
+   ;; login/logout
+   (GET (compojure-route :login) [] login-form)
+   (friend/logout (ANY (compojure-route :logout) request (redirect "/")))
+   
+   ;; main application
+   (GET (compojure-route :app) [] app-page)
+   
+   ;; clojurescript
+   (route/resources "/cljs" {:root "cljs/"})
+   
+   ;; js/css/etc
+   (route/resources "/" {:root "site/"})
 
-    ;; main application
-    (GET (compojure-route :app) [] app-page)
-
-    ;; clojurescript
-    (route/resources "/cljs" {:root "cljs/"})
-    
-    ;; js/css/etc
-    (route/resources "/" {:root "site/"})
-
-    ;; API
-    ;; Programmes
-    (routes
-     ;; Index
-     (ANY (amon-index-route :programmes-index) []
-          (programmes/index store))
-     ;; index redirect
-     (ANY (amon-resource-route :programmes-index) []
-          (redirect (amon-index-route :programmes-index)))
+   ;; API
+   ;; Programmes
+   (routes
+    ;; Index
+    (ANY (amon-index-route :programmes-index) []
+         (programmes/index store))
+    ;; index redirect
+    (ANY (amon-resource-route :programmes-index) []
+         (redirect (amon-index-route :programmes-index)))
      
-     ;; Resource
-     (ANY (amon-resource-route :programme-resource [:programme_id]) [programme_id]
-          (programmes/resource store)))
+    ;; Resource
+    (ANY (amon-resource-route :programme-resource [:programme_id]) [programme_id]
+         (programmes/resource store)))
 
-    ;; Programmes/Projects
-    (routes (ANY (amon-index-route :programme-projects-index [:programme_id]) [programme_id]
-                 (projects/index store))
-            ;; index redirect
-            (ANY (amon-resource-route :programme-projects-index [:programme_id]) [programme_id]
-                 (redirect (amon-index-route :programme-projects-index [programme_id]))))
+   ;; Programmes/Projects
+   (routes
+    (ANY (amon-index-route :programme-projects-index [:programme_id]) [programme_id]
+         (projects/index store))
+    ;; index redirect
+    (ANY (amon-resource-route :programme-projects-index [:programme_id]) [programme_id]
+         (redirect (amon-index-route :programme-projects-index [programme_id]))))
 
-    ;; Projects/Properties
-    (routes (ANY (amon-index-route :project-properties-index [:project_id]) [project_id]
-                 (properties/index store))
-            ;; index redirect
-            (ANY (amon-resource-route :project-properties-index [:project_id]) [project_id]
-                 (redirect (amon-index-route :project-properties-index [project_id]))))
+   ;; Projects/Properties
+   (routes (ANY (amon-index-route :project-properties-index [:project_id]) [project_id]
+                (properties/index store))
+           ;; index redirect
+           (ANY (amon-resource-route :project-properties-index [:project_id]) [project_id]
+                (redirect (amon-index-route :project-properties-index [project_id]))))
 
-    ;; 404
-    (route/not-found not-found-page)))
+   ;; 404
+   (route/not-found not-found-page)))
 
 (defrecord Routes [context]
   component/Lifecycle
