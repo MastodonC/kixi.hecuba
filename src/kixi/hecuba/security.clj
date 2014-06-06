@@ -45,18 +45,3 @@
 
 (defn session-username [session]
   (-> session :cemerick.friend/identity :current))
-
-(comment
-  {:username "alice@example.com"
-   :password "$2a$10$J9CJ8xfy1SrJxj0XwT5Eq.cKCKXAqR.4Cb81ikr6ilvNpszdWEVee"
-   :roles #{::super-admin}
-   :programmes #{}
-   :projects #{}
-   }
-  (defn add-user [user store]
-  (db/with-session [session (:hecuba-session store)]
-    (hayt/insert :users
-                 (hayt/values {:username (:username user)
-                               :id (:username user)
-                               :password (creds/hash-bcrypt (:password user))
-                               :data (prn (dissoc user :username :password))})))))

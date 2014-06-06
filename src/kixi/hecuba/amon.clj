@@ -25,9 +25,9 @@
 
 ;; TODO - this is a hack - malcolm to advise.
 (extend-protocol bidi/Matched
-    nil
-    (resolve-handler [this m] nil)
-    (unresolve-handler [this m] nil))
+  nil
+  (resolve-handler [this m] nil)
+  (unresolve-handler [this m] nil))
 
 (defn make-handlers [store queue]
   (let [p (promise)]
@@ -126,7 +126,7 @@
 
   modular.bidi/BidiRoutesContributor
   (routes [this] (:routes this))
- (context [this] context))
+  (context [this] context))
 
 (defn new-amon-api [context]
   (->AmonApi context))
