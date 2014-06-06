@@ -88,20 +88,22 @@
 
     (defnconsumer convert-to-co2-q [item]
       (log/info "Starting conversion from kWh to co2.")
-      (let [sensors (misc/all-sensors store)]
+      (let [sensors              (misc/all-sensors store)
+            substring?           (fn [sub st] (not= (.indexOf st sub) -1))
+            regex-seq            ["oil" "gas" "electricity" "kwh" "total_kwh"]
+            should-convert-type? (fn [type] (some #(substring? % type) regex-seq))]
         (doseq [s sensors]
           (let [{:keys [device_id type unit period]} s
                 where     {:device_id device_id :type type}
                 range     (misc/start-end-dates :co2 s where)
                 new-item  (assoc item :sensor s :range range)]
-            ;; TODO should only convert oil, gas and electricity so all the rest needs to be filtered out (add regex)
             (when (and range
                        (= "KWH" (.toUpperCase unit))
                        (= "PULSE" period)
-                       (not (re-matches #"(\w+)_converted_co2" type)))
+                       (should-convert-type? type))
               (calculate/convert-to-co2 store new-item)
               (misc/reset-date-range store s :co2 (:start-date range) (:end-date range))))))
-      (log/info "Finished conversion from kWh to co2.."))
+      (log/info "Finished conversion from kWh to co2."))
 
     (defnconsumer rollups-q [item]
       (log/info "Starting rollups.")

@@ -413,6 +413,7 @@
                               (hayt/values {:device_id device_id_1
                                             :period "PULSE"
                                             :unit "m^3"
+                                            :resolution "60"
                                             :type "gasConsumption"})))
      (db/execute session
                  (hayt/insert :sensors
@@ -424,8 +425,10 @@
                  (hayt/insert :sensors
                               (hayt/values {:device_id device_id_2
                                             :period "PULSE"
+                                            :resolution "60"
                                             :unit "co2"
-                                            :type "electricityConsumption_converted_co2"})))
+                                            :synthetic true
+                                            :type "electricityConsumption_co2"})))
      (db/execute session
                  (hayt/insert :sensor_metadata
                               (hayt/values {:device_id device_id_1
@@ -443,7 +446,7 @@
      (db/execute session
                  (hayt/insert :sensor_metadata
                               (hayt/values {:device_id device_id_2
-                                            :type "electricityConsumption_converted_co2"})))
+                                            :type "electricityConsumption_co2"})))
      
      (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
        (doseq [m (map #(zipmap [:device_id :type :month :timestamp :error :metadata :value] %) (rest (csv/read-csv in-file )))]
@@ -458,6 +461,7 @@
      (let [url "http://127.0.0.1:8000/4/entities/34653464/devices/fe5ab5bf19a7265276ffe90e4c0050037de923e2/measurements/"
            measurements (generators/measurements  {:type "electricityConsumption"
                                                    :unit "kWh"
+                                                   :resolution 60
                                                    :period "PULSE"
                                                    :events 0
                                                    :errors 0})

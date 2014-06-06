@@ -43,7 +43,8 @@
                              "oilConsumption" {"kWh" 0.246}}})
 
 (defn conversion-fn [{:keys [type unit]} operation]
-  (let [factor (get-in conversions [operation type unit])]
+  (let [typ   (first (str/split type #"_"))
+        factor (get-in conversions [operation typ unit])]
     (fn [m]
       (cond-> m (m/metadata-is-number? m)
               (assoc :value (str (* factor (read-string (:value m))))
@@ -294,20 +295,21 @@
   (let [topic      (get-in (:queue store) [:queue "measurements"])
         sensors    (sensors-for-dataset ds store)
         {:keys [resolution period unit]} (first sensors)
-        {:keys [device_id]} ds]
+        {:keys [device_id operation]} ds]
     (when (every? #(and (= period (:period %))
                         (= unit (:unit %))
                         (= resolution (:resolution %))) sensors)
-      (let [measurements        (into [] (map #(m/parse-measurements (take 25 (measurements/all-measurements store %))) sensors))
+      (let [measurements        (into [] (map #(m/parse-measurements (measurements/all-measurements store %)) sensors))
+            _ (prn (map #(count %) measurements))
             [start end]         (range-for-padding measurements)
-            resolution (if resolution (read-string resolution) (find-resolution (take 100 (first measurements))))
+            resolution (if resolution (read-string resolution) 60)
             expected-timestamps (all-timestamps-for-range start end resolution)
             padded       (even-all-collections measurements expected-timestamps resolution)]
         (doseq [m (apply map (fn [& args] (hash-map :value (str (sum args))
                                                     :device_id device_id
                                                     :timestamp (:timestamp (first args))
                                                     :month (:month (first args))
-                                                    :type "total_kWh")) padded)]
+                                                    :type (m/output-type-for nil operation))) padded)]
           (q/put-on-queue topic m)
           (insert-measurement store m))))))
 

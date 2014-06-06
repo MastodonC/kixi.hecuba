@@ -43,17 +43,22 @@
       (update-in [:type] #(str % "_" type-ext))
       (assoc :period "PULSE")))
 
+(defmulti default-sensor (fn [sensor] (:period sensor)))
+
+(defmethod default-sensor "CUMULATIVE" [sensor]
+  (ext-type sensor "differenceSeries"))
+
+(defmethod default-sensor "PULSE" [sensor]
+  (case (.toUpperCase (:unit sensor))
+    "KWH" (-> sensor
+              (assoc :unit "co2")
+              (update-in [:type] #(m/output-type-for % "KWH2CO2")))))
+
 (defn create-default-sensors
   "Creates default sensors Whenever new device is added: *_differenceSeries for CUMULATIVE,
    *_converted for kwh PULSE, etc."
   [body]
   (let [sensors        (:readings body) 
-        default-sensor (fn [s] (cond
-                                (= (:period s) "CUMULATIVE") (ext-type s "differenceSeries")
-                                (and (= (:period s) "PULSE")
-                                     (= (.toUpperCase (:unit s)) "KWH")) (-> s
-                                                                             (assoc :unit "co2")
-                                                                             (update-in [:type] #(m/output-type-for % "KWH2CO2")))))
         new-sensors    (map default-sensor sensors)]
     (update-in body [:readings] (fn [readings] (into [] (remove nil? (concat readings new-sensors)))))))
 
