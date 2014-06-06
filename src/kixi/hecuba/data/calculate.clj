@@ -123,12 +123,24 @@
             filled-measurements (map #(merge template-reading (get grouped-readings (:timestamp %) %)) expected-timestamps)]
         (diff-and-insert store filled-measurements)))))
 
-
-;;;; Convert kWh to co2
-
-(defn convert-to-co2 [store {:keys [sensor range]}]
+(defn convert-to-co2 
+  "Converts measurements from kWh to co2."
+  [store {:keys [sensor range]}]
   (let [get-fn-and-measurements (fn [s] [(conversion-fn s "kwh2co2") (measurements-for-range store s range (t/hours 1))])
         convert                 (fn [[f xs]] (map f xs))
+        topic (get-in (:queue store) [:queue "measurements"])
+        {:keys [device_id]} sensor]
+    (doseq [m  (->> sensor
+                    get-fn-and-measurements
+                    convert)]
+      (q/put-on-queue topic m)
+      (insert-measurement store m))))
+
+(defn convert-to-kwh 
+  "Converts measurements from m^3 and ft^3 to kWh."
+  [store {:keys [sensor range]}]
+  (let [get-fn-and-measurements  (fn [s] [(conversion-fn s "vol2kwh") (measurements-for-range store s range (t/hours 1))])
+        convert                  (fn [[f xs]] (map f xs))
         topic (get-in (:queue store) [:queue "measurements"])
         {:keys [device_id]} sensor]
     (doseq [m  (->> sensor
@@ -237,18 +249,6 @@
 ;;;;;; Calculated datasets ;;;;;;;;;;;
 
 (defmulti calculate-data-set (comp keyword :operation))
-
-(defmethod calculate-data-set :vol2kwh [ds store]
-  (let [get-fn-and-measurements  (fn [s] [(conversion-fn s (:operation ds)) (measurements/all-measurements store s)])
-        convert                  (fn [[f xs]] (map f xs))
-        topic (get-in (:queue store) [:queue "measurements"])
-        {:keys [operation device_id]} ds]
-    (doseq [m  (->> (sensors-for-dataset ds store)
-                    (map get-fn-and-measurements)
-                    (mapcat convert)
-                    (map #(assoc % :device_id device_id)))]
-      (q/put-on-queue topic m)
-      (insert-measurement store m))))
 
 ;;;;; Total kwh ;;;;;
 

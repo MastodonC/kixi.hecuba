@@ -43,6 +43,7 @@
       (update-in [:type] #(str % "_" type-ext))
       (assoc :period "PULSE")))
 
+;; TODO Decide what are default sensors to create for each period and unit.
 (defmulti default-sensor (fn [sensor] (:period sensor)))
 
 (defmethod default-sensor "CUMULATIVE" [sensor]
@@ -52,7 +53,13 @@
   (case (.toUpperCase (:unit sensor))
     "KWH" (-> sensor
               (assoc :unit "co2")
-              (update-in [:type] #(m/output-type-for % "KWH2CO2")))))
+              (update-in [:type] #(m/output-type-for % "KWH2CO2")))
+    "M^3" (-> sensor
+              (assoc :unit "kWh")
+              (update-in [:type] #(m/output-type-for % "VOL2KWH")))
+    "FT^3" (-> sensor
+               (assoc :unit "kWh")
+               (update-in [:type] #(m/output-type-for % "VOL2KWH")))))
 
 (defn create-default-sensors
   "Creates default sensors Whenever new device is added: *_differenceSeries for CUMULATIVE,

@@ -21,4 +21,5 @@
 (defreplmethods synthetic-readings-> :dest :calculated-datasets :type :synthetic-readings)
 (defreplmethods resolution-> :dest :data-quality :type :resolution)
 (defreplmethods convert-to-co2-> :dest :calculated-datasets :type :convert-to-co2)
+(defreplmethods convert-to-kwh-> :dest :calculated-datasets :type :convert-to-kwh)
 

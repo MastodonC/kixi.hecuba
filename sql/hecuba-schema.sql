@@ -284,6 +284,8 @@ CREATE TABLE sensor_metadata (
   mislabelled_sensors_check map<text, timestamp>,
   rollups map<text, timestamp>,
   spike_check map<text, timestamp>,
+  co2 map<text, timestamp>,
+  kwh map<text, timestamp>,
   lower_ts timestamp,
   upper_ts timestamp,
   PRIMARY KEY (device_id, type)

@@ -19,7 +19,7 @@
         resolution-q          (new-queue {:name "resolution-q" :queue-size 50})
         difference-series-q   (new-queue {:name "difference-series-q" :queue-size 50})
         convert-to-co2-q      (new-queue {:name "convert-to-co2-q" :queue-size 50})
-        ]
+        convert-to-kwh-q      (new-queue {:name "convert-to-kwh-q" :queue-size 50})]
 
     (defnconsumer fanout-q [{:keys [dest type] :as item}]
       (let [item (dissoc item :dest)]
@@ -34,6 +34,7 @@
                                  :synthetic-readings (produce-item item synthetic-readings-q)
                                  :difference-series  (produce-item item difference-series-q)
                                  :convert-to-co2     (produce-item item convert-to-co2-q)
+                                 :convert-to-kwh     (produce-item item convert-to-kwh-q)
                                  ))))
 
     (defnconsumer median-calculation-q [item]
@@ -101,11 +102,25 @@
                        (= "KWH" (.toUpperCase unit))
                        (= "PULSE" period)
                        (should-convert-type? type))
-              (prn "converting:  s" s)
               (calculate/convert-to-co2 store new-item)
               (misc/reset-date-range store s :co2 (:start-date range) (:end-date range))))))
       (log/info "Finished conversion from kWh to co2."))
 
+    (defnconsumer convert-to-kwh-q [item]
+      (log/info "Starting conversion from vol to kwh.")
+      (let [sensors (misc/all-sensors store)]
+        (doseq [s sensors]
+          (let [{:keys [device_id type unit period]} s
+                where     {:device_id device_id :type type}
+                range     (misc/start-end-dates :kwh s where)
+                new-item  (assoc item :sensor s :range range)]
+            (when (and range
+                       (some #(= (.toUpperCase unit) (.toUpperCase %)) ["m^3" "ft^3"]))
+              (log/info  "Converting to kWh: " device_id type)
+              (calculate/convert-to-kwh store new-item)
+              (misc/reset-date-range store s :kwh (:start-date range) (:end-date range))))))
+      (log/info "Finished conversion from vol to kwh."))
+    
     (defnconsumer rollups-q [item]
       (log/info "Starting rollups.")
       (let [sensors (misc/all-sensors store)]
@@ -154,10 +169,10 @@
       (log/info "Finished resolution check."))
 
     (producer-of fanout-q median-calculation-q mislabelled-sensors-q spike-check-q rollups-q synthetic-readings-q
-                 resolution-q difference-series-q convert-to-co2-q)
+                 resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q)
 
     (list fanout-q #{median-calculation-q mislabelled-sensors-q spike-check-q rollups-q synthetic-readings-q
-                     resolution-q difference-series-q convert-to-co2-q})))
+                     resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q})))
 
 (defrecord Pipeline []
   component/Lifecycle

@@ -155,7 +155,8 @@
                                                           :difference_series [+ (update-date-range t metadata :difference_series)]
                                                           :median_calc_check [+ (update-date-range t metadata :median_calc_check)]
                                                           :spike_check [+ (update-date-range t metadata :spike_check)]
-                                                          :co2 [+ (update-date-range t metadata :co2)]}
+                                                          :co2 [+ (update-date-range t metadata :co2)]
+                                                          :kwh [+ (update-date-range t metadata :kwh)]}
                                                          (when-let [lower (:lower_ts new-bounds)] {:lower_ts lower})
                                                          (when-let [upper (:upper_ts new-bounds)] {:upper_ts upper})))
                                (hayt/where where))))))
