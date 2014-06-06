@@ -58,24 +58,11 @@
   (db/with-session [session (:hecuba-session store)]
     (let [type      (misc/output-type-for nil operation)
           synthetic (synthetic-sensor type device_id (misc/output-unit-for operation))
-          default   (d/default-sensor synthetic)]
+          default   (d/calculated-sensor synthetic)]
       (db/execute session (hayt/insert :sensors (hayt/values synthetic)))
       (db/execute session (hayt/insert :sensors (hayt/values default)))
       (db/execute session (hayt/insert :sensor_metadata (hayt/values (synthetic-sensor-metadata type device_id))))
       (db/execute session (hayt/insert :sensor_metadata (hayt/values (synthetic-sensor-metadata (:type default) device_id)))))))
-
-(defmethod create-output-sensors :vol2kwh [store device_id unit members operation]
-  (db/with-session [session (:hecuba-session store)]
-    (let [parse-sensor (comp next (partial re-matches #"(\w+)-(\w+)"))]
-      (doseq [m members]
-        (let [[type _ ]      (parse-sensor m)
-              converted-type (misc/output-type-for type operation)
-              synthetic      (synthetic-sensor converted-type device_id unit)
-              default        (d/default-sensor synthetic)]
-          (db/execute session (hayt/insert :sensors (hayt/values synthetic)))
-          (db/execute session (hayt/insert :sensors (hayt/values default)))
-          (db/execute session (hayt/insert :sensor_metadata (hayt/values (synthetic-sensor-metadata converted-type device_id))))
-          (db/execute session (hayt/insert :sensor_metadata (hayt/values (synthetic-sensor-metadata (:type default) device_id)))))))))
 
 (defn index-post! [store ctx]
    (db/with-session [session (:hecuba-session store)]

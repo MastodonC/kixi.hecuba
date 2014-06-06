@@ -43,31 +43,36 @@
       (update-in [:type] #(str % "_" type-ext))
       (assoc :period "PULSE")))
 
-;; TODO Decide what are default sensors to create for each period and unit.
-(defmulti default-sensor (fn [sensor] (:period sensor)))
+;; TODO Decide what are default sensors to create for each period and unit and improve the below (this is also used in datasets.clj)
+(defmulti calculated-sensor (fn [sensor] (.toUpperCase (:unit sensor))))
 
-(defmethod default-sensor "CUMULATIVE" [sensor]
-  (ext-type sensor "differenceSeries"))
+(defmethod calculated-sensor "KWH" [sensor]
+  (-> sensor
+      (assoc :unit "co2" :synthetic true)
+      (update-in [:type] #(m/output-type-for % "KWH2CO2"))))
 
-(defmethod default-sensor "PULSE" [sensor]
-  (case (.toUpperCase (:unit sensor))
-    "KWH" (-> sensor
-              (assoc :unit "co2")
-              (update-in [:type] #(m/output-type-for % "KWH2CO2")))
-    "M^3" (-> sensor
-              (assoc :unit "kWh")
-              (update-in [:type] #(m/output-type-for % "VOL2KWH")))
-    "FT^3" (-> sensor
-               (assoc :unit "kWh")
-               (update-in [:type] #(m/output-type-for % "VOL2KWH")))))
+(defmethod calculated-sensor "M^3" [sensor]
+  (let [kwh-sensor (-> sensor
+                       (assoc :unit "kWh" :synthetic true)
+                       (update-in [:type] #(m/output-type-for % "VOL2KWH")))]
+    [kwh-sensor (calculated-sensor kwh-sensor)]))
+
+(defmethod calculated-sensor "FT^3" [sensor]
+  (let [kwh-sensor (-> sensor
+                       (assoc :unit "kWh" :synthetic true)
+                       (update-in [:type] #(m/output-type-for % "VOL2KWH")))]
+    [kwh-sensor (calculated-sensor kwh-sensor)]))
 
 (defn create-default-sensors
-  "Creates default sensors Whenever new device is added: *_differenceSeries for CUMULATIVE,
-   *_converted for kwh PULSE, etc."
+  "Creates default sensors whenever new device is added: *_differenceSeries for CUMULATIVE,
+   and *_co2 for kwh PULSE, etc."
   [body]
   (let [sensors        (:readings body) 
-        new-sensors    (map default-sensor sensors)]
-    (update-in body [:readings] (fn [readings] (into [] (remove nil? (concat readings new-sensors)))))))
+        new-sensors    (map #(case (:period %)
+                               "CUMULATIVE" (ext-type % "differenceSeries")
+                               "PULSE"      (calculated-sensor %)
+                               "INSTANT"    nil) sensors)]
+    (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten (concat readings new-sensors))))))))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -91,7 +96,7 @@
 
           (doseq [reading (:readings new-body)]
             (let [sensor (-> reading
-                             stringify-values
+                             (merge (stringify-values (dissoc reading :synthetic))) ;; synthetic is a boolean so we don't stringify
                              (assoc :device_id device_id)
                              (assoc :errors 0)
                              (assoc :events 0))]
