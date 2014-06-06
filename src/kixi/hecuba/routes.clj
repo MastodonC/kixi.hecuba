@@ -54,11 +54,17 @@
 
     ;; API
     ;; Programmes
-    (routes (ANY (amon-index-route :programmes-index) []
-                 (programmes/index store))
-            ;; index redirect
-            (ANY (amon-resource-route :programmes-index) []
-                 (redirect (amon-index-route :programmes-index))))
+    (routes
+     ;; Index
+     (ANY (amon-index-route :programmes-index) []
+          (programmes/index store))
+     ;; index redirect
+     (ANY (amon-resource-route :programmes-index) []
+          (redirect (amon-index-route :programmes-index)))
+     
+     ;; Resource
+     (ANY (amon-resource-route :programme-resource [:programme_id]) [programme_id]
+          (programmes/resource store)))
 
     ;; Programmes/Projects
     (routes (ANY (amon-index-route :programme-projects-index [:programme_id]) [programme_id]
