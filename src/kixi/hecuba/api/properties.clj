@@ -9,7 +9,7 @@
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.web-paths :as p]))
 
-(def entity-resource (p/path-string :entity-resource))
+(def entity-resource (p/resource-path-string :entity-resource))
 
 (defn- project_id-from [ctx]
   (get-in ctx [:request :route-params :project_id]))

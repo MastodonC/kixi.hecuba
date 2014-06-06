@@ -49,12 +49,24 @@
   ([route]
      (compojure-route route [])))
 
-(defn amon-route
-  ([route keys]
-     (str "/4" (compojure-route route keys) "/"))
-  ([route]
-     (amon-route route [])))
+(def amon-api-version "4")
 
-(defn path-string
+(defn amon-index-route
+  ([route keys]
+     (str "/" amon-api-version (compojure-route route keys) "/"))
+  ([route]
+     (amon-index-route route [])))
+
+(defn amon-resource-route
+  ([route keys]
+     (str "/" amon-api-version (compojure-route route keys)))
+  ([route]
+     (amon-resource-route route [])))
+
+(defn index-path-string
   [route]
-  (str "/4/" (route paths)))
+  (str "/" amon-api-version "/" (route paths) "/"))
+
+(defn resource-path-string
+  [route]
+  (str "/" amon-api-version "/" (route paths)))
