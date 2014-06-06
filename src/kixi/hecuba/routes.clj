@@ -16,6 +16,7 @@
    
    [kixi.hecuba.api.programmes :as programmes]
    [kixi.hecuba.api.projects :as projects]
+   [kixi.hecuba.api.properties :as properties]
    ))
 
 (defn index-page [req]
@@ -54,6 +55,7 @@
     ;; API
     (ANY (amon-route :programmes-index) [] (programmes/index store))
     (ANY (amon-route :programme-projects-index [:programme_id]) [programme_id] (projects/index store))
+    (ANY (amon-route :project-properties-index [:project_id]) [project_id] (properties/index store))
 
     ;; 404
     (route/not-found not-found-page)))
