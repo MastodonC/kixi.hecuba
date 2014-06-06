@@ -90,7 +90,7 @@
       (log/info "Starting conversion from kWh to co2.")
       (let [sensors              (misc/all-sensors store)
             substring?           (fn [sub st] (not= (.indexOf st sub) -1))
-            regex-seq            ["oil" "gas" "electricity" "kwh" "total_kwh"]
+            regex-seq            ["oil" "gas" "electricity" "kwh"]
             should-convert-type? (fn [type] (some #(substring? % type) regex-seq))]
         (doseq [s sensors]
           (let [{:keys [device_id type unit period]} s
@@ -101,6 +101,7 @@
                        (= "KWH" (.toUpperCase unit))
                        (= "PULSE" period)
                        (should-convert-type? type))
+              (prn "converting:  s" s)
               (calculate/convert-to-co2 store new-item)
               (misc/reset-date-range store s :co2 (:start-date range) (:end-date range))))))
       (log/info "Finished conversion from kWh to co2."))

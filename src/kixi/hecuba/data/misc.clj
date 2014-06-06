@@ -121,4 +121,4 @@
   (case (.toUpperCase operation)
     "VOL2KWH" (str t "_kwh")
     "KWH2CO2" (str t "_co2")
-    "TOTAL-KWH" "total_kwh"))
+    "TOTAL-KWH" "electricityConsumption_total"))

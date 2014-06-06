@@ -300,13 +300,13 @@
                         (= unit (:unit %))
                         (= resolution (:resolution %))) sensors)
       (let [measurements        (into [] (map #(m/parse-measurements (measurements/all-measurements store %)) sensors))
-            _ (prn (map #(count %) measurements))
             [start end]         (range-for-padding measurements)
             resolution (if resolution (read-string resolution) 60)
             expected-timestamps (all-timestamps-for-range start end resolution)
             padded       (even-all-collections measurements expected-timestamps resolution)]
         (doseq [m (apply map (fn [& args] (hash-map :value (str (sum args))
                                                     :device_id device_id
+                                                    :metadata {"is-number" "true" "median-spike" "n-a"}
                                                     :timestamp (:timestamp (first args))
                                                     :month (:month (first args))
                                                     :type (m/output-type-for nil operation))) padded)]
