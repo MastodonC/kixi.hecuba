@@ -1,6 +1,5 @@
 (ns kixi.hecuba.api.devices
   (:require
-   [bidi.bidi :as bidi]
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :as sec]
@@ -11,7 +10,10 @@
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
    [kixi.hecuba.storage.db :as db]
-   [kixi.hecuba.storage.sha1 :as sha1]))
+   [kixi.hecuba.storage.sha1 :as sha1]
+   [kixi.hecuba.web-paths :as p]))
+
+(def device-resource (p/resource-path-string :entity-device-resource))
 
 (defn index-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -103,34 +105,30 @@
                              (assoc :events 0))]
               (db/execute session (hayt/insert :sensors (hayt/values sensor)))
               (db/execute session (hayt/insert :sensor_metadata (hayt/values {:device_id device_id :type (:type reading)})))))
-          {:device_id device_id})))))
+          {:device_id device_id
+           :entity_id entity_id})))))
 
 (defn index-handle-ok [ctx]
-  (let [{items ::items {mime :media-type} :representation {routes :modular.bidi/routes route-params :route-params} :request} ctx]
+  (let [items (::items ctx)]
     (util/render-items ctx (->> items
                                 (map #(dissoc % :user_id))
                                 (map #(update-in % [:location] json/decode))
                                 (map #(update-in % [:metadata] json/decode))))))
 
-(defn index-handle-created [handlers ctx]
-  (let [{{routes :modular.bidi/routes {entity_id :entity_id} :route-params} :request device_id :device_id} ctx]
-    (if-not (empty? device_id)
-      (let [location
-            (bidi/path-for routes (:device @handlers)
-                           :entity_id entity_id
-                           :device_id device_id)]
-        (when-not location (throw (ex-info "No path resolved for Location header"
-                                           {:entity_id entity_id
-                                            :device_id device_id})))
-        (ring-response {:headers {"Location" location}
-                        :body (json/encode {:location location
-                                            :status "OK"
-                                            :version "4"})}))
-      (ring-response {:status 422 :body "Provide valid entity_id."}))))
+(defn index-handle-created [ctx]
+  (let [entity_id (-> ctx :entity_id)
+        device_id (-> ctx :device_id)
+        location  (format device-resource entity_id device_id)]
+    (ring-response {:headers {"Location" location}
+                    :body (json/encode {:location location
+                                        :status "OK"
+                                        :version "4"})})))
 
 (defn resource-exists? [store ctx]
+  (log/infof "resource-exists? CTX: %s" ctx)
   (db/with-session [session (:hecuba-session store)]
-    (let [{{{:keys [entity_id device_id]} :route-params} :request} ctx
+    (let [entity_id (-> ctx :request :route-params :entity_id)
+          device_id (-> ctx :request :route-params :device_id)
           item (-> (db/execute session (hayt/select :devices (hayt/where [[= :id device_id]]))) first)]
       (if-not (empty? item)
         {::item (-> item
@@ -203,24 +201,24 @@
      (= method :delete) false
       :else true)))
 
-(defresource index [store handlers]
+(defresource index [store]
   :allowed-methods #{:get :post}
-  :available-media-types #{"text/html" "application/json"}
+  :available-media-types #{"application/json" "application/edn"}
   :known-content-type? #{"application/json"}
-  :authorized? (authorized? store :device)
+  :authorized? (authorized? store)
   :exists? (partial index-exists? store)
   :malformed? index-malformed?
   :post! (partial index-post! store)
-  :handle-ok (partial index-handle-ok)
-  :handle-created (partial index-handle-created handlers))
+  :handle-ok index-handle-ok
+  :handle-created index-handle-created)
 
-(defresource resource [store handlers]
+(defresource resource [store]
   :allowed-methods #{:get :delete :put}
-  :available-media-types #{"application/json"}
-  :authorized? (authorized? store :device)
+  :available-media-types #{"application/json" "application/edn"}
+  :authorized? (authorized? store)
   :exists? (partial resource-exists? store)
   :delete-enacted? (partial resource-delete-enacted? store)
-  :respond-with-entity? (partial resource-respond-with-entity)
+  :respond-with-entity? resource-respond-with-entity
   :new? (constantly false)
   :can-put-to-missing? (constantly false)
   :put! (partial resource-put! store)

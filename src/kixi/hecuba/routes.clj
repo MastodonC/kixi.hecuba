@@ -17,7 +17,11 @@
    [kixi.hecuba.api.programmes :as programmes]
    [kixi.hecuba.api.projects :as projects]
    [kixi.hecuba.api.properties :as properties]
-   ))
+   [kixi.hecuba.api.entities :as entities]
+   [kixi.hecuba.api.profiles :as profiles]
+   [kixi.hecuba.api.devices :as devices]
+   [kixi.hecuba.api.measurements :as measurements]
+   [kixi.hecuba.api.datasets :as datasets]))
 
 (defn index-page [req]
   (log/infof "Index Session: %s" (:session req))
@@ -35,14 +39,41 @@
   (log/infof "App Session: %s" (:session req))
   {:status 200 :body (slurp (io/resource "site/app.html"))})
 
-(defn app-routes [store]
+(defn index-routes
+  ([route handler]
+     (routes
+        (ANY (amon-index-route route)
+             []
+             handler)
+        ;; index redirect
+        (ANY (amon-resource-route route)
+             []
+             (redirect (amon-index-route route keys)))))
+  ([route keys handler]
+     (let [params (mapv #(symbol (name %)) keys)]
+       (routes
+        (ANY (amon-index-route route keys)
+             params
+             handler)
+        ;; index redirect
+        (ANY (amon-resource-route route keys)
+             params
+             (redirect (amon-index-route route keys)))))))
+
+(defn resource-route [route keys handler]
+  (let [params (mapv #(symbol (name %)) keys)]
+    (ANY (amon-resource-route route keys)
+         params
+         handler)))
+
+(defn app-routes [store measurements-queue]
   (routes
    ;; landing page
    (GET "/" [] index-page)
    ;; login/logout
    (GET (compojure-route :login) [] login-form)
    (friend/logout (ANY (compojure-route :logout) request (redirect "/")))
-   
+      
    ;; main application
    (GET (compojure-route :app) [] app-page)
    
@@ -54,41 +85,49 @@
 
    ;; API
    ;; Programmes
-   (routes
-    ;; Index
-    (ANY (amon-index-route :programmes-index) []
-         (programmes/index store))
-    ;; index redirect
-    (ANY (amon-resource-route :programmes-index) []
-         (redirect (amon-index-route :programmes-index)))
-     
-    ;; Resource
-    (ANY (amon-resource-route :programme-resource [:programme_id]) [programme_id]
-         (programmes/resource store)))
-
+   (index-routes :programmes-index (programmes/index store))
+   (resource-route :programme-resource [:programme_id] (programmes/resource store))
+   
    ;; Programmes/Projects
-   (routes
-    (ANY (amon-index-route :programme-projects-index [:programme_id]) [programme_id]
-         (projects/index store))
-    ;; index redirect
-    (ANY (amon-resource-route :programme-projects-index [:programme_id]) [programme_id]
-         (redirect (amon-index-route :programme-projects-index [programme_id]))))
+   (index-routes :programme-projects-index [:programme_id] (projects/index store))
+   (resource-route :programme-projects-resource [:programme_id :project_id] (projects/resource store))
 
    ;; Projects/Properties
-   (routes (ANY (amon-index-route :project-properties-index [:project_id]) [project_id]
-                (properties/index store))
-           ;; index redirect
-           (ANY (amon-resource-route :project-properties-index [:project_id]) [project_id]
-                (redirect (amon-index-route :project-properties-index [project_id]))))
+   (index-routes :project-properties-index [:project_id] (properties/index store))
+
+   ;; Entities
+   ;; (index-routes :entities-index (entities/index store))
+   ;; (resource-route :entity-resource [:entity_id] (entities/resource store))
+
+   ;; Profiles
+   ;; (index-routes :entity-profiles-index [:entity_id] (profiles/resource store))
+   ;; (resource-route :entity-profiles-resource [:entity_id :profile_id] (profiles/resource store))
+
+   ;; Entity/Devices
+   (index-routes :entity-devices-index [:entity_id] (devices/index store))
+   (resource-route :entity-device-resource [:entity_id :device_id] (devices/resource store))
+
+   ;; Measurements
+   ;; (index-routes :entity-device-measurement-index [:entity_id :device_id] (measurements/index store measurements-queue))
+
+   ;; Hourly Measurements
+
+   ;; Daily Measurements
+
+   ;; Readings
+   ;; (index-routes :entity-device-measurement-readingtype-index [:entity_id :device_id :reading_type] (measurements/measurements-by-reading store))
 
    ;; 404
-   (route/not-found not-found-page)))
+   (route/not-found not-found-page)
+
+   ))
 
 (defrecord Routes [context]
   component/Lifecycle
   (start [this]
     (let [store  (:store this)
-          app    (-> (app-routes store)
+          queue  (get-in this [:queue :queue])
+          app    (-> (app-routes store queue)
                      (sec/friend-middleware store)
                      (handler/site {:session {:store (cassandra-store store)}}))
           server (run-server app {:port 8010})]
