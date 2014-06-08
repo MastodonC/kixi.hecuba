@@ -97,8 +97,8 @@
    (index-routes :project-properties-index [:project_id] (properties/index store))
 
    ;; Entities
-   ;; (index-routes :entities-index (entities/index store))
-   ;; (resource-route :entity-resource [:entity_id] (entities/resource store))
+   (index-routes :entities-index (entities/index store))
+   (resource-route :entity-resource [:entity_id] (entities/resource store))
 
    ;; Profiles
    ;; (index-routes :entity-profiles-index [:entity_id] (profiles/resource store))
