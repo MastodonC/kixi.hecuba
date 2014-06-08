@@ -1,6 +1,5 @@
 (ns kixi.hecuba.api.measurements
   (:require
-   [bidi.bidi :as bidi]
    [clj-time.coerce :as tc]
    [clj-time.core :as t]
    [clojure.string :as string]
@@ -149,10 +148,10 @@
 
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request (:request ctx)
+    (let [request      (:request ctx)
           route-params (:route-params request)
-          device_id (:device_id route-params)
-          where [[= :device_id device_id]]
+          device_id    (:device_id route-params)
+          where        [[= :device_id device_id]]
           measurements (db/execute session
                                    (hayt/select :measurements
                                                 (hayt/where where)))]
@@ -178,24 +177,24 @@
     (util/render-item request measurement)))
 
 
-(defresource measurements-slice [store handlers]
+(defresource measurements-slice [store]
   :allowed-methods #{:get}
-  :available-media-types #{"application/json" "text/csv"}
-  :known-content-type? #{"application/json" "text/csv"}
-  :authorized? (authorized? store :measurement)
+  :available-media-types #{"application/json" "text/csv" "application/edn"}
+  :known-content-type? #{"application/json" "text/csv" "application/edn"}
+  :authorized? (authorized? store)
   :handle-ok (partial measurements-slice-handle-ok store))
 
-(defresource index [store queue handlers]
+(defresource index [store queue]
   :allowed-methods #{:post :get}
-  :available-media-types #{"application/json"}
-  :known-content-type? #{"application/json"}
-  :authorized? (authorized? store :measurement)
+  :available-media-types #{"application/json" "application/edn"}
+  :known-content-type? #{"application/json" "application/edn"}
+  :authorized? (authorized? store)
   :post! (partial index-post! store queue)
   :handle-ok (partial index-handle-ok store)
   :handle-created index-handle-created)
 
-(defresource measurements-by-reading [store handlers]
+(defresource measurements-by-reading [store]
   :allowed-methods #{:get}
-  :available-media-types #{"application/json"}
+  :available-media-types #{"application/json" "application/edn"}
   :authorized? (authorized? store :measurement)
   :handle-ok (partial measurements-by-reading-handle-ok store))

@@ -41,7 +41,17 @@
 
    ;; measurements
    :entity-device-measurement-index "enitites/%s/devices/%s/measurements"
-   :entity-device-measurement-readingtype-index "enitites/%s/devices/%s/measurements/%s"})
+   :entity-device-measurement-readingtype-index "enitites/%s/devices/%s/measurements/%s"
+   :entity-device-measurement-readingtype-resource "enitites/%s/devices/%s/measurements/%s/%s"
+
+   ;; hourly readings
+   ;; FIXME: This should be a query parameter and not a separate resource (or rather the raw should force not choosing the hourly/daily)
+   :entity-device-measurement-readingtype-hourly-rollups "entities/%s/devices/%s/hourly_rollups/%s"
+
+   ;; daily readings
+   ;; FIXME: This should be a query parameter and not a separate resource
+   :entity-device-measurement-readingtype-daily-rollups "entities/%s/devices/%s/daily_rollups/%s"
+   })
 
 (defn compojure-route
   ([route keys]

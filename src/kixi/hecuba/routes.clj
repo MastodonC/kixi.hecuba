@@ -21,6 +21,7 @@
    [kixi.hecuba.api.profiles :as profiles]
    [kixi.hecuba.api.devices :as devices]
    [kixi.hecuba.api.measurements :as measurements]
+   [kixi.hecuba.api.rollups :as rollups]
    [kixi.hecuba.api.datasets :as datasets]))
 
 (defn index-page [req]
@@ -108,19 +109,24 @@
    (resource-route :entity-device-resource [:entity_id :device_id] (devices/resource store))
 
    ;; Measurements
-   ;; (index-routes :entity-device-measurement-index [:entity_id :device_id] (measurements/index store measurements-queue))
-
-   ;; Hourly Measurements
-
-   ;; Daily Measurements
+   (index-routes :entity-device-measurement-index [:entity_id :device_id] (measurements/index store measurements-queue))
 
    ;; Readings
-   ;; (index-routes :entity-device-measurement-readingtype-index [:entity_id :device_id :reading_type] (measurements/measurements-by-reading store))
+   (index-routes :entity-device-measurement-readingtype-index [:entity_id :device_id :reading_type] (measurements/measurements-by-reading store))
 
-   ;; 404
-   (route/not-found not-found-page)
+   ;; Readings by Time Range
+   ;; FIXME - This should be an index route with the start/stop times
+   (resource-route :entity-device-measurement-readingtype-index [:entity_id :device_id :reading_type] (measurements/measurements-slice store))
+   (resource-route :entity-device-measurement-readingtype-resource [:entity_id :device_id :reading_type :timestamp] (measurements/measurements-by-reading store))
+   
+   ;; Hourly Measurements FIXME - should be a auto chosen with a type=raw for a force
+   (resource-route :entity-device-measurement-readingtype-hourly-rollups [:entity_id :device_id :reading_type] (rollups/hourly_rollups store))
 
-   ))
+   ;; Daily Measurements
+   (resource-route :entity-device-measurement-readingtype-daily-rollups [:entity_id :device_id :reading_type] (rollups/hourly_rollups store))
+
+   ;; 404 - if nothing else matches, then this is the end, my friend.
+   (route/not-found not-found-page)))
 
 (defrecord Routes [context]
   component/Lifecycle
