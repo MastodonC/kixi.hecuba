@@ -125,7 +125,6 @@
                                         :version "4"})})))
 
 (defn resource-exists? [store ctx]
-  (log/infof "resource-exists? CTX: %s" ctx)
   (db/with-session [session (:hecuba-session store)]
     (let [entity_id (-> ctx :request :route-params :entity_id)
           device_id (-> ctx :request :route-params :device_id)
