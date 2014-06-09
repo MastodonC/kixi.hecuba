@@ -160,9 +160,6 @@
   "Returns java.util.Date from String timestamp."
   [t] (.parse (java.text.SimpleDateFormat.  "yyyy-MM-dd'T'HH:mm:ss") t))
 
-(defn routes-from [ctx]
-  (get-in ctx [:request :modular.bidi/routes]))
-
 (def formatter (tf/formatter (t/default-time-zone) "yyyy-MM-dd'T'HH:mm:ssZ" "yyyy-MM-dd HH:mm:ss"))
 (defn to-db-format [date] (tf/parse formatter date))
 (defn db-to-iso [date] (tf/unparse formatter (tc/from-date date)))

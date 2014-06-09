@@ -16,7 +16,6 @@
                  [org.clojure/core.async "0.1.267.0-0d7780-alpha" :scope "provided"]
 
                  [compojure "1.1.8"]
-                 [kixi/bidi "1.10.3-p0-b569a50" :exclusions [org.clojure/core.match]]
 
                  ;; authn and authz
                  [com.cemerick/friend "0.2.1" :exclusions [commons-codec org.clojure/core.cache]]
@@ -24,7 +23,6 @@
                  ;; Modular
                  [juxt/modular "0.2.0"]
                  [juxt.modular/http-kit "0.2.0"]
-                 [juxt.modular/bidi "0.2.1"]
 
                  ;; EDN reader with location metadata - for configuration
                  [org.clojure/tools.reader "0.8.3"]
@@ -52,9 +50,7 @@
                  [cc.qbits/alia "2.0.0-rc1" :exclusions [com.google.guava/guava org.flatland/useful]]
                  [cc.qbits/hayt "2.0.0-beta4"]
 
-
                  [org.clojure/tools.macro "0.1.5"]
-
 
                  [reiddraper/simple-check "0.5.6"]
                  [roul "0.2.0"]
@@ -85,7 +81,6 @@
   :exclusions [[org.clojure/clojure]
                [org.clojure/clojurescript]
                [org.clojure/core.async]
-               [bidi]
                [org.clojure/tools.trace]]
 
   :cljsbuild {
