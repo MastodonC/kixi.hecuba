@@ -33,8 +33,7 @@
                 (or
                   (not= (:entity_id body) entity_id))
                 true                  ; it's malformed, game over
-                [false {:body body}]  ; it's not malformed, return the body now we've read it
-                ))
+                [false {:body body}]))  ; it's not malformed, return the body now we've read it
       false)))
 
 (defn index-post! [commander querier ctx]
@@ -43,8 +42,7 @@
         entity_id     (-> profile :entity_id)
         timestamp     (-> profile :timestamp)
         [username _]  (sec/get-username-password request querier)
-        user_id       (-> (hecuba/items querier :user [[= :username username]]) first :id)
-        ]
+        user_id       (-> (hecuba/items querier :user [[= :username username]]) first :id)]
     (when (and entity_id timestamp)
       (when-not (empty? (hecuba/item querier :entity entity_id))
         {:profile-id (hecuba/upsert!
@@ -61,8 +59,7 @@
                                         :solar_thermals :storeys :thermal_images
                                         :ventilation_systems :walls
                                         :wind_turbines :window_sets])
-                                     (update-in [:profile_data] json/encode)
-                                     ))}))))
+                                     (update-in [:profile_data] json/encode)))}))))
 
 (defn add-profile-keys [& pairs]
   (->> pairs
@@ -80,8 +77,7 @@
     (:type attr)))
 
 (def profile-data-schema
-  [
-    :id
+  [ :id
     :occupancy_under_18
     :onsite_days_new_build
     :flat_floor_heat_loss_type
@@ -200,8 +196,7 @@
     :co_heating_performed_on
     :profile_temperature_in_winter
     :air_tightness_rate
-    :footprint
-    ])
+    :footprint ])
 
 (def window-set-schema
   [ :window_type
@@ -212,25 +207,21 @@
     :location
     :uvalue
     :created_at
-    :updated_at
-   ])
+    :updated_at ])
 
 (def thermal-images-schema
   [])
 
 (def storey-schema
-  [
-   :storey_type
+  [:storey_type
    :storey
    :heat_loss_w_per_k
    :heat_requirement_kwth_per_year
    :created_at
-   :updated_at
-   ])
+   :updated_at ])
 
 (def wall-schema
-  [
-   :wall_type
+  [:wall_type
    :construction
    :construction_other
    :insulation
@@ -242,12 +233,10 @@
    :location
    :area
    :created_at
-   :updated_at
-   ])
+   :updated_at ])
 
 (def roof-schema
-  [
-   :roof_type
+  [:roof_type
    :construction
    :construction_other
    :insulation_location_one
@@ -267,8 +256,7 @@
    :updated_at])
 
 (def floor-schema
-  [
-   :floor_type
+  [:floor_type
    :construction
    :construction_other
    :insulation_thickness_one
@@ -404,8 +392,7 @@
    :est_annual_generation
    :est_percentage_requirement_met
    :created_at
-   :updated_at
-   ])
+   :updated_at])
 
 (def heat-pump-schema
   [:heat_pump_type
@@ -426,8 +413,7 @@
    :dhw
    :est_percentage_dhw_requirement_met
    :created_at
-   :updated_at
-   ])
+   :updated_at])
 
 (def biomass-schema
   [:biomass_type
@@ -441,8 +427,7 @@
    :est_annual_generation
    :est_percentage_requirement_met
    :created_at
-   :updated_at
-   ])
+   :updated_at])
 
 (def chp-schema
   [:chp_type
@@ -495,8 +480,7 @@
    :inspection_date
    :created_at
    :updated_at
-   :efficiency
-   ])
+   :efficiency])
 
 (def hot-water-system-schema
   [:dhw_type
@@ -520,7 +504,7 @@
    :bed_index
    :created_at
    :updated_at
-   :proportion ])
+   :proportion])
 
 (def ventilation-system-schema
   [:approach
@@ -629,24 +613,20 @@
       :schema  ventilation-system-schema }
     { :name    :airflow_measurements
       :type    :associated-items
-      :schema  airflow-measurement-schema }
-   ])
+      :schema  airflow-measurement-schema }])
 
 (defn explode-nested-item [association item-string]
   (let [item (json/decode item-string)
         association-name   (:name   association)
-        association-schema (:schema association)
-        ]
+        association-schema (:schema association)]
     (->> association-schema
          (map
            (fn [attr]
-             [ (str (name association-name) "_" (name attr)) (item (name attr)) ]))
-         )))
+             [ (str (name association-name) "_" (name attr)) (item (name attr)) ])))))
 
 (defn explode-associated-items [association items]
   (let [association-name   (name (:name    association))
-        association-schema (:schema  association)
-        ]
+        association-schema (:schema  association)]
     (apply concat
     (map-indexed
       (fn [index item-string]
@@ -658,17 +638,18 @@
       items))))
 
 (defn explode-and-sort-by-schema [item schema]
-  (let [exploded-item (->> schema
-                           (mapcat
-                             (fn [attr]
-                               (let [t (attribute-type attr)]
-                                 (case t
-                                   :attribute          (do
-                                                          (list [(name attr) (item attr)]))
-                                   :nested-item        (do
-                                                          (explode-nested-item attr (item (:name attr))))
-                                   :associated-items   (do
-                                                          (explode-associated-items attr (item (:name attr)))))))))]
+  (let [exploded-item
+        (->> schema
+             (mapcat
+               (fn [attr]
+                 (let [t (attribute-type attr)]
+                   (case t
+                     :attribute          (do
+                                           (list [(name attr) (item attr)]))
+                     :nested-item        (do
+                                           (explode-nested-item attr (item (:name attr))))
+                     :associated-items   (do
+                                           (explode-associated-items attr (item (:name attr)))))))))]
     exploded-item))
 
 (defn index-handle-ok [ctx]
@@ -684,8 +665,7 @@
                           ; serving tall csv style profiles
                             (apply util/map-longest add-profile-keys ["" ""] exploded-items)
                           ; serving json profiles
-                          userless-items)
-        ]
+                          userless-items)]
         (util/render-items ctx formatted-items)))
 
 (defn index-handle-created [handlers ctx]
