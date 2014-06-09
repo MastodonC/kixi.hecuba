@@ -34,17 +34,17 @@
                 (hayt/insert :measurements
                              (hayt/values m)))))
 
-(def conversions {"vol2kwh" {"gasConsumption" {"m^3" 10.97222
-                                              "ft^3" (* 2.83 10.9722)}
-                            "oilConsumption" {"m^3" 10308.34
-                                              "ft^3" (* 2.83 10308.34)}}
-                  "kwh2co2" {"electricityConsumption" {"kWh" 0.517}
-                             "gasConsumption" {"kWh" 0.185}
-                             "oilConsumption" {"kWh" 0.246}}})
+(def conversion-factors {"vol2kwh" {"gasConsumption" {"m^3" 10.97222
+                                                      "ft^3" (* 2.83 10.9722)}
+                                    "oilConsumption" {"m^3" 10308.34
+                                                      "ft^3" (* 2.83 10308.34)}}
+                         "kwh2co2" {"electricityConsumption" {"kWh" 0.517}
+                                    "gasConsumption" {"kWh" 0.185}
+                                    "oilConsumption" {"kWh" 0.246}}})
 
 (defn conversion-fn [{:keys [type unit]} operation]
   (let [typ   (first (str/split type #"_"))
-        factor (get-in conversions [operation typ unit])]
+        factor (get-in conversion-factors [operation typ unit])]
     (fn [m]
       (cond-> m (m/metadata-is-number? m)
               (assoc :value (str (* factor (read-string (:value m))))
@@ -123,7 +123,7 @@
             filled-measurements (map #(merge template-reading (get grouped-readings (:timestamp %) %)) expected-timestamps)]
         (diff-and-insert store filled-measurements)))))
 
-(defn convert-to-co2 
+(defn kWh->co2 
   "Converts measurements from kWh to co2."
   [store {:keys [sensor range]}]
   (let [get-fn-and-measurements (fn [s] [(conversion-fn s "kwh2co2") (measurements-for-range store s range (t/hours 1))])
@@ -136,7 +136,7 @@
       (q/put-on-queue topic m)
       (insert-measurement store m))))
 
-(defn convert-to-kwh 
+(defn gas-volume->kWh 
   "Converts measurements from m^3 and ft^3 to kWh."
   [store {:keys [sensor range]}]
   (let [get-fn-and-measurements  (fn [s] [(conversion-fn s "vol2kwh") (measurements-for-range store s range (t/hours 1))])

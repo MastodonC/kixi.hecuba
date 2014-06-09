@@ -102,7 +102,7 @@
                        (= "KWH" (.toUpperCase unit))
                        (= "PULSE" period)
                        (should-convert-type? type))
-              (calculate/convert-to-co2 store new-item)
+              (calculate/kWh->co2 store new-item)
               (misc/reset-date-range store s :co2 (:start-date range) (:end-date range))))))
       (log/info "Finished conversion from kWh to co2."))
 
@@ -117,7 +117,7 @@
             (when (and range
                        (some #(= (.toUpperCase unit) (.toUpperCase %)) ["m^3" "ft^3"]))
               (log/info  "Converting to kWh: " device_id type)
-              (calculate/convert-to-kwh store new-item)
+              (calculate/gas-volume->kWh store new-item)
               (misc/reset-date-range store s :kwh (:start-date range) (:end-date range))))))
       (log/info "Finished conversion from vol to kwh."))
     

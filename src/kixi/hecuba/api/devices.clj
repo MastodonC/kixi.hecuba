@@ -43,7 +43,6 @@
       (update-in [:type] #(str % "_" type-ext))
       (assoc :period "PULSE")))
 
-;; TODO Decide what are default sensors to create for each period and unit and improve the below (this is also used in datasets.clj)
 (defmulti calculated-sensor (fn [sensor] (.toUpperCase (:unit sensor))))
 
 (defmethod calculated-sensor "KWH" [sensor]
