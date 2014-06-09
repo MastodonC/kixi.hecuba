@@ -3,7 +3,7 @@
    [cheshire.core :as json]
    [clojure.edn :as edn]
    [clojure.tools.logging :as log]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex routes-from ) :as util]
+   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex) :as util]
    [liberator.core :refer (defresource)]
    [qbits.hayt :as hayt]
    [kixi.hecuba.storage.db :as db]

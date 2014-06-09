@@ -8,7 +8,7 @@
    [cemerick.friend :as friend]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? allowed? uuid stringify-values sha1-regex routes-from)]
+   [kixi.hecuba.webutil :refer (decode-body authorized? allowed? uuid stringify-values sha1-regex)]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.web-paths :as p]))

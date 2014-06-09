@@ -18,7 +18,7 @@
    [kixi.hecuba.api.projects :as projects]
    [kixi.hecuba.api.properties :as properties]
    [kixi.hecuba.api.entities :as entities]
-   [kixi.hecuba.api.profiles :as profiles]
+   ;; [kixi.hecuba.api.profiles :as profiles]
    [kixi.hecuba.api.devices :as devices]
    [kixi.hecuba.api.measurements :as measurements]
    [kixi.hecuba.api.rollups :as rollups]

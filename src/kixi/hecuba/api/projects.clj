@@ -4,7 +4,7 @@
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex routes-from)]
+   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
