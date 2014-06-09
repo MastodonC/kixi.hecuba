@@ -40,9 +40,9 @@
    :entity-profiles-resource "entities/%s/profiles/%s"
 
    ;; measurements
-   :entity-device-measurement-index "enitites/%s/devices/%s/measurements"
-   :entity-device-measurement-readingtype-index "enitites/%s/devices/%s/measurements/%s"
-   :entity-device-measurement-readingtype-resource "enitites/%s/devices/%s/measurements/%s/%s"
+   :entity-device-measurement-index "entities/%s/devices/%s/measurements"
+   :entity-device-measurement-readingtype-index "entities/%s/devices/%s/measurements/%s"
+   :entity-device-measurement-readingtype-resource "entities/%s/devices/%s/measurements/%s/%s"
 
    ;; hourly readings
    ;; FIXME: This should be a query parameter and not a separate resource (or rather the raw should force not choosing the hourly/daily)
