@@ -465,12 +465,12 @@
                                             :type "gasConsumption_kwh"})))
      
      (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
-       (doseq [m (map #(zipmap [:device_id :type :month :timestamp :error :metadata :value] %) (rest (csv/read-csv in-file )))]
+       (doseq [m (map #(zipmap [:device_id :type :month :timestamp :error :reading_metadata :value] %) (rest (csv/read-csv in-file )))]
          (db/execute session
                      (hayt/insert :measurements
                                   (hayt/values
                                    (-> m
-                                       (update-in [:metadata] #(walk/stringify-keys (read-string %)))
+                                       (update-in [:reading_metadata] #(walk/stringify-keys (read-string %)))
                                        (update-in [:timestamp] db-timestamp)
                                        (update-in [:month] #(Integer/parseInt %))))))))
      

@@ -152,7 +152,8 @@ CREATE TABLE measurements (
   month int,
   "timestamp" timestamp,
   error text,
-  metadata map<text, text>,
+  metadata text,
+  reading_metadata map<text, text>,
   value text,
   PRIMARY KEY (device_id, type, month, "timestamp")
 ) WITH

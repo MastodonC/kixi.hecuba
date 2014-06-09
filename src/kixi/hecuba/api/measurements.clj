@@ -138,7 +138,7 @@
                     :value     (:value m)
                     :error     (:error m)
                     :month     (util/get-month-partition-key t)
-                    :metadata  {}}]
+                    :reading_metadata  {}}]
             (->> m2
                  (v/validate store)
                  (insert-measurement session))
@@ -159,7 +159,7 @@
                           (map #(-> %
                                     util/parse-value
                                     (update-in [:timestamp] util/db-to-iso)
-                                    (dissoc :metadata :device_id :month))))})))
+                                    (dissoc :reading_metadata :metadata :device_id :month))))})))
 
 (defn index-handle-created [ctx]
   (ring-response (:response ctx)))

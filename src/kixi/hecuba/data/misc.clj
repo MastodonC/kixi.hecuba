@@ -10,8 +10,8 @@
 
 (def truthy? #{"true"})
 
-(defn metadata-is-number? [{:keys [metadata] :as m}]
-  (truthy? (get metadata "is-number")))
+(defn metadata-is-number? [{:keys [reading-metadata] :as m}]
+  (truthy? (get reading-metadata "is-number")))
 
 ;;;;; Time conversion functions ;;;;;
 

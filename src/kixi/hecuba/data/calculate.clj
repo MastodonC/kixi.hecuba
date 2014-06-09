@@ -58,7 +58,7 @@
   (let [value (if (every? m/metadata-is-number? [m n]) (str (- (read-string (:value n)) (read-string (:value m)))) "N/A")]
     [[:timestamp (:timestamp m)]
      [:value value]
-     [:metadata {"is-number" (if (number? (read-string value)) "true" "false") "median-spike" "n-a"}]
+     [:reading_metadata {"is-number" (if (number? (read-string value)) "true" "false") "median-spike" "n-a"}]
      [:device_id (:device_id m)]
      [:type (ext-type (:type m))]
      [:month (:month m)]]))
@@ -116,7 +116,7 @@
         measurements                (measurements-for-range store sensor range (t/hours 1))
         template-reading            (-> (first measurements)
                                         (assoc :value "n/a")
-                                        (dissoc :timestamp :metadata))]
+                                        (dissoc :timestamp :reading_metadata))]
     (when-not (empty? measurements)
       (let [quantized           (map #(quantize-timestamp % resolution) measurements)
             grouped-readings    (into {} (map #(vector (:timestamp %) %) quantized))
@@ -306,7 +306,7 @@
             padded       (even-all-collections measurements expected-timestamps resolution)]
         (doseq [m (apply map (fn [& args] (hash-map :value (str (sum args))
                                                     :device_id device_id
-                                                    :metadata {"is-number" "true" "median-spike" "n-a"}
+                                                    :reading_metadata {"is-number" "true" "median-spike" "n-a"}
                                                     :timestamp (:timestamp (first args))
                                                     :month (:month (first args))
                                                     :type (m/output-type-for nil operation))) padded)]

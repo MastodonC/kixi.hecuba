@@ -63,6 +63,8 @@
                        (update-in [:type] #(m/output-type-for % "VOL2KWH")))]
     [kwh-sensor (calculated-sensor kwh-sensor)]))
 
+(defmethod calculated-sensor :default [sensor])
+
 (defn create-default-sensors
   "Creates default sensors whenever new device is added: *_differenceSeries for CUMULATIVE,
    and *_co2 for kwh PULSE, etc."
