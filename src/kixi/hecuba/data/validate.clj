@@ -65,7 +65,7 @@
   (db/with-session [session (:hecuba-session store)]
     (let [errors (get sensor :errors)]
       (update-sensor session sensor {:errors (if-not (nil? errors) (inc errors) 1)})
-      (assoc-in m [:metadata "median-spike"] "true"))))
+      (assoc-in m [:reading_metadata "median-spike"] "true"))))
 
 (defn larger-than-median
   "Find readings that are larger than median."
@@ -78,9 +78,9 @@
   [m session sensor]
   (let [median (-> sensor first :median)]
     (cond
-     (or (empty? median) (zero? median)) (assoc-in m [:metadata "median-spike"] "n/a")
+     (or (empty? median) (zero? median)) (assoc-in m [:reading_metadata "median-spike"] "n/a")
      (larger-than-median median m) (label-spike session sensor m)
-     :else (assoc-in m [:metadata "median-spike"] "false"))))
+     :else (assoc-in m [:reading_metadata "median-spike"] "false"))))
 
 (defn- label-invalid-value
   "Labels measurement as having invalid value.
@@ -88,7 +88,7 @@
   [session sensor where m]
   (let [errors (-> sensor first :errors)]
     (update-sensor session sensor {:errors (if-not (empty? errors) (inc errors) 1)})
-    (assoc-in m [:metadata "is-number"] "false")))
+    (assoc-in m [:reading_metadata "is-number"] "false")))
 
 (defn- number-check
   "Checks if value is a number. If not, increments error counter.
@@ -96,7 +96,7 @@
   [m session sensor]
   (let [value     (:value m)]
     (if (and (not (empty? value)) (m/numbers-as-strings? value))
-      (assoc-in m [:metadata "is-number"] "true")
+      (assoc-in m [:reading_metadata "is-number"] "true")
       (label-invalid-value session sensor (where-from m) m))))
 
 (defn- sensor-exists? [session m]
@@ -154,7 +154,9 @@
                                                           :mislabelled_sensors_check [+ (update-date-range t metadata :mislabelled_sensors_check)]
                                                           :difference_series [+ (update-date-range t metadata :difference_series)]
                                                           :median_calc_check [+ (update-date-range t metadata :median_calc_check)]
-                                                          :spike_check [+ (update-date-range t metadata :spike_check)]}
+                                                          :spike_check [+ (update-date-range t metadata :spike_check)]
+                                                          :co2 [+ (update-date-range t metadata :co2)]
+                                                          :kwh [+ (update-date-range t metadata :kwh)]}
                                                          (when-let [lower (:lower_ts new-bounds)] {:lower_ts lower})
                                                          (when-let [upper (:upper_ts new-bounds)] {:upper_ts upper})))
                                (hayt/where where))))))

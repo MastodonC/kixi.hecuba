@@ -152,7 +152,8 @@ CREATE TABLE measurements (
   month int,
   "timestamp" timestamp,
   error text,
-  metadata map<text, text>,
+  metadata text,
+  reading_metadata map<text, text>,
   value text,
   PRIMARY KEY (device_id, type, month, "timestamp")
 ) WITH
@@ -284,6 +285,8 @@ CREATE TABLE sensor_metadata (
   mislabelled_sensors_check map<text, timestamp>,
   rollups map<text, timestamp>,
   spike_check map<text, timestamp>,
+  co2 map<text, timestamp>,
+  kwh map<text, timestamp>,
   lower_ts timestamp,
   upper_ts timestamp,
   PRIMARY KEY (device_id, type)

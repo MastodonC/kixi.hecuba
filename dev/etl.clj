@@ -378,7 +378,9 @@
         project_id "32523453"
         property_id "34653464"
         device_id_1 "fe5ab5bf19a7265276ffe90e4c0050037de923e2"
-        device_id_2 "fe5ab5bf19a7265276ffe90e4c0050037de923e2"]
+        device_id_2 "fe5ab5bf19a7265276ffe90e4c0050037de923e2"
+        bounds {"start" (db-timestamp "2014-01-01 00:00:00+0000") 
+                "end" (db-timestamp "2014-02-01 00:00:00+0000")}]
    (db/with-session [session (:hecuba-session system)]
 
      (db/execute session
@@ -413,7 +415,15 @@
                               (hayt/values {:device_id device_id_1
                                             :period "PULSE"
                                             :unit "m^3"
+                                            :resolution "60"
                                             :type "gasConsumption"})))
+      (db/execute session
+                 (hayt/insert :sensors
+                              (hayt/values {:device_id device_id_1
+                                            :period "PULSE"
+                                            :unit "kWh"
+                                            :resolution "60"
+                                            :type "gasConsumption_kwh"})))
      (db/execute session
                  (hayt/insert :sensors
                               (hayt/values {:device_id device_id_2
@@ -421,12 +431,22 @@
                                             :unit "kWh"
                                             :type "electricityConsumption"})))
      (db/execute session
+                 (hayt/insert :sensors
+                              (hayt/values {:device_id device_id_2
+                                            :period "PULSE"
+                                            :resolution "60"
+                                            :unit "co2"
+                                            :synthetic true
+                                            :type "electricityConsumption_co2"})))
+     (db/execute session
                  (hayt/insert :sensor_metadata
                               (hayt/values {:device_id device_id_1
                                             :lower_ts (.getMillis (t/date-time 2014 1))
                                             :upper_ts (.getMillis (t/date-time 2014 2))
-                                            :rollups {"start" (db-timestamp "2014-01-01 00:00:00+0000") 
-                                                      "end" (db-timestamp "2014-02-01 00:00:00+0000")}
+                                            :rollups bounds
+                                            :co2 bounds
+                                            :kwh bounds
+                                            :median_calc_check bounds
                                             :type "gasConsumption"})))
 
      (db/execute session
@@ -434,19 +454,30 @@
                               (hayt/values {:device_id device_id_2
                                             :type "electricityConsumption"})))
      
-    (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
-       (doseq [m (map #(zipmap [:device_id :type :month :timestamp :error :metadata :value] %) (rest (csv/read-csv in-file )))]
+     (db/execute session
+                 (hayt/insert :sensor_metadata
+                              (hayt/values {:device_id device_id_2
+                                            :type "electricityConsumption_co2"})))
+
+     (db/execute session
+                 (hayt/insert :sensor_metadata
+                              (hayt/values {:device_id device_id_1
+                                            :type "gasConsumption_kwh"})))
+     
+     (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
+       (doseq [m (map #(zipmap [:device_id :type :month :timestamp :error :reading_metadata :value] %) (rest (csv/read-csv in-file )))]
          (db/execute session
                      (hayt/insert :measurements
                                   (hayt/values
                                    (-> m
-                                       (update-in [:metadata] #(walk/stringify-keys (read-string %)))
+                                       (update-in [:reading_metadata] #(walk/stringify-keys (read-string %)))
                                        (update-in [:timestamp] db-timestamp)
                                        (update-in [:month] #(Integer/parseInt %))))))))
-
+     
      (let [url "http://127.0.0.1:8000/4/entities/34653464/devices/fe5ab5bf19a7265276ffe90e4c0050037de923e2/measurements/"
            measurements (generators/measurements  {:type "electricityConsumption"
                                                    :unit "kWh"
+                                                   :resolution 60
                                                    :period "PULSE"
                                                    :events 0
                                                    :errors 0})
