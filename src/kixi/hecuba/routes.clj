@@ -101,8 +101,8 @@
    (resource-route :entity-resource [:entity_id] (entities/resource store))
 
    ;; Profiles
-   ;; (index-routes :entity-profiles-index [:entity_id] (profiles/resource store))
-   ;; (resource-route :entity-profiles-resource [:entity_id :profile_id] (profiles/resource store))
+   (index-routes :entity-profiles-index [:entity_id] (profiles/resource store))
+   (resource-route :entity-profiles-resource [:entity_id :profile_id] (profiles/resource store))
 
    ;; Entity/Devices
    (index-routes :entity-devices-index [:entity_id] (devices/index store))

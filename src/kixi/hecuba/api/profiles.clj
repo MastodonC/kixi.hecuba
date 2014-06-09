@@ -1,6 +1,5 @@
 (ns kixi.hecuba.api.profiles
   (:require
-   [bidi.bidi :as bidi]
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :as sec]
@@ -10,7 +9,10 @@
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
    [kixi.hecuba.storage.db :as db]
-   [kixi.hecuba.storage.sha1 :as sha1]))
+   [kixi.hecuba.storage.sha1 :as sha1]
+   [kixi.hecuba.web-paths :as p]))
+
+(def entity-profiles-resource (p/resource-path-string :entity-profiles-resource))
 
 (defn index-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -657,28 +659,23 @@
 
 (defn index-handle-ok [ctx]
   (let [{items ::items
-         {mime :media-type} :representation
-         {routes :modular.bidi/routes
-          route-params :route-params} :request} ctx
-        userless-items (->> items
-                            (map #(dissoc % :user_id)))
-        exploded-items (->> userless-items
-                            (map #(explode-and-sort-by-schema % profile-schema)))
-        formatted-items (if (= "text/csv" mime)
-                          ; serving tall csv style profiles
-                            (apply util/map-longest add-profile-keys ["" ""] exploded-items)
-                          ; serving json profiles
-                          userless-items)]
-        (util/render-items ctx formatted-items)))
+         {mime :media-type} :representation} ctx
+         userless-items (->> items
+                             (map #(dissoc % :user_id)))
+         exploded-items (->> userless-items
+                             (map #(explode-and-sort-by-schema % profile-schema)))
+         formatted-items (if (= "text/csv" mime)
+                                        ; serving tall csv style profiles
+                           (apply util/map-longest add-profile-keys ["" ""] exploded-items)
+                                        ; serving json profiles
+                           userless-items)]
+    (util/render-items ctx formatted-items)))
 
 (defn index-handle-created [handlers ctx]
-  (let [{{routes :modular.bidi/routes {entity_id :entity_id} :route-params} :request
-         profile_id :profile_id} ctx]
+  (let [entity_id  (-> ctx :request :route-params :entity_id)
+        profile_id (:profile_id ctx)]
     (if-not (empty? profile_id)
-      (let [location
-            (bidi/path-for routes (:profile @handlers)
-                           :entity_id entity_id
-                           :profile_id profile_id)]
+      (let [location (format entity-profiles-resource entity_id profile_id)]
         (when-not location
           (throw (ex-info "No path resolved for Location header"
                           {:entity_id entity_id
