@@ -2,7 +2,8 @@
   "Batch validation jobs scheduled using quartz scheduler."
   (:require [clj-time.core :as t]
             [com.stuartsierra.frequencies :as freq]
-            [kixi.hecuba.protocols :refer (upsert! update! delete! item items)]
+            [kixi.hecuba.storage.db :as db]
+            [qbits.hayt :as hayt]
             [kixi.hecuba.data.misc :as m]
             [kixi.hecuba.data.validate :as v]))
 
@@ -31,64 +32,71 @@
 (defn mislabelled-check
   "Takes an hour worth of measurements and checks if the sensor is labelled correctly according to
   rules in labelled-correctly?"
-  [commander querier {:keys [device_id type period] :as sensor} start-date]
-  (let [end-date     (m/add-hour start-date)
-        month        (m/get-month-partition-key start-date)
-        where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
-        measurements (filter #(number? (:value %)) (m/decassandraify-measurements (items querier :measurement where)))]
-    (when-not (empty? measurements)
-      (update! commander :sensor_metadata {:mislabelled
-                                           (if (labelled-correctly? sensor measurements)
-                                             "false"
-                                             "true")}
-               [[= :device_id device_id] [= :type type]]))
-    end-date))
+  [store {:keys [device_id type period] :as sensor} start-date]
+  (db/with-session [session (:hecuba-session store)]
+    (let [end-date     (t/plus start-date (t/hours 1))
+          month        (m/get-month-partition-key start-date)
+          where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
+          measurements (filter #(number? (:value %)) (m/parse-measurements (db/execute session
+                                                                                       (hayt/select :measurements
+                                                                                                    (hayt/where where)))))]
+      (when-not (empty? measurements)
+        (db/execute session
+                    (hayt/update :sensor_metadata
+                                 (hayt/set-columns {:mislabelled (if (labelled-correctly? sensor measurements)
+                                                                   "false"
+                                                                   "true")})
+                                 (hayt/where [[= :device_id device_id]
+                                              [= :type type]]))))
+      end-date)))
 
 (defn mislabelled-sensors
   "Checks for mislabelled sensors."
-  [commander querier {:keys [sensor range]}]
-  (let [start  (m/int-format-to-timestamp (:start-date range))
-        end    (m/int-format-to-timestamp (:end-date range))]
-    (loop [start-date start]
-      (when-not (.before end start-date)
-        (recur (mislabelled-check commander querier sensor start-date))))))
+  [store {:keys [sensor range]}]
+  (let [{:keys [start-date end-date]} range]
+    (loop [start start-date]
+      (when-not (t/before? end-date start)
+        (recur (mislabelled-check store sensor start))))))
 
 ;;;;;;;;;;;; Batch check for spiked measurements ;;;;;;;;;
 
 (defn label-spikes
   "Checks a sequence of measurement against the most recent recorded median. Overwrites the measurement with updated
   metadata."
-  [commander querier {:keys [device_id type median] :as sensor} start-date]
-  (let [end-date     (m/add-hour start-date)
-        month        (m/get-month-partition-key start-date)
-        where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
-        measurements (filter #(number? (:value %)) (items querier :measurement where))]
-    (doseq [m measurements]
-      (let [spike    (str (v/larger-than-median (read-string median) m))
-            metadata (-> m :metadata)]
-        (upsert! commander :measurement (m/cassandraify-measurement (assoc-in m [:metadata]
-                                                                              (m/update-metadata
-                                                                               (str metadata)
-                                                                               {:median-spike spike}))))))
-    end-date))
+  [store {:keys [device_id type median] :as sensor} start-date]
+  (when-not (nil? median)
+    (db/with-session [session (:hecuba-session store)]
+      (let [end-date     (t/plus start-date (t/hours 1))
+            month        (m/get-month-partition-key start-date)
+            where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
+            measurements (filter #(m/metadata-is-number? %) (db/execute session (hayt/select :measurements (hayt/where where))))]
+        (doseq [m measurements]
+          (let [spike    (str (v/larger-than-median median m))
+                where    [[= :device_id device_id]
+                          [= :type type]
+                          [= :month month]
+                          [= :timestamp (:timestamp m)]]]
+            (db/execute session
+                        (hayt/update :measurements (hayt/set-columns {:metadata [+ {"median-spike" spike}]})
+                                     (hayt/where where)))))
+        end-date))))
 
 (defn median-spike-check
   "Check of median spikes. It re-checks all measurements that have had median calculated."
-  [commander querier {:keys [sensor range]}]
-  (let [start  (m/int-format-to-timestamp (:start-date range))
-        end    (m/int-format-to-timestamp (:end-date range))]
-    (loop [start-date start]
-      (when-not (.before end start-date)
-        (recur (label-spikes commander querier sensor start-date))))))
+  [store {:keys [sensor range]}]
+  (let [{:keys [start-date end-date]} range]
+    (loop [start start-date]
+      (when-not (t/before? end-date start)
+        (recur (label-spikes store sensor start))))))
 
 ;;;;;;;;;;;;; Batch median calculation ;;;;;;;;;;;;;;;;;
 
 (defn remove-bad-readings
   "Filters out errored measurements."
   [m]
-  (and (= "true" (get-in m [:metadata :is-number]))
+  (and (= "true" (get-in m [:metadata "is-number"]))
        (not (zero? (get-in m [:value])))
-       (not= "true" (get-in m [:metadata :median-spike]))))
+       (not= "true" (get-in m [:metadata "median-spike"]))))
 
 (defn median
   "Find median of a lazy sequency of measurements.
@@ -99,26 +107,29 @@
 
 (defn update-median
   "Calculates and updates median for a given sensor."
-  [commander querier table {:keys [device_id type period]} start-date]
-  (let [end-date     (m/add-hour start-date)
-        month        (m/get-month-partition-key start-date)
-        where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
-        measurements (m/decassandraify-measurements (items querier table where))
-        median       (cond
-                      (= "CUMULATIVE" period) (median (filter #(number? (:value %)) measurements))
-                      (= "INSTANT" period) (median (filter #(remove-bad-readings %) measurements)))]
-    (when (number? median)
-      (update! commander :sensor {:median median} [[= :device_id device_id] [= :type type]]))
-    end-date))
+  [store table {:keys [device_id type period]} start-date]
+  (db/with-session [session (:hecuba-session store)]
+    (let [end-date     (t/plus start-date (t/hours 1))
+          month        (m/get-month-partition-key start-date)
+          where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
+          measurements (m/parse-measurements (db/execute session (hayt/select table (hayt/where where))))
+          median       (cond
+                        (= "CUMULATIVE" period) (median (filter #(number? (:value %)) measurements))
+                        (= "INSTANT" period) (median (filter #(remove-bad-readings %) measurements)))]
+      (when (number? median)
+        (db/execute session
+                    (hayt/update :sensors
+                                 (hayt/set-columns {:median median})
+                                 (hayt/where [[= :device_id device_id] [= :type type]]))))
+      end-date)))
 
 (defn median-calculation
   "Retrieves all sensors that either have not had median calculated or the calculation took place over a week ago.
   It iterates over the list of sensors, returns measurements for each and performs calculation.
   Measurements are retrieved in batches."
-  [commander querier table {:keys [sensor range]}]
-  (let [period  (-> sensor :period)
-        start   (m/int-format-to-timestamp (:start-date range))
-        end     (m/int-format-to-timestamp (:end-date range))]
-    (loop [start-date start]
-      (when-not (.before end start-date)
-        (recur (update-median commander querier table sensor start-date))))))
+  [store table {:keys [sensor range]}]
+  (let [period (-> sensor :period)
+        {:keys [start-date end-date]} range]
+    (loop [start start-date]
+      (when-not (t/before? end-date start)
+        (recur (update-median store table sensor start))))))

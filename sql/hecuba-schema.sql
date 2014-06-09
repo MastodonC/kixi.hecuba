@@ -86,29 +86,6 @@ CREATE INDEX devices_entity_id_idx_1 ON devices (entity_id);
 
 CREATE INDEX synthetic_devices_idx ON devices (synthetic);
 
-CREATE TABLE difference_series (
-  device_id text,
-  type text,
-  month int,
-  "timestamp" timestamp,
-  value text,
-  PRIMARY KEY (device_id, type, month, "timestamp")
-) WITH
-  bloom_filter_fp_chance=0.010000 AND
-  caching='KEYS_ONLY' AND
-  comment='' AND
-  dclocal_read_repair_chance=0.000000 AND
-  gc_grace_seconds=864000 AND
-  index_interval=128 AND
-  read_repair_chance=0.100000 AND
-  replicate_on_write='true' AND
-  populate_io_cache_on_flush='false' AND
-  default_time_to_live=0 AND
-  speculative_retry='99.0PERCENTILE' AND
-  memtable_flush_period_in_ms=0 AND
-  compaction={'class': 'SizeTieredCompactionStrategy'} AND
-  compression={'sstable_compression': 'SnappyCompressor'};
-
 CREATE TABLE entities (
   id text,
   address_country text,
@@ -176,6 +153,7 @@ CREATE TABLE measurements (
   "timestamp" timestamp,
   error text,
   metadata text,
+  reading_metadata map<text, text>,
   value text,
   PRIMARY KEY (device_id, type, month, "timestamp")
 ) WITH
@@ -301,12 +279,14 @@ CREATE INDEX projects_programme_id_idx_1 ON projects (programme_id);
 CREATE TABLE sensor_metadata (
   device_id text,
   type text,
-  difference_series text,
-  median_calc_check text,
+  difference_series map<text, timestamp>,
+  median_calc_check map<text, timestamp>,
   mislabelled text,
-  mislabelled_sensors_check text,
-  rollups text,
-  spike_check text,
+  mislabelled_sensors_check map<text, timestamp>,
+  rollups map<text, timestamp>,
+  spike_check map<text, timestamp>,
+  co2 map<text, timestamp>,
+  kwh map<text, timestamp>,
   lower_ts timestamp,
   upper_ts timestamp,
   PRIMARY KEY (device_id, type)

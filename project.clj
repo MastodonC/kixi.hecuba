@@ -15,13 +15,12 @@
                  [org.clojure/clojurescript "0.0-2202"]
                  [org.clojure/core.async "0.1.267.0-0d7780-alpha" :scope "provided"]
 
-                 [kixi/bidi "1.10.3-p0-b569a50"]
+                 [kixi/bidi "1.10.3-p0-b569a50" :exclusions [org.clojure/core.match]]
 
                  ;; Modular
                  [juxt/modular "0.2.0"]
                  [juxt.modular/http-kit "0.2.0"]
                  [juxt.modular/bidi "0.2.1"]
-                 [cylon "0.1.0" :exclusions [ring/ring-core]]
 
                  ;; EDN reader with location metadata - for configuration
                  [org.clojure/tools.reader "0.8.3"]
@@ -37,7 +36,7 @@
                  ;; ClojureScript dependencies
                  [prismatic/dommy "0.1.2"]
                  [cljs-ajax "0.2.3"]
-                 [om "0.6.1"]
+                 [om "0.6.4"]
                  [net.drib/mrhyde "0.5.3"]
                  [com.andrewmcveigh/cljs-time "0.1.3"]
                  [sablono "0.2.17"]

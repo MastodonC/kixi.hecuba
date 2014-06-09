@@ -42,7 +42,7 @@
                                   unit (unit-gen type)]
                               {:type type
                                :unit unit
-                               :resolution (str (rand-int 60))
+                               :resolution (str 60)
                                :accuracy (str (rand-int 100))
                                :period (first (gen/sample (gen/elements [period])))
                                :min "0"
@@ -83,7 +83,7 @@
 ;;;;;;;;;;;;;;;;; Generate measurements ;;;;;;;;;;;;;;;;
 
 (defn timestamps [frequency]
-  (into [] (take 500 (periodic/periodic-seq (t/date-time (t/year (t/now)) (t/month (t/now))) frequency))))
+  (into [] (take 500 (periodic/periodic-seq (t/date-time 2014 01 01) frequency))))
 
 (defn get-month [timestamp]
    (str (t/year timestamp) "-" (t/month timestamp)))
@@ -98,7 +98,7 @@
 
 (defmethod generate-measurements "INSTANT"
   [sensor]
-    (let [timestamps (timestamps (t/minutes 15))
+    (let [timestamps (timestamps (t/minutes 1))
           type       (:type sensor)]
     (map #(hash-map :type type
                     :timestamp (tc/to-date %)
@@ -107,7 +107,7 @@
 
 (defmethod generate-measurements "PULSE"
   [sensor]
-  (let [timestamps (timestamps (t/minutes 15))
+  (let [timestamps (timestamps (t/minutes 5))
         type       (:type sensor)]
     (map #(hash-map :type type
                     :timestamp (tc/to-date %)
@@ -116,7 +116,7 @@
 
 (defmethod generate-measurements "CUMULATIVE"
   [sensor]
-   (let [timestamps (timestamps (t/minutes 15))
+   (let [timestamps (timestamps (t/minutes 1))
          type       (:type sensor)]
      (map-indexed (fn [i t] (hash-map :type type
                                       :timestamp (tc/to-date t)

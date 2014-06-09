@@ -8,7 +8,7 @@
             [kixi.hecuba.data.calculate    :as calculate]
             [com.stuartsierra.component    :as component]))
 
-(defn build-pipeline [commander querier store]
+(defn build-pipeline [store]
   (let [fanout-q              (new-queue {:name "fanout-q" :queue-size 50})
         data-quality-q        (new-queue {:name "data-quality-q" :queue-size 50})
         median-calculation-q  (new-queue {:name "median-calculation-q" :queue-size 50})
@@ -17,8 +17,9 @@
         spike-check-q         (new-queue {:name "spike-check-q" :queue-size 50})
         synthetic-readings-q  (new-queue {:name "synthetic-readings-q" :queue-size 50})
         resolution-q          (new-queue {:name "resolution-q" :queue-size 50})
-        diff-series-res-q     (new-queue {:name "diff-series-res-q" :queue-size 50})
-        ]
+        difference-series-q   (new-queue {:name "difference-series-q" :queue-size 50})
+        convert-to-co2-q      (new-queue {:name "convert-to-co2-q" :queue-size 50})
+        convert-to-kwh-q      (new-queue {:name "convert-to-kwh-q" :queue-size 50})]
 
     (defnconsumer fanout-q [{:keys [dest type] :as item}]
       (let [item (dissoc item :dest)]
@@ -31,31 +32,34 @@
           :calculated-datasets (condp = type
                                  :rollups            (produce-item item rollups-q)
                                  :synthetic-readings (produce-item item synthetic-readings-q)
-                                 :diff-series-res    (produce-item item diff-series-res-q)
+                                 :difference-series  (produce-item item difference-series-q)
+                                 :convert-to-co2     (produce-item item convert-to-co2-q)
+                                 :convert-to-kwh     (produce-item item convert-to-kwh-q)
                                  ))))
 
     (defnconsumer median-calculation-q [item]
       (log/info "Starting median calculation.")
-      (let [sensors (misc/all-sensors querier)]
+      (let [sensors (misc/all-sensors store)]
         (doseq [s sensors]
           (let [device_id (:device_id s)
                 type      (:type s)
                 period    (:period s)
                 where     {:device_id device_id :type type}
-                table     (case period
-                            "CUMULATIVE" :difference_series
-                            "INSTANT"    :measurement
-                            "PULSE"      :measurement)
                 range     (misc/start-end-dates :median_calc_check s where)
                 new-item  (assoc item :sensor s :range range)]
-            (when (and range (not= period "PULSE"))
-              (checks/median-calculation commander querier table new-item)
-              (misc/reset-date-range querier commander s :median_calc_check (:start-date range) (:end-date range))))))
+            (when period
+              (let [table (case period
+                            "CUMULATIVE" :difference_series
+                            "INSTANT"    :measurements
+                            "PULSE"      :measurements)]
+                (when (and range (not= period "PULSE"))
+                  (checks/median-calculation store table new-item)
+                  (misc/reset-date-range store s :median_calc_check (:start-date range) (:end-date range))))))))
       (log/info "Finished median calculation."))
 
     (defnconsumer mislabelled-sensors-q [item]
       (log/info "Starting mislabelled sensors check.")
-      (let [sensors (misc/all-sensors querier)]
+      (let [sensors (misc/all-sensors store)]
         (doseq [s sensors]
           (let [device_id (:device_id s)
                 type      (:type s)
@@ -64,13 +68,13 @@
                 range     (misc/start-end-dates :mislabelled_sensors_check s where)
                 new-item  (assoc item :sensor s :range range)]
             (when range
-              (checks/mislabelled-sensors commander querier new-item)
-              (misc/reset-date-range querier commander s :mislabelled_sensors_check (:start-date range) (:end-date range))))))
+              (checks/mislabelled-sensors store new-item)
+              (misc/reset-date-range store s :mislabelled_sensors_check (:start-date range) (:end-date range))))))
       (log/info "Finished mislabelled sensors check."))
 
-    (defnconsumer diff-series-res-q [item]
-      (log/info "Starting calculation of difference series from resolution.")
-      (let [sensors (misc/all-sensors querier)]
+    (defnconsumer difference-series-q [item]
+      (log/info "Starting calculation of difference series.")
+      (let [sensors (misc/all-sensors store)]
         (doseq [s sensors]
           (let [device_id (:device_id s)
                 type      (:type s)
@@ -78,48 +82,86 @@
                 where     {:device_id device_id :type type}
                 range     (misc/start-end-dates :difference_series s where)
                 new-item  (assoc item :sensor s :range range)]
-            (when range
-              (calculate/difference-series-from-resolution store new-item)
-              (misc/reset-date-range querier commander s :difference_series (:start-date range) (:end-date range))))))
-      (log/info "Finished calculation of difference series from resolution."))
+            (when (and range (= "CUMULATIVE" period))
+              (calculate/difference-series store new-item)
+              (misc/reset-date-range store s :difference_series (:start-date range) (:end-date range))))))
+      (log/info "Finished calculation of difference series."))
 
+    (defnconsumer convert-to-co2-q [item]
+      (log/info "Starting conversion from kWh to co2.")
+      (let [sensors              (misc/all-sensors store)
+            substring?           (fn [sub st] (not= (.indexOf st sub) -1))
+            regex-seq            ["oil" "gas" "electricity" "kwh"]
+            should-convert-type? (fn [type] (some #(substring? % type) regex-seq))]
+        (doseq [s sensors]
+          (let [{:keys [device_id type unit period]} s
+                where     {:device_id device_id :type type}
+                range     (misc/start-end-dates :co2 s where)
+                new-item  (assoc item :sensor s :range range)]
+            (when (and range
+                       (= "KWH" (.toUpperCase unit))
+                       (= "PULSE" period)
+                       (should-convert-type? type))
+              (calculate/kWh->co2 store new-item)
+              (misc/reset-date-range store s :co2 (:start-date range) (:end-date range))))))
+      (log/info "Finished conversion from kWh to co2."))
+
+    (defnconsumer convert-to-kwh-q [item]
+      (log/info "Starting conversion from vol to kwh.")
+      (let [sensors (misc/all-sensors store)]
+        (doseq [s sensors]
+          (let [{:keys [device_id type unit period]} s
+                where     {:device_id device_id :type type}
+                range     (misc/start-end-dates :kwh s where)
+                new-item  (assoc item :sensor s :range range)]
+            (when (and range
+                       (some #(= (.toUpperCase unit) (.toUpperCase %)) ["m^3" "ft^3"]))
+              (log/info  "Converting to kWh: " device_id type)
+              (calculate/gas-volume->kWh store new-item)
+              (misc/reset-date-range store s :kwh (:start-date range) (:end-date range))))))
+      (log/info "Finished conversion from vol to kwh."))
+    
     (defnconsumer rollups-q [item]
       (log/info "Starting rollups.")
-      (let [sensors (misc/all-sensors querier)]
+      (let [sensors (misc/all-sensors store)]
         (doseq [s sensors]
           (let [device_id  (:device_id s)
                 type       (:type s)
-                period     (:period s)
-                table      (case period
-                             "CUMULATIVE" :difference_series
-                             "INSTANT"    :measurement
-                             "PULSE"      :measurement)
-                where      {:device_id device_id :type type}
-                range      (misc/start-end-dates :rollups s where)
-                new-item   (assoc item :sensor s :range range)]
-            (when range
-              (calculate/hourly-rollups commander querier new-item)
-              (calculate/daily-rollups commander querier new-item)
-              (misc/reset-date-range querier commander s :rollups (:start-date range) (:end-date range))))))
+                period     (:period s)]
+            (when period
+              (let [table (case period
+                            "CUMULATIVE" :difference_series
+                            "INSTANT"    :measurements
+                            "PULSE"      :measurements)
+                    where      {:device_id device_id :type type}
+                    range      (misc/start-end-dates :rollups s where)
+                    new-item   (assoc item :sensor s :range range)]
+                (when range
+                  (calculate/hourly-rollups store new-item)
+                  (calculate/daily-rollups store new-item)
+                  (misc/reset-date-range store s :rollups (:start-date range) (:end-date range))))))))
       (log/info "Finished rollups."))
 
     (defnconsumer spike-check-q [item]
       (log/info "Starting median spike check.")
-      (let [sensors (misc/all-sensors querier)]
+      (let [sensors (misc/all-sensors store)]
         (doseq [s sensors]
-          (let [device_id (:device_id s)
-                type      (:type s)
-                period    (:period s)
-                where     {:device_id device_id :type type}
-                range     (misc/start-end-dates :spike_check s where)
-                new-item  (assoc item :sensor s :range range)]
-            (when (and range (not= period "PULSE"))
-              (checks/median-spike-check commander querier new-item)
-              (misc/reset-date-range querier commander s :spike_check (:start-date range) (:end-date range))))))
+          (when (and (not (nil? (:median s))) (not (zero? (:median s))))
+            (let [device_id (:device_id s)
+                  type      (:type s)
+                  period    (:period s)
+                  where     {:device_id device_id :type type}
+                  range     (misc/start-end-dates :spike_check s where)
+                  new-item  (assoc item :sensor s :range range)]
+              (when (and range (not= period "PULSE"))
+                (checks/median-spike-check store new-item)
+                (misc/reset-date-range store s :spike_check (:start-date range) (:end-date range)))))))
       (log/info "Finished median spike check."))
 
     (defnconsumer synthetic-readings-q [item]
-      (calculate/generate-synthetic-readings store item))
+      (log/info "Starting synthetic readings job.")
+      (calculate/generate-synthetic-readings store item)
+      (log/info "Finished synthetic readings job."))
 
     (defnconsumer resolution-q [item]
       (log/info "Starting resolution check.")
@@ -127,19 +169,17 @@
       (log/info "Finished resolution check."))
 
     (producer-of fanout-q median-calculation-q mislabelled-sensors-q spike-check-q rollups-q synthetic-readings-q
-                 resolution-q diff-series-res-q)
+                 resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q)
 
     (list fanout-q #{median-calculation-q mislabelled-sensors-q spike-check-q rollups-q synthetic-readings-q
-                     resolution-q diff-series-res-q})))
+                     resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q})))
 
 (defrecord Pipeline []
   component/Lifecycle
   (start [this]
     (log/info "Pipeline starting")
-    (let [commander     (-> this :store :commander)
-          querier       (-> this :store :querier)
-          store         (-> this :store-new)
-          [head others] (build-pipeline commander querier store)]
+    (let [store         (-> this :store)
+          [head others] (build-pipeline store)]
       (-> this
           (assoc :head head)
           (assoc :others others))))

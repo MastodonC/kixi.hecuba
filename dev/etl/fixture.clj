@@ -1,5 +1,5 @@
 (ns etl.fixture
-  (:require [kixi.hecuba.storage.dbnew :as dbnew]
+  (:require [kixi.hecuba.storage.db :as db]
             [qbits.hayt :as hayt]
             [generators]))
 
@@ -32,7 +32,7 @@
   (for [x xs] (compile-element x)))
 
 (defn- insert* [session values]
-  (dbnew/execute session
+  (db/execute session
      (hayt/insert (::table values)
                   (hayt/values (dissoc values ::table)))))
 
