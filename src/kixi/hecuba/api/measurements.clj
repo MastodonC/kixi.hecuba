@@ -43,19 +43,20 @@
   ([store sensor_id & [opts]]
      (let [{:keys [type device_id]} sensor_id
            {:keys [page start end] :or {page (t/hours 1)}} opts
-           [start end] (resolve-start-end store type device_id start end)
-           next-start (t/plus start page)]
-       (db/with-session [session (:hecuba-session store)]
-         (lazy-cat (db/execute session
-                               (hayt/select :measurements
-                                            (hayt/where [[= :device_id device_id]
-                                                         [= :type type]
-                                                         [= :month (m/get-month-partition-key start)]
-                                                         [>= :timestamp start]
-                                                         [< :timestamp next-start]]))
-                               nil)
-                   (when (t/before? next-start end)
-                     (all-measurements store sensor_id (merge opts {:start next-start :end end}))))))))
+           [start end] (resolve-start-end store type device_id start end)]
+       (when (and start end)
+         (let  [next-start (t/plus start page)]
+           (db/with-session [session (:hecuba-session store)]
+             (lazy-cat (db/execute session
+                                   (hayt/select :measurements
+                                                (hayt/where [[= :device_id device_id]
+                                                             [= :type type]
+                                                             [= :month (m/get-month-partition-key start)]
+                                                             [>= :timestamp start]
+                                                             [< :timestamp next-start]]))
+                                   nil)
+                       (when (t/before? next-start end)
+                         (all-measurements store sensor_id (merge opts {:start next-start :end end}))))))))))
 
 (defn retrieve-measurements
   "Iterate over a sequence of months and concatanate measurements retrieved from the database."
