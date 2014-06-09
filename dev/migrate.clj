@@ -2,7 +2,10 @@
   (:require [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.api.measurements :as measurements]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [clj-time.core :as t]
+            [clj-time.format :as tf]
+            [clj-time.coerce :as tc]))
 
 (defn do-map
   "Map with side effects."
@@ -25,7 +28,6 @@
   (db/with-session [session (:hecuba-session store)]
     (let [sensors (db/execute session (hayt/select :sensors))]
       (doseq [s sensors]
-        (prn "Sensor:" (:device_id s) (:type s))
         (let [measurements (measurements/all-measurements store s)]
           (do-map #(db/execute session
                                (hayt/update :measurements
@@ -35,3 +37,28 @@
                                                          [= :month (:month %)]
                                                          [= :timestamp (:timestamp %)]]))) measurements)))))
   (log/info "Finished migrating reading metadata."))
+
+(defn fill-sensor-bounds
+  "Gets very first measurement row for each sensor and updates lower_ts in sensor_metadata with its timestamp.
+  Upper_ts is populated with current date."
+  [{:keys [store]}]
+  (log/info "Populating sensor bounds.")
+  (db/with-session [session (:hecuba-session store)]
+    (let [sensors (db/execute session (hayt/select :sensors))]
+      (doseq [s sensors]
+        (let [where [[= :device_id (:device_id s)]
+                     [= :type (:type s)]]
+              first-ts (:timestamp (first (db/execute session
+                                                      (hayt/select :measurements
+                                                                   (hayt/where where)
+                                                                   (hayt/limit 1)))))
+              last-ts  (:timestamp (first (db/execute session
+                                                      (hayt/select :measurements
+                                                                   (hayt/where where)
+                                                                   (hayt/order-by [:type :desc])
+                                                                   (hayt/limit 1)))))]
+          (db/execute session (hayt/update :sensor_metadata
+                                           (hayt/set-columns :upper_ts first-ts
+                                                             :lower_ts last-ts)
+                                           (hayt/where where)))))))
+  (log/info "Finished populating sensor bounds."))
