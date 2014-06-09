@@ -58,7 +58,7 @@
                                                                    (hayt/order-by [:type :desc])
                                                                    (hayt/limit 1)))))]
           (db/execute session (hayt/update :sensor_metadata
-                                           (hayt/set-columns :upper_ts first-ts
-                                                             :lower_ts last-ts)
+                                           (hayt/set-columns :upper_ts last-ts
+                                                             :lower_ts first-ts)
                                            (hayt/where where)))))))
   (log/info "Finished populating sensor bounds."))
