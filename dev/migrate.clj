@@ -17,7 +17,7 @@
   [m]
   (let [metadata (:metadata m)]
     (if metadata
-      (read-string metadata)
+      (clojure.walk/stringify-keys (read-string metadata))
       nil)))
 
 (defn migrate-reading-metadata 
@@ -29,13 +29,15 @@
     (let [sensors (db/execute session (hayt/select :sensors))]
       (doseq [s sensors]
         (let [measurements (measurements/all-measurements store s)]
-          (do-map #(db/execute session
-                               (hayt/update :measurements
-                                            (hayt/set-columns :reading_metadata (convert-metadata %))
-                                            (hayt/where [[= :device_id (:device_id %)]
-                                                         [= :type (:type %)]
-                                                         [= :month (:month %)]
-                                                         [= :timestamp (:timestamp %)]]))) measurements)))))
+          (when measurements
+            (doseq [m measurements] 
+               (db/execute session
+                           (hayt/update :measurements
+                                        (hayt/set-columns :reading_metadata (convert-metadata m))
+                                        (hayt/where [[= :device_id (:device_id m)]
+                                                     [= :type (:type m)]
+                                                     [= :month (:month m)]
+                                                     [= :timestamp (:timestamp m)]])))))))))
   (log/info "Finished migrating reading metadata."))
 
 (defn fill-sensor-bounds
