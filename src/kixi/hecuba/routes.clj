@@ -49,8 +49,8 @@
       ;; index redirect
       (ANY (amon-resource-route route)
            []
-           (let [redirect-route (amon-index-route route)]
-             (log/infof "Received: %s Redirecting to: %s" route redirect-route)
+           (let [redirect-route (str (:uri params) "/")]
+             (log/infof "Redirecting to: %s" redirect-route)
              (redirect redirect-route)))))
   ([route keys handler]
      (let [params (mapv #(symbol (name %)) keys)]
@@ -61,8 +61,8 @@
         ;; index redirect
         (ANY (amon-resource-route route keys)
              params
-             (let [redirect-route (amon-index-route route params)]
-               (log/infof "Received: %s Redirecting to: %s" route redirect-route)
+             (let [redirect-route (str (:uri params) "/")]
+               (log/infof "Redirecting to: %s" redirect-route)
                (redirect redirect-route)))))))
 
 (defn resource-route [route keys handler]
