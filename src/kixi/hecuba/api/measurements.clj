@@ -92,7 +92,7 @@
         params       (-> ctx :request :params)
         _            (log/infof "measurements-slice-handle-ok params: %s" params)
         device_id    (:device_id params)
-        type (:type params)
+        type         (:type params)
         start-date   (util/to-db-format (:startDate params))
         end-date     (util/to-db-format (:endDate params))
         measurements (retrieve-measurements db-session start-date end-date device_id type)]
