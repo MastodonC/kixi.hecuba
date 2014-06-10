@@ -16,14 +16,14 @@
 
 (defn index-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request       (:request ctx)
-          method        (:request-method request)
-          route-params  (:route-params request)
-          entity_id     (:entity_id route-params)
-          entity        (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first)]
+    (let [request      (:request ctx)
+          method       (:request-method request)
+          route-params (:route-params request)
+          entity_id    (:entity_id route-params)
+          entity       (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first)]
       (case method
         :post (not (nil? entity))
-        :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
+        :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :id entity_id]])))]
                {::items items})))))
 
 (defn index-malformed? [ctx]
@@ -689,8 +689,13 @@
 
 (defn resource-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [{{{:keys [entity_id profile_id]} :route-params} :request} ctx
-          item (-> (db/execute session :profiles (hayt/where [[= :id profile_id]])) first)]
+    (let [request    (-> ctx :request)
+          _          (log/infof "resource-exists? request: %s" request)
+          entity_id  (-> request :params :entity_id)
+          profile_id (-> request :params :profile_id)
+          item       (first (db/execute session (hayt/select
+                                                 :profiles
+                                                 (hayt/where [[= :id profile_id]]))))]
       (if-not (empty? item)
         {::item (-> item
                     (assoc :profile_id profile_id)
