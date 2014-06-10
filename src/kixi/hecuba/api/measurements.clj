@@ -127,20 +127,22 @@
         type          (-> measurements first :type)]
     (db/with-session [session (:hecuba-session store)]
       (if (sensor-exists? session device_id type)
-        (doseq [measurement measurements]
-          (let [t  (util/db-timestamp (:timestamp measurement))
-                m  (stringify-values measurement)
-                m2 {:device_id device_id
-                    :type      type
-                    :timestamp t
-                    :value     (:value m)
-                    :error     (:error m)
-                    :month     (util/get-month-partition-key t)
-                    :reading_metadata  {}}]
-            (->> m2
-                 (v/validate store)
-                 (insert-measurement session))
-            (q/put-on-queue topic m2))
+        (do
+          (doseq [measurement measurements]
+            (let [t  (util/db-timestamp (:timestamp measurement))
+                  m  (stringify-values measurement)
+                  m2 {:device_id        device_id
+                      :type             type
+                      :timestamp        t
+                      :value            (:value m)
+                      :error            (:error m)
+                      :month            (util/get-month-partition-key t)
+                      :reading_metadata {}}]
+              (->> m2
+                   (v/validate store)
+                   (insert-measurement session))
+              (q/put-on-queue topic m2)))
+          ;; doseq returns nil, thus the extra (do ...) wrapper
           {:response {:status 202 :body "Accepted"}})
         {:response {:status 400 :body "Provide valid device_id and type."}}))))
 
