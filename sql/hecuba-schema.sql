@@ -371,10 +371,9 @@ CREATE TABLE sessions (
 
 CREATE TABLE users (
   id text,
-  hash text,
-  salt text,
-  username text,
   data text,
+  password text,
+  username text,
   PRIMARY KEY (id)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
