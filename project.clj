@@ -15,12 +15,14 @@
                  [org.clojure/clojurescript "0.0-2202"]
                  [org.clojure/core.async "0.1.267.0-0d7780-alpha" :scope "provided"]
 
-                 [kixi/bidi "1.10.3-p0-b569a50" :exclusions [org.clojure/core.match]]
+                 [compojure "1.1.8"]
+
+                 ;; authn and authz
+                 [com.cemerick/friend "0.2.1" :exclusions [commons-codec org.clojure/core.cache]]
 
                  ;; Modular
                  [juxt/modular "0.2.0"]
                  [juxt.modular/http-kit "0.2.0"]
-                 [juxt.modular/bidi "0.2.1"]
 
                  ;; EDN reader with location metadata - for configuration
                  [org.clojure/tools.reader "0.8.3"]
@@ -48,9 +50,7 @@
                  [cc.qbits/alia "2.0.0-rc1" :exclusions [com.google.guava/guava org.flatland/useful]]
                  [cc.qbits/hayt "2.0.0-beta4"]
 
-
                  [org.clojure/tools.macro "0.1.5"]
-
 
                  [reiddraper/simple-check "0.5.6"]
                  [roul "0.2.0"]
@@ -64,6 +64,7 @@
                  ]
 
   :source-paths ["src" "src-cljs"]
+  :resource-paths ["resources" "target"]
 
   :jvm-opts ["-Duser.timezone=UTC"]
 
@@ -71,6 +72,7 @@
                    :dependencies [
                                   [ring-mock "0.1.5"]
                                   [org.clojure/tools.namespace "0.2.4"]
+                                  [javax.servlet/servlet-api "2.5"]
                                   ]
                    :plugins [[com.cemerick/austin "0.1.4"]] }
 
@@ -79,7 +81,6 @@
   :exclusions [[org.clojure/clojure]
                [org.clojure/clojurescript]
                [org.clojure/core.async]
-               [bidi]
                [org.clojure/tools.trace]]
 
   :cljsbuild {

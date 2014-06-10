@@ -349,11 +349,10 @@ CREATE INDEX sensors_status_idx ON sensors (status);
 
 CREATE INDEX synthetic_sensors_idx ON sensors (synthetic);
 
-CREATE TABLE user_sessions (
+CREATE TABLE sessions (
   id text,
-  "timestamp" timestamp,
-  user text,
-  PRIMARY KEY (id, "timestamp")
+  data text,
+  PRIMARY KEY (id)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
   caching='KEYS_ONLY' AND
@@ -372,8 +371,8 @@ CREATE TABLE user_sessions (
 
 CREATE TABLE users (
   id text,
-  hash text,
-  salt text,
+  data text,
+  password text,
   username text,
   PRIMARY KEY (id)
 ) WITH

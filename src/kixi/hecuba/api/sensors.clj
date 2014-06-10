@@ -1,6 +1,5 @@
 (ns kixi.hecuba.api.sensors
   (:require
-   [bidi.bidi :as bidi]
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :as sec]
@@ -35,17 +34,17 @@
                           devices)]
       (util/render-items request sensors))))
 
-(defresource metadata [store handlers]
+(defresource metadata [store]
   :allowed-methods #{:get}
-  :available-media-types #{"text/html" "application/json"}
-  :known-content-type? #{"application/json"}
-  :authorized? (authorized? store :device)
+  :available-media-types #{"application/json" "application/edn"}
+  :known-content-type? #{"application/json" "application/edn"}
+  :authorized? (authorized? store)
   :exists? (partial metadata-exists? store)
   :handle-ok (partial metadata-handle-ok))
 
-(defresource index-by-property [store handlers]
+(defresource index-by-property [store]
   :allowed-methods #{:get}
-  :available-media-types #{"application/json"}
-  :known-content-type? #{"application/json"}
-  :authorized? (authorized? store :measurement)
+  :available-media-types #{"application/json" "application/edn"}
+  :known-content-type? #{"application/json" "application/edn"}
+  :authorized? (authorized? store)
   :handle-ok (partial index-by-property-handle-ok store))

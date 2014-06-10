@@ -1,47 +1,49 @@
 (ns kixi.hecuba.api.programmes
-    (:require
-   [bidi.bidi :as bidi]
-   [cheshire.core :as json]
+  (:require
    [clojure.tools.logging :as log]
-   [kixi.hecuba.security :as sec]
-   [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex routes-from)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
+   [cheshire.core :as json]
+   [cemerick.friend :as friend]
+   [kixi.hecuba.security :as sec]
+   [kixi.hecuba.webutil :as util]
+   [kixi.hecuba.webutil :refer (decode-body authorized? allowed? uuid stringify-values sha1-regex)]
    [kixi.hecuba.storage.db :as db]
-   [kixi.hecuba.storage.sha1 :as sha1]))
+   [kixi.hecuba.storage.sha1 :as sha1]
+   [kixi.hecuba.web-paths :as p]))
 
-(defn index-handle-ok [store handlers ctx]
+(def ^:private programmes-index (p/index-path-string :programmes-index))
+(def ^:private programme-resource (p/resource-path-string :programme-resource))
+(def ^:private programme-projects-index (p/index-path-string :programme-projects-index))
+
+(defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
-          routes  (:modular.bidi/routes request)
-          {:keys  [projects programme]} @handlers
           items   (db/execute session (hayt/select :programmes))]
-      (util/render-items request (map #(-> %
-                                           (dissoc :user_id)
-                                           (assoc :projects (bidi/path-for routes projects :programme_id (:id %))
-                                                  :href (bidi/path-for routes programme :programme_id (:id %)))) items)))))
+      (map #(-> %
+                (dissoc :user_id)
+                (assoc :href (format programme-resource (:id %))
+                       :projects (format programme-projects-index (:id %))))
+           items))))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request (:request ctx)
-          [username _]  (sec/get-username-password request store)
-          user_id       (->  (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
-          programme     (-> request decode-body stringify-values)
-          programme_id  (if-let [id (:id programme)] id (sha1/gen-key :programme programme))]
+    (let [request      (:request ctx)
+          username     (sec/session-username (-> ctx :request :session))
+          ;; FIXME why user_id?
+          user_id      (->  (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+          programme    (-> request decode-body stringify-values)
+          programme_id (if-let [id (:id programme)] id (sha1/gen-key :programme programme))]
       (db/execute session (hayt/insert :programmes (hayt/values (assoc programme :user_id user_id :id programme_id))))
       {::programme_id programme_id})))
 
-(defn index-handle-created [handlers ctx]
-    (let [request (:request ctx)
-          routes (:modular.bidi/routes request)
-          location (bidi/path-for routes (:programme @handlers)
-                                  :programme_id (::programme_id ctx))]
-      (ring-response {:headers {"Location" location}
-                      :body (json/encode {:location location
-                                          :status "OK" :version "4"})})))
-
+(defn index-handle-created [ctx]
+  (let [request  (:request ctx)
+        location (format programme-resource (::programme_id ctx))]
+    (ring-response {:headers {"Location" location}
+                    :body (json/encode {:location location
+                                        :status "OK" :version "4"})})))
 
 (defn resource-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -51,29 +53,28 @@
                         first)]
       {::item item})))
 
-(defn resource-handle-ok [handlers ctx]
+(defn resource-handle-ok [ctx]
   (let [request (:request ctx)]
-      (util/render-item request
-                        (as-> (::item ctx) item
-                              (dissoc item :user_id)
-                              (assoc item
-                                :projects (bidi/path-for (routes-from ctx) (:projects @handlers)
-                                                         :programme_id (:id item)))
-                              (dissoc item :user_id)))))
+    (util/render-item request
+                      (as-> (::item ctx) item
+                            (dissoc item :user_id)
+                            (assoc item :projects (format programme-projects-index (:id item)))))))
 
-(defresource index [store handlers]
+(defresource index [store]
   :allowed-methods #{:get :post}
-  :available-media-types ["text/html" "application/json" "application/edn"]
+  :available-media-types ["application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
-  :authorized? (authorized? store :programme)
-  :handle-ok (partial index-handle-ok store handlers)
+  :authorized? (authorized? store)
+  :allowed? (allowed? store)
+  :handle-ok (partial index-handle-ok store)
   :post! (partial index-post! store)
-  :handle-created (partial index-handle-created handlers))
+  :handle-created (partial index-handle-created))
 
-(defresource resource [store handlers]
+(defresource resource [store]
   :allowed-methods #{:get}
-  :available-media-types ["text/html" "application/json" "application/edn"]
+  :available-media-types ["application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
-  :authorized? (authorized? store :programme)
+  :authorized? (authorized? store)
+  :allowed? (allowed? store)  
   :exists? (partial resource-exists? store)
-  :handle-ok (partial resource-handle-ok handlers))
+  :handle-ok (partial resource-handle-ok))

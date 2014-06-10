@@ -1,17 +1,22 @@
 (ns kixi.hecuba.api.projects
   (:require
-   [bidi.bidi :as bidi]
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex routes-from)]
+   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
    [kixi.hecuba.storage.db :as db]
-   [kixi.hecuba.storage.sha1 :as sha1]))
+   [kixi.hecuba.storage.sha1 :as sha1]
+   [kixi.hecuba.web-paths :as p]))
 
+(def ^:private programme-projects-index (p/index-path-string :programme-projects-index))
+(def ^:private programme-projects-resource (p/resource-path-string :programme-projects-resource))
+(def ^:private projects-index (p/index-path-string :projects-index))
+(def ^:private project-resource (p/resource-path-string :project-resource))
+(def ^:private project-properties-index (p/index-path-string :project-properties-index))
 
 (defn- programme_id-from [ctx]
   (get-in ctx [:request :route-params :programme_id]))
@@ -19,23 +24,24 @@
 (defn- project_id-from [ctx]
   (get-in ctx [:request :route-params :project_id]))
 
-(defn index-handle-ok [store handlers ctx]
+(defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
           coll    (->> (db/execute session
                                    (if (programme_id-from ctx)
-                                     (hayt/select :projects (hayt/where [[= :programme_id (-> (:route-params request) :programme_id)]]))
+                                     (hayt/select :projects
+                                                  (hayt/where [[= :programme_id (-> (:route-params request) :programme_id)]]))
                                      (hayt/select :projects)))
                        (map #(-> %
-                                 (assoc :properties (bidi/path-for (routes-from ctx) (:properties @handlers) :project_id (:id %))
-                                        :href (bidi/path-for (routes-from ctx) (:project @handlers) :project_id (:id %))))))]
-
+                                 (assoc :href (format programme-projects-resource (:programme_id %) (:id %))
+                                        :properties (format project-properties-index (:id %))))))]
       (util/render-items request coll))))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
-          [username _]  (sec/get-username-password request store)
+          username  (sec/session-username (-> ctx :request :session))
+          ;; FIXME: Why user_id?
           user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
           project       (-> request decode-body stringify-values)
           project_id    (if-let [id (:id project)] id (sha1/gen-key :project project))]
@@ -43,43 +49,41 @@
                   (hayt/insert :projects (hayt/values (assoc project :user_id user_id :id project_id))))
       {::project_id project_id})))
 
-(defn index-handle-created [handlers ctx]
-    (let [request  (:request ctx)
-          routes   (:modular.bidi/routes request)
-          location (bidi/path-for routes (:project @handlers)
-                                  :project_id (::project_id ctx))]
-      (ring-response {:headers {"Location" location}
-                      :body (json/encode {:location location
-                                          :status "OK"
-                                          :version "4"})})))
+;; FIXME: Should return programmes/%s/projects/%s
+(defn index-handle-created [ctx]
+  (let [request  (:request ctx)
+        location (format project-resource (::project_id ctx))]
+    (ring-response {:headers {"Location" location}
+                    :body (json/encode {:location location
+                                        :status "OK"
+                                        :version "4"})})))
 
 (defn resource-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (when-let [item (-> (db/execute session (hayt/select :projects (hayt/where [[= :id (project_id-from ctx)]]))) first)]
       {::item item})))
 
-(defn resource-handle-ok [handlers ctx]
-    (let [request (:request ctx)]
-      (util/render-item request
-                        (as-> (::item ctx) item
-                              (assoc item
-                                :properties (bidi/path-for (routes-from ctx)
-                                                           (:properties @handlers) :project_id (:id item)))
-                              (dissoc item :user_id)))))
+(defn resource-handle-ok [ctx]
+  (let [request (:request ctx)]
+    (util/render-item request
+                      (as-> (::item ctx) item
+                            (assoc item
+                              :properties (format project-properties-index :project_id (:id item)))
+                            (dissoc item :user_id)))))
 
-(defresource index [store handlers]
+(defresource index [store]
   :allowed-methods #{:get :post}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/json"}
-  :authorized? (authorized? store :project)
-  :handle-ok (partial index-handle-ok store handlers)
+  :authorized? (authorized? store)
+  :handle-ok (partial index-handle-ok store)
   :post! (partial index-post! store)
-  :handle-created (partial index-handle-created handlers))
+  :handle-created (partial index-handle-created))
 
-(defresource resource [store handlers]
+(defresource resource [store]
   :allowed-methods #{:get}
   :available-media-types ["text/html" "application/json" "application/edn"]
   :known-content-type? #{"application/json"}
-  :authorized? (authorized? store :project)
+  :authorized? (authorized? store)
   :exists? (partial resource-exists? store)
-  :handle-ok (partial resource-handle-ok handlers))
+  :handle-ok (partial resource-handle-ok))

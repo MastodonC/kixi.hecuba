@@ -2,10 +2,10 @@
   (:require
    [clojure.java.io :as io]
    [clojure.edn :as edn]
+   [clojure.tools.logging :as log]
    [cheshire.core :refer (decode decode-stream encode)]
    [cheshire.generate :refer (add-encoder)]
    [hiccup.core :refer (html)]
-   [kixi.hecuba.security :as sec]
    [kixi.hecuba.data.misc :as misc]
    [clojure.string :as string]
    [clj-time.coerce :as tc]
@@ -15,6 +15,7 @@
    [clojure.pprint :refer (pprint)]
    [clojure.walk :refer (postwalk)]
    [liberator.core :as liberator]
+   [cemerick.friend :as friend]
    [clojure.data.csv :as csv]))
 
 (defprotocol Body
@@ -53,11 +54,17 @@
 (defn update-stringified-lists [body selectors]
   (reduce update-stringified-list body selectors))
 
-(defn authorized? [querier typ]
-  (fn [{{route-params :route-params :as req} :request}]
-    (or
-     (sec/authorized-with-basic-auth? req querier)
-     (sec/authorized-with-cookie? req querier))))
+(defn authorized? [store]
+  (fn [ctx]
+    (let [friend-id (-> ctx :request :session ::friend/identity)]
+      (log/debugf "Friend ID in authorized?: %s" friend-id)
+      true)))
+
+(defn allowed? [store]
+  (fn [ctx]
+    (let [friend-id (-> ctx :request :session ::friend/identity)]
+      (log/debugf "Friend ID in allowed?: %s" friend-id)
+      true)))
 
 (defmulti decode-body :content-type :default "application/json")
 
@@ -152,9 +159,6 @@
 (defn db-timestamp
   "Returns java.util.Date from String timestamp."
   [t] (.parse (java.text.SimpleDateFormat.  "yyyy-MM-dd'T'HH:mm:ss") t))
-
-(defn routes-from [ctx]
-  (get-in ctx [:request :modular.bidi/routes]))
 
 (def formatter (tf/formatter (t/default-time-zone) "yyyy-MM-dd'T'HH:mm:ssZ" "yyyy-MM-dd HH:mm:ss"))
 (defn to-db-format [date] (tf/parse formatter date))

@@ -1,6 +1,5 @@
 (ns kixi.hecuba.api.datasets
   (:require
-   [bidi.bidi :as bidi]
    [clojure.string :as string]
    [clojure.tools.logging :as log]
    [qbits.hayt :as hayt]
@@ -8,12 +7,15 @@
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
    [kixi.hecuba.data.misc :as misc]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid routes-from)]
+   [kixi.hecuba.webutil :refer (decode-body authorized? uuid)]
    [kixi.hecuba.storage.db :as db]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [kixi.hecuba.storage.sha1 :as sha1]
-   [kixi.hecuba.api.devices :as d]))
+   [kixi.hecuba.api.devices :as d]
+   [kixi.hecuba.web-paths :as p]))
+
+(def ^:private entity-dataset-resource (p/resource-path-string :entity-dataset-resource))
 
 (defn all-datasets [store]
   (db/with-session [session (:hecuba-session store)]
@@ -88,26 +90,23 @@
     (let [entity_id   (entity_id-from ctx)]
       (util/render-items ctx (db/execute session (hayt/select :dataset (hayt/where [[= :entity_id entity_id]])))))))
 
-(defn index-handle-created [handlers ctx]
+(defn index-handle-created [ctx]
   (let [entity_id   (::entity_id ctx)
         name        (::name ctx)
-        location     (bidi/path-for (routes-from ctx)
-                               (:dataset @handlers)
-                               :entity_id entity_id
-                               :name name)]
+        location    (format entity-dataset-resource entity_id name)]
     (when-not location
       (throw (ex-info "No path resolved for Location header"
                       {:entity_id entity_id
                        :name name})))
     (ring-response {:headers {"Location" location}})))
 
-(defresource index [store handlers]
+(defresource index [store]
   :allowed-methods       #{:get :post}
   :available-media-types #{"application/edn" "text/html"}
-  :authorized?           (authorized? store :datasets)
+  :authorized?           (authorized? store)
   :post!                 (partial index-post! store)
   :handle-ok             (partial index-handle-ok store)
-  :handle-created        (partial index-handle-created handlers))
+  :handle-created        index-handle-created)
 
 (defn resource-exists? [store ctx]
   (db/with-session [session [:hecuba-session store]]
@@ -136,7 +135,7 @@
   (let [item (::item ctx)]
     (util/render-item ctx item)))
 
-(defresource resource [store handlers]
+(defresource resource [store]
   :allowed-methods       #{:get :post}
   :available-media-types #{"application/edn" "text/html"}
   :authorized?           (authorized? store :datasets)

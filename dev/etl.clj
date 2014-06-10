@@ -18,7 +18,7 @@
             [kixi.hecuba.webutil :as util]
             [org.httpkit.client :refer (request) :rename {request http-request}]
             [qbits.hayt :as hayt]
-            [bidi.bidi :refer (path-for match-route)]))
+            [kixi.hecuba.web-paths :as p]))
 
 (defn config []
   (let [f (io/file (System/getProperty "user.home") ".hecuba.edn")]
@@ -97,7 +97,7 @@
   [data {:keys [host port routes handler]}]
   (assert handler "Warning! no handler found")
   (assert port)
-  (let [path (path-for routes handler)]
+  (let [path (p/index-path-string ::programmes-index)]
     (into {}
           (for [programme data]
             (let [id (:id programme)
@@ -107,7 +107,7 @@
                              programme)
                   location (get-in response [:headers :location])
                   _ (assert location)
-                  programme_id (get-in (match-route routes location) [:params :programme_id])]
+                  programme_id (:id programme)]
 
               [id programme_id]
               )))))
@@ -122,8 +122,8 @@
                 programme_id (get programme_id-map (:programme_id project))
 
                 path (if programme_id
-                       (path-for routes (:projects handlers) :programme_id programme_id)
-                       (path-for routes (:allprojects handlers)))
+                       (format (p/index-path-string :programme-projects-index) programme_id)
+                       (p/index-path-string :project-index))
 
                 response (post-resource
                            (format "http://%s:%d%s" host port path)
@@ -133,7 +133,7 @@
                            (assoc project :programme_id programme_id))
 
                 location (get-in response [:headers :location])
-                project_id (get-in (match-route routes location) [:params :project_id])]
+                project_id (:id project)]
 
             [id project_id]
             ))))
@@ -149,8 +149,8 @@
                   property_code (-> entity :uuid)
 
                   path (if project_id
-                         (path-for routes (:entities handlers) :project_id project_id)
-                         (path-for routes (:allentities handlers)))
+                         (format (p/index-path-string :project-properties-index) project_id)
+                         (p/index-path-string :entities-index))
 
                   response (post-resource
                             (format "http://%s:%d%s" host port path)
@@ -162,7 +162,7 @@
                                 (assoc :project_id project_id :property_code property_code)))
 
                   location (get-in response [:headers :location])
-                  entity_id (get-in (match-route routes location) [:params :entity_id])]
+                  entity_id (:id entity)]
 
               [id entity_id]
               )))))
@@ -209,8 +209,7 @@
                     response
                     (post-resource
                      (format "http://%s:%d%s" host port
-                             (path-for (-> system :bidi-ring-handler :routes)
-                                       (-> system :amon-api :handlers :devices) :entity_id entity_id))
+                             (format (p/index-path-string :entity-devices-index) entity_id (:device_id device)))
                      "application/json"
 
 
@@ -221,9 +220,7 @@
                     ;; Take location, parse out entity_id and device_id
                     location (get-in response [:headers :location])
                     ;; Use entity_id and device_id to get measurements URL
-                    measurements-uri (apply path-for routes (-> system :amon-api :handlers :measurements)
-                                            (apply concat (:params (match-route routes location))))
-                    ]
+                    measurements-uri (format (p/index-path-string :entity-device-measurement-index) entity_id (:device_id device))]
 
                 (assert (= (:status response) 201) (format "Failed to create device, status was %d" (:status response)))
 
@@ -248,8 +245,7 @@
                     response
                     (post-resource
                      (format "http://%s:%d%s" host port
-                             (path-for (-> system :bidi-ring-handler :routes)
-                                       (-> system :amon-api :handlers :devices) :entity_id entity_id))
+                             (format (p/index-path-string :entity-device-measurement-index) entity_id (:device_id device)))
                      "application/json"
 
                      (-> device
@@ -258,9 +254,7 @@
                     ;; Take location, parse out entity_id and device_id
                     location (get-in response [:headers :location])
                     ;; Use entity_id and device_id to get measurements URL
-                    measurements-uri (apply path-for routes (-> system :amon-api :handlers :measurements)
-                                            (apply concat (:params (match-route routes location))))
-                    ]
+                    measurements-uri (format (p/index-path-string :entity-device-measurement-index) entity_id (:device_id device))]
 
                 ;; POST to URL a JSON block
                 (let [response
@@ -283,39 +277,33 @@
                     ;; Mislabelled measurements
                     response1
                     (post-resource (format "http://%s:%d%s" host port
-                                           (path-for (-> system :bidi-ring-handler :routes)
-                                                     (-> system :amon-api :handlers :devices) :entity_id entity_id))
+                                           (format (p/index-path-string :entity-device-measurement-index) entity_id (:device_id device)))
                                    "application/json"
                                    (-> device
                                        (assoc :readings sensors1)
                                        (dissoc :device_id)))
                     location1 (get-in response1 [:headers :location])
-                    measurements-uri1 (apply path-for routes (-> system :amon-api :handlers :measurements)
-                                             (apply concat (:params (match-route routes location1))))
+                    measurements-uri1 (format (p/index-path-string :entity-device-measurement-index) entity_id (:device_id device))
 
                     ;; Errored measurements
                     response2 (post-resource (format "http://%s:%d%s" host port
-                                                     (path-for (-> system :bidi-ring-handler :routes)
-                                                               (-> system :amon-api :handlers :devices) :entity_id entity_id))
+                                                     (format (p/index-path-string :entity-device-measurement-index) entity_id (:device_id device)))
                                              "application/json"
                                              (-> device
                                                  (assoc :readings sensors2)
                                                  (dissoc :device_id)))
                     location2 (get-in response2 [:headers :location])
-                    measurements-uri2 (apply path-for routes (-> system :amon-api :handlers :measurements)
-                                             (apply concat (:params (match-route routes location2))))
+                    measurements-uri2 (format (p/index-path-string :entity-device-measurement-index) entity_id (:device_id device))
 
                     ;; Instant measurements
                     response3 (post-resource (format "http://%s:%d%s" host port
-                                                     (path-for (-> system :bidi-ring-handler :routes)
-                                                               (-> system :amon-api :handlers :devices) :entity_id entity_id))
+                                                     (format (p/index-path-string :entity-device-measurement-index) entity_id (:device_id device)))
                                              "application/json"
                                              (-> device
                                                  (assoc :readings sensors3)
                                                  (dissoc :device_id)))
                     location3 (get-in response3 [:headers :location])
-                    measurements-uri3 (apply path-for routes (-> system :amon-api :handlers :measurements)
-                                             (apply concat (:params (match-route routes location3))))
+                    measurements-uri3 (format (p/index-path-string :entity-device-measurement-index) entity_id (:device_id device))
 
                     ]
 

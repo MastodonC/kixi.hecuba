@@ -1,6 +1,5 @@
 (ns kixi.hecuba.api.measurements
   (:require
-   [bidi.bidi :as bidi]
    [clj-time.coerce :as tc]
    [clj-time.core :as t]
    [clojure.string :as string]
@@ -89,16 +88,14 @@
        (util/render-items (:request ctx))))
 
 (defn measurements-slice-handle-ok [store ctx]
-  (let [request                (:request ctx)
-        session                (:hecuba-session store)
-        {:keys [route-params
-                query-string]} request
-        {:keys [device_id
-                reading-type]} route-params
-        decoded-params         (util/decode-query-params query-string)
-        start-date             (util/to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
-        end-date               (util/to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
-        measurements           (retrieve-measurements session start-date end-date device_id reading-type)]
+  (let [db-session   (:hecuba-session store)
+        params       (-> ctx :request :params)
+        _            (log/infof "measurements-slice-handle-ok params: %s" params)
+        device_id    (:device_id params)
+        type         (:type params)
+        start-date   (util/to-db-format (:startDate params))
+        end-date     (util/to-db-format (:endDate params))
+        measurements (retrieve-measurements db-session start-date end-date device_id type)]
     
     (format-measurements ctx measurements)))
 
@@ -130,29 +127,31 @@
         type          (-> measurements first :type)]
     (db/with-session [session (:hecuba-session store)]
       (if (sensor-exists? session device_id type)
-        (doseq [measurement measurements]
-          (let [t  (util/db-timestamp (:timestamp measurement))
-                m  (stringify-values measurement)
-                m2 {:device_id device_id
-                    :type      type
-                    :timestamp t
-                    :value     (:value m)
-                    :error     (:error m)
-                    :month     (util/get-month-partition-key t)
-                    :reading_metadata  {}}]
-            (->> m2
-                 (v/validate store)
-                 (insert-measurement session))
-            (q/put-on-queue topic m2))
+        (do
+          (doseq [measurement measurements]
+            (let [t  (util/db-timestamp (:timestamp measurement))
+                  m  (stringify-values measurement)
+                  m2 {:device_id        device_id
+                      :type             type
+                      :timestamp        t
+                      :value            (:value m)
+                      :error            (:error m)
+                      :month            (util/get-month-partition-key t)
+                      :reading_metadata {}}]
+              (->> m2
+                   (v/validate store)
+                   (insert-measurement session))
+              (q/put-on-queue topic m2)))
+          ;; doseq returns nil, thus the extra (do ...) wrapper
           {:response {:status 202 :body "Accepted"}})
         {:response {:status 400 :body "Provide valid device_id and type."}}))))
 
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request (:request ctx)
+    (let [request      (:request ctx)
           route-params (:route-params request)
-          device_id (:device_id route-params)
-          where [[= :device_id device_id]]
+          device_id    (:device_id route-params)
+          where        [[= :device_id device_id]]
           measurements (db/execute session
                                    (hayt/select :measurements
                                                 (hayt/where where)))]
@@ -174,28 +173,28 @@
                                   (hayt/select :measurements
                                                (hayt/where [[= :device_id device_id]
                                                             [= :type sensor-type]
-                                                               [= :timestamp timestamp]]))))]
+                                                            [= :timestamp timestamp]]))))]
     (util/render-item request measurement)))
 
 
-(defresource measurements-slice [store handlers]
+(defresource measurements-slice [store]
   :allowed-methods #{:get}
-  :available-media-types #{"application/json" "text/csv"}
-  :known-content-type? #{"application/json" "text/csv"}
-  :authorized? (authorized? store :measurement)
+  :available-media-types #{"application/json" "text/csv" "application/edn"}
+  :known-content-type? #{"application/json" "text/csv" "application/edn"}
+  :authorized? (authorized? store)
   :handle-ok (partial measurements-slice-handle-ok store))
 
-(defresource index [store queue handlers]
+(defresource index [store queue]
   :allowed-methods #{:post :get}
-  :available-media-types #{"application/json"}
-  :known-content-type? #{"application/json"}
-  :authorized? (authorized? store :measurement)
+  :available-media-types #{"application/json" "application/edn"}
+  :known-content-type? #{"application/json" "application/edn"}
+  :authorized? (authorized? store)
   :post! (partial index-post! store queue)
   :handle-ok (partial index-handle-ok store)
   :handle-created index-handle-created)
 
-(defresource measurements-by-reading [store handlers]
+(defresource measurements-by-reading [store]
   :allowed-methods #{:get}
-  :available-media-types #{"application/json"}
-  :authorized? (authorized? store :measurement)
+  :available-media-types #{"application/json" "application/edn"}
+  :authorized? (authorized? store)
   :handle-ok (partial measurements-by-reading-handle-ok store))

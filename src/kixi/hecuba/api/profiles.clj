@@ -1,6 +1,5 @@
 (ns kixi.hecuba.api.profiles
   (:require
-   [bidi.bidi :as bidi]
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :as sec]
@@ -10,18 +9,21 @@
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
    [kixi.hecuba.storage.db :as db]
-   [kixi.hecuba.storage.sha1 :as sha1]))
+   [kixi.hecuba.storage.sha1 :as sha1]
+   [kixi.hecuba.web-paths :as p]))
+
+(def ^:private entity-profiles-resource (p/resource-path-string :entity-profiles-resource))
 
 (defn index-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request       (:request ctx)
-          method        (:request-method request)
-          route-params  (:route-params request)
-          entity_id     (:entity_id route-params)
-          entity        (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first)]
+    (let [request      (:request ctx)
+          method       (:request-method request)
+          route-params (:route-params request)
+          entity_id    (:entity_id route-params)
+          entity       (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first)]
       (case method
         :post (not (nil? entity))
-        :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
+        :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :id entity_id]])))]
                {::items items})))))
 
 (defn index-malformed? [ctx]
@@ -38,13 +40,14 @@
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request       (-> ctx :request)
-          profile       (-> ctx :body)
-          entity_id     (-> profile :entity_id)
-          timestamp     (-> profile :timestamp)
-          [username _]  (sec/get-username-password request store)
-          user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
-          profile_id    (sha1/gen-key :profile profile)]
+    (let [request    (-> ctx :request)
+          profile    (-> ctx :body)
+          entity_id  (-> profile :entity_id)
+          timestamp  (-> profile :timestamp)
+          username   (sec/session-username (-> ctx :request :session))
+          ;; FIXME: Why user_id?
+          user_id    (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+          profile_id (sha1/gen-key :profile profile)]
       (when (and entity_id timestamp)
         (when-not (empty? (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first))
           (db/execute session (hayt/insert :profiles (-> profile
@@ -656,28 +659,23 @@
 
 (defn index-handle-ok [ctx]
   (let [{items ::items
-         {mime :media-type} :representation
-         {routes :modular.bidi/routes
-          route-params :route-params} :request} ctx
-        userless-items (->> items
-                            (map #(dissoc % :user_id)))
-        exploded-items (->> userless-items
-                            (map #(explode-and-sort-by-schema % profile-schema)))
-        formatted-items (if (= "text/csv" mime)
-                          ; serving tall csv style profiles
-                            (apply util/map-longest add-profile-keys ["" ""] exploded-items)
-                          ; serving json profiles
-                          userless-items)]
-        (util/render-items ctx formatted-items)))
+         {mime :media-type} :representation} ctx
+         userless-items (->> items
+                             (map #(dissoc % :user_id)))
+         exploded-items (->> userless-items
+                             (map #(explode-and-sort-by-schema % profile-schema)))
+         formatted-items (if (= "text/csv" mime)
+                                        ; serving tall csv style profiles
+                           (apply util/map-longest add-profile-keys ["" ""] exploded-items)
+                                        ; serving json profiles
+                           userless-items)]
+    (util/render-items ctx formatted-items)))
 
-(defn index-handle-created [handlers ctx]
-  (let [{{routes :modular.bidi/routes {entity_id :entity_id} :route-params} :request
-         profile_id :profile_id} ctx]
+(defn index-handle-created [ctx]
+  (let [entity_id  (-> ctx :request :route-params :entity_id)
+        profile_id (:profile_id ctx)]
     (if-not (empty? profile_id)
-      (let [location
-            (bidi/path-for routes (:profile @handlers)
-                           :entity_id entity_id
-                           :profile_id profile_id)]
+      (let [location (format entity-profiles-resource entity_id profile_id)]
         (when-not location
           (throw (ex-info "No path resolved for Location header"
                           {:entity_id entity_id
@@ -691,8 +689,13 @@
 
 (defn resource-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [{{{:keys [entity_id profile_id]} :route-params} :request} ctx
-          item (-> (db/execute session :profiles (hayt/where [[= :id profile_id]])) first)]
+    (let [request    (-> ctx :request)
+          _          (log/infof "resource-exists? request: %s" request)
+          entity_id  (-> request :params :entity_id)
+          profile_id (-> request :params :profile_id)
+          item       (first (db/execute session (hayt/select
+                                                 :profiles
+                                                 (hayt/where [[= :id profile_id]]))))]
       (if-not (empty? item)
         {::item (-> item
                     (assoc :profile_id profile_id)
@@ -710,11 +713,11 @@
   (db/with-session [session (:hecuba-session store)]
     (let [{request :request} ctx]
       (if-let [item (::item ctx)]
-        (let [body          (decode-body request)
-              entity_id     (-> item :entity_id)
-              [username _]  (sec/get-username-password request store)
-              user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
-              profile_id     (-> item :profile-id)]
+        (let [body       (decode-body request)
+              entity_id  (-> item :entity_id)
+              username   (sec/session-username (-> ctx :request :session))
+              user_id    (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+              profile_id (-> item :profile-id)]
           (db/execute session (hayt/insert :profiles (hayt/values (-> body
                                                                       (assoc :id profile_id)
                                                                       (assoc :user_id user_id)
@@ -734,24 +737,24 @@
      (= method :delete) false
       :else true)))
 
-(defresource index [store handlers]
+(defresource index [store]
   :allowed-methods #{:get :post}
-  :available-media-types #{"text/csv" "application/json"}
-  :known-content-type? #{"text/csv" "application/json"}
-  :authorized? (authorized? store :profile)
+  :available-media-types #{"text/csv" "application/json" "application/edn"}
+  :known-content-type? #{"text/csv" "application/json" "application/edn"}
+  :authorized? (authorized? store)
   :exists? (partial index-exists? store)
   :malformed? index-malformed?
   :post! (partial index-post! store)
-  :handle-ok (partial index-handle-ok)
-  :handle-created (partial index-handle-created handlers))
+  :handle-ok index-handle-ok
+  :handle-created index-handle-created)
 
-(defresource resource [store handlers]
+(defresource resource [store]
   :allowed-methods #{:get :delete :putj}
   :available-media-types #{"application/json"}
-  :authorized? (authorized? store :profile)
+  :authorized? (authorized? store)
   :exists? (partial resource-exists? store)
   :delete-enacted? (partial resource-delete-enacted? store)
-  :respond-with-entity? (partial resource-respond-with-entity)
+  :respond-with-entity? resource-respond-with-entity
   :new? (constantly false)
   :can-put-to-missing? (constantly false)
   :put! (partial resource-put! store)

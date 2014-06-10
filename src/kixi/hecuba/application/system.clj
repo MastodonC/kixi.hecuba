@@ -9,18 +9,13 @@
    [modular.core :as mod]
    [modular.http-kit :refer (new-webserver)]
    #_[modular.ring :refer (resolve-handler-provider)]
-   [modular.bidi :refer (new-bidi-ring-handler-provider #_resolve-routes-contributors)]
-  ; [modular.cassandra :refer (new-session new-cluster)]
 
    kixi.hecuba.application.safe
    [kixi.hecuba.controller.pipeline :refer (new-pipeline)]
    [kixipipe.scheduler]
    [kixi.hecuba.queue :refer (new-queue)]
    [kixi.hecuba.data :refer (new-queue-worker)]
-   [kixi.hecuba.web :refer (new-main-routes)]
-   [kixi.hecuba.amon :refer (new-amon-api)]
-   [kixi.hecuba.user :refer (new-user-api)]
-   [kixi.hecuba.cljs :refer (new-cljs-routes)]
+   [kixi.hecuba.routes :refer (new-web-app)]
    [kixi.hecuba.storage.db :as db]
    [shadow.cljs.build :as cljs]
 
@@ -140,16 +135,9 @@
          :queue (new-queue (:queue cfg))
          :queue-worker (new-queue-worker)
          :cljs-builder (new-cljs-builder)
-         :web-server (new-webserver (:web-server cfg))
-         :bidi-ring-handler (new-bidi-ring-handler-provider)
-         :main-routes (new-main-routes)
-         :amon-api (new-amon-api "/4")
-         :user-api (new-user-api)
-         :cljs-routes (new-cljs-routes (:cljs-builder cfg)))
+         :web-app (new-web-app cfg))
         (mod/system-using
-         {:main-routes [:store]
-          :amon-api [:store :queue]
-          :user-api [:store]
+         {:web-app [:store]
           :store [:hecuba-session :queue]
           :queue-worker [:queue :store]
           :pipeline [:store]

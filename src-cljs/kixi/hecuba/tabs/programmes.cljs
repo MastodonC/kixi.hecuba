@@ -479,7 +479,7 @@
       (let [{:keys [properties devices active-components]} data
             new-property-id (:properties active-components)]
 
-        ;; handle selection perties table
+        ;; handle selection properties table
         (when-not new-property-id
           (om/update! devices :data [])
           (om/update! devices :selected nil))
@@ -499,10 +499,8 @@
                                    (om/update! devices :fetching :error)
                                    (om/update! devices :error-status status)
                                    (om/update! devices :error-text status-text))
-                  ;; FIXME: This should be application/edn
-                  :headers {"Accept" "application/json"}
-                  :response-format :json
-                  :keywords? true})))
+                  :headers {"Accept" "application/edn"}
+                  :response-format :text})))
         (om/update! devices :property_id new-property-id)
 
         ;; handle selection in devices table
@@ -603,7 +601,7 @@
             new-device_id                       (:devices active-components)
             property_id                         (:properties active-components)]
 
-        ;; handle selection perties table
+        ;; handle selection properties table
         (when-not new-device_id
           (om/update! sensors :data [])
           (om/update! sensors :selected nil))
@@ -623,10 +621,7 @@
                                    (om/update! sensors :fetching false)
                                    (om/update! sensors :error-status status)
                                    (om/update! sensors :error-text status-text))
-                  ;; FIXME: This should be application/edn
-                  :headers {"Accept" "application/json"}
-                  :response-format :json
-                  :keywords? true})))
+                  :headers {"Accept" "application/edn"}})))
         (om/update! sensors :device_id new-device_id)
 
         ;; handle selection in sensors table
