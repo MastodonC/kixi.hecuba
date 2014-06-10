@@ -88,16 +88,14 @@
        (util/render-items (:request ctx))))
 
 (defn measurements-slice-handle-ok [store ctx]
-  (let [request                (:request ctx)
-        session                (:hecuba-session store)
-        {:keys [route-params
-                query-string]} request
-        {:keys [device_id
-                reading-type]} route-params
-        decoded-params         (util/decode-query-params query-string)
-        start-date             (util/to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
-        end-date               (util/to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
-        measurements           (retrieve-measurements session start-date end-date device_id reading-type)]
+  (let [db-session   (:hecuba-session store)
+        params       (-> ctx :request :params)
+        _            (log/infof "measurements-slice-handle-ok params: %s" params)
+        device_id    (:device_id params)
+        type (:type params)
+        start-date   (util/to-db-format (:startDate params))
+        end-date     (util/to-db-format (:endDate params))
+        measurements (retrieve-measurements db-session start-date end-date device_id type)]
     
     (format-measurements ctx measurements)))
 
@@ -173,7 +171,7 @@
                                   (hayt/select :measurements
                                                (hayt/where [[= :device_id device_id]
                                                             [= :type sensor-type]
-                                                               [= :timestamp timestamp]]))))]
+                                                            [= :timestamp timestamp]]))))]
     (util/render-item request measurement)))
 
 
@@ -196,5 +194,5 @@
 (defresource measurements-by-reading [store]
   :allowed-methods #{:get}
   :available-media-types #{"application/json" "application/edn"}
-  :authorized? (authorized? store :measurement)
+  :authorized? (authorized? store)
   :handle-ok (partial measurements-by-reading-handle-ok store))
