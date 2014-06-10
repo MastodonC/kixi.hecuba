@@ -13,7 +13,7 @@
    [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.web-paths :as p]))
 
-(def device-resource (p/resource-path-string :entity-device-resource))
+(def ^:private device-resource (p/resource-path-string :entity-device-resource))
 
 (defn index-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]

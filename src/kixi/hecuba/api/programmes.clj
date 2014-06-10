@@ -13,9 +13,9 @@
    [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.web-paths :as p]))
 
-(def programmes-index (p/index-path-string :programmes-index))
-(def programme-resource (p/resource-path-string :programme-resource))
-(def programme-projects-index (p/index-path-string :programme-projects-index))
+(def ^:private programmes-index (p/index-path-string :programmes-index))
+(def ^:private programme-resource (p/resource-path-string :programme-resource))
+(def ^:private programme-projects-index (p/index-path-string :programme-projects-index))
 
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]

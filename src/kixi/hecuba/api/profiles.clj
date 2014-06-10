@@ -12,7 +12,7 @@
    [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.web-paths :as p]))
 
-(def entity-profiles-resource (p/resource-path-string :entity-profiles-resource))
+(def ^:private entity-profiles-resource (p/resource-path-string :entity-profiles-resource))
 
 (defn index-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]

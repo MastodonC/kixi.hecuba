@@ -12,11 +12,11 @@
    [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.web-paths :as p]))
 
-(def programme-projects-index (p/index-path-string :programme-projects-index))
-(def programme-projects-resource (p/resource-path-string :programme-projects-resource))
-(def projects-index (p/index-path-string :projects-index))
-(def project-resource (p/resource-path-string :project-resource))
-(def project-properties-index (p/index-path-string :project-properties-index))
+(def ^:private programme-projects-index (p/index-path-string :programme-projects-index))
+(def ^:private programme-projects-resource (p/resource-path-string :programme-projects-resource))
+(def ^:private projects-index (p/index-path-string :projects-index))
+(def ^:private project-resource (p/resource-path-string :project-resource))
+(def ^:private project-properties-index (p/index-path-string :project-properties-index))
 
 (defn- programme_id-from [ctx]
   (get-in ctx [:request :route-params :programme_id]))

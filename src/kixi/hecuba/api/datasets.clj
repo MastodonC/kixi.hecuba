@@ -15,7 +15,7 @@
    [kixi.hecuba.api.devices :as d]
    [kixi.hecuba.web-paths :as p]))
 
-(def entity-dataset-resource (p/resource-path-string :entity-dataset-resource))
+(def ^:private entity-dataset-resource (p/resource-path-string :entity-dataset-resource))
 
 (defn all-datasets [store]
   (db/with-session [session (:hecuba-session store)]

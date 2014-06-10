@@ -12,8 +12,8 @@
    [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.web-paths :as p]))
 
-(def entities-index-path (p/index-path-string :entities-index))
-(def entity-resource-path (p/resource-path-string :entity-resource))
+(def ^:private entities-index-path (p/index-path-string :entities-index))
+(def ^:private entity-resource-path (p/resource-path-string :entity-resource))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
