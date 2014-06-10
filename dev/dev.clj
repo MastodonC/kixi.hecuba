@@ -3,7 +3,6 @@
   (:require
    clojure.edn
    clojure.set
-   [bidi.bidi :refer (path-for match-route)]
    [clojure.pprint :refer (pprint)]
 
    [clojure.tools.logging :refer :all]

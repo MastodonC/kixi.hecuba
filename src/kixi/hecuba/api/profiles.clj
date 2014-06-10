@@ -671,7 +671,7 @@
                            userless-items)]
     (util/render-items ctx formatted-items)))
 
-(defn index-handle-created [handlers ctx]
+(defn index-handle-created [ctx]
   (let [entity_id  (-> ctx :request :route-params :entity_id)
         profile_id (:profile_id ctx)]
     (if-not (empty? profile_id)
@@ -732,24 +732,24 @@
      (= method :delete) false
       :else true)))
 
-(defresource index [store handlers]
+(defresource index [store]
   :allowed-methods #{:get :post}
-  :available-media-types #{"text/csv" "application/json"}
-  :known-content-type? #{"text/csv" "application/json"}
-  :authorized? (authorized? store :profile)
+  :available-media-types #{"text/csv" "application/json" "application/edn"}
+  :known-content-type? #{"text/csv" "application/json" "application/edn"}
+  :authorized? (authorized? store)
   :exists? (partial index-exists? store)
   :malformed? index-malformed?
   :post! (partial index-post! store)
-  :handle-ok (partial index-handle-ok)
-  :handle-created (partial index-handle-created handlers))
+  :handle-ok index-handle-ok
+  :handle-created index-handle-created)
 
-(defresource resource [store handlers]
+(defresource resource [store]
   :allowed-methods #{:get :delete :putj}
   :available-media-types #{"application/json"}
-  :authorized? (authorized? store :profile)
+  :authorized? (authorized? store)
   :exists? (partial resource-exists? store)
   :delete-enacted? (partial resource-delete-enacted? store)
-  :respond-with-entity? (partial resource-respond-with-entity)
+  :respond-with-entity? resource-respond-with-entity
   :new? (constantly false)
   :can-put-to-missing? (constantly false)
   :put! (partial resource-put! store)
