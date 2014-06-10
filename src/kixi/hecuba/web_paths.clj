@@ -55,7 +55,7 @@
 
 (defn compojure-route
   ([route keys]
-     (str "/" (apply (partial format (route paths)) keys)))
+     (str "/" (apply (partial format (get paths route)) keys)))
   ([route]
      (compojure-route route [])))
 
@@ -75,8 +75,8 @@
 
 (defn index-path-string
   [route]
-  (str "/" amon-api-version "/" (route paths) "/"))
+  (str "/" amon-api-version "/" (get paths route) "/"))
 
 (defn resource-path-string
   [route]
-  (str "/" amon-api-version "/" (route paths)))
+  (str "/" amon-api-version "/" (get paths route)))
