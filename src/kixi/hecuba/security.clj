@@ -24,10 +24,12 @@
                    (hayt/select :users
                                 (hayt/where [[= :username username]]))))]
         (log/infof "Got user: %s" user)
-        (merge {:username (:username user)
-                :id       (:id user)
-                :password (:password user)}
-               (edn/read-string (:data user)))))))
+        (if user
+          (merge {:username (:username user)
+                  :id       (:id user)
+                  :password (:password user)}
+                 (edn/read-string (:data user)))
+          nil)))))
 
 (defn friend-middleware
   "Returns a middleware that enables authentication via Friend."
