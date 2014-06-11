@@ -73,7 +73,7 @@
          params
          handler)))
 
-(defn app-routes [store measurements-queue]
+(defn app-routes [store]
   (routes
    ;; landing page
    (GET "/" [] index-page)
@@ -115,7 +115,7 @@
    (resource-route :entity-device-resource [:entity_id :device_id] (devices/resource store))
 
    ;; Measurements
-   (index-routes :entity-device-measurement-index [:entity_id :device_id] (measurements/index store measurements-queue))
+   (index-routes :entity-device-measurement-index [:entity_id :device_id] (measurements/index store))
 
    ;; Readings
    ;; FIXME This should be an index route with the start/stop times
@@ -139,8 +139,7 @@
   component/Lifecycle
   (start [this]
     (let [store  (:store this)
-          queue  (get-in this [:queue :queue])
-          app    (-> (app-routes store queue)
+          app    (-> (app-routes store)
                      (sec/friend-middleware store)
                      (handler/site {:session {:store (cassandra-store store)}}))
           server (run-server app {:port 8010})]

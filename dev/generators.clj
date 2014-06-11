@@ -51,8 +51,6 @@
                                :corrected_unit nil
                                :correction_factor nil
                                :correction_factor_breakdown nil
-                               :events 0
-                               :errors 0
                                :status "Not enough data"
                                         ; :median nil
                                })))))
@@ -96,10 +94,19 @@
   (fn [sensor]
     (:period sensor)))
 
+(defmethod generate-measurements "NEG"
+  [sensor]
+  (let [timestamps (timestamps (t/minutes 1))
+        type       (:type sensor)]
+    (map-indexed (fn [i t] (hash-map :type type
+                                     :timestamp (tc/to-date t)
+                                     :value (str (if (= 0 (mod i 50)) (- (rand 50) 70) (rand 50)))
+                                     :error nil)) timestamps)))
+
 (defmethod generate-measurements "INSTANT"
   [sensor]
-    (let [timestamps (timestamps (t/minutes 1))
-          type       (:type sensor)]
+  (let [timestamps (timestamps (t/minutes 1))
+        type       (:type sensor)]
     (map #(hash-map :type type
                     :timestamp (tc/to-date %)
                     :value (str (rand 50))
@@ -157,5 +164,6 @@
   "Generates instant measurements
    for a cumulative sensor."
   [sensor]
-  (let [sensor (assoc-in sensor [:period] "INSTANT")]
-    (generate-measurements sensor)))
+  (if (= "PULSE" (:period sensor))
+    (generate-measurements (assoc-in sensor [:period] "NEG"))
+    (generate-measurements (assoc-in sensor [:period] "INSTANT"))))

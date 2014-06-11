@@ -5,7 +5,9 @@
             [kixi.hecuba.storage.db :as db]
             [qbits.hayt :as hayt]
             [kixi.hecuba.data.misc :as m]
-            [kixi.hecuba.data.validate :as v]))
+            [kixi.hecuba.data.validate :as v]
+            [kixi.hecuba.data.calculate :as c]
+            [clojure.tools.logging         :as log]))
 
 ;;; Check for mislabelled sensors ;;;
 
@@ -15,11 +17,6 @@
   [measurements]
   (apply <= (map :value measurements)))
 
-(defn neg-or-not-int?
-  "Check for negative numbers or non integers."
- [measurement]
-  (or (not (integer? (:value measurement))) (neg? (:value measurement))))
-
 (defmulti labelled-correctly?
   "Dispatches a call to a specific device period, where
    appropriate checks are performed."
@@ -27,7 +24,7 @@
 
 (defmethod labelled-correctly? "INSTANT" [sensor measurements] true)
 (defmethod labelled-correctly? "CUMULATIVE" [sensor measurements] (going-up? (m/sort-measurments measurements)))
-(defmethod labelled-correctly? "PULSE" [sensor measurements] (empty? (filter neg-or-not-int? measurements)))
+(defmethod labelled-correctly? "PULSE" [sensor measurements] (empty? (filter #(neg? (:value %)) measurements)))
 
 (defn mislabelled-check
   "Takes an hour worth of measurements and checks if the sensor is labelled correctly according to
@@ -38,7 +35,7 @@
           month        (m/get-month-partition-key start-date)
           where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
           measurements (filter #(number? (:value %)) (m/parse-measurements (db/execute session
-                                                                                       (hayt/select :measurements
+                                                                                       (hayt/select :partitioned_measurements
                                                                                                     (hayt/where where)))))]
       (when-not (empty? measurements)
         (db/execute session
@@ -59,7 +56,6 @@
         (recur (mislabelled-check store sensor start))))))
 
 ;;;;;;;;;;;; Batch check for spiked measurements ;;;;;;;;;
-
 (defn label-spikes
   "Checks a sequence of measurement against the most recent recorded median. Overwrites the measurement with updated
   metadata."
@@ -69,16 +65,18 @@
       (let [end-date     (t/plus start-date (t/hours 1))
             month        (m/get-month-partition-key start-date)
             where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
-            measurements (filter #(m/metadata-is-number? %) (db/execute session (hayt/select :measurements (hayt/where where))))]
-        (doseq [m measurements]
-          (let [spike    (str (v/larger-than-median median m))
-                where    [[= :device_id device_id]
-                          [= :type type]
-                          [= :month month]
-                          [= :timestamp (:timestamp m)]]]
-            (db/execute session
-                        (hayt/update :measurements (hayt/set-columns {:metadata [+ {"median-spike" spike}]})
-                                     (hayt/where where)))))
+            measurements (filter #(m/metadata-is-number? %) (db/execute session (hayt/select :partitioned_measurements (hayt/where where))))
+            spikes       (map #(hash-map :timestamp (:timestamp %)
+                                         :spike (str (v/larger-than-median median %))) measurements)]
+        (db/execute session 
+                    (hayt/batch 
+                     (apply hayt/queries (map #(hayt/update :partitioned_measurements
+                                                            (hayt/set-columns {:reading_metadata [+ {"median-spike" (:spike %)}]})
+                                                            (hayt/where  [[= :device_id device_id]
+                                                                          [= :type type]
+                                                                          [= :month (m/get-month-partition-key (:timestamp %))]
+                                                                          [= :timestamp (:timestamp %)]]))
+                                                         spikes))))
         end-date))))
 
 (defn median-spike-check
@@ -107,12 +105,12 @@
 
 (defn update-median
   "Calculates and updates median for a given sensor."
-  [store table {:keys [device_id type period]} start-date]
+  [store {:keys [device_id type period]} start-date]
   (db/with-session [session (:hecuba-session store)]
     (let [end-date     (t/plus start-date (t/hours 1))
           month        (m/get-month-partition-key start-date)
           where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
-          measurements (m/parse-measurements (db/execute session (hayt/select table (hayt/where where))))
+          measurements (m/parse-measurements (db/execute session (hayt/select :partitioned_measurements (hayt/where where))))
           median       (cond
                         (= "CUMULATIVE" period) (median (filter #(number? (:value %)) measurements))
                         (= "INSTANT" period) (median (filter #(remove-bad-readings %) measurements)))]
@@ -127,9 +125,40 @@
   "Retrieves all sensors that either have not had median calculated or the calculation took place over a week ago.
   It iterates over the list of sensors, returns measurements for each and performs calculation.
   Measurements are retrieved in batches."
-  [store table {:keys [sensor range]}]
+  [store {:keys [sensor range]}]
   (let [period (-> sensor :period)
         {:keys [start-date end-date]} range]
     (loop [start start-date]
       (when-not (t/before? end-date start)
-        (recur (update-median store table sensor start))))))
+        (recur (update-median store sensor start))))))
+
+(defn- status-from-measurement-errors
+  "If 10% of measurements are invalid, device is broken."
+  [events errors]
+  (if (and (not (zero? errors))
+           (not (zero? events))
+           (> (/ errors events) 0.1))
+    "Broken"
+    "Ok"))
+
+(defn- errored? [m]
+  (or (m/metadata-is-spike? m)
+      (not (empty? (:error m))) ;; TODO need to test whether C* doesn't have stringified "null" stored.
+      (and (not (m/metadata-is-number? m))
+           (not= "N/A" (:value m)))))
+
+(defn sensor-status
+  "Takes the last day worth of measurements, checks their metadata
+  and updates sensor's status accordingly."
+  [store {:keys [sensor range]}]
+  (let [measurements (c/measurements-for-range store sensor range (t/hours 1))]
+    (when-not (empty? measurements)
+      (let [{:keys [events errors]} (reduce (fn [{:keys [events errors]} m]
+                                              {:events (inc events)
+                                               :errors (if (errored? m) (inc errors) errors)})
+                                            {:events 0 :errors 0} measurements)
+            status (status-from-measurement-errors events errors)]
+        (db/with-session [session (:hecuba-session store)]
+          (db/execute session (hayt/update :sensors
+                                           (hayt/set-columns {:status status})
+                                           (hayt/where (m/where-from sensor)))))))))

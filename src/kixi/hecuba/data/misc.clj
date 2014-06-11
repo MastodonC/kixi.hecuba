@@ -13,6 +13,14 @@
 (defn metadata-is-number? [{:keys [reading_metadata] :as m}]
   (truthy? (get reading_metadata "is-number")))
 
+(defn metadata-is-spike? [{:keys [reading_metadata] :as m}]
+  (truthy? (get reading_metadata "median-spike")))
+
+(defn where-from 
+  "Takes measurement or sensor and returns where clause"
+  [m]
+  [[= :device_id (:device_id m)] [= :type (:type m)]])
+
 ;;;;; Time conversion functions ;;;;;
 
 (defn hourly-timestamp [t]
@@ -47,6 +55,12 @@
                                                    (hayt/where [[= :device_id (:device_id %)] [= :type (:type %)]]))))
                    %) all-sensors-metadata))))
 
+(defn all-sensor-metadata-for-device
+  "Given device_id, retrieves all sensors metadata."
+  [store device_id]
+  (db/with-session [session (:hecuba-session store)]
+    (db/execute session (hayt/select :sensor_metadata (hayt/where [[= :device_id device_id]])))))
+
 (defn start-end-dates
   "Given a sensor, table and where clause, returns start and end dates for (re)calculations."
   [column sensor where]
@@ -54,6 +68,13 @@
     (when-not (empty? range)
       {:start-date (tc/from-date (get range "start")) :end-date (tc/from-date (get range "end"))})))
 
+(defn min-max-dates [measurements]
+  (let [parsed-dates (map #(tc/from-date (:timestamp %)) measurements)]
+    (reduce (fn [{:keys [min-date max-date]} timestamp]
+              {:min-date (if (t/before? timestamp min-date) timestamp min-date)
+               :max-date (if (t/after? timestamp max-date) timestamp max-date)}) 
+            {:min-date (first parsed-dates)
+             :max-date (last parsed-dates)} parsed-dates)))
 
 ;;;;; Parsing of measurements ;;;;;
 
@@ -122,3 +143,7 @@
     "VOL2KWH" (str t "_kwh")
     "KWH2CO2" (str t "_co2")
     "TOTAL-KWH" "electricityConsumption_total"))
+
+(defn prepare-batch [measurements]
+  (hayt/batch
+   (apply hayt/queries (map #(hayt/insert :partitioned_measurements (hayt/values %)) measurements))))

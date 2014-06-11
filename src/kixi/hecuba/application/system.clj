@@ -13,8 +13,6 @@
    kixi.hecuba.application.safe
    [kixi.hecuba.controller.pipeline :refer (new-pipeline)]
    [kixipipe.scheduler]
-   [kixi.hecuba.queue :refer (new-queue)]
-   [kixi.hecuba.data :refer (new-queue-worker)]
    [kixi.hecuba.routes :refer (new-web-app)]
    [kixi.hecuba.storage.db :as db]
    [shadow.cljs.build :as cljs]
@@ -132,14 +130,11 @@
          :store (db/new-store)
          :pipeline (new-pipeline)
          :scheduler (kixipipe.scheduler/mk-session cfg)
-         :queue (new-queue (:queue cfg))
-         :queue-worker (new-queue-worker)
          :cljs-builder (new-cljs-builder)
          :web-app (new-web-app cfg))
         (mod/system-using
          {:web-app [:store]
-          :store [:hecuba-session :queue]
-          :queue-worker [:queue :store]
+          :store [:hecuba-session]
           :pipeline [:store]
           :scheduler [:pipeline]
           :hecuba-session [:cluster]}))))

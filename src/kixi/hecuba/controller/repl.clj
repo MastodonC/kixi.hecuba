@@ -22,4 +22,5 @@
 (defreplmethods resolution-> :dest :data-quality :type :resolution)
 (defreplmethods convert-to-co2-> :dest :calculated-datasets :type :convert-to-co2)
 (defreplmethods convert-to-kwh-> :dest :calculated-datasets :type :convert-to-kwh)
+(defreplmethods sensor-status-check-> :dest :data-quality :type :sensor-status)
 
