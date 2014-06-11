@@ -14,6 +14,24 @@
 (derive ::admin ::programme-manager)
 (derive ::super-admin ::admin)
 
+(defn add-user!
+  ([store username password roles programmes projects]
+     (db/with-session [session (:hecuba-session store)]
+       (db/execute
+        session
+        (hayt/update :users
+                     (hayt/set-columns
+                      {:username username
+                       :password (creds/hash-bcrypt password)
+                       :data     (pr-str {:roles      (set roles)
+                                          :programmes (set programmes)
+                                          :projects   (set projects)})})
+                     (hayt/where [[= :id username]])))))
+  ([store username password roles]
+     (add-user! store username password roles #{} #{})))
+
+;; (kixi.hecuba.security/add-user! (:store system) "support@example.com" "<password>" #{:kixi.hecuba.security/super-admin})
+
 (defn get-user [store]
   (fn [username]
     (log/infof "Getting user: %s" username)
