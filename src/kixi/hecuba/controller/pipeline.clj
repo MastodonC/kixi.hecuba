@@ -99,6 +99,7 @@
                 range     (misc/start-end-dates :co2 s where)
                 new-item  (assoc item :sensor s :range range)]
             (when (and range
+                       unit
                        (= "KWH" (.toUpperCase unit))
                        (= "PULSE" period)
                        (should-convert-type? type))
@@ -115,6 +116,7 @@
                 range     (misc/start-end-dates :kwh s where)
                 new-item  (assoc item :sensor s :range range)]
             (when (and range
+                       unit
                        (some #(= (.toUpperCase unit) (.toUpperCase %)) ["m^3" "ft^3"]))
               (log/info  "Converting to kWh: " device_id type)
               (calculate/gas-volume->kWh store new-item)
