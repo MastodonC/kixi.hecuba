@@ -12,7 +12,7 @@
   [f & lists]
   (apply mapv f lists) nil)
 
-(defn convert-metadata 
+(defn convert-metadata
   "Reads stringified metadata into a clojure map."
   [m]
   (let [metadata (:metadata m)]
@@ -20,7 +20,7 @@
       (clojure.walk/stringify-keys (read-string metadata))
       nil)))
 
-(defn migrate-reading-metadata 
+(defn migrate-reading-metadata
   "Works on a lazy sequence of all measurements for all sensors in the database and
   populates (new) reading_metadata with data coming from (old) metadata."
   [{:keys [store]}]
@@ -30,14 +30,14 @@
       (doseq [s sensors]
         (let [measurements (measurements/all-measurements store s)]
           (when measurements
-            (doseq [m measurements] 
+            (doseq [m measurements]
                (db/execute session
-                           (hayt/update :measurements
-                                        (hayt/set-columns :reading_metadata (convert-metadata m))
-                                        (hayt/where [[= :device_id (:device_id m)]
-                                                     [= :type (:type m)]
-                                                     [= :month (:month m)]
-                                                     [= :timestamp (:timestamp m)]])))))))))
+                           (hayt/update :partitioned_measurements
+                                        (hayt/values {:device_id (:device_id m)
+                                                      :type (:type m)
+                                                      :month (:month m)
+                                                      :timestamp (:timestamp m)
+                                                      :reading_metadata (convert-metadata m)})))))))))
   (log/info "Finished migrating reading metadata."))
 
 (defn fill-sensor-bounds
