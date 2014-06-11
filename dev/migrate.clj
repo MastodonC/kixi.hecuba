@@ -32,11 +32,13 @@
           (when measurements
             (doseq [m measurements]
                (db/execute session
-                           (hayt/update :partitioned_measurements
-                                        (hayt/values {:device_id (:device_id m)
-                                                      :type (:type m)
-                                                      :month (:month m)
-                                                      :timestamp (:timestamp m)
+                           (hayt/insert :partitioned_measurements
+                                        (hayt/values {:device_id  (:device_id m)
+                                                      :type       (:type m)
+                                                      :month      (:month m)
+                                                      :timestamp  (:timestamp m)
+                                                      :value      (:value m)
+                                                      :error      (:error m)
                                                       :reading_metadata (convert-metadata m)})))))))))
   (log/info "Finished migrating reading metadata."))
 
