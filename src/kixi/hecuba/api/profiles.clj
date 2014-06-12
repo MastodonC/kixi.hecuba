@@ -23,7 +23,7 @@
           entity       (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first)]
       (case method
         :post (not (nil? entity))
-        :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :id entity_id]])))]
+        :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
                {::items items})))))
 
 (defn index-malformed? [ctx]
@@ -661,6 +661,7 @@
   (let [{items ::items
          {mime :media-type} :representation} ctx
          userless-items (->> items
+                             (map #(update-in % [:timestamp] str))
                              (map #(dissoc % :user_id)))
          exploded-items (->> userless-items
                              (map #(explode-and-sort-by-schema % profile-schema)))
@@ -728,6 +729,7 @@
 (defn resource-handle-ok [store ctx]
   (let [{item ::item} ctx]
     (-> item
+        (update-in [:timestamp] str)
         (dissoc :user_id))))
 
 (defn resource-respond-with-entity [ctx]
@@ -750,7 +752,7 @@
 
 (defresource resource [store]
   :allowed-methods #{:get :delete :putj}
-  :available-media-types #{"application/json"}
+  :available-media-types #{"text/csv" "application/json"}
   :authorized? (authorized? store)
   :exists? (partial resource-exists? store)
   :delete-enacted? (partial resource-delete-enacted? store)
