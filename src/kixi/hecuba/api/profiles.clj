@@ -661,6 +661,7 @@
   (let [{items ::items
          {mime :media-type} :representation} ctx
          userless-items (->> items
+                             (map #(update-in % [:timestamp] str))
                              (map #(dissoc % :user_id)))
          exploded-items (->> userless-items
                              (map #(explode-and-sort-by-schema % profile-schema)))
@@ -728,6 +729,7 @@
 (defn resource-handle-ok [store ctx]
   (let [{item ::item} ctx]
     (-> item
+        (update-in [:timestamp] str)
         (dissoc :user_id))))
 
 (defn resource-respond-with-entity [ctx]
