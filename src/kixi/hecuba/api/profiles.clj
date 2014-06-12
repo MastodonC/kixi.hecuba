@@ -23,7 +23,7 @@
           entity       (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first)]
       (case method
         :post (not (nil? entity))
-        :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :id entity_id]])))]
+        :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
                {::items items})))))
 
 (defn index-malformed? [ctx]
