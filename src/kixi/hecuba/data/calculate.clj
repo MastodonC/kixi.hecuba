@@ -226,7 +226,7 @@
 
 (defn find-resolution [measurements]
   (let [differences (diff (map #(/ (.getTime (m/truncate-seconds (:timestamp %))) 1000) measurements))]
-    (Math/abs (mode differences))))
+    (java.lang.Math/abs (mode differences))))
 
 (defn resolution
   "Updates resolution if it's missing. Infers it from last 100 measurements.
