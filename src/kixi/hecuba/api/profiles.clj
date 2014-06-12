@@ -750,7 +750,7 @@
 
 (defresource resource [store]
   :allowed-methods #{:get :delete :putj}
-  :available-media-types #{"application/json"}
+  :available-media-types #{"text/csv" "application/json"}
   :authorized? (authorized? store)
   :exists? (partial resource-exists? store)
   :delete-enacted? (partial resource-delete-enacted? store)
