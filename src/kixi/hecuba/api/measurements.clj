@@ -151,8 +151,8 @@
               {:keys [min-date max-date]} (m/min-max-dates validated-measurements)]
           (db/execute session (m/prepare-batch validated-measurements))
           (v/update-sensor-metadata store sensor min-date max-date)
-          (ring-response {:response {:status 202 :body "Accepted"}}))       
-        (ring-response {:response {:status 400 :body "Provide valid device_id and type."}})))))
+          {:response {:status 202 :body "Accepted"}})       
+        {:response {:status 400 :body "Provide valid device_id and type."}}))))
 
 (defn index-handle-created [ctx]
   (ring-response (:response ctx)))
