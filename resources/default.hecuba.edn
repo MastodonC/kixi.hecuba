@@ -17,5 +17,6 @@
               "0 15    *  *  * ?" {:dest :calculated-datasets :type :convert-to-co2}
               "0 30    *  *  * ?" {:dest :calculated-datasets :type :convert-to-kwh}
               "0 50   13  *  * ?" {:dest :data-quality        :type :mislabelled-sensors}
-              "0 0    12  *  * ?" {:dest :data-quality        :type :spike-check}}}
+              "0 0    12  *  * ?" {:dest :data-quality        :type :spike-check}
+              "0 0    16  *  * ?" {:dest :data-quality        :type :sensor-status}}}
    }

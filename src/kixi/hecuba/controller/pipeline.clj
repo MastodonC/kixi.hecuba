@@ -6,6 +6,7 @@
             [kixi.hecuba.data.batch-checks :as checks]
             [kixi.hecuba.data.misc         :as misc]
             [kixi.hecuba.data.calculate    :as calculate]
+            [clj-time.core :as t]
             [com.stuartsierra.component    :as component]))
 
 (defn build-pipeline [store]
@@ -19,7 +20,8 @@
         resolution-q          (new-queue {:name "resolution-q" :queue-size 50})
         difference-series-q   (new-queue {:name "difference-series-q" :queue-size 50})
         convert-to-co2-q      (new-queue {:name "convert-to-co2-q" :queue-size 50})
-        convert-to-kwh-q      (new-queue {:name "convert-to-kwh-q" :queue-size 50})]
+        convert-to-kwh-q      (new-queue {:name "convert-to-kwh-q" :queue-size 50})
+        sensor-status-q         (new-queue {:name "sensor-status" :queue-size 50})]
 
     (defnconsumer fanout-q [{:keys [dest type] :as item}]
       (let [item (dissoc item :dest)]
@@ -28,7 +30,8 @@
                           :median-calculation  (produce-item item median-calculation-q)
                           :mislabelled-sensors (produce-item item mislabelled-sensors-q)
                           :spike-check         (produce-item item spike-check-q)
-                          :resolution          (produce-item item resolution-q))
+                          :resolution          (produce-item item resolution-q)
+                          :sensor-status       (produce-item item sensor-status-q))
           :calculated-datasets (condp = type
                                  :rollups            (produce-item item rollups-q)
                                  :synthetic-readings (produce-item item synthetic-readings-q)
@@ -48,13 +51,9 @@
                 range     (misc/start-end-dates :median_calc_check s where)
                 new-item  (assoc item :sensor s :range range)]
             (when period
-              (let [table (case period
-                            "CUMULATIVE" :difference_series
-                            "INSTANT"    :measurements
-                            "PULSE"      :measurements)]
-                (when (and range (not= period "PULSE"))
-                  (checks/median-calculation store table new-item)
-                  (misc/reset-date-range store s :median_calc_check (:start-date range) (:end-date range))))))))
+              (when (and range (not= period "PULSE"))
+                (checks/median-calculation store new-item)
+                (misc/reset-date-range store s :median_calc_check (:start-date range) (:end-date range)))))))
       (log/info "Finished median calculation."))
 
     (defnconsumer mislabelled-sensors-q [item]
@@ -131,11 +130,7 @@
                 type       (:type s)
                 period     (:period s)]
             (when period
-              (let [table (case period
-                            "CUMULATIVE" :difference_series
-                            "INSTANT"    :measurements
-                            "PULSE"      :measurements)
-                    where      {:device_id device_id :type type}
+              (let [where      {:device_id device_id :type type}
                     range      (misc/start-end-dates :rollups s where)
                     new-item   (assoc item :sensor s :range range)]
                 (when range
@@ -170,11 +165,20 @@
       (calculate/resolution store item)
       (log/info "Finished resolution check."))
 
+    (defnconsumer sensor-status-q [item]
+      (log/info "Starting sensor status check.")
+      (let [sensors (misc/all-sensors store)
+            end     (t/now)
+            start   (t/minus end (t/days 1))]
+        (doseq [s sensors]
+          (checks/sensor-status store {:sensor s :range {:start-date start :end-date end}})))
+      (log/info "Finished sensor status check"))
+
     (producer-of fanout-q median-calculation-q mislabelled-sensors-q spike-check-q rollups-q synthetic-readings-q
-                 resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q)
+                 resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q sensor-status-q)
 
     (list fanout-q #{median-calculation-q mislabelled-sensors-q spike-check-q rollups-q synthetic-readings-q
-                     resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q})))
+                     resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q sensor-status-q})))
 
 (defrecord Pipeline []
   component/Lifecycle

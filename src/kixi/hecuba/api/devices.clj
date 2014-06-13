@@ -100,9 +100,7 @@
           (doseq [reading (:readings new-body)]
             (let [sensor (-> reading
                              (merge (stringify-values (dissoc reading :synthetic))) ;; synthetic is a boolean so we don't stringify
-                             (assoc :device_id device_id)
-                             (assoc :errors 0)
-                             (assoc :events 0))]
+                             (assoc :device_id device_id))]
               (db/execute session (hayt/insert :sensors (hayt/values sensor)))
               (db/execute session (hayt/insert :sensor_metadata (hayt/values {:device_id device_id :type (:type reading)})))))
           {:device_id device_id
@@ -174,9 +172,7 @@
           (doseq [reading (:readings new-body)]
             (let [sensor (-> reading
                              stringify-values
-                             (assoc :device_id device_id)
-                             (assoc :errors 0)
-                             (assoc :events 0))]
+                             (assoc :device_id device_id))]
               (db/execute session (hayt/insert :sensors (hayt/values sensor)))
               (db/execute session (hayt/insert :sensor_metadata (hayt/values {:device_id device_id :type (:type reading)}))))))
         (ring-response {:status 404 :body "Please provide valid entity_id and device_id"})))))

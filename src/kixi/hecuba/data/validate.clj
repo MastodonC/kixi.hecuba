@@ -1,71 +1,10 @@
 (ns kixi.hecuba.data.validate
  "Data quality assurance and validation."
  (:require [clj-time.core :as t]
+           [clj-time.coerce :as tc]
            [kixi.hecuba.data.misc :as m]
            [kixi.hecuba.storage.db :as db]
            [qbits.hayt :as hayt]))
-
-
-;;;;;;;;;; Validation on insert ;;;;;;;;;;;;
-
-;; Sensor status and counters ;;;
-
-(defn- reset-counters!
-  "Resets the counters for a given sensor."
-  [session where]
-  (db/execute session
-              (hayt/update :sensors
-                           (hayt/set-columns {:events 0
-                                              :errors 0})
-                           (hayt/where where))))
-
-(defn- where-from [m]
-  [[= :device_id (:device_id m)] [= :type (:type m)]])
-
-(defn- update-sensor [session sensor delta]
-  (db/execute session
-                 (hayt/update :sensors
-                              (hayt/set-columns delta)
-                              (hayt/where (where-from sensor)))))
-
-;; TODO this is duplicated in misc.  - resolve.
-(defn update-metadata
-  [metadata-str new-map-entry]
-  (let [metadata (read-string metadata-str)]
-    (str (conj metadata new-map-entry))))
-
-
-
-(defn- status-from-measurement-errors
-  "If 10% of measurements are invalid, device is broken."
-  [sensor]
-  (let [errors (-> sensor first :errors)
-        events (-> sensor first :events)]
-    (if (and (not (empty? errors))
-             (not (empty? events)))
-      (if (and (not (zero? errors))
-               (not (zero? events))
-               (> (/ errors events) 0.1))
-        "Broken"
-        "Ok"))
-    "N/A"))
-
-(defn- broken-sensor-check
-  "Validates and inserts measurments. Updates metadata when errors are doscovered.
-  Updates counters."
-  [m session sensor]
-  (update-sensor session sensor
-                 {:status (status-from-measurement-errors sensor)})
-  m)
-
-
-(defn label-spike
-  "Increment error counter and label median spike in metadata."
-  [store sensor m]
-  (db/with-session [session (:hecuba-session store)]
-    (let [errors (get sensor :errors)]
-      (update-sensor session sensor {:errors (if-not (nil? errors) (inc errors) 1)})
-      (assoc-in m [:reading_metadata "median-spike"] "true"))))
 
 (defn larger-than-median
   "Find readings that are larger than median."
@@ -73,90 +12,63 @@
   ([median measurement n] (>= (-> measurement :value read-string) (* n median))))
 
 (defn median-check
-  "Checks if a measurement is 200x median. If so, increments error counter.
-  Updates metadata accordingly."
-  [m session sensor]
+  "Checks if a measurement is 200x median and updates metadata accordingly."
+  [m sensor]
   (let [median (-> sensor first :median)]
     (cond
      (or (empty? median) (zero? median)) (assoc-in m [:reading_metadata "median-spike"] "n/a")
-     (larger-than-median median m) (label-spike session sensor m)
+     (larger-than-median median m) (assoc-in m [:reading_metadata "median-spike"] "true")
      :else (assoc-in m [:reading_metadata "median-spike"] "false"))))
 
-(defn- label-invalid-value
-  "Labels measurement as having invalid value.
-   Increments error counter of the sensor."
-  [session sensor where m]
-  (let [errors (-> sensor first :errors)]
-    (update-sensor session sensor {:errors (if-not (empty? errors) (inc errors) 1)})
-    (assoc-in m [:reading_metadata "is-number"] "false")))
-
 (defn- number-check
-  "Checks if value is a number. If not, increments error counter.
-  Updates metadata accordingly."
-  [m session sensor]
-  (let [value     (:value m)]
-    (if (and (not (empty? value)) (m/numbers-as-strings? value))
-      (assoc-in m [:reading_metadata "is-number"] "true")
-      (label-invalid-value session sensor (where-from m) m))))
+  "Checks if value is a number and updates metadata accordingly."
+  [m]
+  (let [value (:value m)]
+    (assoc-in m [:reading_metadata "is-number"] (if (and (not (empty? value)) (m/numbers-as-strings? value)) "true" "false"))))
 
 (defn- sensor-exists? [session m]
   (first (db/execute session
                   (hayt/select :sensors
-                               (hayt/where (where-from m))))))
+                               (hayt/where (m/where-from m))))))
 
 (defn validate
   "Measurement map is pipelines through a number of validation
   functions. Returns map of measurement with updated metadata."
-  [store m]
-  (db/with-session [session (:hecuba-session store)]
-    (let [sensor (sensor-exists? session m)
-          events (get sensor :events)
-          where  (where-from m)]
-      (if (= events 1440) 
-        (reset-counters! session where)
-        (update-sensor session sensor {:events (if-not (nil? events) (inc events) 1)}))
-      (-> m
-          (number-check session sensor)
-          (median-check session sensor)
-          (broken-sensor-check session sensor)))))
+  [m sensor]
+  (-> m
+      number-check
+      (median-check sensor)))
 
-;; Sensor metadata functions that are triggered by core.async queue worker.
-(defn- get-sensor-metadata [session where]
-  (first (db/execute session
-                     (hayt/select :sensor_metadata
-                                  (hayt/where where)))))
-
-(defn- update-date-range [t metadata column]
-  (let [existing-range (get metadata column)]
+(defn- update-date-range [sensor column min-date max-date]
+  (let [existing-range (get sensor column)]
     (cond
-     (empty? existing-range) {"start" t "end" t}
-     (.before t (get existing-range "start")) {"start" t} 
-     (.after t (get existing-range "end")) {"end" t})))
+     (empty? existing-range) {"start" min-date "end" max-date}
+     (.before min-date (get existing-range "start")) {"start" min-date} 
+     (.after max-date (get existing-range "end")) {"end" max-date})))
 
-(defn- update-bounds [t metadata]
-  (let [{:keys [lower_ts upper_ts]} metadata]
-    (cond
-     (and (nil? lower_ts) (nil? upper_ts)) {:upper_ts t :lower_ts t}
-     (.before t lower_ts) {:lower_ts t}
-     (.after t upper_ts) {:upper_ts t})))
+(defn- update-bounds [min-date max-date {:keys [lower_ts upper_ts]}]
+  (cond
+   (and (nil? lower_ts) (nil? upper_ts)) {:upper_ts max-date :lower_ts min-date}
+   (.before min-date lower_ts) {:lower_ts min-date}
+   (.after max-date upper_ts) {:upper_ts max-date}))
 
 (defn update-sensor-metadata
   "Updates start and end dates when new measurement is received."
-  [m store]
+  [store sensor min-date max-date]
   (db/with-session [session (:hecuba-session store)]
-    (let [where      (where-from m)
-          metadata   (get-sensor-metadata session where)
-          t          (:timestamp m)
-          new-bounds (update-bounds t metadata)]
+    (let [start      (tc/to-date min-date)
+          end        (tc/to-date max-date)
+          new-bounds (update-bounds start end sensor)
+          where      (m/where-from sensor)]
       (db/execute session
                   (hayt/update :sensor_metadata
-                               (hayt/set-columns (merge  {:rollups [+ (update-date-range t metadata :rollups)]
-                                                          :mislabelled_sensors_check [+ (update-date-range t metadata :mislabelled_sensors_check)]
-                                                          :difference_series [+ (update-date-range t metadata :difference_series)]
-                                                          :median_calc_check [+ (update-date-range t metadata :median_calc_check)]
-                                                          :spike_check [+ (update-date-range t metadata :spike_check)]
-                                                          :co2 [+ (update-date-range t metadata :co2)]
-                                                          :kwh [+ (update-date-range t metadata :kwh)]}
+                               (hayt/set-columns (merge  {:rollups [+ (update-date-range sensor :rollups start end)]
+                                                          :mislabelled_sensors_check [+ (update-date-range sensor :mislabelled_sensors_check start end)]
+                                                          :difference_series [+ (update-date-range sensor :difference_series start end)]
+                                                          :median_calc_check [+ (update-date-range sensor :median_calc_check start end)]
+                                                          :spike_check [+ (update-date-range sensor :spike_check start end)]
+                                                          :co2 [+ (update-date-range sensor :co2 start end)]
+                                                          :kwh [+ (update-date-range sensor :kwh start end)]}
                                                          (when-let [lower (:lower_ts new-bounds)] {:lower_ts lower})
                                                          (when-let [upper (:upper_ts new-bounds)] {:upper_ts upper})))
                                (hayt/where where))))))
