@@ -1,6 +1,7 @@
 (ns kixi.hecuba.api.properties
   (:require
    [cheshire.core :as json]
+   [hickory.core :as hickory]
    [clojure.edn :as edn]
    [clojure.tools.logging :as log]
    [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex) :as util]
@@ -14,6 +15,17 @@
 (defn- project_id-from [ctx]
   (get-in ctx [:request :route-params :project_id]))
 
+(defn- tech-icons [property_data]
+  (if-let [icons (:technology_icons property_data)]
+    (do
+      (log/infof "Icons; %s" icons)
+      (assoc
+          property_data
+        :technology_icons (->> (hickory/parse-fragment icons)
+                               (map (fn [ti] (-> ti hickory/as-hickory :attrs :src)))
+                               (keep identity))))
+    property_data))
+
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)]
@@ -23,11 +35,12 @@
                                     (hayt/select :entities)))
                       (map #(assoc %
                               :property_data (if-let [property_data (:property_data %)]
-                                               (json/parse-string property_data)
+                                               (-> property_data
+                                                   (json/parse-string keyword)
+                                                   tech-icons)
                                                {})
-                              :photos (if-let [photos (:photos %)] (map (fn [p] (json/parse-string p keyword)) photos) [])
-                              ;; TODO: parse documents key
-                              ;; FIXME: This should work, as all stringified maps should be json
+                              :photos (if-let [photos (:photos %)] (mapv (fn [p] (json/parse-string p keyword)) photos) [])
+                              :documents (if-let [docs (:documents %)] (mapv (fn [d] (json/parse-string d keyword)) docs) [])
                               ;; :devices (if-let [devices (:devices %)]
                               ;;            (into {} (map (fn [[k v]] [(keyword k) (json/parse-string v)]) (:devices %))) {})
                               :href (format entity-resource (:id %)))))

@@ -17,6 +17,9 @@
 
                  [compojure "1.1.8"]
 
+                 ;; to deal with some legacy html data
+                 [hickory "0.5.3"]
+
                  ;; authn and authz
                  [com.cemerick/friend "0.2.1" :exclusions [commons-codec org.clojure/core.cache]]
 
