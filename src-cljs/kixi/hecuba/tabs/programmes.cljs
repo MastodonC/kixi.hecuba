@@ -342,27 +342,49 @@
 (defmethod properties-table-html :error [properties owner]
   (error-row properties))
 
+(defn form-group-static [label text]
+  [:div.form-group
+   [:label.col-sm-2.control-label label]
+   [:div.col-sm-10
+    [:p.form-control-static text]]])
+
+(defn dl-horizontal [title item]
+  [:div [:dt title] [:dd item]])
+
+(defn property-detail [property-detail]
+  (let [property_data (:property_data property-detail)]
+    [:div.col-md-12
+     [:div.col-md-6
+      [:dl.dl-horizontal
+       (dl-horizontal "Property Type" (:property_type property_data))
+       (dl-horizontal "Property Code" (:property_code property_data))
+       (dl-horizontal "Address" [:address
+                                 (:address_street property_data) [:br]
+                                 (when-let [address-two (:address_street_two property_data)]
+                                   [:div address-two [:br]])
+                                 (:address_code property_data) [:br]
+                                 (:address_country property_data)])
+       (dl-horizontal "Region" (:address_region property_data))
+       (dl-horizontal "Ownership" (:ownership property_data))]]
+     [:div.col-md-2
+      (when-let [pic (:path (first (:photos property-detail)))]
+        [:img.img-thumbnail.tmg-responsive
+         {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" pic)}])]
+     [:div.col-md-4
+      (for [ti (:technology_icons property_data)]
+        [:img.tmg-responsive {:src ti :width 40 :height 40}])]]))
+
 (defmethod properties-table-html :has-data [properties owner]
   (let [table-id "properties-table"
         history  (om/get-shared owner :history)]
     [:div.row
      [:div.col-md-12
-      [:table {:className "table table-hover"}
-       [:thead
-        [:tr [:th "Property Code"] [:th "Address"] [:th "Region"] [:th "Country"]]]
-       [:tbody
-        (for [row (sort-by :address_street_two (:data properties))]
-          (let [{:keys [id property_code address_street_two address-country address_region]} row]
-            [:tr {:onClick (fn [_ _]
-                             (om/update! properties :selected id)
-                             (history/update-token-ids! history :properties id)
-                             (fixed-scroll-to-element "devices-div"))
-                  :className (if (= id (:selected properties)) "success")
-                  :id (str table-id "-selected")}
-             [:td property_code]
-             [:td address_street_two]
-             [:td address_region]
-             [:td address-country]]))]]]]))
+      (for [row (sort-by #(-> % :property_data :property_code) (:data properties))]
+        (let [property_data (:property_data row)
+              slug (str "Property Code: " (:property_code property_data)
+                        " | Address: " 
+                        (:address_code property_data))]
+          (bs/panel slug (property-detail row))))]]))
 
 (defmethod properties-table-html :default [properties owner]
   [:div.row [:div.col-md-12]])
