@@ -2,6 +2,7 @@
   (:require [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.api.measurements :as measurements]
+            [kixi.hecuba.data.misc :as misc]
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-time.format :as tf]
@@ -14,7 +15,7 @@
 
 (defn convert-metadata
   "Reads stringified metadata into a clojure map."
-  [m]
+  [_ m]
   (let [metadata (:metadata m)]
     (if metadata
       (clojure.walk/stringify-keys (read-string metadata))
@@ -28,18 +29,12 @@
   (db/with-session [session (:hecuba-session store)]
     (let [sensors (db/execute session (hayt/select :sensors))]
       (doseq [s sensors]
-        (let [measurements (measurements/all-measurements store s)]
-          (when measurements
-            (doseq [m measurements]
-               (db/execute session
-                           (hayt/insert :partitioned_measurements
-                                        (hayt/values {:device_id  (:device_id m)
-                                                      :type       (:type m)
-                                                      :month      (:month m)
-                                                      :timestamp  (:timestamp m)
-                                                      :value      (:value m)
-                                                      :error      (:error m)
-                                                      :reading_metadata (convert-metadata m)})))))))))
+        (let [measurements (measurements/all-measurements store s)
+              measurements-with-metadata (map #(update-in % [:reading_metadata] convert-metadata %)
+                                              measurements)]
+          (when measurements-with-metadata
+             (db/execute session
+                         (misc/prepare-batch measurements-with-metadata)))))))
   (log/info "Finished migrating reading metadata."))
 
 (defn fill-sensor-bounds
