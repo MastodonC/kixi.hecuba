@@ -132,10 +132,6 @@
      :month            (util/get-month-partition-key t)
      :reading_metadata {}}))
 
-(defn prepare-batch [measurements]
-  (hayt/batch
-   (apply hayt/queries (map #(hayt/insert :partitioned_measurements (hayt/values %)) measurements))))
-
 (defn index-post! [store ctx]
   (let [request       (:request ctx)
         route-params  (:route-params request)
@@ -151,7 +147,7 @@
               {:keys [min-date max-date]} (m/min-max-dates validated-measurements)]
           (db/execute session (m/prepare-batch validated-measurements))
           (v/update-sensor-metadata store sensor min-date max-date)
-          {:response {:status 202 :body "Accepted"}})       
+          {:response {:status 202 :body "Accepted"}})
         {:response {:status 400 :body "Provide valid device_id and type."}}))))
 
 (defn index-handle-created [ctx]
