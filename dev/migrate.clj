@@ -27,14 +27,17 @@
   [{:keys [store]}]
   (log/info "Migrating reading metadata.")
   (db/with-session [session (:hecuba-session store)]
-    (let [sensors (db/execute session (hayt/select :sensors))]
+    (let [all-sensors (db/execute session (hayt/select :sensors))
+          processed-sensors (clojure.string/split-lines (slurp "/tmp/processed_sensors.txt"))
+          sensors (remove (set processed-sensors) all-sensors)]
       (doseq [s sensors]
         (let [measurements (measurements/all-measurements store s)
               measurements-with-metadata (map #(update-in % [:reading_metadata] convert-metadata %)
                                               measurements)]
           (when measurements-with-metadata
              (db/execute session
-                         (misc/prepare-batch measurements-with-metadata)))))))
+                         (misc/prepare-batch measurements-with-metadata))))
+        (spit "/tmp/processed_sensors.txt" s :append true))))
   (log/info "Finished migrating reading metadata."))
 
 (defn fill-sensor-bounds
