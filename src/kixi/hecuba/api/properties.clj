@@ -25,6 +25,20 @@
                              (map #(clojure.string/replace % ".jpg" ".png"))))
     property_data))
 
+(defn- property-devices [entity_id session]
+  (if-let [devices (db/execute session
+                               (hayt/select
+                                :devices
+                                (hayt/where [[= :entity_id entity_id]])))]
+    (mapv (fn [d]
+            (assoc d :readings
+                   (map (fn [sensor] (dissoc sensor :user_id))
+                        (db/execute session
+                                    (hayt/select :sensors
+                                                 (hayt/where [[= :device_id (:id d)]]))))))
+          devices)
+    []))
+
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)]
@@ -40,8 +54,8 @@
                                                {})
                               :photos (if-let [photos (:photos %)] (mapv (fn [p] (json/parse-string p keyword)) photos) [])
                               :documents (if-let [docs (:documents %)] (mapv (fn [d] (json/parse-string d keyword)) docs) [])
-                              ;; :devices (if-let [devices (:devices %)]
-                              ;;            (into {} (map (fn [[k v]] [(keyword k) (json/parse-string v)]) (:devices %))) {})
+                              :devices (if-let [devices (:devices %)]
+                                         (property-devices (:id %) session))
                               :href (format entity-resource (:id %)))))
             scoll (sort-by :property_code coll)]
         ;; (log/debugf "Properties: %s" scoll)
