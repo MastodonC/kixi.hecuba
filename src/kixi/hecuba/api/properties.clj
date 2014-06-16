@@ -39,27 +39,31 @@
           devices)
     []))
 
+(defn- get-profiles [entity_id session]
+  (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]]))))
+
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request (:request ctx)]
-      (let [coll (->> (db/execute session                                  
-                                  (if-let [project_id (project_id-from ctx)]
-                                    (hayt/select :entities (hayt/where [[= :project_id project_id]]))
-                                    (hayt/select :entities)))
-                      (map #(assoc %
-                              :property_data (if-let [property_data (:property_data %)]
-                                               (-> property_data
-                                                   (json/parse-string keyword)
-                                                   tech-icons)
-                                               {})
-                              :photos (if-let [photos (:photos %)] (mapv (fn [p] (json/parse-string p keyword)) photos) [])
-                              :documents (if-let [docs (:documents %)] (mapv (fn [d] (json/parse-string d keyword)) docs) [])
-                              :devices (if-let [devices (:devices %)]
-                                         (property-devices (:id %) session))
-                              :href (format entity-resource (:id %)))))
-            scoll (sort-by :property_code coll)]
-        ;; (log/debugf "Properties: %s" scoll)
-        scoll))))
+    (let [request (:request ctx)
+          coll    (->> (db/execute session
+                                   (if-let [project_id (project_id-from ctx)]
+                                     (hayt/select :entities (hayt/where [[= :project_id project_id]]))
+                                     (hayt/select :entities)))
+                       (map #(assoc %
+                               :property_data (if-let [property_data (:property_data %)]
+                                                (-> property_data
+                                                    (json/parse-string keyword)
+                                                    tech-icons)
+                                                {})
+                               :photos (if-let [photos (:photos %)] (mapv (fn [p] (json/parse-string p keyword)) photos) [])
+                               :documents (if-let [docs (:documents %)] (mapv (fn [d] (json/parse-string d keyword)) docs) [])
+                               :devices (if-let [devices (:devices %)]
+                                          (property-devices (:id %) session))
+                               :profiles (get-profiles (:id %) session)
+                               :href (format entity-resource (:id %)))))
+          scoll   (sort-by :property_code coll)]
+      ;; (log/debugf "Properties: %s" scoll)
+      scoll)))
 
 (defresource index [store]
   :allowed-methods #{:get}
