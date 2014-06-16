@@ -17,13 +17,12 @@
 
 (defn- tech-icons [property_data]
   (if-let [icons (:technology_icons property_data)]
-    (do
-      (log/infof "Icons; %s" icons)
-      (assoc
-          property_data
-        :technology_icons (->> (hickory/parse-fragment icons)
-                               (map (fn [ti] (-> ti hickory/as-hickory :attrs :src)))
-                               (keep identity))))
+    (assoc
+        property_data
+      :technology_icons (->> (hickory/parse-fragment icons)
+                             (map (fn [ti] (-> ti hickory/as-hickory :attrs :src)))
+                             (keep identity)
+                             (map #(clojure.string/replace % ".jpg" ".png"))))
     property_data))
 
 (defn index-handle-ok [store ctx]
