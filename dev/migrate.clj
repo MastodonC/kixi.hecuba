@@ -21,6 +21,11 @@
       (clojure.walk/stringify-keys (read-string metadata))
       nil)))
 
+(def processed-file "/tmp/processed_sensors.txt")
+
+(defn file-exists? [filename]
+  (.exists (clojure.java.io/as-file filename)))
+
 (defn migrate-reading-metadata
   "Works on a lazy sequence of all measurements for all sensors in the database and
   populates (new) reading_metadata with data coming from (old) metadata."
@@ -28,7 +33,9 @@
   (log/info "Migrating reading metadata.")
   (db/with-session [session (:hecuba-session store)]
     (let [all-sensors (db/execute session (hayt/select :sensors))
-          processed-sensors (clojure.string/split-lines (slurp "/tmp/processed_sensors.txt"))
+          processed-sensors (if (file-exists? processed-file)
+                                (map clojure.edn/read-string (clojure.string/split-lines (slurp processed-file)))
+                                [])
           sensors (remove (set processed-sensors) all-sensors)]
       (doseq [s sensors]
         (let [measurements (measurements/all-measurements store s)
@@ -37,7 +44,7 @@
           (when measurements-with-metadata
              (db/execute session
                          (misc/prepare-batch measurements-with-metadata))))
-        (spit "/tmp/processed_sensors.txt" s :append true))))
+        (spit "/tmp/processed_sensors.txt" (str s "\n") :append true))))
   (log/info "Finished migrating reading metadata."))
 
 (defn fill-sensor-bounds
