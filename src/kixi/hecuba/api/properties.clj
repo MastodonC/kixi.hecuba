@@ -29,8 +29,8 @@
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)]
       (let [coll (->> (db/execute session                                  
-                                  (if (project_id-from ctx)
-                                    (hayt/select :entities (hayt/where [[= :project_id (-> (:route-params request) :project_id)]]))
+                                  (if-let [project_id (project_id-from ctx)]
+                                    (hayt/select :entities (hayt/where [[= :project_id project_id]]))
                                     (hayt/select :entities)))
                       (map #(assoc %
                               :property_data (if-let [property_data (:property_data %)]
