@@ -59,6 +59,19 @@
   "Converts tiemstamps in CSV to db format" ; 2014-01-01 00:00:10+0000
   [t] (tf/unparse (tf/formatter "yyyy-MM-dd'T'HH:mm:ssZ") (tf/parse (tf/formatter  "yyyy-MM-dd HH:mm:ssZ") t)))
 
+(defn post-measurements [measurements url]
+  (post-resource url "application/json"
+                 {:measurements
+                  (into [] (map #(-> %
+                                     (dissoc :device_id :month :metadata :reading_metadata (when (= "null" (:error %)) :error))
+                                     (update-in [:timestamp] db-timestamp)) measurements))}))
+
+(defn batch-csv [measurements url]
+  (loop [m measurements]
+    (post-measurements (take 500 m) url)
+    (when-let [batch (seq (drop 500 m))]
+      (recur batch))))
+
 (defn load-test-data [system]
   
   (let [programme-url    "http://127.0.0.1:8010/4/programmes/"
@@ -120,29 +133,16 @@
     (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
       (let [measurements2 (map #(zipmap [:device_id :type :month :timestamp :error :reading_metadata :value] %)
                                (rest (csv/read-csv in-file)))]
-        (post-resource measurement-url2 "application/json"
-                       {:measurements
-                        (into [] (map #(-> %
-                                           (dissoc :device_id :month :reading_metadata (when (= "null" (:error %)) :error))
-                                           (update-in [:timestamp] db-timestamp)) measurements2))})))
+        (batch-csv measurements2 measurement-url2)))
 
     (with-open [in-file2 (io/reader (io/resource "b4f0c7e2b15ba9636f3fb08379cc4b3798a226bb-interpolatedHeatConsumption.csv"))]
       (let [measurements3 (map #(zipmap [:device_id :type :month :timestamp :error :reading_metadata :metadata :value] %)
                                (rest (csv/read-csv in-file2)))]
-        (post-resource measurement-url3 "application/json"
-                       {:measurements
-                        (into [] (map #(-> %
-                                           (dissoc :device_id :month :metadata :reading_metadata (when (= "null" (:error %)) :error))
-                                           (update-in [:timestamp] db-timestamp)) measurements3))})))
+        (batch-csv measurements3 measurement-url3)))
 
      (with-open [in-file3 (io/reader (io/resource "268e93a5249c24482ac1519b77f6a45f36a6231d-interpolatedElectricityConsumption.csv"))]
       (let [measurements4 (map #(zipmap [:device_id :type :month :timestamp :error :reading_metadata :metadata :value] %)
                                (rest (csv/read-csv in-file3)))]
-        (post-resource measurement-url4 "application/json"
-                       {:measurements
-                        (into [] (map #(-> %
-                                           (dissoc :device_id :month :metadata :reading_metadata (when (= "null" (:error %)) :error))
-                                           (update-in [:timestamp] db-timestamp)) measurements4))})))
-    ))
+        (batch-csv measurements4 measurement-url4)))))
 
 ;; To load data (load-test-data system)

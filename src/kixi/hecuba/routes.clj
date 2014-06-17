@@ -130,7 +130,7 @@
    (resource-route :entity-device-measurement-readingtype-hourly-rollups [:entity_id :device_id :type] (rollups/hourly_rollups store))
 
    ;; Daily Measurements
-   (resource-route :entity-device-measurement-readingtype-daily-rollups [:entity_id :device_id :reading_type] (rollups/daily_rollups store))
+   (resource-route :entity-device-measurement-readingtype-daily-rollups [:entity_id :device_id :type] (rollups/daily_rollups store))
 
    ;; 404 - if nothing else matches, then this is the end, my friend.
    (route/not-found not-found-page)))

@@ -123,11 +123,14 @@
     (let [where               [[= :device_id device_id] [= :type type]]
           current-metadata    (first (db/execute session (hayt/select :sensor_metadata (hayt/where where))))
           current-range       (get current-metadata col)
-          current-start       (tc/from-date (get current-range "start"))
-          current-end         (tc/from-date (get current-range "end"))]
-      (when-not (and (t/before? current-start start-date)
-                     (t/after? current-end end-date))
-        (db/execute session (hayt/update :sensor_metadata (hayt/set-columns {col nil}) (hayt/where where)))))))
+          start               (get current-range "start")
+          end                 (get current-range "end")]
+      (when (and start end)
+        (let [current-start (tc/from-date start)
+              current-end   (tc/from-date end)]
+          (when-not (and (t/before? current-start start-date)
+                         (t/after? current-end end-date))
+            (db/execute session (hayt/update :sensor_metadata (hayt/set-columns {col nil}) (hayt/where where)))))))))
 
 ;; Datasets helper functions
 
@@ -147,3 +150,16 @@
 (defn prepare-batch [measurements]
   (hayt/batch
    (apply hayt/queries (map #(hayt/insert :partitioned_measurements (hayt/values %)) measurements))))
+
+(defn insert-batch [session batch]
+  (db/execute session (prepare-batch batch)))
+
+(defn insert-measurements 
+  "Takes store, lazy sequence of measurements and
+   size of the batches and inserts them into the database."
+  [store measurements page]
+  (db/with-session [session (:hecuba-session store)]
+    (loop [batch measurements]
+      (insert-batch session (take page batch))
+      (when-let [dbatch (seq (drop page batch))]
+        (recur dbatch)))))
