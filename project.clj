@@ -6,8 +6,17 @@
 
   :plugins [[lein-cljsbuild "1.0.3"]]
 
-  :dependencies [[org.clojure/clojure "1.5.1"]
+  :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/data.csv "0.1.2"]
+
+                 ;; logging
+                 [org.clojure/tools.logging "0.3.0"]
+                 [org.slf4j/slf4j-api "1.7.7"]
+                 [org.slf4j/jcl-over-slf4j "1.7.7" :exclusions [org.slf4j/slf4j-api]]
+                 [org.slf4j/jul-to-slf4j "1.7.7" :exclusions [org.slf4j/slf4j-api]]
+                 [org.slf4j/log4j-over-slf4j "1.7.7" :exclusions [org.slf4j/slf4j-api]]
+                 [ch.qos.logback/logback-classic "1.1.2" :exclusions [org.slf4j/slf4j-api]]
+                 [commons-logging "1.1.3"]
 
                  ;; tools.trace for liberator
                  [org.clojure/tools.trace "0.7.8"]
@@ -17,11 +26,19 @@
 
                  [compojure "1.1.8"]
 
+                 ;; to deal with some legacy html data
+                 [hickory "0.5.3"]
+
                  ;; authn and authz
-                 [com.cemerick/friend "0.2.1" :exclusions [commons-codec org.clojure/core.cache]]
+                 [com.cemerick/friend "0.2.1" :exclusions [org.clojure/core.cache
+                                                           commons-codec
+                                                           commons-logging]]
 
                  ;; Modular
-                 [juxt/modular "0.2.0"]
+                 [juxt/modular "0.2.0" :exclusions [ch.qos.logback/logback-classic
+                                                    org.slf4j/jcl-over-slf4j
+                                                    org.slf4j/jul-to-slf4j
+                                                    org.slf4j/log4j-over-slf4j]]
                  [juxt.modular/http-kit "0.2.0"]
 
                  ;; EDN reader with location metadata - for configuration
@@ -43,11 +60,9 @@
                  [com.andrewmcveigh/cljs-time "0.1.3"]
                  [sablono "0.2.17"]
 
-                 [ankha "0.1.2"]
+                 [ankha "0.1.3"]
 
-                 [clj-kafka "0.2.0-0.8" :exclusions [org.slf4j/slf4j-simple org.apache.zookeeper/zookeeper]]
-
-                 [cc.qbits/alia "2.0.0-rc1" :exclusions [com.google.guava/guava org.flatland/useful]]
+                 [cc.qbits/alia "2.0.0-rc3" :exclusions [com.google.guava/guava org.flatland/useful]]
                  [cc.qbits/hayt "2.0.0-beta4"]
 
                  [org.clojure/tools.macro "0.1.5"]
@@ -81,7 +96,8 @@
   :exclusions [[org.clojure/clojure]
                [org.clojure/clojurescript]
                [org.clojure/core.async]
-               [org.clojure/tools.trace]]
+               [org.clojure/tools.trace]
+               [org.clojure/tools.logging]]
 
   :cljsbuild {
     :builds [{:id "dev"

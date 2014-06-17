@@ -51,11 +51,21 @@
       this))
   hecuba/Cassandra
   (hecuba/-execute [this query opts]
-    (alia/execute (:session this) (->raw-with-logging query) opts))
+    (try
+      (alia/execute (:session this) (->raw-with-logging query) opts)
+      (catch Throwable t (log/errorf t "Query execution failed: %s opts: %s" (hayt/->raw query) opts)
+             (throw t))))
   (hecuba/-execute-async [this query opts]
-    (alia/execute-async (:session this) (->raw-with-logging query) opts))
+    (try
+      (alia/execute-async (:session this) (->raw-with-logging query) opts)
+      (catch Throwable t (log/errorf t "Query async execution failed: %s opts: %s" (hayt/->raw query) opts)
+             (throw t))))
   (hecuba/-execute-chan [this query opts]
-    (alia/execute-chan (:session this) (->raw-with-logging query) opts)))
+    (try
+      (alia/execute-chan (:session this) (->raw-with-logging query) opts)
+      (catch Throwable t
+        (log/errorf t "Query channel execution failed: %s opts: %s" (hayt/->raw query) opts)
+        (throw t)))))
 
 (defrecord NewStore []
   component/Lifecycle
