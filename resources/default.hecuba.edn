@@ -12,8 +12,8 @@
              {"0 0    10  *  * ?" {:dest :data-quality        :type :median-calculation    :period "INSTANT"}
               "0 30   10  *  * ?" {:dest :data-quality        :type :median-calculation    :period "CUMULATIVE"}
               "0 30    9  *  * ?" {:dest :data-quality        :type :resolution}
-              "0 0/20  *  *  * ?" {:dest :calculated-datasets :type :difference-series}
-              "0 0/15  *  *  * ?" {:dest :calculated-datasets :type :rollups}
+              "0 0,30  *  *  * ?" {:dest :calculated-datasets :type :difference-series}
+              "0 15,45 *  *  * ?" {:dest :calculated-datasets :type :rollups}
               "0 15    *  *  * ?" {:dest :calculated-datasets :type :convert-to-co2}
               "0 30    *  *  * ?" {:dest :calculated-datasets :type :convert-to-kwh}
               "0 50   13  *  * ?" {:dest :data-quality        :type :mislabelled-sensors}
