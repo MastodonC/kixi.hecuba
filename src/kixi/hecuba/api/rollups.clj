@@ -35,11 +35,11 @@
                        {:keys [route-params
                                query-string]} request
                        {:keys [device_id
-                               reading_type]} route-params
+                               type]} route-params
                        decoded-params (util/decode-query-params query-string)
                        start-date     (util/to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
                        end-date       (util/to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
-                       measurements   (retrieve-hourly-measurements session start-date end-date device_id reading_type)]
+                       measurements   (retrieve-hourly-measurements session start-date end-date device_id type)]
                    {:measurements (->> measurements
                                        (map (fn [m]
                                               (-> m
@@ -53,7 +53,7 @@
   :known-content-type? #{"application/json" "application/edn"}
   :authorized? (authorized? store)
 
-  :handle-ok (fn [{{{:keys [device_id reading_type]} :route-params query-string :query-string}
+  :handle-ok (fn [{{{:keys [device_id type]} :route-params query-string :query-string}
                    :request {mime :media-type} :representation :as req}]
                (db/with-session [session (:hecuba-session store)]
                  (let [decoded-params (util/decode-query-params query-string)
@@ -61,7 +61,7 @@
                        end-date       (util/to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
                        measurements   (db/execute session (hayt/select :daily_rollups
                                                                        (hayt/where [[= :device_id device_id]
-                                                                                    [= :type reading_type]
+                                                                                    [= :type type]
                                                                                     [>= :timestamp (tc/to-date start-date)]
                                                                                     [<= :timestamp (tc/to-date end-date)]])))]
                    {:measurements (->> measurements

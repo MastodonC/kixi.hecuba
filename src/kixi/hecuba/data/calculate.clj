@@ -50,7 +50,7 @@
 
 (defn get-difference [m n]
   (let [value (if (every? m/metadata-is-number? [m n]) (str (- (read-string (:value n)) (read-string (:value m)))) "N/A")]
-    {:timestamp (:timestamp m)
+    {:timestamp (:timestamp n)
      :value value
      :reading_metadata {"is-number" (if (number? (read-string value)) "true" "false") "median-spike" "n-a"}
      :device_id (:device_id m)
@@ -111,8 +111,7 @@
             filled-measurements (map #(merge template-reading (get grouped-readings (:timestamp %) %)) expected-timestamps)
             calculated          (diff-seq filled-measurements)
             {:keys [min-date max-date]} (m/min-max-dates calculated)]
-        (db/with-session [session (:hecuba-session store)]
-          (db/execute session (m/prepare-batch calculated)))
+        (m/insert-measurements store calculated 100)
         (v/update-sensor-metadata store {:device_id device_id :type new-type} min-date max-date)))))
 
 (defn kWh->co2 
@@ -126,8 +125,7 @@
                                      get-fn-and-measurements
                                      convert)
         {:keys [min-date max-date]} (m/min-max-dates calculated)]
-    (db/with-session [session (:hecuba-session store)]
-      (db/execute session (m/prepare-batch calculated)))
+    (m/insert-measurements store calculated 100)
     (v/update-sensor-metadata store {:device_id device_id :type new-type} min-date max-date)))
 
 (defn gas-volume->kWh 
@@ -141,11 +139,17 @@
                                       get-fn-and-measurements
                                       convert)
         {:keys [min-date max-date]} (m/min-max-dates calculated)]
-    (db/with-session [session (:hecuba-session store)]
-      (db/execute session (m/prepare-batch calculated)))
+    (m/insert-measurements store calculated 100)
     (v/update-sensor-metadata store {:device_id device_id :type new-type} min-date max-date)))
 
 ;;;;;;;;;;; Rollups of measurements ;;;;;;;;;
+
+(defn average-reading [measurements]
+  (let [measurements-sum   (reduce + measurements)
+        measurements-count (count measurements)]
+    (if-not (zero? measurements-count)
+      (/ measurements-sum measurements-count)
+      "N/A")))
 
 (defn daily-batch
   [store {:keys [device_id type period]} start-date]
@@ -154,18 +158,18 @@
           year         (m/get-year-partition-key start-date)
           where        [[= :device_id device_id] [= :type type] [= :year year] [>= :timestamp start-date] [< :timestamp end-date]]
           measurements (m/parse-measurements (db/execute session (hayt/select :hourly_rollups (hayt/where where))))
+          filtered     (filter #(number? %) (map :value measurements))
           funct        (case period
-                         "CUMULATIVE" (fn [measurements] (reduce + (map :value measurements)))
-                         "INSTANT"    (fn [measurements] (/ (reduce + (map :value measurements)) (count measurements)))
-                         "PULSE"      (fn [measurements] (reduce + (map :value measurements))))]
-      (when-not (empty? measurements)
+                         "CUMULATIVE" (fn [measurements] (:value (last measurements)))
+                         "INSTANT"    (fn [measurements] (average-reading measurements))
+                         "PULSE"      (fn [measurements] (reduce + measurements)))]
+      (when-not (empty? filtered)
         (db/execute session
-                    (hayt/insert :daily_rollups (hayt/values {:value (str (funct measurements))
+                    (hayt/insert :daily_rollups (hayt/values {:value (str (funct filtered))
                                                               :timestamp (tc/to-date start-date)
                                                               :device_id device_id
                                                               :type type}))))
       end-date)))
-
 
 (defn daily-rollups
   "Calculates daily rollups for given sensor and date range."
@@ -184,8 +188,8 @@
           measurements (m/parse-measurements (db/execute session (hayt/select :partitioned_measurements (hayt/where where))))
           filtered     (filter #(number? %) (map :value measurements))
           funct        (case period
-                         "CUMULATIVE" (fn [measurements] (reduce + measurements))
-                         "INSTANT"    (fn [measurements] (/ (reduce + measurements) (count measurements)))
+                         "CUMULATIVE" (fn [measurements] (last measurements))
+                         "INSTANT"    (fn [measurements] (average-reading measurements))
                          "PULSE"      (fn [measurements] (reduce + measurements)))]
       (when-not (empty? filtered)
         (let [invalid (/ (count filtered) (count measurements))]
@@ -206,8 +210,7 @@
                    :end-date \"Sun Mar 02 23:00:00 UTC 2014\"}}"
   [store {:keys [sensor range]}]
   (let [{:keys [start-date end-date]} range
-        period (:period sensor)
-        sensor (if (= "CUMULATIVE" period) (assoc-in sensor [:type] (ext-type (:type sensor))) sensor)]
+        period (:period sensor)]
     (loop [start  (m/truncate-seconds start-date)]
       (when-not (t/before? end-date start)
         (recur (hour-batch store sensor start))))))
@@ -308,7 +311,7 @@
                                                                     :month (:month (first args))
                                                                     :type new-type)) padded)
               {:keys [min-date max-date]} (m/min-max-dates calculated)]
-          (db/execute session (m/prepare-batch calculated))
+          (m/insert-measurements store calculated 100)
           (v/update-sensor-metadata store {:device_id device_id :type new-type} min-date max-date))))))
 
 (defn generate-synthetic-readings [store item]
