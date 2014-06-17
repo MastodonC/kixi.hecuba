@@ -241,6 +241,8 @@ CREATE TABLE profiles (
   compaction={'class': 'SizeTieredCompactionStrategy'} AND
   compression={'sstable_compression': 'LZ4Compressor'};
 
+CREATE INDEX profiles_entity_id_idx ON profiles (entity_id);
+  
 CREATE TABLE programmes (
   id text,
   created_at text,
