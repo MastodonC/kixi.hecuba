@@ -9,14 +9,14 @@
    :queue {:topics ["measurements"]}
    :schedule {:process-job-schedule
              ; s   m   h  d  M D
-             {"0 0    10  *  * ?" {:dest :data-quality        :type :median-calculation    :period "INSTANT"}
-              "0 30   10  *  * ?" {:dest :data-quality        :type :median-calculation    :period "CUMULATIVE"}
-              "0 30    9  *  * ?" {:dest :data-quality        :type :resolution}
+             {"0 7    10  *  * ?" {:dest :data-quality        :type :median-calculation    :period "INSTANT"}
+              "0 42   10  *  * ?" {:dest :data-quality        :type :median-calculation    :period "CUMULATIVE"}
+              "0 40    9  *  * ?" {:dest :data-quality        :type :resolution}
               "0 0,30  *  *  * ?" {:dest :calculated-datasets :type :difference-series}
               "0 15,45 *  *  * ?" {:dest :calculated-datasets :type :rollups}
-              "0 15    *  *  * ?" {:dest :calculated-datasets :type :convert-to-co2}
-              "0 30    *  *  * ?" {:dest :calculated-datasets :type :convert-to-kwh}
-              "0 50   13  *  * ?" {:dest :data-quality        :type :mislabelled-sensors}
-              "0 0    12  *  * ?" {:dest :data-quality        :type :spike-check}
-              "0 0    16  *  * ?" {:dest :data-quality        :type :sensor-status}}}
+              "0 18    *  *  * ?" {:dest :calculated-datasets :type :convert-to-co2}
+              "0 20    *  *  * ?" {:dest :calculated-datasets :type :convert-to-kwh}
+              "0 10   13  *  * ?" {:dest :data-quality        :type :mislabelled-sensors}
+              "0 10   14  *  * ?" {:dest :data-quality        :type :spike-check}
+              "0 10   15  *  * ?" {:dest :data-quality        :type :sensor-status}}}
    }
