@@ -319,7 +319,7 @@
            [:h2 "Projects"]
            [:ul {:class "breadcrumb"}
             [:li [:a
-                  {:href "/programmes/"}
+                  {:href "/app"}
                   (title-for programmes)]]]
            (om/build projects-table projects {:opts {:histkey :projects}})]])))))
 
@@ -423,7 +423,7 @@
            [:h2 "Properties"]
            [:ul {:class "breadcrumb"}
             [:li [:a
-                  {:href "/programmes/"}
+                  {:href "/app"}
                   (title-for programmes)]]
             [:li [:a
                   {:onClick (back-to-projects history)}
@@ -523,7 +523,7 @@
            [:h2  "Devices"]
            [:ul {:class "breadcrumb"}
             [:li [:a
-                  {:href "/programmes/"}
+                  {:href "/app"}
                   (title-for programmes)]]
             [:li [:a
                   {:onClick (back-to-projects history)}
@@ -644,7 +644,7 @@
            [:h2 {:id "sensors"} "Sensors"]
            [:ul {:class "breadcrumb"}
             [:li [:a
-                  {:href "/programmes/"}
+                  {:href "/app"}
                   (title-for programmes)]]
             [:li [:a
                   {:onClick (back-to-projects history)}
