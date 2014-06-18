@@ -30,6 +30,7 @@
         y                (.addMeasureAxis dimple-chart "y" "value")
         s                (.addSeries dimple-chart type js/dimple.plot.line (clj->js [x y]))]
     (aset s "data" (clj->js data))
+    (set! (.-tickFormat x) "%a %d %b %Y %H:%M")
     (.addLegend dimple-chart "5%" "10%" "20%" "10%" "right")
     (.draw dimple-chart)
     (.text (.-titleShape y) unit)
