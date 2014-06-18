@@ -42,8 +42,7 @@
               measurements-with-metadata (map #(update-in % [:reading_metadata] convert-metadata %)
                                               measurements)]
           (when measurements-with-metadata
-             (db/execute session
-                         (misc/prepare-batch measurements-with-metadata))))
+            (m/insert-measurements store measurements-with-metadata 100)))
         (spit "/tmp/processed_sensors.txt" (str s "\n") :append true))))
   (log/info "Finished migrating reading metadata."))
 
