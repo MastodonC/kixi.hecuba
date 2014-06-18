@@ -110,6 +110,7 @@
     (map #(hash-map :type type
                     :timestamp (tc/to-date %)
                     :value (str (rand 50))
+                    :reading_metadata {"is-number" "true"}
                     :error nil) timestamps)))
 
 (defmethod generate-measurements "PULSE"
@@ -119,6 +120,7 @@
     (map #(hash-map :type type
                     :timestamp (tc/to-date %)
                     :value (str (rand-int 100))
+                    :reading_metadata {"is-number" "true"}
                     :error nil) timestamps)))
 
 (defmethod generate-measurements "CUMULATIVE"
@@ -128,7 +130,20 @@
      (map-indexed (fn [i t] (hash-map :type type
                                       :timestamp (tc/to-date t)
                                       :value (str i)
+                                      :reading_metadata {"is-number" "true"}
                                       :error nil)) timestamps)))
+
+(defn generate-measurements-with-interval 
+  "Takes a sensor and n (number of seconds) and generates measurements with this interval."
+  [sensor n]
+   (let [timestamps (timestamps (t/seconds n))
+         type       (:type sensor)]
+     (map-indexed (fn [i t] (hash-map :type type
+                                      :timestamp (tc/to-date t)
+                                      :value (str i)
+                                      :reading_metadata {"is-number" "true"}
+                                      :error nil)) timestamps)))
+
 
 (defn measurements
   "Iterates through all sensors and generates appropriate
@@ -144,6 +159,7 @@
         type       (:type sensor)]
     (map-indexed (fn [i t] (hash-map :type type
                                      :timestamp (tc/to-date t)
+                                     :reading_metadata {"is-number" "true"}
                                      :value (str (if (= 0 (mod i 50)) (* 300 (rand 50)) (rand 50)))
                                      :error nil)) timestamps)))
 
@@ -156,9 +172,11 @@
                                    :timestamp (tc/to-date t)}
                                   (if (= 0 (mod i 5))
                                     {:value "Invalid reading"
-                                     :error nil}
+                                     :error nil
+                                     :reading_metadata {"is-number" "false"}}
                                     {:value (str (rand-int 10))
-                                     :error nil}))) timestamps)))
+                                     :error nil
+                                     :reading_metadata {"is-number" "true"}}))) timestamps)))
 
 (defn mislabelled-measurements
   "Generates instant measurements

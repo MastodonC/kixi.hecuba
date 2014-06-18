@@ -10,7 +10,9 @@
            :measurement-1  "http://127.0.0.1:8010/4/entities/821e6367f385d82cc71b2afd9dc2df3b2ec5b81c/devices/8c077c2c3eac472d153886244e7b8aa6cad6a7e7/measurements/"
            :measurement-2  "http://127.0.0.1:8010/4/entities/14366c761c74592b9926e851bae8a64ece7239ff/devices/fe5ab5bf19a7265276ffe90e4c0050037de923e2/measurements/"
            :measurement-3  "http://127.0.0.1:8010/4/entities/9ac7f5635832d843dda594f58525239263ffdd37/devices/b4f0c7e2b15ba9636f3fb08379cc4b3798a226bb/measurements/"
-           :measurement-4  "http://127.0.0.1:8010/4/entities/9ac7f5635832d843dda594f58525239263ffdd37/devices/268e93a5249c24482ac1519b77f6a45f36a6231d/measurements/"})
+           :measurement-4  "http://127.0.0.1:8010/4/entities/9ac7f5635832d843dda594f58525239263ffdd37/devices/268e93a5249c24482ac1519b77f6a45f36a6231d/measurements/"
+           :measurement-5  "http://127.0.0.1:8010/4/entities/9ac7f5635832d843dda594f58525239263ffdd37/devices/3aae0fe7ddaa5e400a2cf9580a5e548d9255c70a/measurements/"
+           :measurement-6  "http://127.0.0.1:8010/4/entities/9ac7f5635832d843dda594f58525239263ffdd37/devices/122b4bf8dfa66cbf8f321f2d03c4d73f924bb719/measurements/"})
 
 (def resources {:device-1 {:entity_id "821e6367f385d82cc71b2afd9dc2df3b2ec5b81c"
                            :description "External air temperature sensor"
@@ -32,6 +34,18 @@
                                        :period "CUMULATIVE"}]}
                 :device-4 {:entity_id "9ac7f5635832d843dda594f58525239263ffdd37"
                            :description "Heat pump electricity meter"
+                           :readings [{:type "interpolatedElectricityConsumption"
+                                       :unit ""
+                                       :resolution "60"
+                                       :period "CUMULATIVE"}]}
+                :device-5 {:entity_id "9ac7f5635832d843dda594f58525239263ffdd37"
+                           :description "Back-up heater electricity meter"
+                           :readings [{:type "interpolatedElectricityConsumption"
+                                       :unit ""
+                                       :resolution "60"
+                                       :period "CUMULATIVE"}]}
+                :device-6 {:entity_id "9ac7f5635832d843dda594f58525239263ffdd37"
+                           :description "Immersion heater electricity meter"
                            :readings [{:type "interpolatedElectricityConsumption"
                                        :unit ""
                                        :resolution "60"

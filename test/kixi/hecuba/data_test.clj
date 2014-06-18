@@ -99,7 +99,6 @@
 
 (deftest min-max-dates-test
   (let [sensors (g/generate-sensor-sample "INSTANT" 3)]
-    
     (testing "A sequence of 500 measurements."
       (doseq [s sensors]
         (let [measurements (g/measurements s)
@@ -119,6 +118,114 @@
 (deftest timestamp-seq-inclusive-test
   (let [start (t/date-time 2014 01 01)
         end   (t/date-time 2014 01 02)]
+    (println "Testing timestmap-seq-inclusive.")
     
     (testing "Generate a day worth of timestamps with interval of 60 seconds. Inclusive."
       (is (= 1441 (count (calc/timestamp-seq-inclusive start end)))))))
+
+(deftest pad-measurements-test
+  (let [sensors (g/generate-sensor-sample "INSTANT" 3)]
+    (println "Testing pad-measurements.")
+    
+    (testing "Each sensor should have gaps in measurements filled with template measurements."
+      (doseq [s sensors]
+        (let [all-measurements       (g/measurements s)
+              measurements-with-gaps (remove #(= 0 (t/minute (tc/from-date (:timestamp %)))) all-measurements)
+              start-date             (t/date-time 2014 01 01)
+              end-date               (t/plus start-date (t/minutes 499))
+              expected-timestamps    (calc/all-timestamps-for-range start-date end-date 60)
+              padded                 (calc/pad-measurements measurements-with-gaps expected-timestamps 60)]
+          (is (= 500 (count padded)))
+          (is (= {:min-date start-date :max-date end-date} (misc/min-max-dates padded))))))))
+
+(deftest diff-seq-test
+  (let [sensor (first (g/generate-sensor-sample "CUMULATIVE" 1))]
+    (println "Testing diff-seq.")
+    
+    (testing "Difference between measurements should be 1."
+      (let [measurements (g/measurements sensor)
+            calculated   (calc/diff-seq measurements)]
+        (is (= "1" (first (keys (frequencies (map :value calculated))))))))
+
+    (testing "Filled measurements should result in (2 * n) - 1 of N/As than originally."
+      (let [measurements           (g/measurements sensor)
+            with-gaps              (remove #(= 0 (t/minute (tc/from-date (:timestamp %)))) measurements)
+            start-date             (t/date-time 2014 01 01)
+            end-date               (t/plus start-date (t/minutes 499))
+            expected-timestamps    (calc/all-timestamps-for-range start-date end-date 60)
+            padded                 (calc/pad-measurements with-gaps expected-timestamps 60)
+            calculated             (calc/diff-seq padded)
+            freqs                  (frequencies (map :value calculated))]
+        (is (= 482 (get-in freqs ["1"])))
+        (is (= 17  (get-in freqs ["N/A"])))))))
+
+(deftest compute-datasets-test
+  (let [sensors      (g/generate-sensor-sample "CUMULATIVE" 2)
+        measurements (into [] (map #(misc/parse-measurements (g/generate-measurements %)) sensors))]
+
+    (println "Testing compute-datasets.")
+    
+    (testing "Testing addition"
+      (is (= "0"   (:value (first (apply calc/compute-datasets :sum "12345" "temperature" measurements)))))
+      (is (= "2"   (:value (second (apply calc/compute-datasets :sum "12345" "temperature" measurements)))))
+      (is (= "998" (:value (last (apply calc/compute-datasets :sum "12345" "temperature" measurements)))))
+      (is (= "499" (:value (first (calc/compute-datasets :sum "12345" "temperature"
+                                                         (first measurements) 
+                                                         (reverse (last measurements))))))))
+
+    (testing "Testing subtraction"
+      (is (= "0"    (:value (first (apply calc/compute-datasets :subtract "12345" "temperature" measurements)))))
+      (is (= "0"    (:value (second (apply calc/compute-datasets :subtract "12345" "temperature" measurements)))))
+      (is (= "0"    (:value (last (apply calc/compute-datasets :subtract "12345" "temperature" measurements)))))
+      (is (= "-499" (:value (first (calc/compute-datasets :subtract "12345" "temperature"
+                                                          (first measurements) 
+                                                          (reverse (last measurements))))))))
+    
+    (testing "Testing division"
+      (is (= "N/A"  (:value (first (apply calc/compute-datasets :divide "12345" "temperature" measurements)))))
+      (is (= "1"    (:value (second (apply calc/compute-datasets :divide "12345" "temperature" measurements)))))
+      (is (= "1"    (:value (last (apply calc/compute-datasets :divide "12345" "temperature" measurements)))))
+      (is (= "0"    (:value (first (calc/compute-datasets :divide "12345" "temperature" 
+                                                          (first measurements)
+                                                          (reverse (last measurements)))))))
+      (is (= "N/A"  (:value (first (calc/compute-datasets :divide "12345" "temperature" 
+                                                          (reverse (last measurements))
+                                                          (first measurements)))))))))
+(deftest find-resolution-test
+  (let [sensor-60     (first (g/generate-sensor-sample "CUMULATIVE" 1))
+        sensor-300    (first (g/generate-sensor-sample "PULSE" 1))]
+     (println "Testing find-resolution.")
+    
+    (testing "Testing find-resolution"
+      (is (= 60 (calc/find-resolution (g/measurements sensor-60))))
+      (is (= 300 (calc/find-resolution (g/measurements sensor-300)))))))
+
+(deftest range-for-padding-test
+  (let [sensors [{:type "interpolatedHeatConsumption_differenceSeries" 
+                   :upper_ts #inst "2012-06-28T22:39:00.000-00:00"
+                   :lower_ts #inst "2012-06-27T21:01:00.000-00:00"
+                  :device_id "b4f0c7e2b15ba9636f3fb08379cc4b3798a226bb"}
+                 {:type "interpolatedElectricityConsumption_differenceSeries"
+                  :upper_ts #inst "2012-06-27T22:39:00.000-00:00"
+                  :lower_ts #inst "2012-06-21T21:01:00.000-00:00"
+                  :device_id "268e93a5249c24482ac1519b77f6a45f36a6231d"}]]
+    
+    (testing "Testing range-for-padding"
+      (let [[start end] (calc/range-for-padding sensors)]
+        (is (= (t/date-time 2012 06 21 21 01 00) start))
+        (is (= (t/date-time 2012 06 28 22 39 00) end))))))
+
+(deftest quantize-timestamp-test
+  (let [sensor (first (g/generate-sensor-sample "PULSE"))]
+
+    (println "Testing quantize-timestamp")
+    
+    (testing "Testing quantize-timestamp"
+      (let [measurements-250 (g/generate-measurements-with-interval sensor 250)
+            measurements-40  (g/generate-measurements-with-interval sensor 40)
+            measurements-1700  (g/generate-measurements-with-interval sensor 1800)]
+        (is (= (t/date-time 2014 1 1 0 5 0 0) (tc/from-date (:timestamp (second (map #(calc/quantize-timestamp % 300) measurements-250))))))
+        (is (= (t/date-time 2014 1 1 0 0 0 0) (tc/from-date (:timestamp (second (map #(calc/quantize-timestamp % 60) measurements-40))))))
+        (is (= (t/date-time 2014 1 1 0 30 0 0) (tc/from-date (:timestamp (second (map #(calc/quantize-timestamp % 1800) measurements-1700))))))
+        ))))
+

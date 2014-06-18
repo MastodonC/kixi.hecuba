@@ -57,6 +57,26 @@
                        (when (t/before? next-start end)
                          (all-measurements store sensor_id (merge opts {:start next-start :end end}))))))))))
 
+
+(defn measurements-for-range
+  "Returns a lazy sequence of measurements for a sensor matching type and device_id for a specified
+  datetime range."
+  [store sensor {:keys [start-date end-date]} page]
+  (let [device_id  (:device_id sensor)
+        type       (:type sensor)
+        next-start (t/plus start-date page)]
+    (db/with-session [session (:hecuba-session store)]
+      (lazy-cat (db/execute session
+                               (hayt/select :partitioned_measurements
+                                            (hayt/where [[= :device_id device_id]
+                                                         [= :type type]
+                                                         [= :month (m/get-month-partition-key start-date)]
+                                                         [>= :timestamp start-date]
+                                                         [< :timestamp next-start]]))
+                               nil)
+                (when (t/before? next-start end-date)
+                  (measurements-for-range store sensor {:start-date next-start :end-date end-date} page))))))
+
 (defn retrieve-measurements
   "Iterate over a sequence of months and concatanate measurements retrieved from the database."
   [session start-date end-date device-id reading-type]

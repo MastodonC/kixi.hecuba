@@ -148,16 +148,12 @@
   (log/error t)
   (case (.toUpperCase t)
     "VOL2KWH" "kWh"
-    "KWH2CO2" "co2"
-    "TOTAL-KWH" "kWh"
-    "SYSTEM-EFFICIENCY-OVERALL" "kWh"))
+    "KWH2CO2" "co2"))
 
 (defn output-type-for [t operation]
   (case (.toUpperCase operation)
     "VOL2KWH" (str t "_kwh")
-    "KWH2CO2" (str t "_co2")
-    "TOTAL-KWH" "electricityConsumption_total"
-    "SYSTEM-EFFICIENCY-OVERALL" "systemEfficiencyOverall"))
+    "KWH2CO2" (str t "_co2")))
 
 (defn update-date-range [sensor column min-date max-date]
   (let [existing-range (get sensor column)
