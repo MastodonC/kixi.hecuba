@@ -1,5 +1,7 @@
 (ns kixi.hecuba.widgets.chart
   (:require
+   [cljs-time.core :as t]
+   [cljs-time.format :as tf]
    [mrhyde.core :as mrhyde]
    [om.core :as om :include-macros true]
    [om.dom :as dom :include-macros true]
@@ -11,19 +13,7 @@
 (mrhyde/bootstrap)
 (enable-console-print!)
 
-;; Should be called after the draw function
-(defn clean-axis [axis interval]
-  (if (> (.-length (.-shapes axis)) 0)
-    (let [del (atom 0)]
-      (when (> interval 1)
-        (let [text (.selectAll (.-shapes axis) "text")]
-          (.each text (fn [d]
-                        (when (not= (mod @del interval) 0)
-                          (.remove (js* "this"))
-                          (.each (.selectAll (.-shapes axis) "line") (fn [d2]
-                                                                       (if (= d d2)
-                                                                         (.remove (js* "this"))))))
-                        (swap! del inc))))))))
+(def amon-date (tf/formatter "yyyy-MM-ddTHH:mm:ssZ"))
 
 (defn- draw-chart [cursor measurements]
   (let [Chart            (.-chart dimple)
@@ -31,17 +21,18 @@
         [type device_id] (-> (get-in cursor [:sensor])
                              str
                              (str/split #"-"))
-        data             (into [] (map #(assoc % :id device_id) measurements))
+        data             (into [] (->> measurements
+                                       (map #(assoc % :id device_id))
+                                       (map #(assoc % :timestamp (tf/parse amon-date (:timestamp %))))))
         unit             (get-in cursor [:unit])
         dimple-chart     (.setBounds (Chart. svg) "5%" "15%" "80%" "50%")
-        x                (.addCategoryAxis dimple-chart "x" "timestamp")
+        x                (.addTimeAxis dimple-chart "x" "timestamp")
         y                (.addMeasureAxis dimple-chart "y" "value")
         s                (.addSeries dimple-chart type js/dimple.plot.line (clj->js [x y]))]
     (aset s "data" (clj->js data))
     (.addLegend dimple-chart "5%" "10%" "20%" "10%" "right")
     (.draw dimple-chart)
     (.text (.-titleShape y) unit)
-    (let [n (count data)] (clean-axis x (Math/round (+ (/ n 50) 0.5))))
     (.attr (.selectAll (.-shapes x) "text") "transform" (fn [d]
                                                           (let [transform (.attr (.select d3 (js* "this")) "transform")]
                                                             (when-not (empty?
