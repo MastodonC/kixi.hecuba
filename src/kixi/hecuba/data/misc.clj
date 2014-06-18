@@ -16,7 +16,7 @@
 (defn metadata-is-spike? [{:keys [reading_metadata] :as m}]
   (truthy? (get reading_metadata "median-spike")))
 
-(defn where-from 
+(defn where-from
   "Takes measurement or sensor and returns where clause"
   [m]
   [[= :device_id (:device_id m)] [= :type (:type m)]])
@@ -50,7 +50,7 @@
   [store]
   (db/with-session [session (:hecuba-session store)]
     (let [all-sensors-metadata (db/execute session (hayt/select :sensor_metadata))]
-      (map #(merge (first (db/execute session 
+      (map #(merge (first (db/execute session
                                       (hayt/select :sensors
                                                    (hayt/where [[= :device_id (:device_id %)] [= :type (:type %)]]))))
                    %) all-sensors-metadata))))
@@ -72,7 +72,7 @@
   (let [parsed-dates (map #(tc/from-date (:timestamp %)) measurements)]
     (reduce (fn [{:keys [min-date max-date]} timestamp]
               {:min-date (if (t/before? timestamp min-date) timestamp min-date)
-               :max-date (if (t/after? timestamp max-date) timestamp max-date)}) 
+               :max-date (if (t/after? timestamp max-date) timestamp max-date)})
             {:min-date (first parsed-dates)
              :max-date (last parsed-dates)} parsed-dates)))
 
@@ -157,11 +157,10 @@
 (defn insert-batch [session batch]
   (db/execute session (prepare-batch batch)))
 
-(defn insert-measurements 
+(defn insert-measurements
   "Takes store, lazy sequence of measurements and
    size of the batches and inserts them into the database."
   [store measurements page]
   (db/with-session [session (:hecuba-session store)]
     (doseq [batch (partition-all page measurements)]
       (insert-batch session batch))))
-
