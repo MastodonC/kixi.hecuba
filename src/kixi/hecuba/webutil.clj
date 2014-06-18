@@ -176,10 +176,11 @@
 (defn parse-value
   "AMON API specifies that when value is not present, error must be returned and vice versa."
   [measurement]
-  (let [value (:value measurement)]
+  (let [value (:value measurement)
+        convert-fn (fn [v] (if (misc/metadata-is-number? measurement) (read-string v) v))]
     (if-not (empty? value)
       (-> measurement
-          (update-in [:value] read-string)
+          (update-in [:value] convert-fn)
           (dissoc :error))
       (dissoc measurement :value))))
 

@@ -109,6 +109,7 @@
   (db/with-session [session (:hecuba-session store)]
     (let [end-date     (t/plus start-date (t/hours 1))
           month        (m/get-month-partition-key start-date)
+          type         (if (= period "CUMULATIVE") (str type "_differenceSeries") type)
           where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
           measurements (m/parse-measurements (db/execute session (hayt/select :partitioned_measurements (hayt/where where))))
           median       (cond

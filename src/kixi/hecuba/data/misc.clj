@@ -139,17 +139,20 @@
   (case (.toUpperCase t)
     "VOL2KWH" "kWh"
     "KWH2CO2" "co2"
-    "TOTAL-KWH" "kWh"))
+    "TOTAL-KWH" "kWh"
+    "SYSTEM-EFFICIENCY-OVERALL" "kWh"))
 
 (defn output-type-for [t operation]
   (case (.toUpperCase operation)
     "VOL2KWH" (str t "_kwh")
     "KWH2CO2" (str t "_co2")
-    "TOTAL-KWH" "electricityConsumption_total"))
+    "TOTAL-KWH" "electricityConsumption_total"
+    "SYSTEM-EFFICIENCY-OVERALL" "systemEfficiencyOverall"))
 
 (defn prepare-batch [measurements]
   (hayt/batch
-   (apply hayt/queries (map #(hayt/insert :partitioned_measurements (hayt/values %)) measurements))))
+   (apply hayt/queries (map #(hayt/insert :partitioned_measurements (hayt/values %)) measurements))
+   (hayt/logged false)))
 
 (defn insert-batch [session batch]
   (db/execute session (prepare-batch batch)))
@@ -159,7 +162,6 @@
    size of the batches and inserts them into the database."
   [store measurements page]
   (db/with-session [session (:hecuba-session store)]
-    (loop [batch measurements]
-      (insert-batch session (take page batch))
-      (when-let [dbatch (seq (drop page batch))]
-        (recur dbatch)))))
+    (doseq [batch (partition-all page measurements)]
+      (insert-batch session batch))))
+

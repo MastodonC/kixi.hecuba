@@ -16,6 +16,9 @@
 
 ;; Helpers
 
+(defn round [x]
+  (with-precision 3 x))
+
 (defn sensors-for-dataset
   "Returns all the sensors for the given dataset."
   [{:keys [members]} store]
@@ -41,7 +44,7 @@
         factor (get-in conversion-factors [operation typ unit])]
     (fn [m]
       (cond-> m (m/metadata-is-number? m)
-              (assoc :value (str (* factor (read-string (:value m))))
+              (assoc :value (str (round (* factor (read-string (:value m)))))
                      :type (m/output-type-for type operation))))))
 
 ;;;;;;; Difference series ;;;;;;;;;
@@ -49,7 +52,7 @@
 (defn- ext-type [type] (str type "_differenceSeries"))
 
 (defn get-difference [m n]
-  (let [value (if (every? m/metadata-is-number? [m n]) (str (- (read-string (:value n)) (read-string (:value m)))) "N/A")]
+  (let [value (if (every? m/metadata-is-number? [m n]) (str (round (- (read-string (:value n)) (read-string (:value m))))) "N/A")]
     {:timestamp (:timestamp n)
      :value value
      :reading_metadata {"is-number" (if (number? (read-string value)) "true" "false") "median-spike" "n-a"}
@@ -95,8 +98,7 @@
   "Takes store, sensor and a range of dates and calculates difference series using resolution
   stored in the sensor data. If resolution is not specified, default 60 seconds is used."
   [store {:keys [sensor range]}]
-  (let [to-datetime                 (fn [s] (tf/parse (tf/formatter "yyyyMMddHHmmss") s))
-        resolution                  (if-let [r (:resolution sensor)] (read-string r) 60)
+  (let [resolution                  (if-let [r (:resolution sensor)] (read-string r) 60)
         {:keys [start-date end-date]} range
         expected-timestamps         (map #(hash-map :timestamp %) (timestamp-seq-inclusive start-date end-date resolution))
         measurements                (measurements-for-range store sensor range (t/hours 1))
@@ -159,13 +161,13 @@
           where        [[= :device_id device_id] [= :type type] [= :year year] [>= :timestamp start-date] [< :timestamp end-date]]
           measurements (m/parse-measurements (db/execute session (hayt/select :hourly_rollups (hayt/where where))))
           filtered     (filter #(number? %) (map :value measurements))
-          funct        (case period
-                         "CUMULATIVE" (fn [measurements] (:value (last measurements)))
-                         "INSTANT"    (fn [measurements] (average-reading measurements))
-                         "PULSE"      (fn [measurements] (reduce + measurements)))]
+          funct        (fn [measurements] (case period
+                                            "CUMULATIVE" (:value (last measurements))
+                                            "INSTANT"    (average-reading measurements)
+                                            "PULSE"      (reduce + measurements)))]
       (when-not (empty? filtered)
         (db/execute session
-                    (hayt/insert :daily_rollups (hayt/values {:value (str (funct filtered))
+                    (hayt/insert :daily_rollups (hayt/values {:value (str (round (funct filtered)))
                                                               :timestamp (tc/to-date start-date)
                                                               :device_id device_id
                                                               :type type}))))
@@ -187,16 +189,16 @@
           where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
           measurements (m/parse-measurements (db/execute session (hayt/select :partitioned_measurements (hayt/where where))))
           filtered     (filter #(number? %) (map :value measurements))
-          funct        (case period
-                         "CUMULATIVE" (fn [measurements] (last measurements))
-                         "INSTANT"    (fn [measurements] (average-reading measurements))
-                         "PULSE"      (fn [measurements] (reduce + measurements)))]
+          funct        (fn [measurements] (case period
+                                            "CUMULATIVE" (last measurements)
+                                            "INSTANT"    (average-reading measurements)
+                                            "PULSE"      (reduce + measurements)))]
       (when-not (empty? filtered)
         (let [invalid (/ (count filtered) (count measurements))]
           (when-not (and (not= invalid 1) (> invalid 0.10))
             (db/execute session
                         (hayt/insert :hourly_rollups (hayt/values
-                                                      {:value (str (funct filtered))
+                                                      {:value (str (round (funct filtered)))
                                                        :timestamp (tc/to-date end-date)
                                                        :year (m/get-year-partition-key start-date)
                                                        :device_id device_id
@@ -270,7 +272,7 @@
   "Takes a sequence of measurements, expected timestamps and resolution in seconds and pads it with template readings."
   [measurements expected-timestamps resolution]
   (let []
-    (let [template-reading (fn [t] (hash-map :value "n/a" :month (m/get-month-partition-key (:timestamp t))))
+    (let [template-reading (fn [t] (hash-map :value "N/A" :month (m/get-month-partition-key (:timestamp t))))
           quantized        (map #(quantize-timestamp % resolution) measurements)
           grouped-readings (into {} (map #(vector (:timestamp %) %) quantized))
           padded (map #(merge (template-reading %) (get grouped-readings (:timestamp %) %)) expected-timestamps)]
@@ -304,7 +306,7 @@
               new-type            (m/output-type-for nil operation)
               expected-timestamps (all-timestamps-for-range start end resolution)
               padded              (even-all-collections measurements expected-timestamps resolution)
-              calculated          (apply map (fn [& args] (hash-map :value (str (sum args))
+              calculated          (apply map (fn [& args] (hash-map :value (str (round (sum args)))
                                                                     :device_id device_id
                                                                     :reading_metadata {"is-number" "true" "median-spike" "n-a"}
                                                                     :timestamp (:timestamp (first args))
@@ -313,6 +315,54 @@
               {:keys [min-date max-date]} (m/min-max-dates calculated)]
           (m/insert-measurements store calculated 100)
           (v/update-sensor-metadata store {:device_id device_id :type new-type} min-date max-date))))))
+
+(defn divide-datasets 
+  "Divides one dataset by another. "
+  [d1 d2]
+  (if (and (every? #(number? %) [d1 d2])
+           (not (zero? d2)))
+    (round (/ d1 d2))
+    "N/A"))
+
+(defn add-keywords [m-seq]
+  (into {} (map (fn [m] {(:type (first m)) m}) m-seq)))
+
+(defn filter-type [type-regex measurements]
+  (flatten (vals (into {} (filter (fn [[k v]] (re-matches type-regex k)) measurements)))))
+
+(defmethod calculate-data-set :system-efficiency-overall [ds store]
+  (log/info "System efficiency overall.")
+  (let [sensors    (sensors-for-dataset ds store)
+        topic      (get-in (:queue store) [:queue "measurements"])
+        {:keys [resolution period unit]} (first sensors)
+        {:keys [device_id operation]} ds]
+    
+    (when (every? #(and 
+                    (some (fn [typ] (= (:type %) typ)) ["interpolatedHeatConsumption" "interpolatedElectricityConsumption"])
+                    (= resolution (:resolution %))
+                    (= period (:period %))) sensors)
+      (let [sensors      (if (= "CUMULATIVE" period)
+                           (map #(update-in % [:type] (fn [type] (str type "_differenceSeries"))) sensors)
+                           sensors)
+            measurements (into [] (map #(m/parse-measurements (measurements/all-measurements store %)) sensors))
+            [start end]  (range-for-padding measurements)
+            resolution   (if resolution (read-string resolution) 60)
+            expected-timestamps (all-timestamps-for-range start end resolution)
+            padded       (add-keywords (even-all-collections measurements expected-timestamps resolution))
+            new-type     (m/output-type-for nil operation)
+            calculated   (map (fn [d1 d2]
+                                (let [value (divide-datasets (:value d1) (:value d2))]
+                                  (hash-map :value (str value)
+                                            :device_id device_id
+                                            :type new-type
+                                            :reading_metadata {"is-number" (str (number? value)) "median-spike" "n/a"}
+                                            :timestamp (:timestamp d1)
+                                            :month (:month d1))))
+                              (filter-type #"interpolatedHeatConsumption.*" padded)
+                              (filter-type #"interpolatedElectricityConsumption.*" padded))
+            {:keys [min-date max-date]} (m/min-max-dates calculated)]
+        (m/insert-measurements store calculated 100)
+        (v/update-sensor-metadata store {:device_id device_id :type new-type} min-date max-date)))))
 
 (defn generate-synthetic-readings [store item]
   (let [data-sets (datasets/all-datasets store)]

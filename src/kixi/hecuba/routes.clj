@@ -106,6 +106,10 @@
    (index-routes :entities-index (entities/index store))
    (resource-route :entity-resource [:entity_id] (entities/resource store))
 
+   ;; Datasets
+   (index-routes :entity-datasets-index [:entity_id] (datasets/index store))
+   (resource-route :entity-resource [:entity_id :name] (datasets/resource store))
+
    ;; Profiles
    (index-routes :entity-profiles-index [:entity_id] (profiles/index store))
    (resource-route :entity-profiles-resource [:entity_id :profile_id] (profiles/resource store))
