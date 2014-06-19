@@ -64,9 +64,12 @@
 (defn start-end-dates
   "Given a sensor, table and where clause, returns start and end dates for (re)calculations."
   [column sensor where]
-  (let [range (-> sensor column)]
-    (when-not (empty? range)
-      {:start-date (tc/from-date (get range "start")) :end-date (tc/from-date (get range "end"))})))
+  (let [range (-> sensor column)
+        start (get range "start")
+        end   (get range "end")]
+    (when (and (not (nil? start))
+               (not (nil? end)))               
+      {:start-date (tc/from-date start) :end-date (tc/from-date end)})))
 
 (defn min-max-dates [measurements]
   (let [parsed-dates (map #(tc/from-date (:timestamp %)) measurements)]
