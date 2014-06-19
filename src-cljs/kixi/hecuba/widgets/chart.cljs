@@ -22,7 +22,8 @@
                              str
                              (str/split #"-"))
         data             (into [] (->> measurements
-                                       (filter #(number? (:value %)))
+                                       (filter #(or (number? (:value %))
+                                                    (re-matches #"[^A-DF-Za-z]+" (:value %))))
                                        (map #(assoc % :id device_id))
                                        (map #(assoc % :timestamp (tf/parse amon-date (:timestamp %))))))
         unit             (get-in cursor [:unit])
