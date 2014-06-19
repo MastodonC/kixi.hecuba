@@ -22,6 +22,7 @@
                              str
                              (str/split #"-"))
         data             (into [] (->> measurements
+                                       (filter #(number? (:value %)))
                                        (map #(assoc % :id device_id))
                                        (map #(assoc % :timestamp (tf/parse amon-date (:timestamp %))))))
         unit             (get-in cursor [:unit])
@@ -31,14 +32,13 @@
         s                (.addSeries dimple-chart type js/dimple.plot.line (clj->js [x y]))]
     (aset s "data" (clj->js data))
     (set! (.-tickFormat x) "%a %d %b %Y %H:%M")
+    (set! (.-title x) "Time")
     (.addLegend dimple-chart "5%" "10%" "20%" "10%" "right")
     (.draw dimple-chart)
+    (.attr (.-titleShape x) "y" 515)
     (.text (.-titleShape y) unit)
-    (.attr (.selectAll (.-shapes x) "text") "transform" (fn [d]
-                                                          (let [transform (.attr (.select d3 (js* "this")) "transform")]
-                                                            (when-not (empty?
-                                                                       transform)
-                                                              (str transform " rotate(-45)")))))))
+    (.attr (.selectAll (.-shapes x) "text") "transform" "rotate(45,0,12.6015625) translate(5, 0)")
+    (.attr (.selectAll (.-shapes x) "text") "style" "text-anchor: start; font-family: sans-serif; font-size: 10px;")))
 
 (defn chart-item
   [cursor owner]
