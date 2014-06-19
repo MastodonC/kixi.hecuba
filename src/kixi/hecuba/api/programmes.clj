@@ -17,15 +17,26 @@
 (def ^:private programme-resource (p/resource-path-string :programme-resource))
 (def ^:private programme-projects-index (p/index-path-string :programme-projects-index))
 
+(defn items->authz-items [session items]
+  (let [authn            (sec/session-authentications session)
+        user             (sec/session-username session)
+        roles            (-> (get authn user) :roles)
+        authz-programmes (-> (get authn user) :programmes)]
+    (log/debugf "Authentications: %s" authn)
+    (if (some #(isa? % ::sec/admin) roles)
+      items
+      (filter #(authz-programmes (:id %)) items))))
+
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request (:request ctx)
-          items   (db/execute session (hayt/select :programmes))]
-      (map #(-> %
-                (dissoc :user_id)
-                (assoc :href (format programme-resource (:id %))
-                       :projects (format programme-projects-index (:id %))))
-           items))))
+    (let [web-session (-> ctx :request :session)
+          items       (db/execute session (hayt/select :programmes))]
+      (->> items
+           (items->authz-items web-session)
+           (map #(-> %
+                     (dissoc :user_id)
+                     (assoc :href (format programme-resource (:id %))
+                            :projects (format programme-projects-index (:id %)))))))))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]

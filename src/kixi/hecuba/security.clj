@@ -63,3 +63,6 @@
 
 (defn session-username [session]
   (-> session :cemerick.friend/identity :current))
+
+(defn session-authentications [session]
+  (-> session :cemerick.friend/identity :authentications))
