@@ -73,7 +73,6 @@
                                            :className  "btn btn-primary btn-large"
                                            :onClick
                                            (fn [e]
-                                             (println "HOOOOO")
                                              (let [start (-> (om/get-node owner "dateFrom") .-value)
                                                    end   (-> (om/get-node owner "dateTo") .-value)]
                                                (evaluate-dates data history start end)))}
