@@ -8,10 +8,12 @@
    [compojure.route :as route]
    [ring.middleware.session.cookie :refer (cookie-store)]
    [cemerick.friend :as friend]
+   (cemerick.friend [workflows :as workflows]
+                    [credentials :as creds])
    [com.stuartsierra.component :as component]
    [org.httpkit.server :refer (run-server)]
    [kixi.hecuba.web-paths :refer (compojure-route amon-index-route amon-resource-route)]
-   [kixi.hecuba.security :as sec]
+   [kixi.hecuba.security :as security]
    [kixi.hecuba.session :refer (cassandra-store)]
    
    [kixi.hecuba.api.programmes :as programmes]
@@ -73,23 +75,8 @@
          params
          handler)))
 
-(defn app-routes [store]
+(defn amon-api-routes [store]
   (routes
-   ;; landing page
-   (GET "/" [] index-page)
-   ;; login/logout
-   (GET (compojure-route :login) [] login-form)
-   (friend/logout (ANY (compojure-route :logout) request (redirect "/")))
-      
-   ;; main application
-   (GET (compojure-route :app) [] app-page)
-   
-   ;; clojurescript
-   (route/resources "/cljs" {:root "cljs/"})
-   
-   ;; js/css/etc
-   (route/resources "/" {:root "site/"})
-
    ;; API
    ;; Programmes
    (index-routes :programmes-index (programmes/index store))
@@ -134,19 +121,51 @@
    (resource-route :entity-device-measurement-readingtype-hourly-rollups [:entity_id :device_id :type] (rollups/hourly_rollups store))
 
    ;; Daily Measurements
-   (resource-route :entity-device-measurement-readingtype-daily-rollups [:entity_id :device_id :type] (rollups/daily_rollups store))
+   (resource-route :entity-device-measurement-readingtype-daily-rollups [:entity_id :device_id :type] (rollups/daily_rollups store))))
 
+(defn all-routes [store]
+  (routes
+
+   ;; landing page
+   (GET "/" [] index-page)
+
+   ;; clojurescript
+   (route/resources "/cljs" {:root "cljs/"})
+
+   ;; Log In and Log Out
+   (GET (compojure-route :login) [] login-form)
+   (friend/logout (ANY (compojure-route :logout) request (redirect "/")))
+   
+   ;; Main Application
+   (GET (compojure-route :app) []
+        (friend/wrap-authorize
+         app-page
+         #{:kixi.hecuba.security/user}))
+   
+   ;; AMON API Routes
+   (amon-api-routes store)
+
+   ;; js/css/etc
+   (route/resources "/" {:root "site/"})
+   
    ;; 404 - if nothing else matches, then this is the end, my friend.
    (route/not-found not-found-page)))
 
 (defrecord Routes [context]
   component/Lifecycle
   (start [this]
-    (let [store  (:store this)
-          app    (-> (app-routes store)
-                     (sec/friend-middleware store)
-                     (handler/site {:session {:store (cassandra-store store)}}))
-          server (run-server app {:port 8010})]
+    (let [store      (:store this)
+          all-routes (handler/site
+                      (friend/authenticate
+                       (all-routes store)
+                       {:credential-fn (partial creds/bcrypt-credential-fn (security/get-user store))
+                        :allow-anon? true
+                        :default-landing-uri "/app"
+                        :workflows
+                        ;; Note that ordering matters here. Basic first.
+                        [(workflows/http-basic :realm "/")
+                         (workflows/interactive-form :login-uri "/login")]}))
+          server     (run-server all-routes {:port 8010})]
       (assoc this ::server server)))
   (stop [this]
     ((::server this))))
