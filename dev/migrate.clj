@@ -26,6 +26,29 @@
 (defn file-exists? [filename]
   (.exists (clojure.java.io/as-file filename)))
 
+(defn all-measurements
+  "Returns a sequence of all the measurements for a sensor
+   matching (type,device_id). The sequence pages to the database in the
+   background. The page size is a clj-time Period representing a range
+   in the timestamp column. page size defaults to (clj-time/hours 1)"
+  ([store sensor_id & [opts]]
+     (let [{:keys [type device_id]} sensor_id
+           {:keys [page start end] :or {page (t/hours 1)}} opts
+           [start end] (measurements/resolve-start-end store type device_id start end)]
+       (when (and start end)
+         (let  [next-start (t/plus start page)]
+           (db/with-session [session (:hecuba-session store)]
+             (lazy-cat (db/execute session
+                                   (hayt/select :measurements
+                                                (hayt/where [[= :device_id device_id]
+                                                             [= :type type]
+                                                             [= :month (misc/get-month-partition-key start)]
+                                                             [>= :timestamp start]
+                                                             [< :timestamp next-start]]))
+                                   nil)
+                       (when (t/before? next-start end)
+                         (all-measurements store sensor_id (merge opts {:start next-start :end end}))))))))))
+
 (defn migrate-reading-metadata
   "Works on a lazy sequence of all measurements for all sensors in the database and
   populates (new) reading_metadata with data coming from (old) metadata."
@@ -38,7 +61,7 @@
                                 [])
           sensors (remove (set processed-sensors) all-sensors)]
       (doseq [s sensors]
-        (let [measurements (measurements/all-measurements store s {:table :measurements})
+        (let [measurements (all-measurements store s)
               measurements-with-metadata (->> measurements
                                               (map #(update-in % [:reading_metadata] convert-metadata %))
                                               (map #(dissoc % :metadata)))]
