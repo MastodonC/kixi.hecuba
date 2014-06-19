@@ -42,12 +42,14 @@
   ([store sensor_id & [opts]]
      (let [{:keys [type device_id]} sensor_id
            {:keys [page start end] :or {page (t/hours 1)}} opts
-           [start end] (resolve-start-end store type device_id start end)]
+           {:keys [table] :or {table :partitioned_measurements}} opts
+           [start end] (resolve-start-end store type device_id start end)
+           _ (log/info "Going to read measurements between " start " and " end " from " table)]
        (when (and start end)
          (let  [next-start (t/plus start page)]
            (db/with-session [session (:hecuba-session store)]
              (lazy-cat (db/execute session
-                                   (hayt/select :partitioned_measurements
+                                   (hayt/select table
                                                 (hayt/where [[= :device_id device_id]
                                                              [= :type type]
                                                              [= :month (m/get-month-partition-key start)]

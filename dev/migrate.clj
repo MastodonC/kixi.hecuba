@@ -38,9 +38,10 @@
                                 [])
           sensors (remove (set processed-sensors) all-sensors)]
       (doseq [s sensors]
-        (let [measurements (measurements/all-measurements store s)
-              measurements-with-metadata (map #(update-in % [:reading_metadata] convert-metadata %)
-                                              measurements)]
+        (let [measurements (measurements/all-measurements store s {:table :measurements})
+              measurements-with-metadata (->> measurements
+                                              (map #(update-in % [:reading_metadata] convert-metadata %))
+                                              (map #(dissoc % :metadata)))]
           (when measurements-with-metadata
             (misc/insert-measurements store measurements-with-metadata 100)))
         (spit "/tmp/processed_sensors.txt" (str s "\n") :append true))))
