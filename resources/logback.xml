@@ -46,6 +46,10 @@
   <!-- log all CQL-->
   <logger name="kixi.hecuba.storage.db.CQL" level="INFO"/>
 
+  <!-- Mute session and security -->
+  <logger name="kixi.hecuba.session" level="INFO" />
+  <logger name="kixi.hecuba.security" level="INFO" />
+
   <logger name="user" level="ALL" />
   <logger name="application" level="ALL" />
 

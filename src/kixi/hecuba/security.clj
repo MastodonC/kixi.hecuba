@@ -34,14 +34,14 @@
 
 (defn get-user [store]
   (fn [username]
-    (log/infof "Getting user: %s" username)
+    (log/debugf "Getting user: %s" username)
     (db/with-session [session (:hecuba-session store)]
       (let [user (first
                   (db/execute
                    session
                    (hayt/select :users
                                 (hayt/where [[= :username username]]))))]
-        (log/infof "Got user: %s" user)
+        (log/debugf "Got user: %s" user)
         (if user
           (merge {:username (:username user)
                   :id       (:id user)
@@ -57,8 +57,6 @@
                   :workflows
                   ;; Note that ordering matters here. Basic first.
                   [(workflows/http-basic :realm "/")
-                   ;; The tutorial doesn't use this one, but you
-                   ;; probably will.
                    (workflows/interactive-form :login-uri "/login")]}]
     (-> handler
         (friend/authenticate friend-m))))

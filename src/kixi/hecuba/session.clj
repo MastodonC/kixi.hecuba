@@ -10,9 +10,9 @@
 (deftype CassandraStore [store]
   SessionStore
   (read-session [_ key]
-    (log/debugf "Trying to retrieve session for key: %s" key)
     (if key
       (db/with-session [db-session (:hecuba-session store)]
+        (log/debugf "Retrieving session for key: %s" key)
         (let [user-session (first (db/execute
                                    db-session
                                    (hayt/select :sessions
