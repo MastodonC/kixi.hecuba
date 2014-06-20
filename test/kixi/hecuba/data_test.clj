@@ -90,12 +90,12 @@
     
     (testing "Sensor with just device_id and type."
       (is (= {"start" min-date "end" max-date} 
-             (v/update-date-range empty-sensor :rollups min-date max-date))))
+             (misc/update-date-range empty-sensor :rollups min-date max-date))))
     (testing "Sensor with full metadata."
       (is (= {"end" max-date} 
-             (v/update-date-range full-sensor :rollups min-date max-date))))
+             (misc/update-date-range full-sensor :rollups min-date max-date))))
     (testing "Sensor with empty metadata and empty max and min dates."
-      (is (thrown? AssertionError (v/update-date-range empty-sensor :rollups nil nil))))))
+      (is (thrown? AssertionError (misc/update-date-range empty-sensor :rollups nil nil))))))
 
 (deftest min-max-dates-test
   (let [sensors (g/generate-sensor-sample "INSTANT" 3)]

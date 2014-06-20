@@ -148,6 +148,7 @@
       (and (not (m/metadata-is-number? m))
            (not= "N/A" (:value m)))))
 
+;; TODO batch because reduce will realise whole seq
 (defn sensor-status
   "Takes the last day worth of measurements, checks their metadata
   and updates sensor's status accordingly."
