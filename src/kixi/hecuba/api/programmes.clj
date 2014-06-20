@@ -18,14 +18,11 @@
 (def ^:private programme-projects-index (p/index-path-string :programme-projects-index))
 
 (defn items->authz-items [session items]
-  (let [authn            (sec/session-authentications session)
-        user             (sec/session-username session)
-        roles            (-> (get authn user) :roles)
-        authz-programmes (-> (get authn user) :programmes)]
-    (log/debugf "Authentications: %s" authn)
+  (let [{:keys [roles programmes]} (sec/current-authentication session)]
+    (log/debugf "Roles: %s Programmes: %s" roles programmes)
     (if (some #(isa? % ::sec/admin) roles)
       items
-      (filter #(authz-programmes (:id %)) items))))
+      (filter #(programmes (:id %)) items))))
 
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]

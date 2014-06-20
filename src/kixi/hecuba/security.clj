@@ -66,3 +66,11 @@
 
 (defn session-authentications [session]
   (-> session :cemerick.friend/identity :authentications))
+
+(defn current-authentication [session]
+  (if-let [identity-map (:cemerick.friend/identity session)]
+    (-> identity-map
+        :authentications
+        (get (:current identity-map)))
+    {:projects #{} :programmes #{} :roles #{}}))
+
