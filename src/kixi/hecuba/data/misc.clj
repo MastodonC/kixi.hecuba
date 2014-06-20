@@ -101,7 +101,11 @@
   "Takes measurements in the format returned from the database.
    Returns a list of maps, with all values parsed approprietly."
   [measurements]
-  (map (fn [m] (assoc-in m [:value] (let [value (:value m)] (if-not (empty? value) (edn/read-string value) nil)))) measurements))
+  (map (fn [m] (assoc-in m [:value] 
+                         (if (metadata-is-number? m)
+                           (edn/read-string (:value m))
+                           nil)))
+       measurements))
 
 (defn find-broken-sensors
   "Finds sensors with bad metadata and label as broken.
