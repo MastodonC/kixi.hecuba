@@ -19,6 +19,7 @@ cd tmp_data
 
 cqlsh << EOD
 use hecuba;
+COPY profiles TO 'profiles.csv';
 COPY programmes TO 'programmes.csv';
 COPY projects TO 'projects.csv';
 COPY entities TO 'entities.csv';
@@ -50,6 +51,7 @@ echo importing data from csv files
 ssh $local_host << EOF
 cqlsh << EOD
 use test;
+COPY profiles FROM 'profiles.csv';
 COPY programmes FROM 'programmes.csv';
 COPY projects FROM 'projects.csv';
 COPY entities FROM 'entities.csv';
