@@ -5,7 +5,8 @@
             [clj-time.coerce :as tc]
             [kixi.hecuba.storage.db :as db]
             [qbits.hayt :as hayt]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [clojure.edn :as edn]))
 
 
 (def truthy? #{"true"})
@@ -78,7 +79,7 @@
               {:min-date (if (t/before? timestamp min-date) timestamp min-date)
                :max-date (if (t/after? timestamp max-date) timestamp max-date)})
             {:min-date (first parsed-dates)
-             :max-date (last parsed-dates)} parsed-dates)))
+             :max-date (first parsed-dates)} parsed-dates)))
 
 ;;;;; Parsing of measurements ;;;;;
 
@@ -100,7 +101,7 @@
   "Takes measurements in the format returned from the database.
    Returns a list of maps, with all values parsed approprietly."
   [measurements]
-  (map (fn [m] (assoc-in m [:value] (let [value (:value m)] (if-not (empty? value) (read-string value) nil)))) measurements))
+  (map (fn [m] (assoc-in m [:value] (let [value (:value m)] (if-not (empty? value) (edn/read-string value) nil)))) measurements))
 
 (defn find-broken-sensors
   "Finds sensors with bad metadata and label as broken.

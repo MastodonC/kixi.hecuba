@@ -4,6 +4,7 @@
             [clj-time.core :as t]
             [clj-time.format :as tf]
             [clj-time.periodic :as p]
+            [clojure.edn :as edn]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [kixi.hecuba.api.datasets :as datasets]
@@ -44,7 +45,7 @@
         factor (get-in conversion-factors [operation typ unit])]
     (fn [m]
       (cond-> m (m/metadata-is-number? m)
-              (assoc :value (str (round (* factor (read-string (:value m)))))
+              (assoc :value (str (round (* factor (edn/read-string (:value m)))))
                      :type (m/output-type-for type operation))))))
 
 ;;;;;;; Difference series ;;;;;;;;;
@@ -52,15 +53,16 @@
 (defn- ext-type [type] (str type "_differenceSeries"))
 
 (defn get-difference [m n]
-  (let [value (if (every? m/metadata-is-number? [m n]) (str (round (- (read-string (:value n)) (read-string (:value m))))) "N/A")]
+  (let [value (if (every? m/metadata-is-number? [m n]) (str (round (- (edn/read-string (:value n)) (edn/read-string (:value m))))) "N/A")]
     {:timestamp (:timestamp n)
      :value value
-     :reading_metadata {"is-number" (if (number? (read-string value)) "true" "false") "median-spike" "n-a"}
+     :reading_metadata {"is-number" (if (number? (edn/read-string value)) "true" "false") "median-spike" "n-a"}
      :device_id (:device_id m)
      :type (ext-type (:type m))
      :month (:month m)}))
 
 (defn diff-seq [coll]
+  (assert (not (empty? coll)) "No measurements passed to diff-seq")
   (map #(get-difference %1 %2) coll (rest coll)))
 
 (defn measurements-for-range
@@ -94,24 +96,43 @@
   ([start end] (timestamp-seq-inclusive start end 60))
   ([start end resolution] (map (fn [t] (tc/to-date t)) (take-while #(not (t/after? % end)) (p/periodic-seq start (t/seconds resolution))))))
 
+(defn grouped-readings [measurements]
+  (assert (not (empty? measurements)) "No measurements passed to grouped-readings")
+  (into {} (map #(vector (:timestamp %) %) measurements)))
+
+(defn quantized-measurements [resolution measurements]
+  (assert (not (empty? measurements)) "No measurements passed to quantized-measurements")
+  (map #(quantize-timestamp % resolution) measurements))
+
+(defn filled-measurements [template-reading grouped-readings expected-timestamps]
+  (assert template-reading "No expecte-timestamps passed to filled-measurements")
+  (assert (not (empty? grouped-readings)) "No grouped-readings passed to filled-measurements")
+  (assert (not (empty? expected-timestamps)) "No expecte-timestamps passed to filled-measurements")
+  (map #(merge template-reading (get grouped-readings (:timestamp %) %)) expected-timestamps))
+
+(defn expected-timestamps [start-date end-date resolution]
+  (assert (and start-date end-date) "No start and end dates passed to expected-timestamps")
+  (assert resolution "No resolution passed to expected-tiemstamps")
+  (map #(hash-map :timestamp %) (timestamp-seq-inclusive start-date end-date resolution)))
+
 (defn difference-series
   "Takes store, sensor and a range of dates and calculates difference series using resolution
   stored in the sensor data. If resolution is not specified, default 60 seconds is used."
   [store {:keys [sensor range]}]
-  (let [resolution                  (if-let [r (:resolution sensor)] (read-string r) 60)
+  (let [resolution                  (if-let [r (:resolution sensor)] (edn/read-string r) 60)
         {:keys [start-date end-date]} range
-        expected-timestamps         (map #(hash-map :timestamp %) (timestamp-seq-inclusive start-date end-date resolution))
+        timestamps                  (expected-timestamps start-date end-date resolution)
         measurements                (measurements-for-range store sensor range (t/hours 1))
         template-reading            (-> (first measurements)
                                         (assoc :value "n/a")
                                         (dissoc :timestamp :reading_metadata))]
     (when-not (empty? measurements)
       (let [{:keys [device_id type]} sensor
-            quantized           (map #(quantize-timestamp % resolution) measurements)
-            grouped-readings    (into {} (map #(vector (:timestamp %) %) quantized))
-            new-type            (ext-type type)
-            filled-measurements (map #(merge template-reading (get grouped-readings (:timestamp %) %)) expected-timestamps)
-            calculated          (diff-seq filled-measurements)
+            quantized            (quantized-measurements resolution measurements)
+            grouped-measurements (grouped-readings quantized)
+            new-type             (ext-type type)
+            padded-measurements  (filled-measurements template-reading grouped-measurements timestamps)
+            calculated           (diff-seq padded-measurements)
             {:keys [min-date max-date]} (m/min-max-dates calculated)]
         (m/insert-measurements store calculated 100)
         (v/update-sensor-metadata store {:device_id device_id :type new-type} min-date max-date)))))
@@ -302,7 +323,7 @@
       (db/with-session [session (:hecuba-session store)]
         (let [measurements        (into [] (map #(m/parse-measurements (measurements/all-measurements store %)) sensors))
               [start end]         (range-for-padding measurements)
-              resolution          (if resolution (read-string resolution) 60)
+              resolution          (if resolution (edn/read-string resolution) 60)
               new-type            (m/output-type-for nil operation)
               expected-timestamps (all-timestamps-for-range start end resolution)
               padded              (even-all-collections measurements expected-timestamps resolution)
@@ -346,7 +367,7 @@
                            sensors)
             measurements (into [] (map #(m/parse-measurements (measurements/all-measurements store %)) sensors))
             [start end]  (range-for-padding measurements)
-            resolution   (if resolution (read-string resolution) 60)
+            resolution   (if resolution (edn/read-string resolution) 60)
             expected-timestamps (all-timestamps-for-range start end resolution)
             padded       (add-keywords (even-all-collections measurements expected-timestamps resolution))
             new-type     (m/output-type-for nil operation)

@@ -5,12 +5,13 @@
            [kixi.hecuba.data.misc :as m]
            [kixi.hecuba.storage.db :as db]
            [clojure.tools.logging :as log]
-           [qbits.hayt :as hayt]))
+           [qbits.hayt :as hayt]
+           [clojure.edn :as edn]))
 
 (defn larger-than-median
   "Find readings that are larger than median."
   ([median measurement] (larger-than-median median measurement 200))
-  ([median measurement n] (>= (-> measurement :value read-string) (* n median))))
+  ([median measurement n] (>= (-> measurement :value edn/read-string) (* n median))))
 
 (defn median-check
   "Checks if a measurement is 200x median and updates metadata accordingly."
