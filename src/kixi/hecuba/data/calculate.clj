@@ -134,8 +134,7 @@
             padded-measurements  (filled-measurements template-reading grouped-measurements timestamps)
             calculated           (diff-seq padded-measurements)
             {:keys [min-date max-date]} (m/min-max-dates calculated)]
-        (m/insert-measurements store calculated 100)
-        (v/update-sensor-metadata store {:device_id device_id :type new-type} min-date max-date)))))
+        (m/insert-measurements store {:device_id device_id :type new-type} calculated 100)))))
 
 (defn kWh->co2 
   "Converts measurements from kWh to co2."
@@ -148,8 +147,7 @@
                                      get-fn-and-measurements
                                      convert)
         {:keys [min-date max-date]} (m/min-max-dates calculated)]
-    (m/insert-measurements store calculated 100)
-    (v/update-sensor-metadata store {:device_id device_id :type new-type} min-date max-date)))
+    (m/insert-measurements store {:device_id device_id :type new-type} calculated 100)))
 
 (defn gas-volume->kWh 
   "Converts measurements from m^3 and ft^3 to kWh."
@@ -162,8 +160,7 @@
                                       get-fn-and-measurements
                                       convert)
         {:keys [min-date max-date]} (m/min-max-dates calculated)]
-    (m/insert-measurements store calculated 100)
-    (v/update-sensor-metadata store {:device_id device_id :type new-type} min-date max-date)))
+    (m/insert-measurements store {:device_id device_id :type new-type} calculated 100)))
 
 ;;;;;;;;;;; Rollups of measurements ;;;;;;;;;
 
@@ -334,8 +331,7 @@
                                                                     :month (:month (first args))
                                                                     :type new-type)) padded)
               {:keys [min-date max-date]} (m/min-max-dates calculated)]
-          (m/insert-measurements store calculated 100)
-          (v/update-sensor-metadata store {:device_id device_id :type new-type} min-date max-date))))))
+          (m/insert-measurements store {:device_id device_id :type new-type} calculated 100))))))
 
 (defn divide-datasets 
   "Divides one dataset by another. "
@@ -382,8 +378,7 @@
                               (filter-type #"interpolatedHeatConsumption.*" padded)
                               (filter-type #"interpolatedElectricityConsumption.*" padded))
             {:keys [min-date max-date]} (m/min-max-dates calculated)]
-        (m/insert-measurements store calculated 100)
-        (v/update-sensor-metadata store {:device_id device_id :type new-type} min-date max-date)))))
+        (m/insert-measurements store {:device_id device_id :type new-type} calculated 100)))))
 
 (defn generate-synthetic-readings [store item]
   (let [data-sets (datasets/all-datasets store)]

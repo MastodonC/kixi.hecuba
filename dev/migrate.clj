@@ -66,7 +66,7 @@
                                               (map #(update-in % [:reading_metadata] convert-metadata %))
                                               (map #(dissoc % :metadata)))]
           (when measurements-with-metadata
-            (misc/insert-measurements store measurements-with-metadata 100)))
+            (misc/insert-measurements store s measurements-with-metadata 100)))
         (spit "/tmp/processed_sensors.txt" (str s "\n") :append true))))
   (log/info "Finished migrating reading metadata."))
 
