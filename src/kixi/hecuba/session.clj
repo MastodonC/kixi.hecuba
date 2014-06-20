@@ -16,7 +16,8 @@
         (let [user-session (first (db/execute
                                    db-session
                                    (hayt/select :sessions
-                                                (hayt/where [[= :id key]]))))]
+                                                (hayt/where [[= :id key]]))
+                                   {:consitency :quorum}))]
           (log/debugf "Retrieved session %s" user-session)
           (clojure.edn/read-string (:data user-session))))
       {}))
@@ -32,7 +33,8 @@
          (hayt/update :sessions
                       (hayt/set-columns
                        (dissoc session-data :id))
-                      (hayt/where [[= :id key]]))))
+                      (hayt/where [[= :id key]]))
+         {:consitency :quorum}))
       key))
   (delete-session [_ key]
     (log/debugf "Deleting sessiong for key: %s" key)
