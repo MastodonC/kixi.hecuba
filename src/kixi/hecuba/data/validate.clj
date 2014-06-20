@@ -56,8 +56,9 @@
    (.before min-date lower_ts) {:lower_ts min-date}
    (.after max-date upper_ts) {:upper_ts max-date}))
 
-(defn columns-to-update [sensor start end new-bounds]
-  (log/debugf "Sensor: %s Start: %s End: %s New-bounds: %s" sensor start end new-bounds)
+(defn columns-to-update? 
+  "It returns columns to update, if there are any. Otherwise it returns nil."
+  [sensor start end new-bounds]
   (merge
    (when-let [rollups (update-date-range sensor :rollups start end)]
      {:rollups [+ rollups]})
@@ -84,7 +85,8 @@
           end        (tc/to-date max-date)
           new-bounds (update-bounds start end sensor)
           where      (m/where-from sensor)]
-      (db/execute session
-                  (hayt/update :sensor_metadata
-                               (hayt/set-columns (columns-to-update sensor start end new-bounds))
-                               (hayt/where where))))))
+      (when-let [columns (columns-to-update? sensor start end new-bounds)]
+        (db/execute session
+                    (hayt/update :sensor_metadata
+                                 (hayt/set-columns columns)
+                                 (hayt/where where)))))))
