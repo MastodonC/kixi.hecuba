@@ -105,7 +105,7 @@
         template-reading            (-> (first measurements)
                                         (assoc :value "n/a")
                                         (dissoc :timestamp :reading_metadata))]
-    (when-not (empty? measurements)
+    (when (> (count (take 2 measurements)) 1)
       (let [{:keys [device_id type]} sensor
             quantized           (map #(quantize-timestamp % resolution) measurements)
             grouped-readings    (into {} (map #(vector (:timestamp %) %) quantized))
