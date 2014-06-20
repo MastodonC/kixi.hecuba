@@ -51,7 +51,6 @@
       this))
   hecuba/Cassandra
   (hecuba/-execute [this query opts]
-    (log/infof "Trying query: %s with opts: %s" (hayt/->raw query) opts)
     (try
       (alia/execute (:session this) (->raw-with-logging query) opts)
       (catch Throwable t (log/errorf t "Query execution failed: %s opts: %s" (hayt/->raw query) opts)
