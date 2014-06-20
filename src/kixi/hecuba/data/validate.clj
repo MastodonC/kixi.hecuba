@@ -4,6 +4,7 @@
            [clj-time.coerce :as tc]
            [kixi.hecuba.data.misc :as m]
            [kixi.hecuba.storage.db :as db]
+           [clojure.tools.logging :as log]
            [qbits.hayt :as hayt]))
 
 (defn larger-than-median
@@ -56,6 +57,7 @@
    (.after max-date upper_ts) {:upper_ts max-date}))
 
 (defn columns-to-update [sensor start end new-bounds]
+  (log/debugf "Sensor: %s Start: %s End: %s New-bounds: %s" sensor start end new-bounds)
   (merge
    (when-let [rollups (update-date-range sensor :rollups start end)]
      {:rollups [+ rollups]})
