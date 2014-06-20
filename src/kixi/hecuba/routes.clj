@@ -138,11 +138,9 @@
    
    ;; Main Application
    (GET (compojure-route :app) []
-        app-page
-        ;; (friend/wrap-authorize
-        ;;  app-page
-        ;;  #{:kixi.hecuba.security/user})
-        )
+        (friend/wrap-authorize
+         app-page
+         #{:kixi.hecuba.security/user}))
    
    ;; AMON API Routes
    (amon-api-routes store)
