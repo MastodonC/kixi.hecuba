@@ -16,8 +16,7 @@
         (let [user-session (first (db/execute
                                    db-session
                                    (hayt/select :sessions
-                                                (hayt/where [[= :id key]]))
-                                   {:consistency :quorum}))]
+                                                (hayt/where [[= :id key]]))))]
           (log/debugf "Retrieved session %s" user-session)
           (clojure.edn/read-string (:data user-session))))
       {}))
