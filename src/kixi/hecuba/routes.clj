@@ -27,7 +27,6 @@
    [kixi.hecuba.api.datasets :as datasets]))
 
 (defn index-page [req]
-  (log/infof "Index Session: %s" (:session req))
   {:status 200
    :body (slurp (io/resource "site/index.html"))})
 
