@@ -166,7 +166,9 @@
                         :workflows
                         ;; Note that ordering matters here. Basic first.
                         [(workflows/http-basic :realm "/")
-                         (workflows/interactive-form :login-uri "/login")]}))
+                         (workflows/interactive-form :login-uri "/login")]})
+                      ;; Don't forget that Cassandra Session Store
+                      {:session {:store (cassandra-store store)}})
           server     (run-server all-routes {:port 8010})]
       (assoc this ::server server)))
   (stop [this]
