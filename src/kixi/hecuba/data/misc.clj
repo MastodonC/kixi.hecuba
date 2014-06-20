@@ -72,6 +72,7 @@
       {:start-date (tc/from-date start) :end-date (tc/from-date end)})))
 
 (defn min-max-dates [measurements]
+  (assert (not (empty? measurements)) "No measurements passed to min-max-dates")
   (let [parsed-dates (map #(tc/from-date (:timestamp %)) measurements)]
     (reduce (fn [{:keys [min-date max-date]} timestamp]
               {:min-date (if (t/before? timestamp min-date) timestamp min-date)

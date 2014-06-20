@@ -39,18 +39,40 @@
       number-check
       (median-check sensor)))
 
-(defn- update-date-range [sensor column min-date max-date]
-  (let [existing-range (get sensor column)]
+(defn update-date-range [sensor column min-date max-date]
+  (let [existing-range (get sensor column)
+        start          (get existing-range "start")
+        end            (get existing-range "end")]
+    (assert (and (not (nil? min-date)) (not (nil? max-date))) (format "Min and max dates are null. Sensor: %s,  column: %s" sensor column))
     (cond
-     (empty? existing-range) {"start" min-date "end" max-date}
-     (.before min-date (get existing-range "start")) {"start" min-date} 
-     (.after max-date (get existing-range "end")) {"end" max-date})))
+     (or (nil? start) (nil? end)) {"start" min-date "end" max-date}
+     (.before min-date start) {"start" min-date} 
+     (.after max-date end) {"end" max-date})))
 
-(defn- update-bounds [min-date max-date {:keys [lower_ts upper_ts]}]
+(defn update-bounds [min-date max-date {:keys [lower_ts upper_ts]}]
   (cond
    (and (nil? lower_ts) (nil? upper_ts)) {:upper_ts max-date :lower_ts min-date}
    (.before min-date lower_ts) {:lower_ts min-date}
    (.after max-date upper_ts) {:upper_ts max-date}))
+
+(defn columns-to-update [sensor start end new-bounds]
+  (merge
+   (when-let [rollups (update-date-range sensor :rollups start end)]
+     {:rollups [+ rollups]})
+   (when-let [mislabelled (update-date-range sensor :mislabelled_sensors_check start end)]
+     {:mislabelled_sensors_check [+ mislabelled]})
+   (when-let [difference (update-date-range sensor :difference_series start end)]
+     {:difference_series [+ difference]})
+   (when-let [median (update-date-range sensor :median_calc_check start end)]
+     {:median_calc_check [+ median]})
+   (when-let [spikes (update-date-range sensor :spike_check start end)]
+     {:spike_check [+ spikes]})
+   (when-let [co2 (update-date-range sensor :co2 start end)]
+     {:co2 [+ co2]})
+   (when-let [kwh (update-date-range sensor :kwh start end)]
+     {:kwh [+ kwh]})
+   (when-let [lower (:lower_ts new-bounds)] {:lower_ts lower})
+   (when-let [upper (:upper_ts new-bounds)] {:upper_ts upper})))
 
 (defn update-sensor-metadata
   "Updates start and end dates when new measurement is received."
@@ -62,13 +84,5 @@
           where      (m/where-from sensor)]
       (db/execute session
                   (hayt/update :sensor_metadata
-                               (hayt/set-columns (merge  {:rollups [+ (update-date-range sensor :rollups start end)]
-                                                          :mislabelled_sensors_check [+ (update-date-range sensor :mislabelled_sensors_check start end)]
-                                                          :difference_series [+ (update-date-range sensor :difference_series start end)]
-                                                          :median_calc_check [+ (update-date-range sensor :median_calc_check start end)]
-                                                          :spike_check [+ (update-date-range sensor :spike_check start end)]
-                                                          :co2 [+ (update-date-range sensor :co2 start end)]
-                                                          :kwh [+ (update-date-range sensor :kwh start end)]}
-                                                         (when-let [lower (:lower_ts new-bounds)] {:lower_ts lower})
-                                                         (when-let [upper (:upper_ts new-bounds)] {:upper_ts upper})))
+                               (hayt/set-columns (columns-to-update sensor start end new-bounds))
                                (hayt/where where))))))
