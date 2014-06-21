@@ -132,8 +132,7 @@
             grouped-measurements (grouped-readings quantized)
             new-type             (ext-type type)
             padded-measurements  (filled-measurements template-reading grouped-measurements timestamps)
-            calculated           (diff-seq padded-measurements)
-            {:keys [min-date max-date]} (m/min-max-dates calculated)]
+            calculated           (diff-seq padded-measurements)]
         (m/insert-measurements store {:device_id device_id :type new-type} calculated 100)))))
 
 (defn kWh->co2 
@@ -145,8 +144,7 @@
         convert                 (fn [[f xs]] (map f xs))
         calculated              (->> sensor
                                      get-fn-and-measurements
-                                     convert)
-        {:keys [min-date max-date]} (m/min-max-dates calculated)]
+                                     convert)]
     (m/insert-measurements store {:device_id device_id :type new-type} calculated 100)))
 
 (defn gas-volume->kWh 
@@ -158,8 +156,7 @@
         new-type                 (m/output-type-for type "vol2kwh")
         calculated               (->> sensor
                                       get-fn-and-measurements
-                                      convert)
-        {:keys [min-date max-date]} (m/min-max-dates calculated)]
+                                      convert)]
     (m/insert-measurements store {:device_id device_id :type new-type} calculated 100)))
 
 ;;;;;;;;;;; Rollups of measurements ;;;;;;;;;
@@ -329,8 +326,7 @@
                                                                     :reading_metadata {"is-number" "true" "median-spike" "n-a"}
                                                                     :timestamp (:timestamp (first args))
                                                                     :month (:month (first args))
-                                                                    :type new-type)) padded)
-              {:keys [min-date max-date]} (m/min-max-dates calculated)]
+                                                                    :type new-type)) padded)]
           (m/insert-measurements store {:device_id device_id :type new-type} calculated 100))))))
 
 (defn divide-datasets 
@@ -376,8 +372,7 @@
                                             :timestamp (:timestamp d1)
                                             :month (:month d1))))
                               (filter-type #"interpolatedHeatConsumption.*" padded)
-                              (filter-type #"interpolatedElectricityConsumption.*" padded))
-            {:keys [min-date max-date]} (m/min-max-dates calculated)]
+                              (filter-type #"interpolatedElectricityConsumption.*" padded))]
         (m/insert-measurements store {:device_id device_id :type new-type} calculated 100)))))
 
 (defn generate-synthetic-readings [store item]
