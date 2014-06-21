@@ -140,9 +140,15 @@
                     range      (misc/start-end-dates :rollups s where)
                     new-item   (assoc item :sensor s :range range)]
                 (when range
-                  (calculate/hourly-rollups store new-item)
-                  (calculate/daily-rollups store new-item)
-                  (misc/reset-date-range store s :rollups (:start-date range) (:end-date range))))))))
+                  (log/debugf "Started Rolling Up for Sensor: %s:%s Start: %s End: %s" device_id type (:start-date range) (:end-date range))
+                  (try
+                    (calculate/hourly-rollups store new-item)
+                    (calculate/daily-rollups store new-item)
+                    (misc/reset-date-range store s :rollups (:start-date range) (:end-date range))
+                    (catch Throwable t
+                      (log/errorf t "FAILED to Roll Up for Sensor: %s:%s Start: %s End: %s" device_id type (:start-date range) (:end-date range))
+                      (throw t)))
+                  (log/debugf "COMPLETED Rolling Up for Sensor: %s:%s Start: %s End: %s" device_id type (:start-date range) (:end-date range))))))))
       (log/info "Finished rollups."))
 
     (defnconsumer spike-check-q [item]
