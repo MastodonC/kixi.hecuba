@@ -82,9 +82,15 @@
                 range     (misc/start-end-dates :difference_series s where)
                 new-item  (assoc item :sensor s :range range)]
             (when (and range (= "CUMULATIVE" period))
-              (calculate/difference-series store new-item)
-              (misc/reset-date-range store s :difference_series (:start-date range) (:end-date range))))))
-      (log/info "Finished calculation of difference series."))
+              (log/debugf "Started calculating Difference Series for Sensor: %s:%s Start: %s End: %s" device_id type (:start-date range) (:end-date range))
+              (try
+                (calculate/difference-series store new-item)
+                (misc/reset-date-range store s :difference_series (:start-date range) (:end-date range))
+                (catch Throwable t
+                  (log/errorf t "FAILED to calculate Difference Series for Sensor: %s:%s Start: %s End: %s" device_id type (:start-date range) (:end-date range))
+                  (throw t)))
+              (log/debugf "COMPLETED calculating Difference Series for Sensor: %s:%s Start: %s End: %s" device_id type (:start-date range) (:end-date range))))))
+      (log/info "COMPLETED calculation of difference series."))
 
     (defnconsumer convert-to-co2-q [item]
       (log/info "Starting conversion from kWh to co2.")
