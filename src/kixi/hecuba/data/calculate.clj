@@ -119,6 +119,7 @@
   "Takes store, sensor and a range of dates and calculates difference series using resolution
   stored in the sensor data. If resolution is not specified, default 60 seconds is used."
   [store {:keys [sensor range]}]
+  (log/debugf "Sensor: %s Range: %s" sensor range)
   (let [resolution                  (if-let [r (:resolution sensor)] (edn/read-string r) 60)
         {:keys [start-date end-date]} range
         timestamps                  (expected-timestamps start-date end-date resolution)
@@ -126,6 +127,7 @@
         template-reading            (-> (first measurements)
                                         (assoc :value "n/a")
                                         (dissoc :timestamp :reading_metadata))]
+    (log/debugf "Retrieved Measurements: %s" (vec (take 10 measurements)))
     (when (> (count (take 2 measurements)) 1)
       (let [{:keys [device_id type]} sensor
             quantized            (quantized-measurements resolution measurements)
