@@ -221,7 +221,6 @@
 
 (defn insert-batch [session batch]
   (let [batch-statement (prepare-batch batch)]
-    (log/debugf "Batch Statement: %s" batch-statement)
     (db/execute session batch-statement)))
 
 (defn insert-measurements
@@ -230,8 +229,6 @@
   [store sensor measurements page]
   (db/with-session [session (:hecuba-session store)]
     (doseq [batch (partition-all page measurements)]
-      (log/debugf "Measurement Batch: %s" (vec (take 10 batch)))
       (let [{:keys [min-date max-date]} (min-max-dates batch)]
-        (log/debugf "Inserting %s records for dates between %s and %s for batch for Sensor: %s" (count batch) min-date max-date sensor)
         (insert-batch session batch)
         (update-sensor-metadata store sensor min-date max-date)))))

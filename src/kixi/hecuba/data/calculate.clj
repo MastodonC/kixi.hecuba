@@ -128,7 +128,6 @@
             template-reading            (-> (first measurements)
                                             (assoc :value "n/a")
                                             (dissoc :timestamp :reading_metadata))]
-        (log/debugf "Retrieved Measurements: %s" (vec (take 10 measurements)))
         (when (> (count (take 2 measurements)) 1)
           (let [{:keys [device_id type]} sensor
                 quantized            (quantized-measurements resolution measurements)
