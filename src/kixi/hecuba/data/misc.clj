@@ -69,7 +69,8 @@
         start (get range "start")
         end   (get range "end")]
     (when (and (not (nil? start))
-               (not (nil? end)))               
+               (not (nil? end))
+               (not= start end))
       {:start-date (tc/from-date start) :end-date (tc/from-date end)})))
 
 (defn min-max-dates [measurements]
