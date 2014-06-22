@@ -119,7 +119,6 @@
   "Takes store, sensor and a range of dates and calculates difference series using resolution
   stored in the sensor data. If resolution is not specified, default 60 seconds is used."
   [store {:keys [sensor range]}]
-  (log/debugf "Sensor: %s Range: %s" sensor range)
   (let [resolution (if-let [r (:resolution sensor)] (edn/read-string r) 60)]
     (when (> resolution 0)
       (let [{:keys [start-date end-date]} range
