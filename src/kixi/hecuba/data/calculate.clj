@@ -119,22 +119,13 @@
   "Takes store, sensor and a range of dates and calculates difference series using resolution
   stored in the sensor data. If resolution is not specified, default 60 seconds is used."
   [store {:keys [sensor range]}]
-  (let [resolution (if-let [r (:resolution sensor)] (edn/read-string r) 60)]
-    (when (> resolution 0)
-      (let [{:keys [start-date end-date]} range
-            timestamps                  (expected-timestamps start-date end-date resolution)
-            measurements                (measurements-for-range store sensor range (t/hours 1))
-            template-reading            (-> (first measurements)
-                                            (assoc :value "n/a")
-                                            (dissoc :timestamp :reading_metadata))]
-        (when (> (count (take 2 measurements)) 1)
-          (let [{:keys [device_id type]} sensor
-                quantized            (quantized-measurements resolution measurements)
-                grouped-measurements (grouped-readings quantized)
-                new-type             (ext-type type)
-                padded-measurements  (filled-measurements template-reading grouped-measurements timestamps)
-                calculated           (diff-seq padded-measurements)]
-            (m/insert-measurements store {:device_id device_id :type new-type} calculated 100)))))))
+  (let [{:keys [start-date end-date]} range
+        measurements                  (measurements-for-range store sensor range (t/hours 1))]
+    (when (> (count (take 2 measurements)) 1)
+      (let [{:keys [device_id type]} sensor
+            new-type                 (ext-type type)
+            calculated               (diff-seq measurements)]
+        (m/insert-measurements store {:device_id device_id :type new-type} calculated 100)))))
 
 (defn kWh->co2 
   "Converts measurements from kWh to co2."
