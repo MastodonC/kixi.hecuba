@@ -229,5 +229,6 @@
     (doseq [batch (partition-all page measurements)]
       (let [{:keys [min-date max-date]} (min-max-dates batch)]
         (log/debugf "Inserting %s records for dates between %s and %s for batch for Sensor: %s" (count batch) min-date max-date sensor)
+        (log/debugf "Batch %s" batch)
         (insert-batch session batch)
         (update-sensor-metadata store sensor min-date max-date)))))
