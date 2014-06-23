@@ -7,7 +7,8 @@
             [kixi.hecuba.data.misc :as m]
             [kixi.hecuba.data.validate :as v]
             [kixi.hecuba.data.calculate :as c]
-            [clojure.tools.logging         :as log]))
+            [kixi.hecuba.api.measurements :as measurements]
+            [clojure.tools.logging :as log]))
 
 ;;; Check for mislabelled sensors ;;;
 
@@ -153,7 +154,7 @@
   "Takes the last day worth of measurements, checks their metadata
   and updates sensor's status accordingly."
   [store {:keys [sensor range]}]
-  (let [measurements (c/measurements-for-range store sensor range (t/hours 1))]
+  (let [measurements (measurements/measurements-for-range store sensor range (t/hours 1))]
     (when-not (empty? measurements)
       (let [{:keys [events errors]} (reduce (fn [{:keys [events errors]} m]
                                               {:events (inc events)

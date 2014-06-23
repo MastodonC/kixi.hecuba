@@ -86,25 +86,47 @@
   
   (post-resource (:device-2 urls) "application/json" (:device-2 resources))
   (post-resource (:device-3 urls) "application/json" (:device-3 resources))
-  (post-resource (:device-3 urls) "application/json" (:device-4 resources)))
+  (post-resource (:device-3 urls) "application/json" (:device-4 resources))
+  (post-resource (:device-3 urls) "application/json" (:device-5 resources))
+  (post-resource (:device-3 urls) "application/json" (:device-6 resources)))
 
 (defn post-readings
   "Reads in CSV files containing measurements and posts them in batches through the API."
   []
-  (with-open [in-file (io/reader (io/resource "gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
+  (with-open [in-file (io/reader (io/resource "csv/gasConsumption-fe5ab5bf19a7265276ffe90e4c0050037de923e2.csv"))]
     (let [measurements2 (map #(zipmap [:device_id :type :month :timestamp :error :reading_metadata :value] %)
                              (rest (csv/read-csv in-file)))]
       (batch-csv measurements2 (:measurement-2 urls))))
   
-  (with-open [in-file2 (io/reader (io/resource "b4f0c7e2b15ba9636f3fb08379cc4b3798a226bb-interpolatedHeatConsumption.csv"))]
+  (with-open [in-file2 (io/reader (io/resource "csv/b4f0c7e2b15ba9636f3fb08379cc4b3798a226bb-interpolatedHeatConsumption.csv"))]
     (let [measurements3 (map #(zipmap [:device_id :type :month :timestamp :error :reading_metadata :metadata :value] %)
-                             (rest (csv/read-csv in-file2)))]
-      (batch-csv measurements3 (:measurement-3 urls))))
+                             (rest (csv/read-csv in-file2)))
+          m3 (map #(update-in % [:timestamp] (fn [t] (let [d (tf/parse (tf/formatter  "yyyy-MM-dd HH:mm:ssZ") t)]
+                                                     (tf/unparse 
+                                                      (tf/formatter "yyyy-MM-dd HH:mm:ssZ")
+                                                      (t/minus (t/plus d (t/years 2)) (t/days 9))))))
+                  measurements3)]
+      (batch-csv m3 (:measurement-3 urls))))
 
-  (with-open [in-file3 (io/reader (io/resource "268e93a5249c24482ac1519b77f6a45f36a6231d-interpolatedElectricityConsumption.csv"))]
+  (with-open [in-file3 (io/reader (io/resource "csv/268e93a5249c24482ac1519b77f6a45f36a6231d-interpolatedElectricityConsumption.csv"))]
     (let [measurements4 (map #(zipmap [:device_id :type :month :timestamp :error :reading_metadata :metadata :value] %)
-                             (rest (csv/read-csv in-file3)))]
-      (batch-csv measurements4 (:measurement-4 urls)))))
+                             (rest (csv/read-csv in-file3)))
+           m4 (map #(update-in % [:timestamp] (fn [t] (let [d (tf/parse (tf/formatter  "yyyy-MM-dd HH:mm:ssZ") t)]
+                                                      (tf/unparse 
+                                                       (tf/formatter "yyyy-MM-dd HH:mm:ssZ")
+                                                       (t/minus (t/plus d (t/years 2)) (t/days 9))))))
+                   measurements4)]
+      (batch-csv m4 (:measurement-4 urls))))
+
+  (with-open [in-file4 (io/reader (io/resource "csv/3aae0fe7ddaa5e400a2cf9580a5e548d9255c70a-interpolatedElectricityConsumption.csv"))]
+    (let [measurements5 (map #(zipmap [:device_id :type :month :timestamp :error :reading_metadata :value] %)
+                             (rest (csv/read-csv in-file4)))]
+      (batch-csv measurements5 (:measurement-5 urls))))
+  
+  (with-open [in-file5 (io/reader (io/resource "csv/122b4bf8dfa66cbf8f321f2d03c4d73f924bb719-interpolatedElectricityConsumption.csv"))]
+    (let [measurements6 (map #(zipmap [:device_id :type :month :timestamp :error :reading_metadata :value] %)
+                             (rest (csv/read-csv in-file5)))]
+      (batch-csv measurements6 (:measurement-6 urls)))))
 
 
 (defn post-generated-measurements 
