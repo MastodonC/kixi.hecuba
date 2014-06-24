@@ -211,7 +211,7 @@
                   :device_id "268e93a5249c24482ac1519b77f6a45f36a6231d"}]]
     
     (testing "Testing range-for-padding"
-      (let [[start end] (calc/range-for-padding sensors)]
+      (let [[start end] (misc/range-for-all-sensors sensors)]
         (is (= (t/date-time 2012 06 21 21 01 00) start))
         (is (= (t/date-time 2012 06 28 22 39 00) end))))))
 
