@@ -21,7 +21,8 @@
 (om/root programmes/programmes-tab
          app-model
          {:target (.getElementById js/document "hecuba-tabs")
-          :shared {:history (history/new-history [:programmes :projects :properties :devices :sensors :measurements])}})
+          :shared {:history (history/new-history [:programmes :projects :properties :devices :sensors :measurements])
+                   :property-chan (chan)}})
 
 ;; Useful for debugging in dev
 ;; (om/root ankha/inspector app-model {:target (.getElementById js/document "ankha")})

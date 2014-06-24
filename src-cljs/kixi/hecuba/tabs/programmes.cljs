@@ -81,6 +81,11 @@
       (om/update! data :active-components (-> nav-event :args :ids)))
     (recur)))
 
+(defn property-loop [property-chan data]
+  (go-loop []
+    (let [property-details (<! property-chan)]
+      (om/update! data [:property-details :data] property-details))))
+
 (defn selected-range-change
   [selected selection-key {{ids :ids search :search} :args}]
   (let [new-selected (get ids selection-key)]
@@ -343,32 +348,37 @@
 (defmethod properties-table-html :error [properties owner]
   (error-row properties))
 
-(defn postal-address [property_data]
-  (str/join
-   ", "
-   (keep identity [(:address_street_two property_data)
-                   (:address_city property_data)
-                   (:address_code property_data)
-                   (:address_country property_data)])))
+(defn postal-address
+  ([property_data separator]
+     (println "Separator: " separator " Property Data: " property_data)
+     (str/join
+      separator
+      (keep identity [(:address_street_two property_data)
+                      (:address_city property_data)
+                      (:address_code property_data)
+                      (:address_country property_data)])))
+  ([property_data]
+     (postal-address property_data ", ")))
 
 (defmethod properties-table-html :has-data [properties owner]
   (let [table-id "properties-table"
-        history  (om/get-shared owner :history)]
+        history  (om/get-shared owner :history)
+        property-chan (om/get-shared owner :property-chan)]
     [:div.col-md-12
      [:table {:className "table table-hover"}
       [:thead
        [:tr [:th "ID"] [:th "Type"] [:th "Address"] [:th "Region"] [:th "Ownership"] [:th "Technologies"] [:th "Monitoring Hierarchy"]]]
-      (for [row (sort-by #(-> % :property_code) (:data properties))]
-        (let [property_data (:property_data row)
-              id            (:id row)]
+      (for [property-details (sort-by #(-> % :property_code) (:data properties))]
+        (let [property_data (:property_data property-details)
+              id            (:id property-details)]
           [:tr
            {:onClick (fn [_ _]
                        (om/update! properties :selected id)
                        (history/update-token-ids! history :properties id)
-                       (fixed-scroll-to-element "devices-div"))
+                       (put! property-chan property-details))
             :className (if (= id (:selected properties)) "success")
             :id (str table-id "-selected")}
-           [:td (:property_code row)]
+           [:td (:property_code property-details)]
            [:td (:property_type property_data)]
            [:td (postal-address property_data)]
            [:td (:address_region property_data)]
@@ -434,6 +444,52 @@
                   {:onClick (back-to-projects history)}
                   (title-for projects)]]]
            (om/build properties-table properties {:opts {:histkey :properties}})]])))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; property-details
+(defn postal-address-html
+  [property_data]
+  (interpose
+   [:br ]
+   (keep identity [(:address_street_two property_data)
+                   (:address_city property_data)
+                   (:address_code property_data)
+                   (:address_country property_data)])))
+
+(defn property-details-div [data owner]
+  (reify
+    om/IRender
+    (render [_]
+      (let [property-details (-> data :property-details :data)
+            property_data (:property_data property-details)]
+        (html [:div.col-md-12
+               [:h2 "Property Details"]
+               (bs/panel
+                (:slug property-details)
+                [:div.col-md-12
+                 [:div.col-md-4
+                  [:dl.dl-horizontal
+                   [:dt "Address"] [:dd (postal-address-html property_data)]
+                   ]]
+                 [:div.col-md-2
+                  (when-let [pic (:path (first (:photos property-details)))]
+                    [:img.img-thumbnail.tmg-responsive
+                     {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" pic)}])]
+                 [:div.col-md-6
+                  [:dl.dl-horizontal
+                   [:dt "Address"] [:dd (postal-address-html property_data)]
+                   ]]
+                 [:div.col-md-12
+                  [:h3 "Design Strategy"]
+                  [:p (:design_strategy property_data)]
+                  
+                  [:h3 "Energy Strategy"]
+                  [:p (:energy_strategy property_data)]
+                  ]
+                 ]
+                )]
+              
+              )))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; devices
@@ -682,11 +738,14 @@
     om/IWillMount
     (will-mount [_]
       (let [history     (om/get-shared owner :history)
+            property-chan (om/get-shared owner :property-chan)
             m           (mult (history/set-chan! history (chan)))
             tap-history #(tap m (chan))]
 
         ;; handle navigation changes
         (history-loop (tap-history) data)
+
+        (property-loop property-chan data)
 
         (chart-ajax (tap-history)
                     (:chart data)
@@ -700,9 +759,10 @@
              (om/build programmes-div data)
              (om/build projects-div data)
              (om/build properties-div data)
-             (om/build devices-div data)
+             (om/build property-details-div data)
+             ;; (om/build devices-div data)
              ;; (om/build device-detail devices)
-             (om/build sensors-div data)
+             ;; (om/build sensors-div data)
              ;; (om/build sensor/define-data-set-button data)
 
              ]))))

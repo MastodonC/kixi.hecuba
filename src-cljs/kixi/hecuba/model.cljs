@@ -13,6 +13,7 @@
     :properties {:name     "Properties"
                  :data     []
                  :selected nil}
+    :property-details {:data {}}
     :devices {:name     "Devices"
               :data     []
               :selected nil}
