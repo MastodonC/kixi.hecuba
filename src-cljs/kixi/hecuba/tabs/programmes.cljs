@@ -349,7 +349,7 @@
      [:table {:className "table table-hover"}
       [:thead
        [:tr [:th "ID"] [:th "Type"] [:th "Address"] [:th "Region"] [:th "Ownership"] [:th "Technologies"] [:th "Monitoring Hierarchy"]]]
-      (for [row (sort-by #(-> % :property_data :property_code) (:data properties))]
+      (for [row (sort-by #(-> % :property_code) (:data properties))]
         (let [property_data (:property_data row)
               id            (:id row)]
           [:tr
@@ -359,7 +359,7 @@
                        (fixed-scroll-to-element "devices-div"))
             :className (if (= id (:selected properties)) "success")
             :id (str table-id "-selected")}
-           [:td (:property_code property_data)]
+           [:td (:property_code row)]
            [:td (:property_type property_data)]
            [:td (:address_street_two property_data)
             (when-let [address_two (:address_street_two property_data)]
