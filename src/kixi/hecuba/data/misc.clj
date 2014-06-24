@@ -198,11 +198,11 @@
   (db/with-session [session (:hecuba-session store)]
     (let [start      (tc/to-date min-date)
           end        (tc/to-date max-date)
-          new-bounds (update-bounds start end sensor)
           where      (where-from sensor)
           s          (first (db/execute session
                                         (hayt/select :sensor_metadata
-                                                     (hayt/where where))))]
+                                                     (hayt/where where))))
+          new-bounds (update-bounds start end s)]
       (when-let [columns (columns-to-update? s start end new-bounds)]
         (db/execute session
                     (hayt/update :sensor_metadata
