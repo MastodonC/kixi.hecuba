@@ -343,6 +343,14 @@
 (defmethod properties-table-html :error [properties owner]
   (error-row properties))
 
+(defn postal-address [property_data]
+  (str/join
+   ", "
+   (keep identity [(:address_street_two property_data)
+                   (:address_city property_data)
+                   (:address_code property_data)
+                   (:address_country property_data)])))
+
 (defmethod properties-table-html :has-data [properties owner]
   (let [table-id "properties-table"
         history  (om/get-shared owner :history)]
@@ -362,11 +370,7 @@
             :id (str table-id "-selected")}
            [:td (:property_code row)]
            [:td (:property_type property_data)]
-           [:td (:address_street_two property_data)
-            (when-let [address_two (:address_street_two property_data)]
-              (str ", " address_two))
-            (str ", " (:address_city property_data))
-            (str ", " (:address_code property_data) ", " (:address_country property_data))]
+           [:td (postal-address property_data)]
            [:td (:address_region property_data)]
            [:td (:ownership property_data)]
            [:td (for [ti (:technology_icons property_data)]
