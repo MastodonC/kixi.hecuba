@@ -15,7 +15,7 @@
    [kixi.hecuba.web-paths :refer (compojure-route amon-index-route amon-resource-route)]
    [kixi.hecuba.security :as security]
    [kixi.hecuba.session :refer (cassandra-store)]
-   
+
    [kixi.hecuba.api.programmes :as programmes]
    [kixi.hecuba.api.projects :as projects]
    [kixi.hecuba.api.properties :as properties]
@@ -24,7 +24,9 @@
    [kixi.hecuba.api.devices :as devices]
    [kixi.hecuba.api.measurements :as measurements]
    [kixi.hecuba.api.rollups :as rollups]
-   [kixi.hecuba.api.datasets :as datasets]))
+   [kixi.hecuba.api.datasets :as datasets]
+   [kixi.hecuba.api.templates :as templates]
+   ))
 
 (defn index-page [req]
   {:status 200
@@ -80,7 +82,7 @@
    ;; Programmes
    (index-routes :programmes-index (programmes/index store))
    (resource-route :programme-resource [:programme_id] (programmes/resource store))
-   
+
    ;; Programmes/Projects
    (index-routes :programme-projects-index [:programme_id] (projects/index store))
    (resource-route :programme-projects-resource [:programme_id :project_id] (projects/resource store))
@@ -115,12 +117,18 @@
    ;; FIXME - This should be an index route with the start/stop times
    (resource-route :entity-device-measurement-readingtype-index [:entity_id :device_id :type] (measurements/measurements-slice store))
    (resource-route :entity-device-measurement-readingtype-resource [:entity_id :device_id :type :timestamp] (measurements/measurements-by-reading store))
-   
+
    ;; Hourly Measurements FIXME - should be a auto chosen with a type=raw for a force
    (resource-route :entity-device-measurement-readingtype-hourly-rollups [:entity_id :device_id :type] (rollups/hourly_rollups store))
 
    ;; Daily Measurements
-   (resource-route :entity-device-measurement-readingtype-daily-rollups [:entity_id :device_id :type] (rollups/daily_rollups store))))
+   (resource-route :entity-device-measurement-readingtype-daily-rollups [:entity_id :device_id :type] (rollups/daily_rollups store))
+
+   ;; Templates
+   (index-routes :templates-index (templates/index store))
+   (resource-route :templates-resource [:template_id] (templates/resource store))
+   (resource-route :entity-templates-resource [:entity_id] (templates/entity-resource store))
+   ))
 
 (defn all-routes [store]
   (routes
@@ -134,19 +142,19 @@
    ;; Log In and Log Out
    (GET (compojure-route :login) [] login-form)
    (friend/logout (ANY (compojure-route :logout) request (redirect "/")))
-   
+
    ;; Main Application
    (GET (compojure-route :app) []
         (friend/wrap-authorize
          app-page
          #{:kixi.hecuba.security/user}))
-   
+
    ;; AMON API Routes
    (amon-api-routes store)
 
    ;; js/css/etc
    (route/resources "/" {:root "site/"})
-   
+
    ;; 404 - if nothing else matches, then this is the end, my friend.
    (route/not-found not-found-page)))
 
