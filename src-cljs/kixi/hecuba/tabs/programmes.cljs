@@ -78,6 +78,8 @@
 (defn history-loop [history-channel data]
   (go-loop []
     (let [nav-event (<! history-channel)]
+      (println "Old Active Components: " (:active-components @data))
+      (println "New Active Components: " (-> nav-event :args :ids))
       (om/update! data :active-components (-> nav-event :args :ids)))
     (recur)))
 
