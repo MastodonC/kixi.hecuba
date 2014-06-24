@@ -292,6 +292,14 @@
       (round (apply / m))
       "N/A")))
 
+(defmethod calculation :multiply [_ & datasets]
+  (let [m (map :value datasets)]
+    (if (every? number? m)
+      (if (some #{0} m)
+        0
+        (round (apply * m)))
+      "N/A")))
+
 (defn compute-datasets [operation device_id type & datasets]
   (apply map (fn [& args]
                (let [value (apply calculation operation args)]
@@ -305,7 +313,7 @@
 
 ;; Padding ;;;
 
-(defn- even-all-collections
+(defn even-all-collections
   "Takes a vector containg lists of measurements, a sequence of required timestamps and resolution
                 in seconds and pads the measurements."
   [all-colls timestamps resolution]
@@ -369,7 +377,6 @@
           (log/info "Sensors do not have enough measurements to calculate.")))
       (log/info "Sensors do not meet requirements for calculation."))))
 
-(defn generate-synthetic-readings [store item]
-  (let [data-sets (datasets/all-datasets store)]
-    (doseq [ds data-sets]
-      (calculate-dataset ds store))))
+
+
+
