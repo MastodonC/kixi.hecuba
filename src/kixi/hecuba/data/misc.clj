@@ -128,7 +128,7 @@
 
 (defn reset-date-range
   "Given querier, commander, sensor, column and start/end dates, update these dates in sensor metadata."
-  [store {:keys [device_id type period]} col start-date end-date]
+  [store {:keys [device_id type]} col start-date end-date]
   (db/with-session [session (:hecuba-session store)]
     (let [where               [[= :device_id device_id] [= :type type]]
           current-metadata    (first (db/execute session (hayt/select :sensor_metadata (hayt/where where))))
@@ -189,6 +189,8 @@
      {:co2 [+ co2]})
    (when-let [kwh (update-date-range sensor :kwh start end)]
      {:kwh [+ kwh]})
+   (when-let [datasets (update-date-range sensor :calculated_datasets start end)]
+     {:calculated_datasets [+ datasets]})
    (when-let [lower (:lower_ts new-bounds)] {:lower_ts lower})
    (when-let [upper (:upper_ts new-bounds)] {:upper_ts upper})))
 

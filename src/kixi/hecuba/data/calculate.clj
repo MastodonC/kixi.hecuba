@@ -365,6 +365,16 @@
   (let [{:keys [period]} (first sensors)]  
     (every? #(= period (:period %)) sensors)))
 
+(defn new-data-range?
+  "Takes a sequence of sensors (sensor & sensor_metadata combined) and
+  returns start and end dates for calculation. If no new data is present,
+  returns nil."
+  [sensors]
+  (let [all-starts (map #(get-in (:calculated_datasets %) ["start"]) sensors)
+        all-ends   (map #(get-in (:calculated_datasets %) ["end"]) sensors)
+        min-date   (tc/to-date-time (apply min (map tc/to-long all-starts)))
+        max-date   (tc/to-date-time (apply max (map tc/to-long all-ends)))]
+    {:start-date  min-date :end-date max-date}))
 
 (defn calculate-dataset [ds store]
 
@@ -372,30 +382,37 @@
         {:keys [period unit]}        (first sensors)
         {:keys [device_id operation]} ds
         operation                    (keyword operation)]
-    
-    (log/info "Calculating datasets for sensors: " (:members ds) "and operation: " operation)
-    
-    (if (and (> (count sensors) 1)
+
+    (when-let [range (new-data-range? sensors)]
+      
+      (log/info "Calculating datasets for sensors: " (:members ds) "and operation: " operation "and range: " range)
+      
+      (if (and (> (count sensors) 1)
                (should-calculate? ds sensors))
-       
-      (let [measurements        (into [] (map #(m/parse-measurements (measurements/all-measurements store %)) sensors))]
         
-        (when (every? #(> (count (take 2 %)) 1) measurements)
-          (let [all-resolutions (map #(get-resolution store %1 (take 100 %2)) sensors measurements)
-                resolution      (first all-resolutions)]
-            
-            (when (every? #(= resolution %) all-resolutions)
-              (let [padded (padded-measurements sensors measurements resolution)
-                    new-type (:name ds)
-                    calculated (apply compute-datasets operation device_id new-type padded)]
-                
-                (m/insert-measurements store {:device_id device_id :type new-type} calculated 100)
-                (log/info "Finished calculation for sensors: " (:members ds) "and operation: " operation))))))
-      (log/info "Sensors do meet requirements for calculation."))))
+        (let [measurements (into [] (map #(m/parse-measurements 
+                                           (measurements/measurements-for-range store % range (t/hours 1)))
+                                         sensors))]
+          
+          (if (every? #(> (count (take 2 %)) 1) measurements)
+            (let [all-resolutions (map #(get-resolution store %1 (take 100 %2)) sensors measurements)
+                  resolution      (first all-resolutions)]
+              
+              (if (every? #(= resolution %) all-resolutions)
+                (let [padded     (padded-measurements sensors measurements resolution)
+                      new-type   (:name ds)
+                      sensor     {:device_id device_id :type new-type}
+                      calculated (apply compute-datasets operation device_id new-type padded)
+                      {:keys [start-date end-date]} range]
+                  
+                  (m/insert-measurements store sensor calculated 100)
+                  (m/reset-date-range store sensor :calculated_datasets start-date end-date)
+                  (log/info "Finished calculation for sensors: " (:members ds) "and operation: " operation))
+                (log/info "Sensors are not of the same resolution.")))
+            (log/info "Sensors do not have enough measurements to calculate.")))
+        (log/info "Sensors do not meet requirements for calculation.")))))
 
 (defn generate-synthetic-readings [store item]
   (let [data-sets (datasets/all-datasets store)]
-    ;; TODO This recalculates existing datasets as well - should we only recalcualate when new measurements are inserted?
     (doseq [ds data-sets]
-      (log/info "Calculating dataset for: " ds)
       (calculate-dataset ds store))))

@@ -104,6 +104,7 @@ CREATE TABLE entities (
   property_data text,
   retrofit_completion_date text,
   user_id text,
+  calculated_fields map<text, text>,
   PRIMARY KEY (id)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
@@ -304,17 +305,19 @@ CREATE TABLE projects (
 CREATE INDEX projects_programme_id_idx_1 ON projects (programme_id);
 
 CREATE TABLE sensor_metadata (
-  device_id text,
-  type text,
-  difference_series map<text, timestamp>,
-  median_calc_check map<text, timestamp>,
-  mislabelled text,
-  mislabelled_sensors_check map<text, timestamp>,
-  rollups map<text, timestamp>,
-  spike_check map<text, timestamp>,
+  calculated_datasets map<text, timestamp>,
+  calculated_fields map<text, timestamp>,
   co2 map<text, timestamp>,
+  device_id text,
+  difference_series map<text, timestamp>,
   kwh map<text, timestamp>,
   lower_ts timestamp,
+  median_calc_check map<text, timestamp>,
+  mislabelled_sensors_check map<text, timestamp>,
+  mislabelled text,
+  rollups map<text, timestamp>,
+  spike_check map<text, timestamp>,
+  type text,
   upper_ts timestamp,
   PRIMARY KEY (device_id, type)
 ) WITH
