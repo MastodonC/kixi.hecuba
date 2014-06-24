@@ -56,6 +56,22 @@
                                                    (hayt/where [[= :device_id (:device_id %)] [= :type (:type %)]]))))
                    %) all-sensors-metadata))))
 
+(defn merge-sensor-metadata [store sensor]
+  (db/with-session [session (:hecuba-session store)]
+    (merge (first (db/execute session (hayt/select :sensor_metadata
+                                                   (hayt/where [[= :device_id (:device_id sensor)]
+                                                                [= :type (:type sensor)]])))) sensor)))
+
+(defn all-sensor-information
+  "Given store,  device_id and type, combines data from sensor and sensor_metadata tables
+  for that sensor."
+  [store device_id type]
+  (db/with-session [session (:hecuba-session store)]
+    (let [sensor (first (db/execute session 
+                                    (hayt/select :sensors (hayt/where [[= :device_id device_id]
+                                                                       [= :type type]]))))]
+      (merge-sensor-metadata store sensor))))
+
 (defn all-sensor-metadata-for-device
   "Given device_id, retrieves all sensors metadata."
   [store device_id]
@@ -81,6 +97,16 @@
                :max-date (if (t/after? timestamp max-date) timestamp max-date)})
             {:min-date (first parsed-dates)
              :max-date (first parsed-dates)} parsed-dates)))
+
+(defn range-for-all-sensors
+  "Takes a sequence of sensors and returns min and max dates from their lower_ts and upper_ts"
+  [sensors]
+  (assert (not (empty? sensors)) "Sensors passed to range-for-all-sensors are empty.")
+  (let [all-starts (map #(tc/from-date (:lower_ts %)) sensors)
+        all-ends   (map #(tc/from-date (:upper_ts %)) sensors)
+        min-date   (tc/to-date-time (apply min (map tc/to-long all-starts)))
+        max-date   (tc/to-date-time (apply max (map tc/to-long all-ends)))]
+    [min-date max-date]))
 
 ;;;;; Parsing of measurements ;;;;;
 
@@ -128,7 +154,7 @@
 
 (defn reset-date-range
   "Given querier, commander, sensor, column and start/end dates, update these dates in sensor metadata."
-  [store {:keys [device_id type period]} col start-date end-date]
+  [store {:keys [device_id type]} col start-date end-date]
   (db/with-session [session (:hecuba-session store)]
     (let [where               [[= :device_id device_id] [= :type type]]
           current-metadata    (first (db/execute session (hayt/select :sensor_metadata (hayt/where where))))
@@ -189,6 +215,8 @@
      {:co2 [+ co2]})
    (when-let [kwh (update-date-range sensor :kwh start end)]
      {:kwh [+ kwh]})
+   (when-let [datasets (update-date-range sensor :calculated_datasets start end)]
+     {:calculated_datasets [+ datasets]})
    (when-let [lower (:lower_ts new-bounds)] {:lower_ts lower})
    (when-let [upper (:upper_ts new-bounds)] {:upper_ts upper})))
 
@@ -228,3 +256,4 @@
       (let [{:keys [min-date max-date]} (min-max-dates batch)]
         (insert-batch session batch)
         (update-sensor-metadata store sensor min-date max-date)))))
+

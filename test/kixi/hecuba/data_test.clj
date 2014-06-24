@@ -160,8 +160,9 @@
         (is (= 17  (get-in freqs ["N/A"])))))))
 
 (deftest compute-datasets-test
-  (let [sensors      (g/generate-sensor-sample "CUMULATIVE" 2)
-        measurements (into [] (map #(misc/parse-measurements (g/generate-measurements %)) sensors))]
+  (let [sensors              (g/generate-sensor-sample "CUMULATIVE" 2)
+        measurements         (into [] (map #(misc/parse-measurements (g/generate-measurements %)) sensors))
+        invalid-measurements (into [] (map #(misc/parse-measurements (g/generate-invalid-measurements %)) sensors))]
 
     (println "Testing compute-datasets.")
     
@@ -190,7 +191,13 @@
                                                           (reverse (last measurements)))))))
       (is (= "N/A"  (:value (first (calc/compute-datasets :divide "12345" "temperature" 
                                                           (reverse (last measurements))
-                                                          (first measurements)))))))))
+                                                          (first measurements)))))))
+    (testing "Testing multiplication"
+      (is (= "0"      (:value (first (apply calc/compute-datasets :multiply "12345" "temperature" measurements)))))
+      (is (= "1"      (:value (second (apply calc/compute-datasets :multiply "12345" "temperature" measurements)))))
+      (is (= "249001" (:value (last (apply calc/compute-datasets :multiply "12345" "temperature" measurements)))))
+      (is (= "N/A" (:value (nth (apply calc/compute-datasets :multiply "12345" "temperature" invalid-measurements) 5)))))))
+
 (deftest find-resolution-test
   (let [sensor-60     (first (g/generate-sensor-sample "CUMULATIVE" 1))
         sensor-300    (first (g/generate-sensor-sample "PULSE" 1))]
@@ -211,7 +218,7 @@
                   :device_id "268e93a5249c24482ac1519b77f6a45f36a6231d"}]]
     
     (testing "Testing range-for-padding"
-      (let [[start end] (calc/range-for-padding sensors)]
+      (let [[start end] (misc/range-for-all-sensors sensors)]
         (is (= (t/date-time 2012 06 21 21 01 00) start))
         (is (= (t/date-time 2012 06 28 22 39 00) end))))))
 

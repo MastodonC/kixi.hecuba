@@ -7,7 +7,8 @@
             [kixi.hecuba.data.misc         :as misc]
             [kixi.hecuba.data.calculate    :as calculate]
             [clj-time.core :as t]
-            [com.stuartsierra.component    :as component]))
+            [com.stuartsierra.component    :as component]
+            [kixi.hecuba.api.datasets      :as datasets]))
 
 (defn build-pipeline [store]
   (let [fanout-q              (new-queue {:name "fanout-q" :queue-size 50})
@@ -169,7 +170,14 @@
 
     (defnconsumer synthetic-readings-q [item]
       (log/info "Starting synthetic readings job.")
-      (calculate/generate-synthetic-readings store item)
+      (let [datasets (datasets/all-datasets store)]
+        (doseq [ds datasets]
+          (let [sensors (datasets/sensors-for-dataset ds store)
+                {:keys [device_id name]} ds
+                where  {:device_id device_id :type name}
+                sensor (misc/all-sensor-information store device_id name)]
+            (when-let [range (misc/start-end-dates :calculated_datasets sensor where)]
+              (calculate/calculate-dataset store ds sensors range)))))
       (log/info "Finished synthetic readings job."))
 
     (defnconsumer resolution-q [item]

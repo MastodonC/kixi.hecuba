@@ -20,24 +20,6 @@
 (defn round [x]
   (with-precision 3 x))
 
-(defn merge-sensor-metadata [store sensor]
-  (db/with-session [session (:hecuba-session store)]
-    (merge (first (db/execute session (hayt/select :sensor_metadata
-                                                   (hayt/where [[= :device_id (:device_id sensor)]
-                                                                [= :type (:type sensor)]])))) sensor)))
-(defn sensors-for-dataset
-  "Returns all the sensors for the given dataset."
-  [{:keys [members]} store]
-  (db/with-session [session (:hecuba-session store)]
-    (let [parsed-sensors (map (fn [s] (into [] (next (re-matches #"(\w+)-(\w+)" s)))) members)
-          sensor (fn [[type device_id]]
-                   (db/execute session
-                               (hayt/select :sensors
-                                            (hayt/where [[= :type type]
-                                                         [= :device_id device_id]]))))]
-      (->> (mapcat sensor parsed-sensors)
-           (map #(merge-sensor-metadata store %))))))
-
 (def conversion-factors {"vol2kwh" {"gasConsumption" {"m^3" 10.97222
                                                       "ft^3" (* 2.83 10.9722)}
                                     "oilConsumption" {"m^3" 10308.34
@@ -310,6 +292,14 @@
       (round (apply / m))
       "N/A")))
 
+(defmethod calculation :multiply [_ & datasets]
+  (let [m (map :value datasets)]
+    (if (every? number? m)
+      (if (some #{0} m)
+        0
+        (round (apply * m)))
+      "N/A")))
+
 (defn compute-datasets [operation device_id type & datasets]
   (apply map (fn [& args]
                (let [value (apply calculation operation args)]
@@ -323,17 +313,7 @@
 
 ;; Padding ;;;
 
-(defn range-for-padding
-  "Takes a sequence of sensors and returns min and max dates from their lower_ts and upper_ts"
-  [sensors]
-  (assert (not (empty? sensors)) "Sensors passed to range-for-padding are empty.")
-  (let [all-starts (map #(tc/from-date (:lower_ts %)) sensors)
-        all-ends   (map #(tc/from-date (:upper_ts %)) sensors)
-        min-date   (tc/to-date-time (apply min (map tc/to-long all-starts)))
-        max-date   (tc/to-date-time (apply max (map tc/to-long all-ends)))]
-    [min-date max-date]))
-
-(defn- even-all-collections
+(defn even-all-collections
   "Takes a vector containg lists of measurements, a sequence of required timestamps and resolution
                 in seconds and pads the measurements."
   [all-colls timestamps resolution]
@@ -343,7 +323,7 @@
   "Takes a sequence of a variable number of sequences of measurements
    and makes them of even length by padding."
   [sensors measurements-seq resolution]
-  (let [[start end]  (range-for-padding sensors)
+  (let [[start end]  (m/range-for-all-sensors sensors)
         expected-ts  (all-timestamps-for-range start end resolution)]
      (even-all-collections measurements-seq expected-ts resolution)))
 
@@ -365,37 +345,38 @@
   (let [{:keys [period]} (first sensors)]  
     (every? #(= period (:period %)) sensors)))
 
+(defn calculate-dataset [store ds sensors range]
 
-(defn calculate-dataset [ds store]
+  (let [{:keys [operation members device_id]} ds
+        operation (keyword operation)]
 
-  (let [sensors                      (sensors-for-dataset ds store)
-        {:keys [period unit]}        (first sensors)
-        {:keys [device_id operation]} ds
-        operation                    (keyword operation)]
-    
-    (log/info "Calculating datasets for sensors: " (:members ds) "and operation: " operation)
+    (log/info "Calculating datasets for sensors: " members "and operation: " operation "and range: " range)
     
     (if (and (> (count sensors) 1)
-               (should-calculate? ds sensors))
-       
-      (let [measurements        (into [] (map #(m/parse-measurements (measurements/all-measurements store %)) sensors))]
+             (should-calculate? ds sensors))
+      
+      (let [measurements (into [] (map #(m/parse-measurements 
+                                         (measurements/measurements-for-range store % range (t/hours 1)))
+                                       sensors))]
         
-        (when (every? #(> (count (take 2 %)) 1) measurements)
+        (if (every? #(> (count (take 2 %)) 1) measurements)
           (let [all-resolutions (map #(get-resolution store %1 (take 100 %2)) sensors measurements)
                 resolution      (first all-resolutions)]
             
-            (when (every? #(= resolution %) all-resolutions)
-              (let [padded (padded-measurements sensors measurements resolution)
-                    new-type (:name ds)
-                    calculated (apply compute-datasets operation device_id new-type padded)]
+            (if (every? #(= resolution %) all-resolutions)
+              (let [padded     (padded-measurements sensors measurements resolution)
+                    new-type   (:name ds)
+                    sensor     {:device_id device_id :type new-type}
+                    calculated (apply compute-datasets operation device_id new-type padded)
+                    {:keys [start-date end-date]} range]
                 
-                (m/insert-measurements store {:device_id device_id :type new-type} calculated 100)
-                (log/info "Finished calculation for sensors: " (:members ds) "and operation: " operation))))))
-      (log/info "Sensors do meet requirements for calculation."))))
+                (m/insert-measurements store sensor calculated 100)
+                (m/reset-date-range store sensor :calculated_datasets start-date end-date)
+                (log/info "Finished calculation for sensors: " (:members ds) "and operation: " operation))
+              (log/info "Sensors are not of the same resolution.")))
+          (log/info "Sensors do not have enough measurements to calculate.")))
+      (log/info "Sensors do not meet requirements for calculation."))))
 
-(defn generate-synthetic-readings [store item]
-  (let [data-sets (datasets/all-datasets store)]
-    ;; TODO This recalculates existing datasets as well - should we only recalcualate when new measurements are inserted?
-    (doseq [ds data-sets]
-      (log/info "Calculating dataset for: " ds)
-      (calculate-dataset ds store))))
+
+
+
