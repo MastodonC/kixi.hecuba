@@ -27,45 +27,6 @@
         :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
                {::items items})))))
 
-(defn index-malformed? [ctx]
-  (let [request (:request ctx)
-        {:keys [route-params request-method]} request
-        entity_id (:entity_id route-params)]
-    (case request-method
-      :post (let [body (decode-body request)]
-              ;; We need to assert a few things
-              (if (not= (:entity_id body) entity_id)
-                true                  ; it's malformed, game over
-                [false {:body body}]))  ; it's not malformed, return the body now we've read it
-      false)))
-
-(defn index-post! [store ctx]
-  (db/with-session [session (:hecuba-session store)]
-    (let [request    (-> ctx :request)
-          profile    (-> ctx :body)
-          entity_id  (-> profile :entity_id)
-          timestamp  (-> profile :timestamp)
-          username   (sec/session-username (-> ctx :request :session))
-          user_id    (:id (users/get-by-username session username))
-          profile_id (sha1/gen-key :profile profile)]
-      (when (and entity_id timestamp)
-        (when-not (empty? (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first))
-          (db/execute session (hayt/insert :profiles (-> profile
-                                                         (assoc :user_id user_id)
-                                                         (update-stringified-lists
-                                                          [:airflow_measurements :chps
-                                                           :conservatories :door_sets
-                                                           :extensions :floors :heat_pumps
-                                                           :heating_systems :hot_water_systems
-                                                           :low_energy_lights :photovoltaics
-                                                           :roof_rooms :roofs :small_hydros
-                                                           :solar_thermals :storeys :thermal_images
-                                                           :ventilation_systems :walls
-                                                           :wind_turbines :window_sets])
-                                                         (update-in [:profile_data] json/encode)
-                                                         )))
-          {:profile_id profile_id})))))
-
 (defn add-profile-keys [& pairs]
   (->> pairs
        (map-indexed
@@ -657,18 +618,73 @@
                                            (explode-associated-items attr (item (:name attr)))))))))]
     exploded-item))
 
+(defn extract-attribute [attr input]
+  (println "Attribute: " attr)
+  (println "Input: " input)
+  {attr (input attr)})
+
+(defn extract-nested-item [attr input]
+  (let [association-name   (:name   attr)
+        association-schema (:schema attr)
+        nested-item (->> association-schema
+                         (reduce
+                           (fn [nested-item attr]
+                             (let [attr-name (name attr)
+                                   exploded-attr-name (str association-name "_" attr-name)]
+                               { (keyword attr-name) (input exploded-attr-name) }))
+                           {}))]
+    {association-name nested-item}))
+
+(defn extract-associated-items [attr input]
+  {})
+
+(defn parse-by-schema [input schema]
+  (->> schema
+       (reduce
+         (fn [item attr]
+           (let [t (attribute-type attr)]
+             (case t
+               :attribute               (extract-attribute attr input)
+               :nested-item             (extract-nested-item attr input)
+               :associated-item         (extract-associated-items attr input))))
+         {})))
+
+(defn index-malformed? [ctx]
+  (let [request (:request ctx)
+        {:keys [route-params request-method]} request
+        entity_id (:entity_id route-params)]
+    (case request-method
+      :post (let [decoded-body  (decode-body request)
+                  _ (log/info "BODY SIZE: " (count decoded-body))
+                  _ (log/info "Oh damn, why is it just one vector-in-a-list? Let's see what's in there at least")
+                  raw-body (first decoded-body)
+                  _ (log/info "RAW BODY:\n" raw-body)
+                  _ (log/info "BODY SIZE:\t" (count raw-body))
+                  _ (log/info "doesn't make much sense does it... it's like we got back a vector of strings, joined on \\n")
+                  body     (if (= "text/csv" (:content-type request))
+                             (let [body-map (reduce conj {} raw-body)
+                                   _ (println "BODY:\n" body-map)]
+                               (parse-by-schema body-map profile-schema))
+                             raw-body)]
+              ;; We need to assert a few things
+              (if (not= (:entity_id body) entity_id)
+                true                  ; it's malformed, game over
+                [false {:body body}]))  ; it's not malformed, return the body now we've read it
+      false)))
+
 (defn index-handle-ok [ctx]
   (let [{items ::items
          {mime :media-type} :representation} ctx
          userless-items (->> items
                              (map #(update-in % [:timestamp] str))
                              (map #(dissoc % :user_id)))
-         exploded-items (->> userless-items
-                             (map #(explode-and-sort-by-schema % profile-schema)))
          formatted-items (if (= "text/csv" mime)
-                                        ; serving tall csv style profiles
-                           (apply util/map-longest add-profile-keys ["" ""] exploded-items)
-                                        ; serving json profiles
+                           ; serving tall csv style profiles
+                           (let [exploded-items (->> userless-items
+                                                     (map #(explode-and-sort-by-schema % profile-schema)))]
+                             (apply util/map-longest
+                                    add-profile-keys ["" ""] exploded-items))
+                           ; serving json profiles
                            userless-items)]
     (util/render-items ctx formatted-items)))
 
@@ -727,10 +743,16 @@
         (ring-response {:status 404 :body "Please provide valid entity_id and timestamp"})))))
 
 (defn resource-handle-ok [store ctx]
-  (let [{item ::item} ctx]
-    (-> item
-        (update-in [:timestamp] str)
-        (dissoc :user_id))))
+  (let [{item ::item
+         {mime :media-type} :representation} ctx
+        userless-item (-> item
+            (update-in [:timestamp] str)
+            (dissoc :user_id))
+        formatted-item (if (= "text/csv" mime)
+                         (let [exploded-item (explode-and-sort-by-schema userless-item profile-schema)]
+                           exploded-item)
+                         userless-item)]
+    (util/render-item (:request ctx) formatted-item)))
 
 (defn resource-respond-with-entity [ctx]
   (let [request (:request ctx)
@@ -738,6 +760,35 @@
     (cond
      (= method :delete) false
       :else true)))
+
+(defn index-post! [store ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (let [request    (-> ctx :request)
+          profile    (-> ctx :body)
+          entity_id  (-> profile :entity_id)
+          timestamp  (-> profile :timestamp)
+          username   (sec/session-username (-> ctx :request :session))
+          ;; FIXME: Why user_id?
+          user_id    (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+          profile_id (sha1/gen-key :profile profile)]
+      (when (and entity_id timestamp)
+        (when-not (empty? (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first))
+          (db/execute session (hayt/insert :profiles (-> profile
+                                                         (assoc :user_id user_id)
+                                                         (update-stringified-lists
+                                                          [:airflow_measurements :chps
+                                                           :conservatories :door_sets
+                                                           :extensions :floors :heat_pumps
+                                                           :heating_systems :hot_water_systems
+                                                           :low_energy_lights :photovoltaics
+                                                           :roof_rooms :roofs :small_hydros
+                                                           :solar_thermals :storeys :thermal_images
+                                                           :ventilation_systems :walls
+                                                           :wind_turbines :window_sets])
+                                                         (update-in [:profile_data] json/encode)
+                                                         )))
+          {:profile_id profile_id})))))
+
 
 (defresource index [store]
   :allowed-methods #{:get :post}
@@ -751,8 +802,9 @@
   :handle-created index-handle-created)
 
 (defresource resource [store]
-  :allowed-methods #{:get :delete :putj}
+  :allowed-methods #{:get :delete :put}
   :available-media-types #{"text/csv" "application/json"}
+  :known-content-type? #{"text/csv" "application/json"}
   :authorized? (authorized? store)
   :exists? (partial resource-exists? store)
   :delete-enacted? (partial resource-delete-enacted? store)

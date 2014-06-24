@@ -20,15 +20,18 @@
 
 (defprotocol Body
   (read-edn-body [body])
-  (read-json-body [body]))
+  (read-json-body [body])
+  (read-csv-body [body]))
 
 (extend-protocol Body
   String
-  (read-edn-body [body] (edn/read-string body))
+  (read-edn-body  [body] (edn/read-string body))
   (read-json-body [body] (decode body keyword))
+  (read-csv-body  [body] (csv/read-csv body))
   org.httpkit.BytesInputStream
-  (read-edn-body [body] (io! (edn/read (java.io.PushbackReader. (io/reader body)))))
-  (read-json-body [body] (io! (decode-stream (io/reader body) keyword))))
+  (read-edn-body  [body] (io! (edn/read (java.io.PushbackReader. (io/reader body)))))
+  (read-json-body [body] (io! (decode-stream (io/reader body) keyword)))
+  (read-csv-body  [body] (io! (csv/read-csv (io/reader body)))))
 
 ;; TODO - this is not the right place for these - where is?
 (add-encoder java.util.UUID
@@ -69,7 +72,8 @@
 (defmulti decode-body :content-type :default "application/json")
 
 (defmethod decode-body "application/json" [{body :body}] (some-> body read-json-body))
-(defmethod decode-body "application/edn" [{body :body}] (some-> body read-edn-body))
+(defmethod decode-body "application/edn"  [{body :body}] (some-> body read-edn-body))
+(defmethod decode-body "text/csv"         [{body :body}] (some-> body read-csv-body))
 
 (defmulti render-items (comp :media-type :representation) :default :unknown)
 
@@ -132,6 +136,12 @@
 (defmethod render-item "application/edn" [_ item] (pr-str item))
 
 (defmethod render-item "application/json" [_ item] (encode item))
+
+(defmethod render-item "text/csv" [_ item]
+  (let [headers ["name" "value"]]
+    (with-out-str
+      (csv/write-csv *out* [headers] :newline :cr+lf :separator \,)
+      (csv/write-csv *out* item :newline :cr+lf :separator \,))))
 
 (defn assoc-conj
   "Associate a key with a value in a map. If the key already exists in the map,
