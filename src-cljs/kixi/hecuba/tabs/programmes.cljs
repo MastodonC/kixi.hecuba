@@ -168,7 +168,7 @@
   [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data available for this selection."]]])
 
 (defn fetching-row [data]
-  [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching properties for selected project." ]]])
+  [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching data for selection." ]]])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; programmes
