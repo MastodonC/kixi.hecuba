@@ -155,7 +155,7 @@
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [entity_id   (entity_id-from ctx)]
-      (util/render-items ctx (db/execute session (hayt/select :dataset (hayt/where [[= :entity_id entity_id]])))))))
+      (util/render-items (:request ctx) (db/execute session (hayt/select :dataset (hayt/where [[= :entity_id entity_id]])))))))
 
 (defn index-handle-created [ctx]
   (let [entity_id   (::entity_id ctx)
@@ -201,7 +201,7 @@
 
 (defn resource-handle-ok [ctx]
   (let [item (::item ctx)]
-    (util/render-item ctx item)))
+    (util/render-item (:request ctx) item)))
 
 (defresource resource [store]
   :allowed-methods       #{:get :post}
