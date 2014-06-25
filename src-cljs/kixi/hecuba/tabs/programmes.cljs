@@ -148,6 +148,8 @@
         :headers {"Accept" "application/edn"}
         :response-format :text}))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; History loop - this drives the fetches and clear downs
 (defn history-loop [history-channel data]
   (go-loop []
     (let [nav-event (<! history-channel)
@@ -165,16 +167,20 @@
       (when (and old-programmes
                  (nil? programmes))
         (println "Clearing projects.")
-        (om/update! data [:projects :data] []))
+        (om/update! data [:projects :data] [])
+        (om/update! data [:projects :programme_id] nil))
 
       (when (and old-projects
                  (nil? projects))
         (println "Clearing properties.")
-        (om/update! data [:properties :data] []))
+        (om/update! data [:properties :data] [])
+        (om/update! data [:properties :project_id] nil))
 
       (when (and old-properties
                  (nil? properties))
         (println "Clearing devices, sensors and measurements.")
+        (om/update! data [:property-details :data] {})
+        (om/update! data [:property-details :property_id] nil)
         (om/update! data [:devices :data] [])
         (om/update! data [:sensors :data] [])
         (om/update! data [:measurements :data] []))
@@ -196,15 +202,20 @@
         (println "Setting selected project to: " projects)
         (om/update! data [:projects :selected] projects)
         (fetch-properties projects data))
+
+      (when (and properties
+                 (not= properties old-properties))
+        (om/update! data [:properties :selected] properties)
+        (om/update! data [:property-details :property_id] properties)
+        (om/update! data [:property-details :data] (->> @data
+                                                        :properties
+                                                        :data
+                                                        (filter #(= (:id %) properties))
+                                                        first)))
       
       ;; Update the new active components
       (om/update! data :active-components (-> nav-event :args :ids)))
     (recur)))
-
-(defn property-loop [property-chan data]
-  (go-loop []
-    (let [property-details (<! property-chan)]
-      (om/update! data [:property-details :data] property-details))))
 
 (defn selected-range-change
   [selected selection-key {{ids :ids search :search} :args}]
@@ -415,8 +426,7 @@
 
 (defmethod properties-table-html :has-data [properties owner]
   (let [table-id "properties-table"
-        history  (om/get-shared owner :history)
-        property-chan (om/get-shared owner :property-chan)]
+        history  (om/get-shared owner :history)]
     [:div.col-md-12
      [:table {:className "table table-hover"}
       [:thead
@@ -427,8 +437,7 @@
           [:tr
            {:onClick (fn [_ _]
                        (om/update! properties :selected id)
-                       (history/update-token-ids! history :properties id)
-                       (put! property-chan property-details))
+                       (history/update-token-ids! history :properties id))
             :className (if (= id (:selected properties)) "success")
             :id (str table-id "-selected")}
            [:td (:property_code property-details)]
@@ -485,7 +494,7 @@
     (render [_]
       (let [property-details (-> data :property-details :data)
             property_data (:property_data property-details)]
-        (html [:div.col-md-12
+        (html [:div {:class (str "col-md-12" (if (:property_id (:property-details data)) "" " hidden"))}
                [:h2 "Property Details"]
                (bs/panel
                 (:slug property-details)
@@ -789,8 +798,6 @@
 
         ;; handle navigation changes
         (history-loop (tap-history) data)
-
-        (property-loop property-chan data)
 
         (chart-ajax (tap-history)
                     (:chart data)
