@@ -121,7 +121,7 @@
   (om/update! data [:projects :fetching] :fetching)
   (GET (str "/4/programmes/" programme-id "/projects/")
        {:handler  (fn [x]
-                    (println "Fetching data for programme: " programme-id)
+                    (println "Fetching projects for programme: " programme-id)
                     (om/update! data [:projects :data] (mapv slugify-project x))
                     (om/update! data [:projects :fetching] (if (empty? x) :no-data :has-data))
                     (om/update! data [:projects :selected] nil))
@@ -149,13 +149,17 @@
         :response-format :text}))
 
 (defn flatten-device [device]
+  (println "Flattening: " device)
   (let [device-keys (->> device keys (remove #(= % :readings)))
             parent-device (select-keys device device-keys)
             readings (:readings device)] 
         (map #(assoc % :parent-device parent-device) readings)))
 
 (defn extract-sensors [devices]
-  (mapcat flatten-device devices))
+  (println "Devices to extract sensors from: " devices)
+  (let [sensors (vec (mapcat flatten-device devices))]
+    (println "Flattened sensors: " sensors)
+    sensors))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; History loop - this drives the fetches and clear downs
@@ -219,9 +223,11 @@
                                     :properties
                                     :data
                                     (filter #(= (:id %) properties))
-                                    first)]
+                                    first)
+              devices (get property-details :devices [])]
+          (println "property-details keys: " (keys property-details))
           (om/update! data [:property-details :data] property-details)
-          (om/update! data [:sensors :data] (extract-sensors (get property-details :devices [])))))
+          (om/update! data [:sensors :data] (extract-sensors devices))))
       
       ;; Update the new active components
       (om/update! data :active-components (-> nav-event :args :ids)))
@@ -488,6 +494,88 @@
            (om/build properties-table properties {:opts {:histkey :properties}})]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; sensors
+(defn status-label [status]
+  (if (= status "OK")
+    [:span {:class "label label-success"} status]
+    [:span {:class "label label-danger"} status]))
+
+(defn sensors-table [data owner {:keys [histkey path]}]
+  (reify
+    om/IRender
+    (render [_]
+      (let [sensors (:sensors data)
+            chart   (:chart data)
+            history (om/get-shared owner :history)
+            table-id "sensors-table"]
+
+        (html
+         [:table {:className "table table-hover"}
+          [:thead
+           [:tr [:th "Type"] [:th "Unit"] [:th "Period"] [:th "Device"] [:th "Status"]]]
+          [:tbody
+           (for [row (sort-by :type (-> sensors :data))]
+             (let [{:keys [device_id type unit period status]} row
+                   id (str type "-" device_id)]
+               [:tr {:onClick (fn [_ _]
+                                (om/update! sensors :selected id)
+                                (om/update! chart :sensor id)
+                                (om/update! chart :unit unit)
+                                (history/update-token-ids! history :sensors id))
+                     :className (if (= id (:selected sensors)) "success")
+                     :id (str table-id "-selected")}
+                [:td type]
+                [:td unit]
+                [:td period]
+                [:td device_id]
+                [:td (status-label status)]]))]])))))
+
+(defn chart-summary
+  "Show min, max, delta and average of chart data."
+  [chart owner]
+  (reify
+    om/IRender
+    (render [_]
+      (let [{:keys [unit measurements]} chart
+            ;; FIXME why are measurements nested? (in prep for multi-series?)
+            series-1 (:measurements measurements)
+            vals-1 (map :value series-1)
+            series-1-min (apply min vals-1)
+            series-1-max (apply max vals-1)
+            series-1-sum (reduce + vals-1)
+            series-1-count (count series-1)
+            series-1-mean (if (not= 0 series-1-count) (/ series-1-sum series-1-count) "NA")]
+        (html
+         (if (seq series-1)
+           [:div.col-md-12#summary-stats
+            [:div {:class "col-md-3"}
+             (bs/panel "Minimum" (str (.toFixed (js/Number. series-1-min) 3) " " unit))]
+            [:div {:class "col-md-3"}
+             (bs/panel "Maximum" (str (.toFixed (js/Number. series-1-max) 3) " " unit))]
+            [:div {:class "col-md-3"}
+             (bs/panel "Average (mean)" (str (.toFixed (js/Number. series-1-mean) 3) " " unit))]
+            [:div {:class "col-md-3"}
+             (bs/panel "Range" (str (.toFixed (js/Number. (- series-1-max series-1-min)) 3) " " unit))]]
+           [:div.row#summary-stats [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data."]]]))))))
+
+(defn sensors-div [data owner]
+  (reify
+    om/IRender
+    (render [_]
+      (html
+       [:div.col-md-12
+        [:h3 {:id "sensors"} "Sensors"]
+        (om/build sensors-table data {:opts {:histkey :sensors
+                                             :path    :readings}})
+        [:div {:id "chart-div"}
+         [:div {:id "date-picker"}
+          (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
+         (om/build chart-feedback-box (get-in data [:chart :message]))
+         (om/build chart-summary (:chart data))
+         [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
+          (om/build chart/chart-figure (:chart data))]]]))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; property-details
 (defn postal-address-html
   [property_data]
@@ -548,252 +636,12 @@
                   [:p (:design_strategy property_data)]
                   
                   [:h3 "Energy Strategy"]
-                  [:p (:energy_strategy property_data)]]
-                 
-                 ]
-                )]
-              
-              )))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; devices
-(defn slugify-device
-  "Create a user friendly slug for a device"
-  [device]
-  (assoc device :slug (apply str (interpose ", " (->> (vector (:name device) (:description device))
-                                                      (keep identity)
-                                                      (remove empty?))))))
-
-(defmulti devices-table-html (fn [devices owner] (:fetching devices)))
-(defmethod devices-table-html :fetching [devices owner]
-  (fetching-row devices))
-
-(defmethod devices-table-html :no-data [devices owner]
-  (no-data-row devices))
-
-(defmethod devices-table-html :error [devices owner]
-  (error-row devices))
-
-(defmethod devices-table-html :has-data [devices owner]
-  (let [table-id   "devices-table"
-        history    (om/get-shared owner :history)]
-    [:div.row
-     [:div.col-md-12
-      [:table {:className "table table-hover"}
-       [:thead
-        [:tr [:th "Name"] [:th "Description"] [:th "Privacy"]]]
-       [:tbody
-        (for [row (sort-by :name (:data devices))]
-          (let [{:keys [id location description privacy]} row
-                name (:name location)]
-            [:tr {:onClick (fn [_ _]
-                             (om/update! devices :selected id)
-                             (history/update-token-ids! history :devices id)
-                             (fixed-scroll-to-element "sensors-div"))
-                  :className (if (= id (:selected devices)) "success")
-                  :id (str table-id "-selected")}
-             [:td name]
-             [:td description]
-             [:td privacy]]))]]]]))
-
-(defmethod devices-table-html :default [devices owner]
-  [:div.row [:div.col-md-12]])
-
-(defn devices-table [devices owner]
-  (reify
-    om/IRender
-    (render [_]
-      (html (devices-table-html devices owner)))))
-
-(defn devices-div [data owner]
-  (reify
-    om/IDidUpdate
-    (did-update [_ prev-props prev-state]
-      (let [{:keys [properties devices active-components]} data
-            new-property-id (:properties active-components)]
-
-        ;; handle selection properties table
-        (when-not new-property-id
-          (om/update! devices :data [])
-          (om/update! devices :selected nil))
-
-        (if (and new-property-id
-                 (not (= (:property_id devices) new-property-id)))
-          (do
-            (om/update! devices :fetching :fetching)
-            (GET (str "/4/entities/" new-property-id "/devices/")
-                 {:handler  (fn [x]
-                              ;; (println "Fetching devices for property: " new-property-id)
-                              (om/update! devices :fetching false)
-                              (om/update! devices :data (mapv slugify-device x))
-                              (om/update! devices :fetching (if (empty? x) :no-data :has-data))
-                              (om/update! devices :selected nil))
-                  :error-handler (fn [{:keys [status status-text]}]
-                                   (om/update! devices :fetching :error)
-                                   (om/update! devices :error-status status)
-                                   (om/update! devices :error-text status-text))
-                  :headers {"Accept" "application/edn"}
-                  :response-format :text})))
-        (om/update! devices :property_id new-property-id)
-
-        ;; handle selection in devices table
-        (om/update! devices :selected (:devices active-components))))
-    om/IRender
-    (render [_]
-      (let [{:keys [programmes projects properties devices active-components]} data
-            history (om/get-shared owner :history)]
-        (html
-         [:div.row#devices-div
-          [:div {:class (str "col-md-12 " (if (:property_id devices) "" "hidden"))}
-           [:h2  "Devices"]
-           [:ul {:class "breadcrumb"}
-            [:li [:a
-                  {:href "/app"}
-                  (title-for programmes)]]
-            [:li [:a
-                  {:onClick (back-to-projects history)}
-                  (title-for projects)]]
-            [:li [:a
-                  {:onClick (back-to-properties history)}
-                  (title-for properties)]]]
-           (om/build devices-table devices {:opts {:histkey :devices}})]])))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; sensors
-(defn status-label [status]
-  (if (= status "OK")
-    [:span {:class "label label-success"} status]
-    [:span {:class "label label-danger"} status]))
-
-(defn sensors-table [data owner {:keys [histkey path]}]
-  (reify
-    om/IRender
-    (render [_]
-      ;; Select the first row
-      ;;(put! out {:type :row-selected :row (first (om/get-state owner :data))})
-      (let [sensors (:sensors data)
-            chart   (:chart data)
-            cols    (get-in sensors [:header :cols])
-            history (om/get-shared owner :history)
-            table-id "sensors-table"]
-
-        (html
-         [:table {:className "table table-hover"}
-          [:thead
-           [:tr [:th "Type"] [:th "Unit"] [:th "Period"] [:th "Device"] [:th "Status"]]]
-          [:tbody
-           (for [row (sort-by :type (-> sensors :data :readings))]
-             (let [{:keys [device_id type unit period status]} row
-                   id (str type "-" device_id)]
-               [:tr {:onClick (fn [_ _]
-                                (om/update! sensors :selected id)
-                                (om/update! chart :sensor id)
-                                (om/update! chart :unit unit)
-                                (history/update-token-ids! history :sensors id))
-                     :className (if (= id (:selected sensors)) "success")
-                     :id (str table-id "-selected")}
-                [:td type]
-                [:td unit]
-                [:td period]
-                [:td device_id]
-                [:td (status-label status)]]))]])))))
-
-(defn chart-summary
-  "Show min, max, delta and average of chart data."
-  [chart owner]
-  (reify
-    om/IRender
-    (render [_]
-      (let [{:keys [unit measurements]} chart
-            ;; FIXME why are measurements nested? (in prep for multi-series?)
-            series-1 (:measurements measurements)
-            vals-1 (map :value series-1)
-            series-1-min (apply min vals-1)
-            series-1-max (apply max vals-1)
-            series-1-sum (reduce + vals-1)
-            series-1-count (count series-1)
-            series-1-mean (if (not= 0 series-1-count) (/ series-1-sum series-1-count) "NA")]
-        (html
-         (if (seq series-1)
-           [:div.row#summary-stats
-            [:div {:class "col-md-3"}
-             (bs/panel "Minimum" (str (.toFixed (js/Number. series-1-min) 3) " " unit))]
-            [:div {:class "col-md-3"}
-             (bs/panel "Maximum" (str (.toFixed (js/Number. series-1-max) 3) " " unit))]
-            [:div {:class "col-md-3"}
-             (bs/panel "Average (mean)" (str (.toFixed (js/Number. series-1-mean) 3) " " unit))]
-            [:div {:class "col-md-3"}
-             (bs/panel "Range" (str (.toFixed (js/Number. (- series-1-max series-1-min)) 3) " " unit))]]
-           [:div.row#summary-stats [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data."]]]))))))
-
-(defn sensors-div [data owner]
-  (reify
-    om/IDidUpdate
-    (did-update [_ prev-props prev-state]
-      (let [{:keys [sensors active-components]} data
-            new-device_id                       (:devices active-components)
-            property_id                         (:properties active-components)]
-
-        ;; handle selection properties table
-        (when-not new-device_id
-          (om/update! sensors :data [])
-          (om/update! sensors :selected nil))
-
-        (if (and new-device_id
-                 (not= (:device_id sensors) new-device_id))
-          (do
-            (om/update! sensors :fetching true)
-            ;; "/4/entities/:properties/devices/:devices"
-            (GET (str "/4/entities/" property_id "/devices/" new-device_id)
-                 {:handler  (fn [x]
-                              ;; (println "Fetching sensors for device: " new-device_id)
-                              (om/update! sensors :fetching false)
-                              (om/update! sensors :data x)
-                              (om/update! sensors :selected nil))
-                  :error-handler (fn [{:keys [status status-text]}]
-                                   (om/update! sensors :fetching false)
-                                   (om/update! sensors :error-status status)
-                                   (om/update! sensors :error-text status-text))
-                  :headers {"Accept" "application/edn"}})))
-        (om/update! sensors :device_id new-device_id)
-
-        ;; handle selection in sensors table
-        (om/update! sensors :selected (:sensors active-components))))
-    om/IRender
-    (render [_]
-      (let [{:keys [programmes projects properties devices sensors active-components]} data
-            history (om/get-shared owner :history)]
-        (html
-         [:div.row#sensors-div
-          [:div {:class (str "col-md-12 "  (if (:device_id sensors) "" "hidden"))}
-           [:h2 {:id "sensors"} "Sensors"]
-           [:ul {:class "breadcrumb"}
-            [:li [:a
-                  {:href "/app"}
-                  (title-for programmes)]]
-            [:li [:a
-                  {:onClick (back-to-projects history)}
-                  (title-for projects)]]
-            [:li [:a
-                  {:onClick (back-to-properties history)}
-                  (title-for properties)]]
-            [:li [:a
-                  {:onClick (back-to-devices history)}
-                  (title-for devices)]]]
-           (om/build sensors-table data {:opts {:histkey :sensors
-                                                :path    :readings}})
-           (if (or (not agent/IE)
-                   (agent/isVersionOrHigher 9))
-             [:div {:id "chart-div"}
-              [:div {:id "date-picker"}
-               (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
-              (om/build chart-feedback-box (get-in data [:chart :message]))
-              (om/build chart-summary (:chart data))
-              [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
-               (om/build chart/chart-figure (:chart data))]]
-             [:div.col-md-12.text-center
-              [:p.lead {:style {:padding-top 30}}
-               "Charting in Internet Explorer version " agent/VERSION " coming soon."]])]])))))
+                  [:p (:energy_strategy property_data)]]]
+                [:div.col-md-12
+                 (om/build sensors-div data)]
+                )
+               ])
+        ))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Main View
@@ -823,8 +671,5 @@
              (om/build properties-div data)
              (om/build property-details-div data)
              ;; (om/build devices-div data)
-             ;; (om/build device-detail devices)
-             ;; (om/build sensors-div data)
-             ;; (om/build sensor/define-data-set-button data)
-
+             ;; 
              ]))))
