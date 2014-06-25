@@ -75,11 +75,86 @@
       (vector new-selected
               (map-replace template ids)))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Slugs
+(defn slugify-programme [programme]
+  (assoc programme :slug (:name programme)))
+
+(defn slugify-project "Create a slug for projects in the UI"
+  [project]
+  (assoc project :slug (:name project)))
+
+(defn slugify-property
+  "Create a slug for a property in the UI"
+  [property]
+  (let [property_data (:property_data property)]
+    (assoc property
+      :slug
+      (apply str (str/join
+                  ", "
+                  (->> (vector (:property_code property)
+                               (:address_street_two property_data)
+                               (:address_code property_data)
+                               (:address_country property_data))
+                       (keep identity)))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Data Fetchers
+(defn fetch-projects [programme-id data]
+  (om/update! data [:projects :programme_id] programme-id)
+  (om/update! data [:projects :fetching] :fetching)
+  (GET (str "/4/programmes/" programme-id "/projects/")
+       {:handler  (fn [x]
+                    (println "Fetching data for programme: " programme-id)
+                    (om/update! data [:projects :data] (mapv slugify-project x))
+                    (om/update! data [:projects :fetching] (if (empty? x) :no-data :has-data))
+                    (om/update! data [:projects :selected] nil))
+        :error-handler (fn [{:keys [status status-text]}]
+                         (om/update! data [:projects :fetching] :error)
+                         (om/update! data [:projects :error-status] status)
+                         (om/update! data [:projects :error-text] status-text))
+        :headers {"Accept" "application/edn"}
+        :response-format :text}))
+
 (defn history-loop [history-channel data]
   (go-loop []
-    (let [nav-event (<! history-channel)]
-      (println "Old Active Components: " (:active-components @data))
+    (let [nav-event (<! history-channel)
+          {:keys [programmes projects properties]} (-> nav-event :args :ids)
+          old-nav (:active-components @data)
+          old-programmes (:programmes old-nav)
+          old-projects (:projects old-nav)
+          old-properties (:properties old-nav)]
+      (println "Old Programmes: " old-programmes " Old Projects: " old-projects " Old Properties: " old-properties)
+      (println "New Programmes: " programmes " New Projects: " projects " New Properties: " properties)
       (println "New Active Components: " (-> nav-event :args :ids))
+
+      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+      ;; Clear down
+      (when (and old-programmes
+                 (nil? programmes))
+        (println "Clearing projects.")
+        (om/update! data [:projects :data] []))
+
+      (when (and old-projects
+                 (nil? projects))
+        (println "Clearing properties.")
+        (om/update! data [:properties :data] []))
+
+      (when (and old-properties
+                 (nil? properties))
+        (println "Clearing devices, sensors and measurements.")
+        (om/update! data [:devices :data] [])
+        (om/update! data [:sensors :data] [])
+        (om/update! data [:measurements :data] []))
+
+      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+      ;; Fetchers
+      (when (and programmes
+                 (not= programmes old-programmes))
+        (println "Setting selected programme to: " programmes)
+        (om/update! data [:programmes :selected] programmes)
+        (fetch-projects programmes data))
+      
       (om/update! data :active-components (-> nav-event :args :ids)))
     (recur)))
 
@@ -172,9 +247,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; programmes
-(defn slugify-programme [programme]
-  (assoc programme :slug (:name programme)))
-
 (defn programmes-table [data owner]
   (reify
     om/IRender
@@ -235,10 +307,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; projects
-(defn slugify-project "Create a slug for projects in the UI"
-  [project]
-  (assoc project :slug (:name project)))
-
 (defmulti projects-table-html (fn [projects owner] (:fetching projects)))
 (defmethod projects-table-html :fetching [projects owner]
   (fetching-row projects))
@@ -284,39 +352,6 @@
 
 (defn projects-div [data owner]
   (reify
-    om/IDidUpdate
-    (did-update [_ prev-props prev-state]
-      (let [{:keys [programmes projects active-components]} data
-            new-programme_id (:programmes active-components)]
-
-        ;; handle selection in programme table
-        (when-not new-programme_id
-          (om/update! projects :data [])
-          (om/update! projects :selected nil))
-
-        ;; get the data if we have a new id
-        (if (and new-programme_id
-                 (not (= (:programme_id projects) new-programme_id)))
-          (do
-            (om/update! projects :fetching :fetching)
-            (GET (str "/4/programmes/" new-programme_id "/projects/")
-                 {:handler  (fn [x]
-                              ;; (println "Fetching projects for programme: " new-programme_id)
-                              (om/update! projects :data (mapv slugify-project x))
-                              (om/update! projects :fetching (if (empty? x) :no-data :has-data))
-                              (om/update! projects :selected nil))
-                  :error-handler (fn [{:keys [status status-text]}]
-                                   (om/update! projects :fetching :error)
-                                   (om/update! projects :error-status status)
-                                   (om/update! projects :error-text status-text))
-                  :headers {"Accept" "application/edn"}
-                  :response-format :text})))
-
-        ;; update our current id with the new one
-        (om/update! projects :programme_id new-programme_id)
-
-        ;; handle selection in projects table
-        (om/update! projects :selected (:projects active-components))))
     om/IRender
     (render [_]
       (let [{:keys [programmes projects active-components]} data
@@ -333,13 +368,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; properties
-(defn slugify-property
-  "Create a slug for a property in the UI"
-  [property]
-  (assoc property :slug (apply str (interpose ", " (->> (vector (:property_code property) (:address_street_two property))
-                                                        (keep identity)
-                                                        (remove empty?))))))
-
 (defmulti properties-table-html (fn [properties owner] (:fetching properties)))
 (defmethod properties-table-html :fetching [properties owner]
   (fetching-row properties))
