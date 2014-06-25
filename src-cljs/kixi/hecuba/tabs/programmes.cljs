@@ -100,6 +100,21 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Data Fetchers
+(defn fetch-programmes [data]
+  (om/update! data [:programmes :fetching] :fetching)
+  (GET (str "/4/programmes/")
+       {:handler  (fn [x]
+                    (println "Fetching programmes.")
+                    (om/update! data [:programmes :data] (mapv slugify-programme x))
+                    (om/update! data [:programmes :fetching] (if (empty? x) :no-data :has-data))
+                    (om/update! data [:programmes :selected] nil))
+        :error-handler (fn [{:keys [status status-text]}]
+                         (om/update! data [:programmes :fetching] :error)
+                         (om/update! data [:programmes :error-status] status)
+                         (om/update! data [:programmes :error-text] status-text))
+        :headers {"Accept" "application/edn"}
+        :response-format :text}))
+
 (defn fetch-projects [programme-id data]
   (om/update! data [:projects :programme_id] programme-id)
   (om/update! data [:projects :fetching] :fetching)
@@ -149,6 +164,10 @@
 
       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       ;; Fetchers
+      (when-not programmes
+        (om/update! data [:programmes :selected] nil)
+        (fetch-programmes data))
+      
       (when (and programmes
                  (not= programmes old-programmes))
         (println "Setting selected programme to: " programmes)
@@ -278,25 +297,6 @@
 
 (defn programmes-div [data owner]
   (reify
-    om/IDidUpdate
-    (did-update [_ prev-props prev-state]
-      (let [{:keys [programmes active-components]} data
-            programme_id (:programmes active-components)]
-        (when-not programme_id
-          (om/update! programmes :selected nil))
-
-        (if (not (seq (:data programmes)))
-          (GET (str "/4/programmes/")
-               {:handler  (fn [x]
-                            ;; (println "Fetching programmes.")
-                            (om/update! programmes :data (mapv slugify-programme x))
-                            (om/update! programmes :selected nil))
-                ;; TODO: Add Error Handler
-                :headers {"Accept" "application/edn"}
-                :response-format :text}))
-
-        ;; handle selection on programmes table (this should be nil if called)
-        (om/update! programmes :selected (:programmes active-components))))
     om/IRender
     (render [_]
       (html
