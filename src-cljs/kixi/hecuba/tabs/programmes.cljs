@@ -131,6 +131,22 @@
         :headers {"Accept" "application/edn"}
         :response-format :text}))
 
+(defn fetch-properties [project-id data]
+  (om/update! data [:properties :project_id] project-id)
+  (om/update! data [:properties :fetching] :fetching)
+  (GET (str "/4/projects/" project-id "/properties/")
+       {:handler  (fn [x]
+                    (println "Fetching properties for project: " project-id)
+                    (om/update! data [:properties :data] (mapv slugify-property x))
+                    (om/update! data [:properties :fetching] (if (empty? x) :no-data :has-data))
+                    (om/update! data [:properties :selected] nil))
+        :error-handler (fn [{:keys [status status-text]}]
+                         (om/update! data [:properties :fetching] :error)
+                         (om/update! data [:properties :error-status] status)
+                         (om/update! data [:properties :error-text] status-text))
+        :headers {"Accept" "application/edn"}
+        :response-format :text}))
+
 (defn history-loop [history-channel data]
   (go-loop []
     (let [nav-event (<! history-channel)
@@ -173,7 +189,14 @@
         (println "Setting selected programme to: " programmes)
         (om/update! data [:programmes :selected] programmes)
         (fetch-projects programmes data))
+
+      (when (and projects
+                 (not= projects old-projects))
+        (println "Setting selected project to: " projects)
+        (om/update! data [:projects :selected] projects)
+        (fetch-properties projects data))
       
+      ;; Update the new active components
       (om/update! data :active-components (-> nav-event :args :ids)))
     (recur)))
 
@@ -427,36 +450,6 @@
 
 (defn properties-div [data owner]
   (reify
-    om/IDidUpdate
-    (did-update [_ prev-props prev-state]
-      (let [{:keys [projects properties active-components]} data
-            new-project_id (:projects active-components)]
-
-        ;; handle selection in projects table
-        (when-not new-project_id
-          (om/update! properties :data [])
-          (om/update! properties :selected nil))
-
-        (if (and new-project_id
-                 (not (= (:project_id properties) new-project_id)))
-          (do
-            (om/update! properties :fetching :fetching)
-            (GET (str "/4/projects/" new-project_id "/properties/")
-                 {:handler  (fn [x]
-                              ;; (println "Fetching properties for project: " new-project_id)
-                              (om/update! properties :data (mapv slugify-property x))
-                              (om/update! properties :fetching (if (empty? x) :no-data :has-data))
-                              (om/update! properties :selected nil))
-                  :error-handler (fn [{:keys [status status-text]}]
-                                   (om/update! properties :fetching :error)
-                                   (om/update! properties :error-status status)
-                                   (om/update! properties :error-text status-text))
-                  :headers {"Accept" "application/edn"}
-                  :response-format :text})))
-        (om/update! properties :project_id new-project_id)
-
-        ;; handle selection on properties table
-        (om/update! properties :selected (:properties active-components))))
     om/IRender
     (render [_]
       (let [{:keys [programmes projects properties active-components]} data
