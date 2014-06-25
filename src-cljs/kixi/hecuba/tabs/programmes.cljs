@@ -472,6 +472,16 @@
                  [:div.col-md-4
                   [:dl.dl-horizontal
                    [:dt "Address"] [:dd (postal-address-html property_data)]
+                   [:dt "Property Type"] [:dd (:property_type property_data)]
+                   [:dt "Built Form"] [:dd (:built_form property_data)]
+                   [:dt "Age"] [:dd (:age property_data)]
+                   [:dt "Ownership"] [:dd (:ownership property_data)]
+                   [:dt "Practical Completion Date"] [:dd (:practical_completion_date property_data)]
+                   [:dt "Construction Date"] [:dd (:construction_date property_data)]
+                   [:dt "Conservation Area"] [:dd (:conservation_area property_data)]
+                   [:dt "Listed Building"] [:dd (:listed property_data)]
+                   [:dt "Terrain"] [:dd (:terrain property_data)]
+                   [:dt "Degree Day Region"] [:dd (:degree_day_region property_data)]
                    ]]
                  [:div.col-md-2
                   (when-let [pic (:path (first (:photos property-details)))]
@@ -479,15 +489,27 @@
                      {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" pic)}])]
                  [:div.col-md-6
                   [:dl.dl-horizontal
-                   [:dt "Address"] [:dd (postal-address-html property_data)]
+                   [:dt "Project Phase"] [:dd (:project_phase property_data)]
+                   [:dt "Other Notes"] [:dd (:other_notes property_data)]
+                   [:dt "Monitoring Hierarchy"] [:dd (:monitoring_hierarchy property_data)]
+                   [:dt "Monitoring Policy"] [:dd (:monitoring_policy property_data)]
                    ]]
                  [:div.col-md-12
+                  [:h3 "Description"]
+                  [:p (:description property_data)]
+                  
+                  [:h3 "Project Summary"]
+                  [:p (:project_summary property_data)]
+
+                  [:h3 "Project Team"]
+                  [:p (:project_team property_data)]
+                  
                   [:h3 "Design Strategy"]
                   [:p (:design_strategy property_data)]
                   
                   [:h3 "Energy Strategy"]
-                  [:p (:energy_strategy property_data)]
-                  ]
+                  [:p (:energy_strategy property_data)]]
+                 
                  ]
                 )]
               
