@@ -352,7 +352,6 @@
 
 (defn postal-address
   ([property_data separator]
-     (println "Separator: " separator " Property Data: " property_data)
      (str/join
       separator
       (keep identity [(:address_street_two property_data)
