@@ -148,6 +148,15 @@
         :headers {"Accept" "application/edn"}
         :response-format :text}))
 
+(defn flatten-device [device]
+  (let [device-keys (->> device keys (remove #(= % :readings)))
+            parent-device (select-keys device device-keys)
+            readings (:readings device)] 
+        (map #(assoc % :parent-device parent-device) readings)))
+
+(defn extract-sensors [devices]
+  (mapcat flatten-device devices))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; History loop - this drives the fetches and clear downs
 (defn history-loop [history-channel data]
@@ -162,7 +171,6 @@
       (println "New Programmes: " programmes " New Projects: " projects " New Properties: " properties)
       (println "New Active Components: " (-> nav-event :args :ids))
 
-      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       ;; Clear down
       (when (and old-programmes
                  (nil? programmes))
@@ -185,7 +193,6 @@
         (om/update! data [:sensors :data] [])
         (om/update! data [:measurements :data] []))
 
-      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       ;; Fetchers
       (when-not programmes
         (om/update! data [:programmes :selected] nil)
@@ -203,15 +210,18 @@
         (om/update! data [:projects :selected] projects)
         (fetch-properties projects data))
 
+      ;; property handling is special as it gets a tree of data
       (when (and properties
                  (not= properties old-properties))
         (om/update! data [:properties :selected] properties)
         (om/update! data [:property-details :property_id] properties)
-        (om/update! data [:property-details :data] (->> @data
-                                                        :properties
-                                                        :data
-                                                        (filter #(= (:id %) properties))
-                                                        first)))
+        (let [property-details (->> @data
+                                    :properties
+                                    :data
+                                    (filter #(= (:id %) properties))
+                                    first)]
+          (om/update! data [:property-details :data] property-details)
+          (om/update! data [:sensors :data] (extract-sensors (get property-details :devices [])))))
       
       ;; Update the new active components
       (om/update! data :active-components (-> nav-event :args :ids)))
