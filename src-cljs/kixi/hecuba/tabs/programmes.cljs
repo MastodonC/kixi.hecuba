@@ -580,6 +580,12 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; property-details
+(defn detail-section [title text]
+  (if (and text (re-seq #"[A-Za-z0-9]" text))
+    [:div [:h3 title]
+     [:p text]]
+    [:div {:class "hidden"}]))
+
 (defn property-details-div [data owner]
   (reify
     om/IRender
@@ -620,20 +626,11 @@
                    [:dt "Monitoring Policy"] [:dd (:monitoring_policy property_data)]
                    ]]
                  [:div.col-md-12
-                  [:h3 "Description"]
-                  [:p (:description property_data)]
-                  
-                  [:h3 "Project Summary"]
-                  [:p (:project_summary property_data)]
-
-                  [:h3 "Project Team"]
-                  [:p (:project_team property_data)]
-                  
-                  [:h3 "Design Strategy"]
-                  [:p (:design_strategy property_data)]
-                  
-                  [:h3 "Energy Strategy"]
-                  [:p (:energy_strategy property_data)]]
+                  (detail-section "Description" (:description property_data))
+                  (detail-section "Project Summary" (:project_summary property_data))
+                  (detail-section "Project Team" (:project_team property_data))
+                  (detail-section "Design Strategy" (:design_strategy property_data))
+                  (detail-section "Energy Strategy" (:energy_strategy property_data))]
                  [:div.col-md-12
                   (om/build sensors-div data)]]
                 )])))))
