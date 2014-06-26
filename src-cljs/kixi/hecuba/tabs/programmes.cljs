@@ -590,9 +590,13 @@
 
 (defn property-details-div [data owner]
   (reify
-    om/IRender
-    (render [_]
-      (let [selected-property-id (-> data :active-components :properties)
+    om/IInitState
+    (init-state [_]
+      {:active-tab :overview})
+    om/IRenderState
+    (render-state [_ state]
+      (let [active-tab           (:active-tab state)
+            selected-property-id (-> data :active-components :properties)
             properties           (-> data :properties :data)
             property-details     (get-property-details selected-property-id data)
             property_data        (:property_data property-details)]
@@ -600,12 +604,20 @@
                [:h2 "Property Details"]
                (bs/panel
                 (:slug property-details)
-                [:div.col-md-12
+                [:div ;; Tab Container
                  [:ul.nav.nav-tabs {:role "tablist"}
-                  [:li.active [:a {:href "#"} "Overview"]]
-                  [:li [:a {:href "#"} "Profiles"]]
-                  [:li [:a {:href "#"} "Sensor Data"]]]
-                 [:div.col-md-12
+                  [:li {:class (if (= active-tab :overview) "active" nil)}
+                   [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :overview))}
+                    "Overview"]]
+                  [:li {:class (if (= active-tab :profiles) "active" nil)}
+                   [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :profiles))}
+                    "Profiles"]]
+                  [:li {:class (if (= active-tab :sensors) "active" nil)}
+                   [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :sensors))}
+                    "Sensor Data"]]]
+                 ;; Overview
+                 [:div {:class (if (not= active-tab :overview) "hidden" "col-md-12")}
+                  [:h3 "Overview"]
                   [:div.col-md-4
                    [:dl.dl-horizontal
                     [:dt "Property Code"] [:dd (:property_code property-details)]
@@ -629,16 +641,23 @@
                       {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" pic)}])]
                   [:div.col-md-6
                    (for [ti (:technology_icons property_data)]
-                     [:img.tmg-responsive {:src ti :width 80 :height 80}])]]
-                 [:div.col-md-12
-                  (detail-section "Description" (:description property_data))
-                  (detail-section "Project Summary" (:project_summary property_data))
-                  (detail-section "Project Team" (:project_team property_data))
-                  (detail-section "Design Strategy" (:design_strategy property_data))
-                  (detail-section "Energy Strategy" (:energy_strategy property_data))
-                  (detail-section "Monitoring Policy" (:monitoring_policy property_data))
-                  (detail-section "Other Notes" (:other_notes property_data))]
-                 (om/build sensors-div data)]
+                     [:img.tmg-responsive {:src ti :width 80 :height 80}])]
+                  [:div.col-md-12
+                   (detail-section "Description" (:description property_data))
+                   (detail-section "Project Summary" (:project_summary property_data))
+                   (detail-section "Project Team" (:project_team property_data))
+                   (detail-section "Design Strategy" (:design_strategy property_data))
+                   (detail-section "Energy Strategy" (:energy_strategy property_data))
+                   (detail-section "Monitoring Policy" (:monitoring_policy property_data))
+                   (detail-section "Other Notes" (:other_notes property_data))]]
+                 ;; Sensors
+                 [:div {:class (if (not= active-tab :sensors) "hidden" nil)}
+                  (om/build sensors-div data)]
+                 ;; Profiles
+                 [:div {:class (if (not= active-tab :profiles) "hidden" "col-md-12")}
+                  [:h3 "Profiles"]
+                  [:p "Profiles go here..."]]]
+                
                 )])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
