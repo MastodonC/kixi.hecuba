@@ -106,9 +106,10 @@
   "Create a slug for a property in the UI"
   [property]
   (let [property_data (:property_data property)]
-    (assoc property :slug (str (or (:property_code property_data) "CODELESS")
-                               ", "
-                               (postal-address property_data)))))
+    (assoc property :slug (let [property_code (:property_code property)]
+                            (if-let [addr (postal-address property_data)]
+                              (str (or property_code "CODELESS") ", " addr)
+                              property_code)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Data Fetchers
