@@ -84,20 +84,31 @@
   [project]
   (assoc project :slug (:name project)))
 
+(defn- postal-address-filter [property_data]
+  (filter #(when %
+             (re-seq #"[A-Za-z0-9]" %))
+          [(:address_street_two property_data)
+           (:address_city property_data)
+           (:address_code property_data)
+           (:address_country property_data)]))
+
+(defn postal-address-html
+  [property_data]
+  (interpose [:br ] (postal-address-filter property_data)))
+
+(defn postal-address
+  ([property_data separator]
+     (str/join separator (postal-address-filter property_data)))
+  ([property_data]
+     (postal-address property_data ", ")))
+
 (defn slugify-property
   "Create a slug for a property in the UI"
   [property]
   (let [property_data (:property_data property)]
-    (assoc property
-      :slug
-      (apply str (str/join
-                  ", "
-                  (->> (vector (:property_code property)
-                               (:address_street_two property_data)
-                               (:address_city property_data)
-                               (:address_code property_data)
-                               (:address_country property_data))
-                       (keep identity)))))))
+    (assoc property :slug (str (or (:property_code property_data) "CODELESS")
+                               ", "
+                               (postal-address property_data)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Data Fetchers
@@ -431,17 +442,6 @@
 (defmethod properties-table-html :error [properties owner]
   (error-row properties))
 
-(defn postal-address
-  ([property_data separator]
-     (str/join
-      separator
-      (keep identity [(:address_street_two property_data)
-                      (:address_city property_data)
-                      (:address_code property_data)
-                      (:address_country property_data)])))
-  ([property_data]
-     (postal-address property_data ", ")))
-
 (defmethod properties-table-html :has-data [properties owner]
   (let [table-id "properties-table"
         history  (om/get-shared owner :history)]
@@ -580,22 +580,13 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; property-details
-(defn postal-address-html
-  [property_data]
-  (interpose
-   [:br ]
-   (keep identity [(:address_street_two property_data)
-                   (:address_city property_data)
-                   (:address_code property_data)
-                   (:address_country property_data)])))
-
 (defn property-details-div [data owner]
   (reify
     om/IRender
     (render [_]
       (let [selected-property-id (-> data :active-components :properties)
             properties           (-> data :properties :data)
-            property-details     (get-property-details selected-property-id properties)
+            property-details     (get-property-details selected-property-id data)
             property_data        (:property_data property-details)]
         (html [:div {:class (str "col-md-12" (if selected-property-id "" " hidden"))}
                [:h2 "Property Details"]
@@ -604,6 +595,7 @@
                 [:div.col-md-12
                  [:div.col-md-4
                   [:dl.dl-horizontal
+                   [:dt "Property Code"] [:dd (:property_code property_data)]
                    [:dt "Address"] [:dd (postal-address-html property_data)]
                    [:dt "Property Type"] [:dd (:property_type property_data)]
                    [:dt "Built Form"] [:dd (:built_form property_data)]
@@ -641,12 +633,10 @@
                   [:p (:design_strategy property_data)]
                   
                   [:h3 "Energy Strategy"]
-                  [:p (:energy_strategy property_data)]]]
-                [:div.col-md-12
-                 (om/build sensors-div data)]
-                )
-               ])
-        ))))
+                  [:p (:energy_strategy property_data)]]
+                 [:div.col-md-12
+                  (om/build sensors-div data)]]
+                )])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Main View
