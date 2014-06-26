@@ -98,7 +98,7 @@
 
 (defn postal-address
   ([property_data separator]
-     (str/join separator (postal-address-filter property_data)))
+     (str/trim (str/join separator (postal-address-filter property_data))))
   ([property_data]
      (postal-address property_data ", ")))
 
@@ -106,10 +106,11 @@
   "Create a slug for a property in the UI"
   [property]
   (let [property_data (:property_data property)]
-    (assoc property :slug (let [property_code (:property_code property)]
-                            (if-let [addr (postal-address property_data)]
-                              (str (or property_code "CODELESS") ", " addr)
-                              property_code)))))
+    (assoc property :slug (let [property_code (get property :property_code "CODELESS")
+                                addr (postal-address property_data)]
+                            (if (empty? addr)
+                              property_code
+                              (str property_code  ", " addr))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Data Fetchers
@@ -600,30 +601,35 @@
                (bs/panel
                 (:slug property-details)
                 [:div.col-md-12
-                 [:div.col-md-4
-                  [:dl.dl-horizontal
-                   [:dt "Property Code"] [:dd (:property_code property_data)]
-                   [:dt "Address"] [:dd (postal-address-html property_data)]
-                   [:dt "Property Type"] [:dd (:property_type property_data)]
-                   [:dt "Built Form"] [:dd (:built_form property_data)]
-                   [:dt "Age"] [:dd (:age property_data)]
-                   [:dt "Ownership"] [:dd (:ownership property_data)]
-                   [:dt "Project Phase"] [:dd (:project_phase property_data)]
-                   [:dt "Monitoring Hierarchy"] [:dd (:monitoring_hierarchy property_data)]
-                   [:dt "Practical Completion Date"] [:dd (:practical_completion_date property_data)]
-                   [:dt "Construction Date"] [:dd (:construction_date property_data)]
-                   [:dt "Conservation Area"] [:dd (:conservation_area property_data)]
-                   [:dt "Listed Building"] [:dd (:listed property_data)]
-                   [:dt "Terrain"] [:dd (:terrain property_data)]
-                   [:dt "Degree Day Region"] [:dd (:degree_day_region property_data)]
-                   ]]
-                 [:div.col-md-2
-                  (when-let [pic (:path (first (:photos property-details)))]
-                    [:img.img-thumbnail.tmg-responsive
-                     {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" pic)}])]
-                 [:div.col-md-6
-                  (for [ti (:technology_icons property_data)]
-                    [:img.tmg-responsive {:src ti :width 80 :height 80}])]
+                 [:ul.nav.nav-tabs {:role "tablist"}
+                  [:li.active [:a {:href "#"} "Overview"]]
+                  [:li [:a {:href "#"} "Profiles"]]
+                  [:li [:a {:href "#"} "Sensor Data"]]]
+                 [:div.col-md-12
+                  [:div.col-md-4
+                   [:dl.dl-horizontal
+                    [:dt "Property Code"] [:dd (:property_code property-details)]
+                    [:dt "Address"] [:dd (postal-address-html property_data)]
+                    [:dt "Property Type"] [:dd (:property_type property_data)]
+                    [:dt "Built Form"] [:dd (:built_form property_data)]
+                    [:dt "Age"] [:dd (:age property_data)]
+                    [:dt "Ownership"] [:dd (:ownership property_data)]
+                    [:dt "Project Phase"] [:dd (:project_phase property_data)]
+                    [:dt "Monitoring Hierarchy"] [:dd (:monitoring_hierarchy property_data)]
+                    [:dt "Practical Completion Date"] [:dd (:practical_completion_date property_data)]
+                    [:dt "Construction Date"] [:dd (:construction_date property_data)]
+                    [:dt "Conservation Area"] [:dd (:conservation_area property_data)]
+                    [:dt "Listed Building"] [:dd (:listed property_data)]
+                    [:dt "Terrain"] [:dd (:terrain property_data)]
+                    [:dt "Degree Day Region"] [:dd (:degree_day_region property_data)]
+                    ]]
+                  [:div.col-md-2
+                   (when-let [pic (:path (first (:photos property-details)))]
+                     [:img.img-thumbnail.tmg-responsive
+                      {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" pic)}])]
+                  [:div.col-md-6
+                   (for [ti (:technology_icons property_data)]
+                     [:img.tmg-responsive {:src ti :width 80 :height 80}])]]
                  [:div.col-md-12
                   (detail-section "Description" (:description property_data))
                   (detail-section "Project Summary" (:project_summary property_data))
