@@ -107,8 +107,7 @@
        {:handler  (fn [x]
                     (println "Fetching programmes.")
                     (om/update! data [:programmes :data] (mapv slugify-programme x))
-                    (om/update! data [:programmes :fetching] (if (empty? x) :no-data :has-data))
-                    (om/update! data [:programmes :selected] nil))
+                    (om/update! data [:programmes :fetching] (if (empty? x) :no-data :has-data)))
         :error-handler (fn [{:keys [status status-text]}]
                          (om/update! data [:programmes :fetching] :error)
                          (om/update! data [:programmes :error-status] status)
@@ -117,14 +116,12 @@
         :response-format :text}))
 
 (defn fetch-projects [programme-id data]
-  (om/update! data [:projects :programme_id] programme-id)
   (om/update! data [:projects :fetching] :fetching)
   (GET (str "/4/programmes/" programme-id "/projects/")
        {:handler  (fn [x]
                     (println "Fetching projects for programme: " programme-id)
                     (om/update! data [:projects :data] (mapv slugify-project x))
-                    (om/update! data [:projects :fetching] (if (empty? x) :no-data :has-data))
-                    (om/update! data [:projects :selected] nil))
+                    (om/update! data [:projects :fetching] (if (empty? x) :no-data :has-data)))
         :error-handler (fn [{:keys [status status-text]}]
                          (om/update! data [:projects :fetching] :error)
                          (om/update! data [:projects :error-status] status)
@@ -133,14 +130,12 @@
         :response-format :text}))
 
 (defn fetch-properties [project-id data]
-  (om/update! data [:properties :project_id] project-id)
   (om/update! data [:properties :fetching] :fetching)
   (GET (str "/4/projects/" project-id "/properties/")
        {:handler  (fn [x]
                     (println "Fetching properties for project: " project-id)
                     (om/update! data [:properties :data] (mapv slugify-property x))
-                    (om/update! data [:properties :fetching] (if (empty? x) :no-data :has-data))
-                    (om/update! data [:properties :selected] nil))
+                    (om/update! data [:properties :fetching] (if (empty? x) :no-data :has-data)))
         :error-handler (fn [{:keys [status status-text]}]
                          (om/update! data [:properties :fetching] :error)
                          (om/update! data [:properties :error-status] status)
@@ -176,20 +171,19 @@
       (println "New Active Components: " (-> nav-event :args :ids))
 
       ;; Clear down
-      (when (and old-programmes
-                 (nil? programmes))
+      (when (or (nil? programmes)
+                (empty? (-> @data :programmes :data)))
         (println "Clearing projects.")
         (om/update! data [:projects :data] [])
-        (om/update! data [:projects :programme_id] nil))
+        (om/update! data [:projects :programme_id] nil)
+        (fetch-programmes data))
 
-      (when (and old-projects
-                 (nil? projects))
+      (when-not projects
         (println "Clearing properties.")
         (om/update! data [:properties :data] [])
         (om/update! data [:properties :project_id] nil))
 
-      (when (and old-properties
-                 (nil? properties))
+      (when-not properties
         (println "Clearing devices, sensors and measurements.")
         (om/update! data [:property-details :data] {})
         (om/update! data [:property-details :property_id] nil)
@@ -197,35 +191,33 @@
         (om/update! data [:sensors :data] [])
         (om/update! data [:measurements :data] []))
 
-      ;; Fetchers
-      (when-not programmes
-        (om/update! data [:programmes :selected] nil)
-        (fetch-programmes data))
-      
-      (when (and programmes
-                 (not= programmes old-programmes))
+      (when (and (not= programmes old-programmes)
+                 programmes)
         (println "Setting selected programme to: " programmes)
         (om/update! data [:programmes :selected] programmes)
+        (om/update! data [:projects :programme_id] programmes)
         (fetch-projects programmes data))
 
-      (when (and projects
-                 (not= projects old-projects))
+      (when (and (not= projects old-projects)
+                 projects)
         (println "Setting selected project to: " projects)
         (om/update! data [:projects :selected] projects)
+        (om/update! data [:properties :project_id] projects)
         (fetch-properties projects data))
 
       ;; property handling is special as it gets a tree of data
-      (when (and properties
-                 (not= properties old-properties))
+      (when (and (not= properties old-properties)
+                 properties)
+        (println "Setting property details to: " properties)
         (om/update! data [:properties :selected] properties)
         (om/update! data [:property-details :property_id] properties)
+        ;; Handle flattened sensors
         (let [property-details (->> @data
                                     :properties
                                     :data
                                     (filter #(= (:id %) properties))
                                     first)
               devices (get property-details :devices [])]
-          (println "property-details keys: " (keys property-details))
           (om/update! data [:property-details :data] property-details)
           (om/update! data [:sensors :data] (extract-sensors devices))))
       
