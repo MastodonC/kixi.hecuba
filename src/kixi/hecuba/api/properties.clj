@@ -25,6 +25,15 @@
                              (map #(clojure.string/replace % ".jpg" ".png"))))
     property_data))
 
+;; FIXME: This is only here because the data is currently dirty and
+;; some of the property data is in edn rather than json.
+(defn parse-property-data [property_data]
+  (try
+    (json/parse-string property_data keyword)
+    (catch Throwable t
+      (log/errorf "Got edn property data when we expected json: %s" property_data)
+      (edn/read-string property_data))))
+
 (defn- property-devices [entity_id session]
   (if-let [devices (db/execute session
                                (hayt/select
@@ -52,7 +61,7 @@
                        (map #(assoc %
                                :property_data (if-let [property_data (:property_data %)]
                                                 (-> property_data
-                                                    (json/parse-string keyword)
+                                                    parse-property-data
                                                     tech-icons)
                                                 {})
                                :photos (if-let [photos (:photos %)] (mapv (fn [p] (json/parse-string p keyword)) photos) [])
