@@ -607,6 +607,8 @@
                    [:dt "Built Form"] [:dd (:built_form property_data)]
                    [:dt "Age"] [:dd (:age property_data)]
                    [:dt "Ownership"] [:dd (:ownership property_data)]
+                   [:dt "Project Phase"] [:dd (:project_phase property_data)]
+                   [:dt "Monitoring Hierarchy"] [:dd (:monitoring_hierarchy property_data)]
                    [:dt "Practical Completion Date"] [:dd (:practical_completion_date property_data)]
                    [:dt "Construction Date"] [:dd (:construction_date property_data)]
                    [:dt "Conservation Area"] [:dd (:conservation_area property_data)]
@@ -619,20 +621,17 @@
                     [:img.img-thumbnail.tmg-responsive
                      {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" pic)}])]
                  [:div.col-md-6
-                  [:dl.dl-horizontal
-                   [:dt "Project Phase"] [:dd (:project_phase property_data)]
-                   [:dt "Other Notes"] [:dd (:other_notes property_data)]
-                   [:dt "Monitoring Hierarchy"] [:dd (:monitoring_hierarchy property_data)]
-                   [:dt "Monitoring Policy"] [:dd (:monitoring_policy property_data)]
-                   ]]
+                  (for [ti (:technology_icons property_data)]
+                    [:img.tmg-responsive {:src ti :width 80 :height 80}])]
                  [:div.col-md-12
                   (detail-section "Description" (:description property_data))
                   (detail-section "Project Summary" (:project_summary property_data))
                   (detail-section "Project Team" (:project_team property_data))
                   (detail-section "Design Strategy" (:design_strategy property_data))
-                  (detail-section "Energy Strategy" (:energy_strategy property_data))]
-                 [:div.col-md-12
-                  (om/build sensors-div data)]]
+                  (detail-section "Energy Strategy" (:energy_strategy property_data))
+                  (detail-section "Monitoring Policy" (:monitoring_policy property_data))
+                  (detail-section "Other Notes" (:other_notes property_data))]
+                 (om/build sensors-div data)]
                 )])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
