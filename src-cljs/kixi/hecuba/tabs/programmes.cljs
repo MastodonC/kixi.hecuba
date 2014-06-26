@@ -143,53 +143,71 @@
         :headers {"Accept" "application/edn"}
         :response-format :text}))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Property Details Helpers
 (defn flatten-device [device]
-  (println "Flattening: " device)
-  (let [device-keys (->> device keys (remove #(= % :readings)))
-            parent-device (select-keys device device-keys)
-            readings (:readings device)] 
-        (map #(assoc % :parent-device parent-device) readings)))
+  (let [device-keys   (->> device keys (remove #(= % :readings)))
+        parent-device (select-keys device device-keys)
+        readings      (:readings device)]
+    (map #(assoc % :parent-device parent-device) readings)))
 
 (defn extract-sensors [devices]
-  (println "Devices to extract sensors from: " devices)
-  (let [sensors (vec (mapcat flatten-device devices))]
-    (println "Flattened sensors: " sensors)
-    sensors))
+  (vec (mapcat flatten-device devices)))
+
+(defn get-property-details [selected-property-id data]
+  (->>  data
+        :properties
+        :data
+        (filter #(= (:id %) selected-property-id))
+        first))
+
+(defn get-sensors [selected-property-id data]
+  (if selected-property-id
+    (if-let [property-details (get-property-details selected-property-id data)]
+      (extract-sensors (:devices property-details))
+      [])
+    []))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; History loop - this drives the fetches and clear downs
 (defn history-loop [history-channel data]
   (go-loop []
     (let [nav-event (<! history-channel)
-          {:keys [programmes projects properties]} (-> nav-event :args :ids)
+          history-status (-> nav-event :args :ids)
+          {:keys [programmes projects properties sensors]} history-status
           old-nav (:active-components @data)
           old-programmes (:programmes old-nav)
           old-projects (:projects old-nav)
           old-properties (:properties old-nav)]
       (println "Old Programmes: " old-programmes " Old Projects: " old-projects " Old Properties: " old-properties)
       (println "New Programmes: " programmes " New Projects: " projects " New Properties: " properties)
-      (println "New Active Components: " (-> nav-event :args :ids))
 
       ;; Clear down
       (when (or (nil? programmes)
                 (empty? (-> @data :programmes :data)))
         (println "Clearing projects.")
+        (om/update! data [:programmes :selected] nil)
         (om/update! data [:projects :data] [])
         (om/update! data [:projects :programme_id] nil)
         (fetch-programmes data))
 
       (when-not projects
         (println "Clearing properties.")
+        (om/update! data [:projects :selected] nil)
         (om/update! data [:properties :data] [])
         (om/update! data [:properties :project_id] nil))
 
       (when-not properties
         (println "Clearing devices, sensors and measurements.")
+        (om/update! data [:properties :selected] nil)
         (om/update! data [:property-details :data] {})
         (om/update! data [:property-details :property_id] nil)
         (om/update! data [:devices :data] [])
         (om/update! data [:sensors :data] [])
         (om/update! data [:measurements :data] []))
+
+      (when-not sensors
+        (om/update! data [:sensors :selected] nil))
 
       (when (and (not= programmes old-programmes)
                  programmes)
@@ -205,24 +223,16 @@
         (om/update! data [:properties :project_id] projects)
         (fetch-properties projects data))
 
-      ;; property handling is special as it gets a tree of data
       (when (and (not= properties old-properties)
                  properties)
         (println "Setting property details to: " properties)
-        (om/update! data [:properties :selected] properties)
-        (om/update! data [:property-details :property_id] properties)
-        ;; Handle flattened sensors
-        (let [property-details (->> @data
-                                    :properties
-                                    :data
-                                    (filter #(= (:id %) properties))
-                                    first)
-              devices (get property-details :devices [])]
-          (om/update! data [:property-details :data] property-details)
-          (om/update! data [:sensors :data] (extract-sensors devices))))
+        (om/update! data [:properties :selected] properties))
+
+      (when sensors
+        (om/update! data [:sensors :selected] sensors))
       
       ;; Update the new active components
-      (om/update! data :active-components (-> nav-event :args :ids)))
+      (om/update! data :active-components history-status))
     (recur)))
 
 (defn selected-range-change
@@ -496,17 +506,18 @@
   (reify
     om/IRender
     (render [_]
-      (let [sensors (:sensors data)
-            chart   (:chart data)
-            history (om/get-shared owner :history)
-            table-id "sensors-table"]
-
+      (let [sensors              (:sensors data)
+            selected-property-id (-> data :active-components :properties)
+            flattened-sensors    (get-sensors selected-property-id data)
+            chart                (:chart data)
+            history              (om/get-shared owner :history)
+            table-id             "sensors-table"]
         (html
          [:table {:className "table table-hover"}
           [:thead
            [:tr [:th "Type"] [:th "Unit"] [:th "Period"] [:th "Device"] [:th "Status"]]]
           [:tbody
-           (for [row (sort-by :type (-> sensors :data))]
+           (for [row (sort-by :type flattened-sensors)]
              (let [{:keys [device_id type unit period status]} row
                    id (str type "-" device_id)]
                [:tr {:onClick (fn [_ _]
@@ -582,9 +593,11 @@
   (reify
     om/IRender
     (render [_]
-      (let [property-details (-> data :property-details :data)
-            property_data (:property_data property-details)]
-        (html [:div {:class (str "col-md-12" (if (:property_id (:property-details data)) "" " hidden"))}
+      (let [selected-property-id (-> data :active-components :properties)
+            properties           (-> data :properties :data)
+            property-details     (get-property-details selected-property-id properties)
+            property_data        (:property_data property-details)]
+        (html [:div {:class (str "col-md-12" (if selected-property-id "" " hidden"))}
                [:h2 "Property Details"]
                (bs/panel
                 (:slug property-details)
