@@ -8,7 +8,7 @@
                [goog.History :as history]
                [goog.history.Html5History :as history5]))
 
-(enable-console-print!)
+;; (enable-console-print!)
 
 (defn match-token [s]
   (re-matches #"((?:[A-Za-z0-9-_;]+)(?:,(?:[A-Za-z0-9-_;]+))*)(?:/search/(.*))?" s))
@@ -36,7 +36,7 @@
     (.setToken history s title)))
 
 (defn- token-invalid! [history]
-  (println "INVALID TOKEN!")
+  ;; (println "INVALID TOKEN!")
   (.replaceToken history ""))
 
 (def ^:private key-comparator

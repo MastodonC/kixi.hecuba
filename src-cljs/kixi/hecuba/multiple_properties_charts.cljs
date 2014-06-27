@@ -17,7 +17,7 @@
 (def d3 (this-as ct (aget ct "d3")))
 
 (mrhyde/bootstrap)
-(enable-console-print!)
+;; (enable-console-print!)
 
 (extend-type string
   ICloneable

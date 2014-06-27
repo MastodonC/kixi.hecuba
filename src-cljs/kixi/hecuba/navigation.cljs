@@ -12,7 +12,7 @@
       (let [out (chan (sliding-buffer 1))]
         (go-loop []
                  (when-let [n (<! out)]
-                   (println n)
+                   ;; (println n)
                    (recur)))))
 
     om/IWillUnmount
