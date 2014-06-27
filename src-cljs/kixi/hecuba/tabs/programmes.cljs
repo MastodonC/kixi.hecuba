@@ -118,7 +118,7 @@
   (om/update! data [:programmes :fetching] :fetching)
   (GET (str "/4/programmes/")
        {:handler  (fn [x]
-                    (println "Fetching programmes.")
+                    ;; (println "Fetching programmes.")
                     (om/update! data [:programmes :data] (mapv slugify-programme x))
                     (om/update! data [:programmes :fetching] (if (empty? x) :no-data :has-data)))
         :error-handler (fn [{:keys [status status-text]}]
@@ -132,7 +132,7 @@
   (om/update! data [:projects :fetching] :fetching)
   (GET (str "/4/programmes/" programme-id "/projects/")
        {:handler  (fn [x]
-                    (println "Fetching projects for programme: " programme-id)
+                    ;; (println "Fetching projects for programme: " programme-id)
                     (om/update! data [:projects :data] (mapv slugify-project x))
                     (om/update! data [:projects :fetching] (if (empty? x) :no-data :has-data)))
         :error-handler (fn [{:keys [status status-text]}]
@@ -146,7 +146,7 @@
   (om/update! data [:properties :fetching] :fetching)
   (GET (str "/4/projects/" project-id "/properties/")
        {:handler  (fn [x]
-                    (println "Fetching properties for project: " project-id)
+                    ;; (println "Fetching properties for project: " project-id)
                     (om/update! data [:properties :data] (mapv slugify-property x))
                     (om/update! data [:properties :fetching] (if (empty? x) :no-data :has-data)))
         :error-handler (fn [{:keys [status status-text]}]
@@ -192,26 +192,26 @@
           old-programmes (:programmes old-nav)
           old-projects (:projects old-nav)
           old-properties (:properties old-nav)]
-      (println "Old Programmes: " old-programmes " Old Projects: " old-projects " Old Properties: " old-properties)
-      (println "New Programmes: " programmes " New Projects: " projects " New Properties: " properties)
+      ;; (println "Old Programmes: " old-programmes " Old Projects: " old-projects " Old Properties: " old-properties)
+      ;; (println "New Programmes: " programmes " New Projects: " projects " New Properties: " properties)
 
       ;; Clear down
       (when (or (nil? programmes)
                 (empty? (-> @data :programmes :data)))
-        (println "Clearing projects.")
+        ;; (println "Clearing projects.")
         (om/update! data [:programmes :selected] nil)
         (om/update! data [:projects :data] [])
         (om/update! data [:projects :programme_id] nil)
         (fetch-programmes data))
 
       (when-not projects
-        (println "Clearing properties.")
+        ;; (println "Clearing properties.")
         (om/update! data [:projects :selected] nil)
         (om/update! data [:properties :data] [])
         (om/update! data [:properties :project_id] nil))
 
       (when-not properties
-        (println "Clearing devices, sensors and measurements.")
+        ;; (println "Clearing devices, sensors and measurements.")
         (om/update! data [:properties :selected] nil)
         (om/update! data [:property-details :data] {})
         (om/update! data [:property-details :property_id] nil)
@@ -224,21 +224,21 @@
 
       (when (and (not= programmes old-programmes)
                  programmes)
-        (println "Setting selected programme to: " programmes)
+        ;; (println "Setting selected programme to: " programmes)
         (om/update! data [:programmes :selected] programmes)
         (om/update! data [:projects :programme_id] programmes)
         (fetch-projects programmes data))
 
       (when (and (not= projects old-projects)
                  projects)
-        (println "Setting selected project to: " projects)
+        ;; (println "Setting selected project to: " projects)
         (om/update! data [:projects :selected] projects)
         (om/update! data [:properties :project_id] projects)
         (fetch-properties projects data))
 
       (when (and (not= properties old-properties)
                  properties)
-        (println "Setting property details to: " properties)
+        ;; (println "Setting property details to: " properties)
         (om/update! data [:properties :selected] properties))
 
       (when sensors
@@ -572,13 +572,19 @@
         [:h3 {:id "sensors"} "Sensors"]
         (om/build sensors-table data {:opts {:histkey :sensors
                                              :path    :readings}})
-        [:div {:id "chart-div"}
-         [:div {:id "date-picker"}
-          (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
-         (om/build chart-feedback-box (get-in data [:chart :message]))
-         (om/build chart-summary (:chart data))
-         [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
-          (om/build chart/chart-figure (:chart data))]]]))))
+
+         (if (or (not agent/IE)
+                   (agent/isVersionOrHigher 9))
+             [:div {:id "chart-div"}
+              [:div {:id "date-picker"}
+               (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
+              (om/build chart-feedback-box (get-in data [:chart :message]))
+              (om/build chart-summary (:chart data))
+              [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
+               (om/build chart/chart-figure (:chart data))]]
+             [:div.col-md-12.text-center
+              [:p.lead {:style {:padding-top 30}}
+               "Charting in Internet Explorer version " agent/VERSION " coming soon."]])]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; property-details
