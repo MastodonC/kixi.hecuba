@@ -572,19 +572,19 @@
         [:h3 {:id "sensors"} "Sensors"]
         (om/build sensors-table data {:opts {:histkey :sensors
                                              :path    :readings}})
-
-         (if (or (not agent/IE)
-                   (agent/isVersionOrHigher 9))
-             [:div {:id "chart-div"}
-              [:div {:id "date-picker"}
-               (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
-              (om/build chart-feedback-box (get-in data [:chart :message]))
-              (om/build chart-summary (:chart data))
-              [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
-               (om/build chart/chart-figure (:chart data))]]
-             [:div.col-md-12.text-center
-              [:p.lead {:style {:padding-top 30}}
-               "Charting in Internet Explorer version " agent/VERSION " coming soon."]])]))))
+        ;; FIXME: We should have better handling for IE8 here.
+        (if (or (not agent/IE)
+                (agent/isVersionOrHigher 9))
+          [:div {:id "chart-div"}
+           [:div {:id "date-picker"}
+            (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
+           (om/build chart-feedback-box (get-in data [:chart :message]))
+           (om/build chart-summary (:chart data))
+           [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
+            (om/build chart/chart-figure (:chart data))]]
+          [:div.col-md-12.text-center
+           [:p.lead {:style {:padding-top 30}}
+            "Charting in Internet Explorer version " agent/VERSION " coming soon."]])]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; property-details
