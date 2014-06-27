@@ -4,6 +4,7 @@
      [om.core :as om :include-macros true]
      [om.dom :as dom :include-macros true]
      [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map< filter< mult tap map>]]
+     [goog.userAgent :as agent]
      [ajax.core :refer (GET POST)]
      [clojure.string :as str]
      [kixi.hecuba.navigation :as nav]
@@ -657,13 +658,18 @@
                   (title-for devices)]]]
            (om/build sensors-table data {:opts {:histkey :sensors
                                                 :path    :readings}})
-           [:div {:id "chart-div"}
-            [:div {:id "date-picker"}
-             (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
-            (om/build chart-feedback-box (get-in data [:chart :message]))
-            (om/build chart-summary (:chart data))
-            [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
-             (om/build chart/chart-figure (:chart data))]]]])))))
+           (if (or (not agent/IE)
+                   (agent/isVersionOrHigher 9))
+             [:div {:id "chart-div"}
+              [:div {:id "date-picker"}
+               (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
+              (om/build chart-feedback-box (get-in data [:chart :message]))
+              (om/build chart-summary (:chart data))
+              [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
+               (om/build chart/chart-figure (:chart data))]]
+             [:div.col-md-12.text-center
+              [:p.lead {:style {:padding-top 30}}
+               "Charting in Internet Explorer version " agent/VERSION " coming soon."]])]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Main View
