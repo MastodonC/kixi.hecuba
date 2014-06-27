@@ -12,7 +12,7 @@
    [kixi.hecuba.multiple-properties-charts :as properties]
    [kixi.hecuba.history :as history]))
 
-(enable-console-print!)
+;; (enable-console-print!)
 
 (def data-model
   (atom

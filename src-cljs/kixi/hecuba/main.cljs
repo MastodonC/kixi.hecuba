@@ -16,7 +16,7 @@
    [kixi.hecuba.sensor :as sensor]
    [ankha.core :as ankha]))
 
-(enable-console-print!)
+;; (enable-console-print!)
 
 (om/root programmes/programmes-tab
          app-model

@@ -15,7 +15,7 @@
      [kixi.hecuba.model :refer (app-model)]
      [sablono.core :as html :refer-macros [html]]))
 
-(enable-console-print!)
+;; (enable-console-print!)
 
 ;; our banner is 50px so we need to tweak the scrolling
 (defn fixed-scroll-to-element [element]
@@ -208,7 +208,7 @@
         (if (not (seq (:data programmes)))
           (GET (str "/4/programmes/")
                {:handler  (fn [x]
-                            (println "Fetching programmes.")
+                            ;; (println "Fetching programmes.")
                             (om/update! programmes :data (mapv slugify-programme x))
                             (om/update! programmes :selected nil))
                 ;; TODO: Add Error Handler
@@ -293,7 +293,7 @@
             (om/update! projects :fetching :fetching)
             (GET (str "/4/programmes/" new-programme_id "/projects/")
                  {:handler  (fn [x]
-                              (println "Fetching projects for programme: " new-programme_id)
+                              ;; (println "Fetching projects for programme: " new-programme_id)
                               (om/update! projects :data (mapv slugify-project x))
                               (om/update! projects :fetching (if (empty? x) :no-data :has-data))
                               (om/update! projects :selected nil))
@@ -399,7 +399,7 @@
             (om/update! properties :fetching :fetching)
             (GET (str "/4/projects/" new-project_id "/properties/")
                  {:handler  (fn [x]
-                              (println "Fetching properties for project: " new-project_id)
+                              ;; (println "Fetching properties for project: " new-project_id)
                               (om/update! properties :data (mapv slugify-property x))
                               (om/update! properties :fetching (if (empty? x) :no-data :has-data))
                               (om/update! properties :selected nil))
@@ -498,7 +498,7 @@
             (om/update! devices :fetching :fetching)
             (GET (str "/4/entities/" new-property-id "/devices/")
                  {:handler  (fn [x]
-                              (println "Fetching devices for property: " new-property-id)
+                              ;; (println "Fetching devices for property: " new-property-id)
                               (om/update! devices :fetching false)
                               (om/update! devices :data (mapv slugify-device x))
                               (om/update! devices :fetching (if (empty? x) :no-data :has-data))
@@ -621,7 +621,7 @@
             ;; "/4/entities/:properties/devices/:devices"
             (GET (str "/4/entities/" property_id "/devices/" new-device_id)
                  {:handler  (fn [x]
-                              (println "Fetching sensors for device: " new-device_id)
+                              ;; (println "Fetching sensors for device: " new-device_id)
                               (om/update! sensors :fetching false)
                               (om/update! sensors :data x)
                               (om/update! sensors :selected nil))
