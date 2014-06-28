@@ -8,6 +8,7 @@
    [liberator.core :refer (defresource)]
    [qbits.hayt :as hayt]
    [kixi.hecuba.storage.db :as db]
+   [kixi.hecuba.data.profiles :as profiles]
    [kixi.hecuba.web-paths :as p]))
 
 (def ^:private entity-resource (p/resource-path-string :entity-resource))
@@ -48,9 +49,6 @@
           devices)
     []))
 
-(defn- get-profiles [entity_id session]
-  (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]]))))
-
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
@@ -68,7 +66,7 @@
                                :documents (if-let [docs (:documents %)] (mapv (fn [d] (json/parse-string d keyword)) docs) [])
                                :devices (if-let [devices (:devices %)]
                                           (property-devices (:id %) session))
-                               :profiles (get-profiles (:id %) session)
+                               :profiles (profiles/->clojure (:id %) session)
                                :href (format entity-resource (:id %)))))
           scoll   (sort-by :property_code coll)]
       ;; (log/debugf "Properties: %s" scoll)
