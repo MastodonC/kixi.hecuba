@@ -9,6 +9,7 @@
    [qbits.hayt :as hayt]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.data.profiles :as profiles]
+   [kixi.hecuba.data.devices :as devices]
    [kixi.hecuba.web-paths :as p]))
 
 (def ^:private entity-resource (p/resource-path-string :entity-resource))
@@ -35,20 +36,6 @@
       (log/errorf "Got edn property data when we expected json: %s" property_data)
       (edn/read-string property_data))))
 
-(defn- property-devices [entity_id session]
-  (if-let [devices (db/execute session
-                               (hayt/select
-                                :devices
-                                (hayt/where [[= :entity_id entity_id]])))]
-    (mapv (fn [d]
-            (assoc d :readings
-                   (map (fn [sensor] (dissoc sensor :user_id))
-                        (db/execute session
-                                    (hayt/select :sensors
-                                                 (hayt/where [[= :device_id (:id d)]]))))))
-          devices)
-    []))
-
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
@@ -64,13 +51,10 @@
                                                 {})
                                :photos (if-let [photos (:photos %)] (mapv (fn [p] (json/parse-string p keyword)) photos) [])
                                :documents (if-let [docs (:documents %)] (mapv (fn [d] (json/parse-string d keyword)) docs) [])
-                               :devices (if-let [devices (:devices %)]
-                                          (property-devices (:id %) session))
+                               :devices (devices/->clojure (:id %) session)
                                :profiles (profiles/->clojure (:id %) session)
-                               :href (format entity-resource (:id %)))))
-          scoll   (sort-by :property_code coll)]
-      ;; (log/debugf "Properties: %s" scoll)
-      scoll)))
+                               :href (format entity-resource (:id %)))))]
+      coll)))
 
 (defresource index [store]
   :allowed-methods #{:get}
