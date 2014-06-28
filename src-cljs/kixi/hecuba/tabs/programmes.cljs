@@ -662,7 +662,9 @@
                  ;; Profiles
                  [:div {:class (if (not= active-tab :profiles) "hidden" "col-md-12")}
                   [:h3 "Profiles"]
-                  [:p "Profiles go here..."]]]
+                  [:div.col-md-12.text-center
+                   [:p.lead {:style {:padding-top 30}}
+                    "Profiles go here."]]]]
                 
                 )])))))
 
