@@ -16,7 +16,14 @@
      [kixi.hecuba.model :refer (app-model)]
      [sablono.core :as html :refer-macros [html]]))
 
-;; (enable-console-print!)
+(when (or (not agent/IE)
+          (agent/isVersionOrHigher 9))
+  (enable-console-print!))
+
+(defn log [& msgs]
+  (when (or (not agent/IE)
+            (agent/isVersionOrHigher 9))
+    (apply println msgs)))
 
 ;; our banner is 50px so we need to tweak the scrolling
 (defn fixed-scroll-to-element [element]
@@ -118,7 +125,7 @@
   (om/update! data [:programmes :fetching] :fetching)
   (GET (str "/4/programmes/")
        {:handler  (fn [x]
-                    ;; (println "Fetching programmes.")
+                    (log "Fetching programmes.")
                     (om/update! data [:programmes :data] (mapv slugify-programme x))
                     (om/update! data [:programmes :fetching] (if (empty? x) :no-data :has-data)))
         :error-handler (fn [{:keys [status status-text]}]
@@ -132,7 +139,7 @@
   (om/update! data [:projects :fetching] :fetching)
   (GET (str "/4/programmes/" programme-id "/projects/")
        {:handler  (fn [x]
-                    ;; (println "Fetching projects for programme: " programme-id)
+                    (log "Fetching projects for programme: " programme-id)
                     (om/update! data [:projects :data] (mapv slugify-project x))
                     (om/update! data [:projects :fetching] (if (empty? x) :no-data :has-data)))
         :error-handler (fn [{:keys [status status-text]}]
@@ -146,7 +153,7 @@
   (om/update! data [:properties :fetching] :fetching)
   (GET (str "/4/projects/" project-id "/properties/")
        {:handler  (fn [x]
-                    ;; (println "Fetching properties for project: " project-id)
+                    (log "Fetching properties for project: " project-id)
                     (om/update! data [:properties :data] (mapv slugify-property x))
                     (om/update! data [:properties :fetching] (if (empty? x) :no-data :has-data)))
         :error-handler (fn [{:keys [status status-text]}]
@@ -192,26 +199,26 @@
           old-programmes (:programmes old-nav)
           old-projects (:projects old-nav)
           old-properties (:properties old-nav)]
-      ;; (println "Old Programmes: " old-programmes " Old Projects: " old-projects " Old Properties: " old-properties)
-      ;; (println "New Programmes: " programmes " New Projects: " projects " New Properties: " properties)
+      (log "Old Programmes: " old-programmes " Old Projects: " old-projects " Old Properties: " old-properties)
+      (log "New Programmes: " programmes " New Projects: " projects " New Properties: " properties)
 
       ;; Clear down
       (when (or (nil? programmes)
                 (empty? (-> @data :programmes :data)))
-        ;; (println "Clearing projects.")
+        (log "Clearing projects.")
         (om/update! data [:programmes :selected] nil)
         (om/update! data [:projects :data] [])
         (om/update! data [:projects :programme_id] nil)
         (fetch-programmes data))
 
       (when-not projects
-        ;; (println "Clearing properties.")
+        (log "Clearing properties.")
         (om/update! data [:projects :selected] nil)
         (om/update! data [:properties :data] [])
         (om/update! data [:properties :project_id] nil))
 
       (when-not properties
-        ;; (println "Clearing devices, sensors and measurements.")
+        (log "Clearing devices, sensors and measurements.")
         (om/update! data [:properties :selected] nil)
         (om/update! data [:property-details :data] {})
         (om/update! data [:property-details :property_id] nil)
@@ -224,21 +231,21 @@
 
       (when (and (not= programmes old-programmes)
                  programmes)
-        ;; (println "Setting selected programme to: " programmes)
+        (log "Setting selected programme to: " programmes)
         (om/update! data [:programmes :selected] programmes)
         (om/update! data [:projects :programme_id] programmes)
         (fetch-projects programmes data))
 
       (when (and (not= projects old-projects)
                  projects)
-        ;; (println "Setting selected project to: " projects)
+        (log "Setting selected project to: " projects)
         (om/update! data [:projects :selected] projects)
         (om/update! data [:properties :project_id] projects)
         (fetch-properties projects data))
 
       (when (and (not= properties old-properties)
                  properties)
-        ;; (println "Setting property details to: " properties)
+        (log "Setting property details to: " properties)
         (om/update! data [:properties :selected] properties))
 
       (when sensors
