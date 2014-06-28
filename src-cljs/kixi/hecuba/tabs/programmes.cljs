@@ -504,11 +504,19 @@
     [:span {:class "label label-success"} status]
     [:span {:class "label label-danger"} status]))
 
+(defn sorting-th [owner label sort-key sorted-by]
+  [:th {:onClick (fn [_ _] (om/set-state! owner :sort-by sort-key))}
+   (str label " ") (if (= sort-key sorted-by) [:i.fa.fa-sort-asc] " ")])
+
 (defn sensors-table [data owner {:keys [histkey path]}]
   (reify
-    om/IRender
-    (render [_]
-      (let [sensors              (:sensors data)
+    om/IInitState
+    (init-state [_]
+      {:sort-by :type})
+    om/IRenderState
+    (render-state [_ state]
+      (let [sorted-by            (:sort-by state)
+            sensors              (:sensors data)
             selected-property-id (-> data :active-components :properties)
             flattened-sensors    (get-sensors selected-property-id data)
             chart                (:chart data)
@@ -517,9 +525,14 @@
         (html
          [:table {:className "table table-hover"}
           [:thead
-           [:tr [:th "Type"] [:th "Unit"] [:th "Period"] [:th "Device"] [:th "Status"]]]
+           [:tr
+            (sorting-th owner "Type" :type sorted-by)
+            (sorting-th owner "Unit" :unit sorted-by)
+            (sorting-th owner "Period" :period sorted-by)
+            (sorting-th owner "Device" :device_id sorted-by)
+            (sorting-th owner "Status" :status sorted-by)]]
           [:tbody
-           (for [row (sort-by :type flattened-sensors)]
+           (for [row (sort-by sorted-by flattened-sensors)]
              (let [{:keys [device_id type unit period status]} row
                    id (str type "-" device_id)]
                [:tr {:onClick (fn [_ _]
