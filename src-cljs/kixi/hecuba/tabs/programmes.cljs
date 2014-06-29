@@ -4,9 +4,12 @@
      [om.core :as om :include-macros true]
      [om.dom :as dom :include-macros true]
      [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map< filter< mult tap map>]]
+     [cljs.reader :as reader]
      [goog.userAgent :as agent]
      [ajax.core :refer (GET POST)]
      [clojure.string :as str]
+     [cljs-time.core :as t]
+     [cljs-time.format :as tf]
      [kixi.hecuba.navigation :as nav]
      [kixi.hecuba.widgets.datetimepicker :as dtpicker]
      [kixi.hecuba.widgets.chart :as chart]
@@ -565,15 +568,17 @@
             (sorting-th owner "Privacy" :privacy)
             (sorting-th owner "Events" :events)
             (sorting-th owner "Errors" :errors)
+            (sorting-th owner "Earliest Event" :lower_ts)
+            (sorting-th owner "Last Event" :upper_ts)
             (sorting-th owner "Status" :status)]]
           [:tbody
            (for [row (if sort-asc
                        (sort-by sort-key flattened-sensors)
                        (reverse (sort-by sort-key flattened-sensors)))]
-             (let [{:keys [device_id type unit period resolution status events errors parent-device]} row
+             (let [{:keys [device_id type unit period resolution status
+                           events errors parent-device lower_ts upper_ts]} row
                    {:keys [name privacy location]} parent-device
-                   id (str type "-" device_id)
-                   ]
+                   id (str type "-" device_id)]
                [:tr {:onClick (fn [_ _]
                                 (om/update! sensors :selected id)
                                 (om/update! chart :sensor id)
@@ -591,6 +596,8 @@
                 [:td privacy]
                 [:td events]
                 [:td errors]
+                [:td (str lower_ts)]
+                [:td (str upper_ts)]
                 [:td (status-label status)]]))]])))))
 
 (defn chart-summary
