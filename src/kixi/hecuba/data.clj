@@ -3,14 +3,14 @@
 
 ;; Some utility funcitons
 
-(defn parse-list [profile key]
-  (if-let [items (get profile key)]
-    (assoc profile key (mapv #(json/parse-string % keyword) items))
-    profile))
+(defn parse-list [m key]
+  (if-let [items (get m key)]
+    (assoc m key (mapv #(json/parse-string % keyword) items))
+    m))
 
-(defn parse-item [profile key]
-  (if-let [item (get profile key)]
-    (assoc profile key (json/parse-string item keyword))
-    profile))
+(defn parse-item [m key]
+  (if-let [item (get m key)]
+    (assoc m key (json/parse-string item keyword))
+    m))
 
 
