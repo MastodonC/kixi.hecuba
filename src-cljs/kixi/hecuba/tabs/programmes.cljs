@@ -645,8 +645,9 @@
             (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
            (om/build chart-feedback-box (get-in data [:chart :message]))
            (om/build chart-summary (:chart data))
-           [:div {:className "well" :id "chart" :style {:width "100%" :height 600}}
-            (om/build chart/chart-figure (:chart data))]]
+           [:div.col-md-12.well
+            [:div#chart {:style {:width "100%" :height 600}}
+             (om/build chart/chart-figure (:chart data))]]]
           [:div.col-md-12.text-center
            [:p.lead {:style {:padding-top 30}}
             "Charting in Internet Explorer version " agent/VERSION " coming soon."]])]))))
