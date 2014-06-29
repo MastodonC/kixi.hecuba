@@ -555,17 +555,25 @@
          [:table {:className "table table-hover"}
           [:thead
            [:tr
+            (sorting-th owner "Name" :name)
             (sorting-th owner "Type" :type)
             (sorting-th owner "Unit" :unit)
             (sorting-th owner "Period" :period)
-            (sorting-th owner "Device" :device_id)
+            (sorting-th owner "Resolution" :resolution)
+            (sorting-th owner "Device ID" :device_id)
+            (sorting-th owner "Location" :location)
+            (sorting-th owner "Privacy" :privacy)
+            (sorting-th owner "Events" :events)
+            (sorting-th owner "Errors" :errors)
             (sorting-th owner "Status" :status)]]
           [:tbody
            (for [row (if sort-asc
                        (sort-by sort-key flattened-sensors)
                        (reverse (sort-by sort-key flattened-sensors)))]
-             (let [{:keys [device_id type unit period status]} row
-                   id (str type "-" device_id)]
+             (let [{:keys [device_id type unit period resolution status events errors parent-device]} row
+                   {:keys [name privacy location]} parent-device
+                   id (str type "-" device_id)
+                   ]
                [:tr {:onClick (fn [_ _]
                                 (om/update! sensors :selected id)
                                 (om/update! chart :sensor id)
@@ -573,10 +581,16 @@
                                 (history/update-token-ids! history :sensors id))
                      :className (if (= id (:selected sensors)) "success")
                      :id (str table-id "-selected")}
+                [:td name]
                 [:td type]
                 [:td unit]
                 [:td period]
+                [:td resolution]
                 [:td device_id]
+                [:td location]
+                [:td privacy]
+                [:td events]
+                [:td errors]
                 [:td (status-label status)]]))]])))))
 
 (defn chart-summary
