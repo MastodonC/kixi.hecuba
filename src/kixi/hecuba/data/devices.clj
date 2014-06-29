@@ -5,15 +5,18 @@
             [kixi.hecuba.data.sensors :as sensors]
             [kixi.hecuba.data :refer [parse-item parse-list]]))
 
-(defn add-readings [session devices]
-  (mapv #(assoc % :readings (sensors/->clojure (:id %) session)) devices))
+(defn parse-device [device session]
+  (let [device_id (:id device)
+        sensors   (sensors/->clojure device_id session)]
+    (-> device
+        (assoc :readings sensors)
+        (parse-item :metadata)
+        (assoc :device_id device_id)
+        (dissoc :id))))
 
 (defn get-devices [entity_id session]
   (db/execute session (hayt/select :devices (hayt/where [[= :entity_id entity_id]]))))
 
 (defn ->clojure [entity_id session]
   (let [devices (get-devices entity_id session)]
-    (->> devices
-         (add-readings session)
-         (map #(assoc % :device_id (:id %)))
-         (map #(dissoc % :id)))))
+    (mapv #(parse-device % session) devices)))
