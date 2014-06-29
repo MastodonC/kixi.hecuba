@@ -511,35 +511,64 @@
     [:span {:class "label label-success"} status]
     [:span {:class "label label-danger"} status]))
 
-(defn sorting-th [owner label sort-key sorted-by]
-  [:th {:onClick (fn [_ _] (om/set-state! owner :sort-by sort-key))}
-   (str label " ") (if (= sort-key sorted-by) [:i.fa.fa-sort-asc] " ")])
+(defn sorting-th [owner label header-key]
+  (let [{:keys [sort-key sort-asc]} (:sort-spec (om/get-state owner))]
+    [:th {:onClick (fn [_ _]
+                     (let [th-chan (:th-chan (om/get-state owner))]
+                       (log "Owner: " owner " th-chan " th-chan " header-key " header-key)
+                       (log "Clicked on: " header-key)
+                       (put! th-chan header-key (fn [closed] (if closed "I'm Closed!" "I work.")))))}
+     (str label " ")
+     (if (= sort-key header-key)
+       (if sort-asc
+         [:i.fa.fa-sort-asc]
+         [:i.fa.fa-sort-desc]))]))
 
 (defn sensors-table [data owner {:keys [histkey path]}]
   (reify
     om/IInitState
     (init-state [_]
-      {:sort-by :type})
+      {:th-chan (chan)
+       :sort-spec {:sort-key :type
+                   :sort-asc true}})
+    om/IWillMount
+    (will-mount [_]
+      (go-loop []
+        (let [{:keys [th-chan sort-spec]} (om/get-state owner)
+              {:keys [sort-key sort-asc]} sort-spec
+              th-click (<! th-chan)]
+          (log "Header clicked: " th-click)
+          (if (= th-click sort-key)
+            (om/set-state! owner {:th-chan th-chan
+                                  :sort-spec {:sort-key th-click
+                                              :sort-asc (not sort-asc)}})
+            (om/set-state! owner {:th-chan th-chan
+                                  :sort-spec {:sort-key th-click
+                                              :sort-asc true}})))
+        (recur)))
     om/IRenderState
     (render-state [_ state]
-      (let [sorted-by            (:sort-by state)
-            sensors              (:sensors data)
-            selected-property-id (-> data :active-components :properties)
-            flattened-sensors    (get-sensors selected-property-id data)
-            chart                (:chart data)
-            history              (om/get-shared owner :history)
-            table-id             "sensors-table"]
+      (let [{:keys [sort-key sort-asc]} (:sort-spec state)
+            sensors                     (:sensors data)
+            selected-property-id        (-> data :active-components :properties)
+            flattened-sensors           (get-sensors selected-property-id data)
+            chart                       (:chart data)
+            history                     (om/get-shared owner :history)
+            table-id                    "sensors-table"]
         (html
          [:table {:className "table table-hover"}
           [:thead
            [:tr
-            (sorting-th owner "Type" :type sorted-by)
-            (sorting-th owner "Unit" :unit sorted-by)
-            (sorting-th owner "Period" :period sorted-by)
-            (sorting-th owner "Device" :device_id sorted-by)
-            (sorting-th owner "Status" :status sorted-by)]]
+            (sorting-th owner "Type" :type)
+            (sorting-th owner "Unit" :unit)
+            (sorting-th owner "Period" :period)
+            (sorting-th owner "Device" :device_id)
+            (sorting-th owner "Status" :status)]]
           [:tbody
-           (for [row (sort-by sorted-by flattened-sensors)]
+           ;; TODO: reverse sorting based on :sort-asc
+           (for [row (if sort-asc
+                       (sort-by sort-key flattened-sensors)
+                       (reverse (sort-by sort-key flattened-sensors)))]
              (let [{:keys [device_id type unit period status]} row
                    id (str type "-" device_id)]
                [:tr {:onClick (fn [_ _]
