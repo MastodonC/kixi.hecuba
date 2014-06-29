@@ -17,6 +17,7 @@
      [kixi.hecuba.common :refer (index-of map-replace find-first interval)]
      [kixi.hecuba.history :as history]
      [kixi.hecuba.model :refer (app-model)]
+     [kixi.hecuba.tabs.profiles :as profiles]
      [sablono.core :as html :refer-macros [html]]))
 
 (when (or (not agent/IE)
@@ -727,12 +728,7 @@
                   (om/build sensors-div data)]
                  ;; Profiles
                  [:div {:class (if (not= active-tab :profiles) "hidden" "col-md-12")}
-                  [:h3 "Profiles"]
-                  [:div.col-md-12.text-center
-                   [:p.lead {:style {:padding-top 30}}
-                    "Profiles go here."]]]]
-                
-                )])))))
+                  (om/build profiles/profiles-div data)]])])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Main View
