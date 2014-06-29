@@ -512,12 +512,9 @@
     [:span {:class "label label-danger"} status]))
 
 (defn sorting-th [owner label header-key]
-  (let [{:keys [sort-key sort-asc]} (:sort-spec (om/get-state owner))]
-    [:th {:onClick (fn [_ _]
-                     (let [th-chan (:th-chan (om/get-state owner))]
-                       (log "Owner: " owner " th-chan " th-chan " header-key " header-key)
-                       (log "Clicked on: " header-key)
-                       (put! th-chan header-key (fn [closed] (if closed "I'm Closed!" "I work.")))))}
+  (let [{:keys [sort-spec th-chan]} (om/get-state owner)
+        {:keys [sort-key sort-asc]} sort-spec]
+    [:th {:onClick (fn [_ _] (put! th-chan header-key))}
      (str label " ")
      (if (= sort-key header-key)
        (if sort-asc
