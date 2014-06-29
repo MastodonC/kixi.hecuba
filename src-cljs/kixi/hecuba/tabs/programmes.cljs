@@ -533,15 +533,14 @@
       (go-loop []
         (let [{:keys [th-chan sort-spec]} (om/get-state owner)
               {:keys [sort-key sort-asc]} sort-spec
-              th-click (<! th-chan)]
-          (log "Header clicked: " th-click)
+              th-click                    (<! th-chan)]
           (if (= th-click sort-key)
-            (om/set-state! owner {:th-chan th-chan
-                                  :sort-spec {:sort-key th-click
-                                              :sort-asc (not sort-asc)}})
-            (om/set-state! owner {:th-chan th-chan
-                                  :sort-spec {:sort-key th-click
-                                              :sort-asc true}})))
+            (om/update-state! owner #(assoc %
+                                       :sort-spec {:sort-key th-click
+                                                   :sort-asc (not sort-asc)}))
+            (om/update-state! owner #(assoc %
+                                       :sort-spec {:sort-key th-click
+                                                   :sort-asc true}))))
         (recur)))
     om/IRenderState
     (render-state [_ state]
@@ -562,7 +561,6 @@
             (sorting-th owner "Device" :device_id)
             (sorting-th owner "Status" :status)]]
           [:tbody
-           ;; TODO: reverse sorting based on :sort-asc
            (for [row (if sort-asc
                        (sort-by sort-key flattened-sensors)
                        (reverse (sort-by sort-key flattened-sensors)))]
