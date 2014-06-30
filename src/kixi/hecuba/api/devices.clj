@@ -11,7 +11,8 @@
    [qbits.hayt :as hayt]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.storage.sha1 :as sha1]
-   [kixi.hecuba.web-paths :as p]))
+   [kixi.hecuba.web-paths :as p]
+   [kixi.hecuba.data.users :as users]))
 
 (def ^:private device-resource (p/resource-path-string :entity-device-resource))
 
@@ -88,7 +89,7 @@
     (let [{:keys [request body]} ctx
           entity_id              (-> request :route-params :entity_id)
           username               (sec/session-username (-> ctx :request :session))
-          user_id                (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)]
+          user_id                (:id (users/get-by-username session username))]
 
       (when-not (empty? (first (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]])))))
         (let [device       (-> body
@@ -159,7 +160,7 @@
         (let [body          (decode-body request)
               entity_id     (-> item :entity_id)
               username      (sec/session-username (-> ctx :request :session))
-              user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+              user_id       (:id (users/get-by-username session username))
               device_id     (-> item :device_id)
               new-sensors   (map #(when (= "CUMULATIVE" (:period %)) (ext-type % "differenceSeries")) (:readings body))
               new-body      (update-in body [:readings] (fn [readings] (into [] (remove nil? (concat readings new-sensors)))))]

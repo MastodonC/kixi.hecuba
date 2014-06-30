@@ -10,7 +10,8 @@
    [qbits.hayt :as hayt]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.storage.sha1 :as sha1]
-   [kixi.hecuba.web-paths :as p]))
+   [kixi.hecuba.web-paths :as p]
+   [kixi.hecuba.data.users :as users]))
 
 (def ^:private programme-projects-index (p/index-path-string :programme-projects-index))
 (def ^:private programme-projects-resource (p/resource-path-string :programme-projects-resource))
@@ -41,8 +42,7 @@
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
           username  (sec/session-username (-> ctx :request :session))
-          ;; FIXME: Why user_id?
-          user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+          user_id       (:id (users/get-by-username session username))
           project       (-> request decode-body stringify-values)
           project_id    (if-let [id (:id project)] id (sha1/gen-key :project project))]
       (db/execute session

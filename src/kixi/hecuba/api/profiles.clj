@@ -10,7 +10,8 @@
    [qbits.hayt :as hayt]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.storage.sha1 :as sha1]
-   [kixi.hecuba.web-paths :as p]))
+   [kixi.hecuba.web-paths :as p]
+   [kixi.hecuba.data.users :as users]))
 
 (def ^:private entity-profiles-resource (p/resource-path-string :entity-profiles-resource))
 
@@ -45,8 +46,7 @@
           entity_id  (-> profile :entity_id)
           timestamp  (-> profile :timestamp)
           username   (sec/session-username (-> ctx :request :session))
-          ;; FIXME: Why user_id?
-          user_id    (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+          user_id    (:id (users/get-by-username session username))
           profile_id (sha1/gen-key :profile profile)]
       (when (and entity_id timestamp)
         (when-not (empty? (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first))
@@ -717,7 +717,7 @@
         (let [body       (decode-body request)
               entity_id  (-> item :entity_id)
               username   (sec/session-username (-> ctx :request :session))
-              user_id    (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+              user_id    (:id (users/get-by-username session username))
               profile_id (-> item :profile-id)]
           (db/execute session (hayt/insert :profiles (hayt/values (-> body
                                                                       (assoc :id profile_id)

@@ -13,6 +13,7 @@
    [kixi.hecuba.data.programmes :as programmes]
    [kixi.hecuba.data.projects :as projects]
    [kixi.hecuba.data.entities :as entities]
+   [kixi.hecuba.data.users :as users]
    [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.web-paths :as p]))
 
@@ -67,20 +68,11 @@
           project_id    (-> entity :project_id)
           property_code (-> entity :property_code)
           username      (sec/session-username (-> ctx :request :session))
-          ;; FIXME: Why user_id?
-          user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)]
+          user_id       (:id (users/get-by-username session username))]
       (when (and project_id property_code)
         (when-not (empty? (-> (db/execute session (hayt/select :projects (hayt/where [[= :id project_id]]))) first))
           (let [entity_id (sha1/gen-key :entity entity)]
-            (db/execute session
-                        (hayt/insert :entities (hayt/values (-> entity
-                                                                (assoc :user_id user_id :id entity_id)
-                                                                (dissoc :device_ids)
-                                                                (update-stringified-lists [:documents
-                                                                                           :photos
-                                                                                           :notes])
-                                                                (update-in [:metering_point_ids] str)
-                                                                (update-in [:property_data] json/encode)))))
+            (entities/insert session (assoc entity :user_id user_id :id entity_id))
             {::entity_id entity_id}))))))
 
 (defn index-handle-created [ctx]
@@ -117,14 +109,11 @@
 (defn resource-put! [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request   (:request ctx)
-          entity    (-> request decode-body stringify-values)
+          entity    (-> request decode-body)
           entity_id (-> (::item ctx) :id)
           username  (sec/session-username (-> ctx :request :session))
-          ;; FIXME: Why user_id?
-          user_id   (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)]
-      (db/execute session (hayt/insert :entities (hayt/values (-> entity
-                                                                  (assoc :user_id user_id :id entity_id)
-                                                                  (dissoc :device_ids))))))))
+          user_id   (:id (users/get-by-username session username))]
+      (entities/update session entity_id (assoc entity :user_id user_id)))))
 
 (defn resource-delete! [store ctx]
   (db/with-session [session (:hecuba-session store)]
