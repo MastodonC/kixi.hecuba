@@ -567,8 +567,6 @@
             (sorting-th owner "Device ID" :device_id)
             (sorting-th owner "Location" :location)
             (sorting-th owner "Privacy" :privacy)
-            (sorting-th owner "Events" :events)
-            (sorting-th owner "Errors" :errors)
             (sorting-th owner "Earliest Event" :lower_ts)
             (sorting-th owner "Last Event" :upper_ts)
             (sorting-th owner "Status" :status)]]
@@ -577,7 +575,7 @@
                        (sort-by sort-key flattened-sensors)
                        (reverse (sort-by sort-key flattened-sensors)))]
              (let [{:keys [device_id type unit period resolution status
-                           events errors parent-device lower_ts upper_ts]} row
+                           parent-device lower_ts upper_ts]} row
                    {:keys [name privacy location]} parent-device
                    id (str type "-" device_id)]
                [:tr {:onClick (fn [_ _]
@@ -595,8 +593,6 @@
                 [:td device_id]
                 [:td location]
                 [:td privacy]
-                [:td events]
-                [:td errors]
                 [:td (str lower_ts)]
                 [:td (str upper_ts)]
                 [:td (status-label status)]]))]])))))
