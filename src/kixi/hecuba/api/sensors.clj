@@ -9,8 +9,7 @@
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
    [kixi.hecuba.storage.db :as db]
-   [kixi.hecuba.data.sensors :as sensors]
-   ))
+   [kixi.hecuba.data.sensors :as sensors]))
 
 (defn- entity_id-from [ctx]
   (get-in ctx [:request :route-params :entity_id]))

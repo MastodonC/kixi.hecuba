@@ -5,10 +5,7 @@
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.data.misc :as m]
             [qbits.hayt :as hayt]
-            [kixi.hecuba.webutil :as util])
-  )
-
-
+            [kixi.hecuba.webutil :as util]))
 
 (defn resolve-start-end [store type device_id start end]
   (mapv tc/to-date-time
