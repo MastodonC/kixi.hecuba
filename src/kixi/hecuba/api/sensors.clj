@@ -8,18 +8,18 @@
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
-   [kixi.hecuba.storage.db :as db]))
+   [kixi.hecuba.storage.db :as db]
+   [kixi.hecuba.data.sensors :as sensors]
+   ))
 
 (defn- entity_id-from [ctx]
   (get-in ctx [:request :route-params :entity_id]))
 
-(defn- device_id-from [ctx]
-  (get-in ctx [:request :route-params :device_id]))
-
 (defn metadata-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (when-let [items (db/execute session (hayt/select :sensor_metadata (hayt/where [[= :device_id (device_id-from ctx)]])))]
-      {::items items})))
+    (let [device_id  (-> ctx :request :route-params :device_id)]
+      (when-let [items (sensors/sensor-metadata session device_id)]
+        {::items items}))))
 
 (defn metadata-handle-ok [ctx]
   {::items ctx})

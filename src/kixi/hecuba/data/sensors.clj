@@ -27,8 +27,27 @@
   (db/execute session
               (hayt/select :sensors
                            (hayt/where [[= :device_id device_id]]))))
+
 (defn ->clojure
   "Sensors are called readings in the API."
   [device_id session]
   (let [sensors (get-sensors device_id session)]
     (mapv #(enrich-sensor % session) sensors)))
+
+(defn sensor-exists? [session m]
+  (first (db/execute session
+                     (hayt/select :sensors
+                                  (hayt/where [[= :device_id (:device_id m)]
+                                               [= :type (:type m)]])))))
+
+(defn sensor-metadata [session {:keys [type device_id]}]
+  (first (db/execute session
+                     (hayt/select
+                      :sensor_metadata
+                      (hayt/where [[= :device_id device_id]
+                                   [= :type type]])))))
+
+(defn sensor-and-metadata [session m]
+  (some-> session
+   (sensor-exists? m)
+   (merge (sensor_metadata session m))))

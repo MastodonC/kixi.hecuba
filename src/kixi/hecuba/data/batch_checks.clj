@@ -7,7 +7,7 @@
             [kixi.hecuba.data.misc :as m]
             [kixi.hecuba.data.validate :as v]
             [kixi.hecuba.data.calculate :as c]
-            [kixi.hecuba.api.measurements :as measurements]
+            [kixi.hecuba.data.measurements :as measurements]
             [clojure.tools.logging :as log]))
 
 ;;; Check for mislabelled sensors ;;;
@@ -69,8 +69,8 @@
             measurements (filter #(m/metadata-is-number? %) (db/execute session (hayt/select :partitioned_measurements (hayt/where where))))
             spikes       (map #(hash-map :timestamp (:timestamp %)
                                          :spike (str (v/larger-than-median median %))) measurements)]
-        (db/execute session 
-                    (hayt/batch 
+        (db/execute session
+                    (hayt/batch
                      (apply hayt/queries (map #(hayt/update :partitioned_measurements
                                                             (hayt/set-columns {:reading_metadata [+ {"median-spike" (:spike %)}]})
                                                             (hayt/where  [[= :device_id device_id]
