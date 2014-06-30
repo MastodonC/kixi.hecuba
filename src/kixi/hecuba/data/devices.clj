@@ -2,7 +2,8 @@
   (:require [clojure.tools.logging :as log]
             [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
-            [kixi.hecuba.data.sensors :as sensors]))
+            [kixi.hecuba.data.sensors :as sensors]
+            [kixi.hecuba.data :refer [parse-item]]))
 
 (defn parse-device [session device]
   (let [device_id (:id device)
