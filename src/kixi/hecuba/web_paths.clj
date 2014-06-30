@@ -24,7 +24,7 @@
    :project-properties-index "projects/%s/properties"
 
    ;; enitites
-   :entities-index "entities"    
+   :entities-index "entities"
    :entity-resource "entities/%s"
 
    ;; datasets
@@ -51,6 +51,9 @@
    ;; daily readings
    ;; FIXME: This should be a query parameter and not a separate resource
    :entity-device-measurement-readingtype-daily-rollups "entities/%s/devices/%s/daily_rollups/%s"
+   :templates-index "templates"
+   :templates-resource "templates/%s"
+   :entity-templates-resource "templates/for-entity/%s" ;; TODO better url
    })
 
 (defn compojure-route

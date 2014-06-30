@@ -71,7 +71,8 @@
 (defmethod decode-body "application/json" [{body :body}] (some-> body read-json-body))
 (defmethod decode-body "application/edn" [{body :body}] (some-> body read-edn-body))
 
-(defmulti render-items :content-type :default :unknown)
+(defmulti render-items (comp :media-type :representation) :default :unknown)
+
 (defmethod render-items :unknown [_ items]
   ;; If content type is unknown return it to liberator unchanged and
   ;; liberator may render it
@@ -105,15 +106,20 @@
   (map encode items))
 
 (defmethod render-items "text/csv" [_ items]
-  (let [headers (into [] (map name (keys (first items))))]
-    (with-out-str
-      (csv/write-csv *out* [headers] :newline :cr+lf :separator \,)
-      (csv/write-csv *out* (map vals items) :newline :cr+lf :separator \,))))
+  (if (map? (first items))
+    (let [headers (into [] (map name (keys (first items))))]
+      (with-out-str
+        (csv/write-csv *out* [headers] :newline :cr+lf :separator \,)
+        (csv/write-csv *out* (map vals items) :newline :cr+lf :separator \,)))
+    (do
+      (with-out-str
+              (csv/write-csv *out* items :newline :cr+lf :separator \,)))))
 
 (defmulti render-item :content-type :default :unknown)
-(defmethod render-item :unknown [_ item]
+(defmethod render-item :unknown [ctx item]
    ;; If content type is unknown return it to liberator unchanged and
   ;; liberator may render it
+  (log/error "RENDERING UNKNOWN!!!" ctx)
   item)
 
 (defmethod render-item "application/html" [_ item]
@@ -191,3 +197,7 @@
       (cons
         (apply f (map #(if (seq %) (first %) default) colls))
         (apply map-longest f default (map rest colls))))))
+
+(defn request-method-from-context [& args]
+  (let [ctx (last args)]
+    (get-in ctx [:request :request-method])))
