@@ -13,7 +13,7 @@
 (defn resolve-start-end [store type device_id start end]
   (mapv tc/to-date-time
         (if (not (and start end))
-          (let [sm (sensor/sensor_metadata store {:type type :device_id device_id})
+          (let [sm (sensor/sensor-metadata store {:type type :device_id device_id})
                 [lower upper] ((juxt :lower_ts :upper_ts) sm)]
             [(or start lower)
              (or end upper)])

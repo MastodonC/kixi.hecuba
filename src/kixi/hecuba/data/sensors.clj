@@ -40,12 +40,12 @@
                                   (hayt/where [[= :device_id (:device_id m)]
                                                [= :type (:type m)]])))))
 
-(defn sensor-metadata [session {:keys [type device_id]}]
+(defn sensor-metadata [session m]
   (first (db/execute session
                      (hayt/select
                       :sensor_metadata
-                      (hayt/where [[= :device_id device_id]
-                                   [= :type type]])))))
+                      (hayt/where [[= :device_id (:device_id m)]
+                                   [= :type (:type m)]])))))
 
 (defn sensor-and-metadata [session m]
   (some-> session
