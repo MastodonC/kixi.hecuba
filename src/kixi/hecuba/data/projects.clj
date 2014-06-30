@@ -11,13 +11,13 @@
      (->> (db/execute session
                       (hayt/select :projects
                                    (hayt/where [[= :id (:project_id m)]])))
-          (mapv (partial parse-device session))
+          (mapv (partial parse-project session))
           first)))
 
 (defn get-all
   ([session]
      (->> (db/execute session (hayt/select :projects))
-          (mapv (partial parse-device session))))
+          (mapv (partial parse-project session))))
   ([session project_id]
      (->> (db/execute session (hayt/select :projects (hayt/where [[= :id project_id]])))
-          (mapv (partial parse-device session)))))
+          (mapv (partial parse-project session)))))
