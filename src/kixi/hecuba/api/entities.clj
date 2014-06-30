@@ -2,6 +2,8 @@
   (:require
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
+   [kixi.hecuba.data.users :as users]
+   [kixi.hecuba.data.projects :as projects]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
    [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values sha1-regex update-stringified-lists)]
@@ -23,9 +25,9 @@
           property_code (-> entity :property_code)
           username      (sec/session-username (-> ctx :request :session))
           ;; FIXME: Why user_id?
-          user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)]
+          user_id       (-> (users/get session {:username username}) :id)]
       (when (and project_id property_code)
-        (when-not (empty? (-> (db/execute session (hayt/select :projects (hayt/where [[= :id project_id]]))) first))
+        (when-not (projects/get session {:id project_id})
           (let [entity_id (sha1/gen-key :entity entity)]
             (db/execute session
                         (hayt/insert :entities (hayt/values (-> entity

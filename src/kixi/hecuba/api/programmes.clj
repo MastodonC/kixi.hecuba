@@ -6,6 +6,7 @@
    [qbits.hayt :as hayt]
    [cheshire.core :as json]
    [cemerick.friend :as friend]
+   [kixi.hecuba.data.users :as users]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
    [kixi.hecuba.webutil :refer (decode-body authorized? allowed? uuid stringify-values sha1-regex)]
@@ -40,7 +41,7 @@
     (let [request      (:request ctx)
           username     (sec/session-username (-> ctx :request :session))
           ;; FIXME why user_id?
-          user_id      (->  (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+          user_id      (-> (users/get session {:username username}) :id)
           programme    (-> request decode-body stringify-values)
           programme_id (if-let [id (:id programme)] id (sha1/gen-key :programme programme))]
       (db/execute session (hayt/insert :programmes (hayt/values (assoc programme :user_id user_id :id programme_id))))
@@ -55,8 +56,8 @@
 
 (defn resource-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (when-let [item (-> (db/execute session 
-                                    (hayt/select :programmes 
+    (when-let [item (-> (db/execute session
+                                    (hayt/select :programmes
                                                  (hayt/where [[= :id (get-in ctx [:request :route-params :programme_id])]])))
                         first)]
       {::item item})))
@@ -83,6 +84,6 @@
   :available-media-types ["application/json" "application/edn"]
   :known-content-type? #{"application/edn"}
   :authorized? (authorized? store)
-  :allowed? (allowed? store)  
+  :allowed? (allowed? store)
   :exists? (partial resource-exists? store)
   :handle-ok (partial resource-handle-ok))
