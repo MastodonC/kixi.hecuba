@@ -245,3 +245,8 @@
       (is (= true (calc/should-calculate? ds [{:period "INSTANT" :unit "kWh"}])))
       (is (= true (calc/should-calculate? ds [{:period "PULSE"}]))))))
 
+(deftest average-reading-test
+  (testing "Testing average-reading"
+    (let [sensor (first (g/generate-sensor-sample "CUMULATIVE" 1))
+          measurements (g/measurements sensor)]
+      (is (= 249.5 (calc/average-reading (map :value (misc/parse-measurements measurements))))))))

@@ -166,12 +166,12 @@
 
 ;;;;;;;;;;; Rollups of measurements ;;;;;;;;;
 
-;; TODO single reduce with accumulator and count
 (defn average-reading [measurements]
-  (let [measurements-sum   (reduce + measurements)
-        measurements-count (count measurements)]
-    (if-not (zero? measurements-count)
-      (/ measurements-sum measurements-count)
+  (let [[sum count] (reduce (fn [[sum count] m]
+                              [(+ sum m) (inc count)])
+                            [0 0] measurements)]
+    (if-not (zero? count)
+      (float (/ sum count))
       "N/A")))
 
 (defn daily-batch
@@ -211,7 +211,7 @@
           measurements (m/parse-measurements (db/execute session (hayt/select :partitioned_measurements (hayt/where where))))
           filtered     (filter #(number? %) (map :value measurements))
           funct        (fn [measurements] (case period
-                                            "CUMULATIVE" (last measurements) ;; TODO isn't it realising all measurements lazy sequence despite batches of 1h?
+                                            "CUMULATIVE" (last measurements)
                                             "INSTANT"    (average-reading measurements)
                                             "PULSE"      (reduce + measurements)))]
       (when-not (empty? filtered)
