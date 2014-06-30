@@ -8,6 +8,8 @@
    [liberator.core :refer (defresource)]
    [qbits.hayt :as hayt]
    [kixi.hecuba.storage.db :as db]
+   [kixi.hecuba.data.profiles :as profiles]
+   [kixi.hecuba.data.devices :as devices]
    [kixi.hecuba.web-paths :as p]))
 
 (def ^:private entity-resource (p/resource-path-string :entity-resource))
@@ -25,22 +27,14 @@
                              (map #(clojure.string/replace % ".jpg" ".png"))))
     property_data))
 
-(defn- property-devices [entity_id session]
-  (if-let [devices (db/execute session
-                               (hayt/select
-                                :devices
-                                (hayt/where [[= :entity_id entity_id]])))]
-    (mapv (fn [d]
-            (assoc d :readings
-                   (map (fn [sensor] (dissoc sensor :user_id))
-                        (db/execute session
-                                    (hayt/select :sensors
-                                                 (hayt/where [[= :device_id (:id d)]]))))))
-          devices)
-    []))
-
-(defn- get-profiles [entity_id session]
-  (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]]))))
+;; FIXME: This is only here because the data is currently dirty and
+;; some of the property data is in edn rather than json.
+(defn parse-property-data [property_data]
+  (try
+    (json/parse-string property_data keyword)
+    (catch Throwable t
+      (log/errorf "Got edn property data when we expected json: %s" property_data)
+      (edn/read-string property_data))))
 
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -52,18 +46,15 @@
                        (map #(assoc %
                                :property_data (if-let [property_data (:property_data %)]
                                                 (-> property_data
-                                                    (json/parse-string keyword)
+                                                    parse-property-data
                                                     tech-icons)
                                                 {})
                                :photos (if-let [photos (:photos %)] (mapv (fn [p] (json/parse-string p keyword)) photos) [])
                                :documents (if-let [docs (:documents %)] (mapv (fn [d] (json/parse-string d keyword)) docs) [])
-                               :devices (if-let [devices (:devices %)]
-                                          (property-devices (:id %) session))
-                               :profiles (get-profiles (:id %) session)
-                               :href (format entity-resource (:id %)))))
-          scoll   (sort-by :property_code coll)]
-      ;; (log/debugf "Properties: %s" scoll)
-      scoll)))
+                               :devices (devices/->clojure (:id %) session)
+                               :profiles (profiles/->clojure (:id %) session)
+                               :href (format entity-resource (:id %)))))]
+      coll)))
 
 (defresource index [store]
   :allowed-methods #{:get}

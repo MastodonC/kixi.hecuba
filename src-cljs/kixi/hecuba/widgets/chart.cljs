@@ -7,17 +7,13 @@
    [om.dom :as dom :include-macros true]
    [clojure.string :as str]))
 
-(def dimple (this-as ct (aget ct "dimple")))
-(def d3 (this-as ct (aget ct "d3")))
-
-(mrhyde/bootstrap)
 ;; (enable-console-print!)
 
 (def amon-date (tf/formatter "yyyy-MM-ddTHH:mm:ssZ"))
 
 (defn- draw-chart [cursor measurements]
-  (let [Chart            (.-chart dimple)
-        svg              (.newSvg dimple "#chart" "100%" 600)
+  (let [Chart            (.-chart js/dimple)
+        svg              (.newSvg js/dimple "#chart" "100%" 600)
         [type device_id] (-> (get-in cursor [:sensor])
                              str
                              (str/split #"-"))
@@ -32,14 +28,11 @@
         y                (.addMeasureAxis dimple-chart "y" "value")
         s                (.addSeries dimple-chart type js/dimple.plot.line (clj->js [x y]))]
     (aset s "data" (clj->js data))
-    (set! (.-tickFormat x) "%a %d %b %Y %H:%M")
+    (set! (.-tickFormat x) "%a %-d %b %Y %H:%M")
     (set! (.-title x) "Time")
     (.addLegend dimple-chart "5%" "10%" "20%" "10%" "right")
     (.draw dimple-chart)
-    (.attr (.-titleShape x) "y" 515)
-    (.text (.-titleShape y) unit)
-    (.attr (.selectAll (.-shapes x) "text") "transform" "rotate(45,0,12.6015625) translate(5, 0)")
-    (.attr (.selectAll (.-shapes x) "text") "style" "text-anchor: start; font-family: sans-serif; font-size: 10px;")))
+    (.text (.-titleShape y) unit)))
 
 (defn chart-item
   [cursor owner]
