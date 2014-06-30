@@ -3,7 +3,6 @@
   (:refer-clojure :exclude [chars])
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
-            [mrhyde.core :as mrhyde]
             [ajax.core :refer (GET POST)]
             [kixi.hecuba.bootstrap :as bs]
             [kixi.hecuba.common :refer (interval)]
@@ -12,12 +11,6 @@
             [cljs-time.format :as tf]
             [cljs-time.core :as t]
             [cljs.core.async :refer [<! chan put! sliding-buffer]]))
-
-(def dimple (this-as ct (aget ct "dimple")))
-(def d3 (this-as ct (aget ct "d3")))
-
-(mrhyde/bootstrap)
-;; (enable-console-print!)
 
 (extend-type string
   ICloneable
@@ -117,8 +110,8 @@
                         (swap! del inc))))))))
 
 (defn- draw-chart [cursor measurements]
-  (let [Chart            (.-chart dimple)
-        svg              (.newSvg dimple "#chart" "100%" 600)
+  (let [Chart            (.-chart js/dimple)
+        svg              (.newSvg js/dimple "#chart" "100%" 600)
         data             (into [] measurements)
         unit             (get-in cursor [:unit])
         dimple-chart     (.setBounds (Chart. svg) "5%" "15%" "80%" "50%")
@@ -131,7 +124,7 @@
     (.text (.-titleShape y) unit)
     (let [n (count data)] (clean-axis x (Math/round (+ (/ n 50) 0.5))))
     (.attr (.selectAll (.-shapes x) "text") "transform" (fn [d]
-                                                          (let [transform (.attr (.select d3 (js* "this")) "transform")]
+                                                          (let [transform (.attr (.select js/d3 (js* "this")) "transform")]
                                                             (when-not (empty?
                                                                        transform)
                                                               (str transform " rotate(-45)")))))))

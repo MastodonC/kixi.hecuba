@@ -203,6 +203,21 @@
               (not= selected new-selected))
       (vector new-selected ids search))))
 
+(defn chart-feedback-box [cursor owner]
+  (om/component
+   (dom/div nil cursor)))
+
+(defmulti url-str (fn [start end entity_id device_id type measurements-type] measurements-type))
+(defmethod url-str :raw [start end entity_id device_id type _]  
+  (str "/4/entities/" entity_id "/devices/" device_id "/measurements/"
+       type "?startDate=" start "&endDate=" end))
+(defmethod url-str :hourly_rollups [start end entity_id device_id type _]
+  (str "/4/entities/" entity_id "/devices/" device_id "/hourly_rollups/"
+       type "?startDate=" start "&endDate=" end))
+(defmethod url-str :daily_rollups [start end entity_id device_id type _]
+  (str "/4/entities/" entity_id "/devices/" device_id "/daily_rollups/"
+       type "?startDate=" start "&endDate=" end))
+
 (defn chart-ajax [in data {:keys [selection-key content-type]}]
   (go-loop []
     (let [nav-event (<! in)]
@@ -218,21 +233,13 @@
           (om/update! data :sensors sensor_id)
           (om/update! data :measurements [])
 
-          ;; TODO ajax call should not be made on each change, only on this particular cursor update.
           (when (and (not (empty? start-date))
                      (not (empty? end-date))
                      (not (nil? device_id))
                      (not (nil? entity_id))
                      (not (nil? type)))
 
-            ;; FIXME Should be a multimethod
-            (let [url (case (interval start-date end-date)
-                        :raw (str "/4/entities/" entity_id "/devices/" device_id "/measurements/"
-                                  type "?startDate=" start-date "&endDate=" end-date)
-                        :hourly_rollups (str "/4/entities/" entity_id "/devices/" device_id "/hourly_rollups/"
-                                             type "?startDate=" start-date "&endDate=" end-date)
-                        :daily_rollups (str "/4/entities/" entity_id "/devices/" device_id "/daily_rollups/"
-                                            type "?startDate=" start-date "&endDate=" end-date))]
+            (let [url (url-str start-date end-date entity_id device_id type (interval start-date end-date))]
               (GET url
                    {:handler #(om/update! data :measurements %)
                     :headers {"Accept" "application/json"}

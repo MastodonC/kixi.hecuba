@@ -92,6 +92,9 @@ CREATE TABLE entities (
   address_county text,
   address_region text,
   address_street_two text,
+  calculated_fields_values map<text, text>,
+  calculated_fields_labels map<text, text>,
+  calculated_fields_last_calc map<text, timestamp>,
   csv_uploads list<text>,
   devices map<text, text>,
   documents list<text>,
@@ -104,7 +107,6 @@ CREATE TABLE entities (
   property_data text,
   retrofit_completion_date text,
   user_id text,
-  calculated_fields map<text, text>,
   PRIMARY KEY (id)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
@@ -306,7 +308,7 @@ CREATE INDEX projects_programme_id_idx_1 ON projects (programme_id);
 
 CREATE TABLE sensor_metadata (
   calculated_datasets map<text, timestamp>,
-  calculated_fields map<text, timestamp>,
+  actual_annual map<text, timestamp>,
   co2 map<text, timestamp>,
   device_id text,
   difference_series map<text, timestamp>,
@@ -342,6 +344,7 @@ CREATE TABLE sensors (
   device_id text,
   type text,
   accuracy text,
+  actual_annual boolean,
   corrected_unit text,
   correction text,
   correction_factor text,

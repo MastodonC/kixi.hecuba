@@ -89,7 +89,11 @@
                (not= start end))
       {:start-date (tc/from-date start) :end-date (tc/from-date end)})))
 
-(defn min-max-dates [measurements]
+(defn min-max-dates 
+  "Takes a sequence of measurements and retuns a map
+  of min and max dates for that sequence. It should be passed
+  a batch of measurements."
+  [measurements]
   (assert (not (empty? measurements)) "No measurements passed to min-max-dates")
   (let [parsed-dates (map #(tc/from-date (:timestamp %)) measurements)]
     (reduce (fn [{:keys [min-date max-date]} timestamp]
@@ -107,6 +111,15 @@
         min-date   (tc/to-date-time (apply min (map tc/to-long all-starts)))
         max-date   (tc/to-date-time (apply max (map tc/to-long all-ends)))]
     [min-date max-date]))
+
+(defn dates-overlap? 
+  "Takes a start/end range from sensor_metadata \"dirty dates\" and a period,
+  and returns range to calculate if it overlaps. Otherwise it returns nil."
+  [{:keys [start-date end-date]} period]
+  (let [end   (t/now)
+        start (t/minus end period)]
+    (when (t/overlaps? (t/interval start end) (t/interval start-date end-date))
+      {:start-date start :end-date end})))
 
 ;;;;; Parsing of measurements ;;;;;
 
@@ -217,6 +230,8 @@
      {:kwh [+ kwh]})
    (when-let [datasets (update-date-range sensor :calculated_datasets start end)]
      {:calculated_datasets [+ datasets]})
+   (when-let [actual-annual-calculation (update-date-range sensor :actual_annual_calculation start end)]
+     {:actual_annual_calculation [+ actual-annual-calculation]})
    (when-let [lower (:lower_ts new-bounds)] {:lower_ts lower})
    (when-let [upper (:upper_ts new-bounds)] {:upper_ts upper})))
 
@@ -238,7 +253,10 @@
                                  (hayt/where where)))))))
 
 
-(defn prepare-batch [measurements]
+(defn prepare-batch
+  "Creates a CQL batch statement. For performance reasons
+   it should be passed a page of measurements."
+  [measurements]
   (hayt/batch
    (apply hayt/queries (map #(hayt/insert :partitioned_measurements (hayt/values %)) measurements))
    (hayt/logged false)))

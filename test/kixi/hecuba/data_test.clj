@@ -233,6 +233,20 @@
             measurements-1700  (g/generate-measurements-with-interval sensor 1800)]
         (is (= (t/date-time 2014 1 1 0 5 0 0) (tc/from-date (:timestamp (second (map #(calc/quantize-timestamp % 300) measurements-250))))))
         (is (= (t/date-time 2014 1 1 0 0 0 0) (tc/from-date (:timestamp (second (map #(calc/quantize-timestamp % 60) measurements-40))))))
-        (is (= (t/date-time 2014 1 1 0 30 0 0) (tc/from-date (:timestamp (second (map #(calc/quantize-timestamp % 1800) measurements-1700))))))
-        ))))
+        (is (= (t/date-time 2014 1 1 0 30 0 0) (tc/from-date (:timestamp (second (map #(calc/quantize-timestamp % 1800) measurements-1700))))))))))
 
+(deftest should-calculate-test
+  (testing "Testing should-calculate?"
+    (let [ds {:operation :sum}]
+      (is (= true (calc/should-calculate? ds [{:period "PULSE" :unit "kWh"}
+                                              {:period "PULSE" :unit "kWh"}])))
+      (is (= false (calc/should-calculate? ds [{:period "PULSE" :unit "C"}
+                                               {:period "CUMULATIVE" :unit "C"}])))
+      (is (= true (calc/should-calculate? ds [{:period "INSTANT" :unit "kWh"}])))
+      (is (= true (calc/should-calculate? ds [{:period "PULSE"}]))))))
+
+(deftest average-reading-test
+  (testing "Testing average-reading"
+    (let [sensor (first (g/generate-sensor-sample "CUMULATIVE" 1))
+          measurements (g/measurements sensor)]
+      (is (= 249.5 (calc/average-reading (map :value (misc/parse-measurements measurements))))))))

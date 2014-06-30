@@ -6,6 +6,7 @@
             [kixi.hecuba.data.batch-checks :as checks]
             [kixi.hecuba.data.misc         :as misc]
             [kixi.hecuba.data.calculate    :as calculate]
+            [kixi.hecuba.data.calculated-fields :as fields]
             [clj-time.core :as t]
             [com.stuartsierra.component    :as component]
             [kixi.hecuba.api.datasets      :as datasets]))
@@ -22,7 +23,8 @@
         difference-series-q   (new-queue {:name "difference-series-q" :queue-size 50})
         convert-to-co2-q      (new-queue {:name "convert-to-co2-q" :queue-size 50})
         convert-to-kwh-q      (new-queue {:name "convert-to-kwh-q" :queue-size 50})
-        sensor-status-q         (new-queue {:name "sensor-status" :queue-size 50})]
+        sensor-status-q       (new-queue {:name "sensor-status" :queue-size 50})
+        actual-annual-q       (new-queue {:name "actual-annual-q" :queue-size 50})]
 
     (defnconsumer fanout-q [{:keys [dest type] :as item}]
       (let [item (dissoc item :dest)]
@@ -38,8 +40,9 @@
                                  :synthetic-readings (produce-item item synthetic-readings-q)
                                  :difference-series  (produce-item item difference-series-q)
                                  :convert-to-co2     (produce-item item convert-to-co2-q)
-                                 :convert-to-kwh     (produce-item item convert-to-kwh-q)
-                                 ))))
+                                 :convert-to-kwh     (produce-item item convert-to-kwh-q))
+          :calculated-fields (condp = type
+                               :actual-annual (produce-item item actual-annual-q)))))
 
     (defnconsumer median-calculation-q [item]
       (log/info "Starting median calculation.")
@@ -180,6 +183,32 @@
               (calculate/calculate-dataset store ds sensors range)))))
       (log/info "Finished synthetic readings job."))
 
+    (defnconsumer actual-annual-q [item]
+      (log/info "Starting calculation of actual annual use.")
+
+      (let [sensors (misc/all-sensors store)]
+        (doseq [s sensors]
+          (when (and (= (:actual_annual s) true)
+                     (not= (:period s) "CUMULATIVE"))
+            (let [{:keys [device_id type period]} s
+                  where {:device_id device_id :type type}
+                  range (misc/start-end-dates :actual_annual_calculation s where)]
+
+              (when-let [new-range (misc/dates-overlap? range (t/months 12))]
+                (fields/calculate store s :actual-annual 
+                                  "actual_annual_12months"
+                                  new-range))
+
+              (when-let [new-range (misc/dates-overlap? range (t/months 1))]
+                (prn "dates overlap")
+                (fields/calculate store s :actual-annual 
+                                  "actual_annual_1month"
+                                  new-range))
+
+              (misc/reset-date-range store s :actual_annual_calculation (:start-date range) (:end-date range))))))
+
+      (log/info "Finished calculation of actual annual use."))
+
     (defnconsumer resolution-q [item]
       (log/info "Starting resolution check.")
       (calculate/resolution store item)
@@ -195,10 +224,10 @@
       (log/info "Finished sensor status check"))
 
     (producer-of fanout-q median-calculation-q mislabelled-sensors-q spike-check-q rollups-q synthetic-readings-q
-                 resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q sensor-status-q)
+                 resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q sensor-status-q actual-annual-q)
 
     (list fanout-q #{median-calculation-q mislabelled-sensors-q spike-check-q rollups-q synthetic-readings-q
-                     resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q sensor-status-q})))
+                     resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q sensor-status-q actual-annual-q})))
 
 (defrecord Pipeline []
   component/Lifecycle
