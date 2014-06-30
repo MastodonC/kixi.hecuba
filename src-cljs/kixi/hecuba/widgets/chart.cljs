@@ -2,12 +2,9 @@
   (:require
    [cljs-time.core :as t]
    [cljs-time.format :as tf]
-   [mrhyde.core :as mrhyde]
    [om.core :as om :include-macros true]
    [om.dom :as dom :include-macros true]
    [clojure.string :as str]))
-
-;; (enable-console-print!)
 
 (def amon-date (tf/formatter "yyyy-MM-ddTHH:mm:ssZ"))
 

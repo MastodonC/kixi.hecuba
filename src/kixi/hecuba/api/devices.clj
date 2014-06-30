@@ -27,6 +27,11 @@
         :get (let [items (db/execute session (hayt/select :devices (hayt/where [[= :entity_id entity_id]])))]
                {::items items})))))
 
+(defn should-calculate-fields? [sensors]
+  (not (some #(and (= (:period %) "CUMULATIVE")
+                   (or (= (:actual_annual_calculation %) true)
+                       (= (:normalised_annual_calculation %) true))) sensors)))
+
 (defn index-malformed? [ctx]
   (let [request (:request ctx)
         {:keys [route-params request-method]} request
@@ -34,7 +39,8 @@
     (case request-method
       :post (let [body (decode-body request)]
               ;; We need to assert a few things
-              (if (not= (:entity_id body) entity_id)
+              (if (or (not= (:entity_id body) entity_id)
+                      (not (should-calculate-fields? (:readings body))))
                 true                      ; it's malformed, game over
                 [false {:body body}] ; it's not malformed, return the body now we've read it
                 ))

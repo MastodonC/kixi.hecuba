@@ -12,13 +12,30 @@
             [kixi.hecuba.data.misc :as m]
             [kixi.hecuba.data.validate :as v]
             [kixi.hecuba.storage.db :as db]
-            [qbits.hayt :as hayt]
-            [kixi.hecuba.queue :as q]))
+            [qbits.hayt :as hayt]))
 
 ;; Helpers
 
 (defn round [x]
   (with-precision 3 x))
+
+(defn merge-sensor-metadata [store sensor]
+  (db/with-session [session (:hecuba-session store)]
+    (merge (first (db/execute session (hayt/select :sensor_metadata
+                                                   (hayt/where [[= :device_id (:device_id sensor)]
+                                                                [= :type (:type sensor)]])))) sensor)))
+(defn sensors-for-dataset
+  "Returns all the sensors for the given dataset."
+  [{:keys [members]} store]
+  (db/with-session [session (:hecuba-session store)]
+    (let [parsed-sensors (map (fn [s] (into [] (next (re-matches #"(\w+)-(\w+)" s)))) members)
+          sensor (fn [[type device_id]]
+                   (db/execute session
+                               (hayt/select :sensors
+                                            (hayt/where [[= :type type]
+                                                         [= :device_id device_id]]))))]
+      (->> (mapcat sensor parsed-sensors)
+           (map #(merge-sensor-metadata store %))))))
 
 (def conversion-factors {"vol2kwh" {"gasConsumption" {"m^3" 10.97222
                                                       "ft^3" (* 2.83 10.9722)}
@@ -149,6 +166,7 @@
 
 ;;;;;;;;;;; Rollups of measurements ;;;;;;;;;
 
+;; TODO single reduce with accumulator and count
 (defn average-reading [measurements]
   (let [measurements-sum   (reduce + measurements)
         measurements-count (count measurements)]
@@ -193,7 +211,7 @@
           measurements (m/parse-measurements (db/execute session (hayt/select :partitioned_measurements (hayt/where where))))
           filtered     (filter #(number? %) (map :value measurements))
           funct        (fn [measurements] (case period
-                                            "CUMULATIVE" (last measurements)
+                                            "CUMULATIVE" (last measurements) ;; TODO isn't it realising all measurements lazy sequence despite batches of 1h?
                                             "INSTANT"    (average-reading measurements)
                                             "PULSE"      (reduce + measurements)))]
       (when-not (empty? filtered)
@@ -376,7 +394,4 @@
               (log/info "Sensors are not of the same resolution.")))
           (log/info "Sensors do not have enough measurements to calculate.")))
       (log/info "Sensors do not meet requirements for calculation."))))
-
-
-
 
