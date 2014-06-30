@@ -28,11 +28,6 @@
   (let [value (:value m)]
     (assoc-in m [:reading_metadata "is-number"] (if (and (not (empty? value)) (m/numbers-as-strings? value)) "true" "false"))))
 
-(defn- sensor-exists? [session m]
-  (first (db/execute session
-                  (hayt/select :sensors
-                               (hayt/where (m/where-from m))))))
-
 (defn validate
   "Measurement map is pipelines through a number of validation
   functions. Returns map of measurement with updated metadata."
