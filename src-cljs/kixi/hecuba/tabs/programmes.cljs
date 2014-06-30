@@ -196,13 +196,13 @@
 ;; History loop - this drives the fetches and clear downs
 (defn history-loop [history-channel data]
   (go-loop []
-    (let [nav-event (<! history-channel)
-          history-status (-> nav-event :args :ids)
+    (let [nav-event                                        (<! history-channel)
+          history-status                                   (-> nav-event :args :ids)
           {:keys [programmes projects properties sensors]} history-status
-          old-nav (:active-components @data)
-          old-programmes (:programmes old-nav)
-          old-projects (:projects old-nav)
-          old-properties (:properties old-nav)]
+          old-nav                                          (:active-components @data)
+          old-programmes                                   (:programmes old-nav)
+          old-projects                                     (:projects old-nav)
+          old-properties                                   (:properties old-nav)]
       (log "Old Programmes: " old-programmes " Old Projects: " old-projects " Old Properties: " old-properties)
       (log "New Programmes: " programmes " New Projects: " projects " New Properties: " properties)
 
