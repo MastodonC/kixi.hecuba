@@ -50,4 +50,4 @@
 (defn sensor-and-metadata [session m]
   (some-> session
    (sensor-exists? m)
-   (merge (sensor_metadata session m))))
+   (merge (sensor-metadata session m))))
