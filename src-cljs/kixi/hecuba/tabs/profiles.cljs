@@ -2,8 +2,6 @@
   (:require [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]))
 
-(enable-console-print!)
-
 (defn get-profiles [selected-property-id data]
   (->>  data
         :properties
