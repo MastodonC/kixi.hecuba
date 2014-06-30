@@ -5,7 +5,9 @@
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
    [kixi.hecuba.data.misc :as m]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex)]
+   [kixi.hecuba.data.entities :as entities]
+   [kixi.hecuba.data.devices :as devices]
+   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex request-method-from-context)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
@@ -15,35 +17,40 @@
 
 (def ^:private device-resource (p/resource-path-string :entity-device-resource))
 
-(defn index-exists? [store ctx]
-  (db/with-session [session (:hecuba-session store)]
-    (let [request      (:request ctx)
-          method       (:request-method request)
-          route-params (:route-params request)
-          entity_id    (:entity_id route-params)
-          entity       (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first)]
-      (case method
-        :post (not (nil? entity))
-        :get (let [items (db/execute session (hayt/select :devices (hayt/where [[= :entity_id entity_id]])))]
-               {::items items})))))
-
-(defn index-malformed? [ctx]
-  (let [request (:request ctx)
-        {:keys [route-params request-method]} request
-        entity_id (:entity_id route-params)]
-    (case request-method
-      :post (let [body (decode-body request)]
-              ;; We need to assert a few things
-              (if (not= (:entity_id body) entity_id)
-                true                      ; it's malformed, game over
-                [false {:body body}] ; it's not malformed, return the body now we've read it
-                ))
-      false)))
-
 (defn- ext-type [sensor type-ext]
   (-> sensor
       (update-in [:type] #(str % "_" type-ext))
       (assoc :period "PULSE")))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; index-exists?
+(defmulti index-exists? request-method-from-context)
+
+(defmethod index-exists? :post [store ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (entities/get (-> ctx :request :route-params))))
+
+(defmethod index-exists? :get [store ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (let [entity_id  (:id (entities/get (-> ctx :request :route-params)))]
+      {::items (devices/get-all session entity_id)})))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; index-malformed?
+(defmulti index-malformed? request-method-from-context)
+
+(defmethod index-malformed? :default [_] false)
+
+(defmethod index-malformed? :post [{request :request}]
+  (let [entity_id (-> request :route-params :entity_id)]
+    (let [body (decode-body request)]
+      ;; We need to assert a few things
+      (if (not= (:entity_id body) entity_id)
+        true                      ; it's malformed, game over
+        [false {:body body}] ; it's not malformed, return the body now we've read it
+        ))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmulti calculated-sensor (fn [sensor] (.toUpperCase (:unit sensor))))
 
@@ -66,16 +73,20 @@
 
 (defmethod calculated-sensor :default [sensor])
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn create-default-sensors
   "Creates default sensors whenever new device is added: *_differenceSeries for CUMULATIVE,
    and *_co2 for kwh PULSE, etc."
   [body]
-  (let [sensors        (:readings body) 
+  (let [sensors        (:readings body)
         new-sensors    (map #(case (:period %)
                                "CUMULATIVE" (ext-type % "differenceSeries")
                                "PULSE"      (calculated-sensor %)
                                "INSTANT"    nil) sensors)]
     (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten (concat readings new-sensors))))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; index-post!
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -84,7 +95,7 @@
           username               (sec/session-username (-> ctx :request :session))
           user_id                (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)]
 
-      (when-not (empty? (first (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]])))))
+      (when-not (entities/get session {:id entity_id})
         (let [device       (-> body
                                (assoc :user_id user_id)
                                (update-in [:metadata] json/encode)
@@ -106,12 +117,18 @@
           {:device_id device_id
            :entity_id entity_id})))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; index-handle-ok
+
 (defn index-handle-ok [ctx]
   (let [items (::items ctx)]
     (util/render-items ctx (->> items
                                 (map #(dissoc % :user_id))
                                 (map #(update-in % [:location] json/decode))
                                 (map #(update-in % [:metadata] json/decode))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; index-handle-created
 
 (defn index-handle-created [ctx]
   (let [entity_id (-> ctx :entity_id)
@@ -121,6 +138,9 @@
                     :body (json/encode {:location location
                                         :status "OK"
                                         :version "4"})})))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; resource-exists?
 
 (defn resource-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -132,6 +152,9 @@
                     (assoc :device_id device_id)
                     (dissoc :id))}
         false))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; resource-exists?
 
 ;; Should be device-response etc and it should do the delete in delete!,
 ;; that should put something in the context which is then checked here.
@@ -145,6 +168,9 @@
           response3 (db/execute session (hayt/delete :sensor_metadata (hayt/where [[= :device_id device_id]])))
           response4 (db/execute session (hayt/delete :entities (hayt/columns {:devices device_id}) (hayt/where [[= :id entity_id]])))]
       (every? empty? [response1 response2 response3 response4]))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; resource-put!
 
 (defn resource-put! [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -177,6 +203,9 @@
               (db/execute session (hayt/insert :sensor_metadata (hayt/values {:device_id device_id :type (:type reading)}))))))
         (ring-response {:status 404 :body "Please provide valid entity_id and device_id"})))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; resource-handle-ok
+
 (defn resource-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [{item ::item} ctx]
@@ -189,12 +218,18 @@
           (update-in [:metadata] json/decode)
           (dissoc :user_id)))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; resource-respond-with-entity
+
 (defn resource-respond-with-entity [ctx]
   (let [request (:request ctx)
         method  (:request-method request)]
     (cond
      (= method :delete) false
       :else true)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; RESOURCES
 
 (defresource index [store]
   :allowed-methods #{:get :post}
