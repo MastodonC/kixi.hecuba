@@ -24,6 +24,10 @@
   (is (false?
        (allowed?* 1 5 #{} #{} #{:kixi.hecuba.security/user} :get))))
 
+(deftest user-cannot-put
+  (is (false?
+       (allowed?* 1 5 #{1} #{5} #{:kixi.hecuba.security/user} :put))))
+
 (deftest user-in-different-programme-can-not-get
   (is (false? (allowed?* 1 5 #{2} #{} #{:kixi.hecuba.security/user} :get))))
 

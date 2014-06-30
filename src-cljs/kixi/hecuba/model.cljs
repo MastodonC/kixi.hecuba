@@ -37,6 +37,8 @@
                     :data     []
                     :sensor-group {:members #{}
                                    :name nil}}
+    :sensor-edit {:editing false
+                  :row nil}
     :chart    {:property ""
                :sensor ""
                :unit ""

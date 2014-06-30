@@ -10,7 +10,7 @@
             [kixi.hecuba.tabs.sensors :as sensors]
             [kixi.hecuba.tabs.profiles :as profiles]
             [kixi.hecuba.tabs.programmes :as programmes]
-            [ajax.core :refer [GET POST PUT]]))
+            [ajax.core :refer [PUT]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Property Details Helpers

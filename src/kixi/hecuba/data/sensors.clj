@@ -1,7 +1,12 @@
 (ns kixi.hecuba.data.sensors
   (:require [clojure.tools.logging :as log]
             [qbits.hayt :as hayt]
-            [kixi.hecuba.storage.db :as db]))
+            [kixi.hecuba.storage.db :as db]
+            [kixi.hecuba.webutil :refer (stringify-values)]))
+
+(defn encode [sensor]
+  (-> sensor
+      (merge (stringify-values (dissoc sensor :synthetic :actual_annual)))))
 
 (defn sensor-time-range [device_id type session]
   (first
@@ -27,6 +32,19 @@
   (db/execute session
               (hayt/select :sensors
                            (hayt/where [[= :device_id device_id]]))))
+
+(defn insert [session sensor]
+  (db/execute session (hayt/insert :sensors
+                                   (hayt/values (encode sensor))))
+  (db/execute session (hayt/insert :sensor_metadata
+                                   (hayt/values {:device_id (:device_id sensor) :type (:type sensor)}))))
+
+(defn update [session device_id sensor]
+  (db/execute session (hayt/update :sensors
+                                   (hayt/set-columns (dissoc (encode sensor) :type :device_id))
+                                   (hayt/where [[= :device_id device_id] 
+                                                [= :type (:type sensor)]]))))
+
 (defn ->clojure
   "Sensors are called readings in the API."
   [device_id session]

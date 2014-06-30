@@ -392,8 +392,6 @@ CREATE TABLE sensors (
   correction text,
   correction_factor text,
   correction_factor_breakdown text,
-  errors int,
-  events int,
   frequency text,
   max text,
   median double,
