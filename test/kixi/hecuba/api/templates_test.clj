@@ -108,20 +108,12 @@
            result))))
 
 (deftest entity-resource-handle-ok-returns-correct-results
-  (let [store    (new-mock-store [{:id 3000 :metadata {:customer_ref "cref 1"} :description "description"
-                                   :location {:name "Bedroom"} :parent_id 1000}
-                                  {:id 3001 :metadata {:customer_ref "cref 2"} :description "description2"
+  (let [store    (new-mock-store [{:id 3001 :metadata {:customer_ref "cref 2"} :description "description2"
                                    :location {:name "Lounge"} :parent_id 1000}
+                                  {:id 3000 :metadata {:customer_ref "cref 1"} :description "description"
+                                   :location {:name "Bedroom"} :parent_id 1000}
                                   ]
                                  [{:device_id 3000
-                                   :type "CO2"
-                                   :accuracy "0"
-                                   :resolution "60"
-                                   :frequency "frequency3000/1"
-                                   :period "INSTANT"
-                                   :max "100"
-                                   :min "0"}
-                                  {:device_id 3000
                                    :type "electricityConsumption"
                                    :accuracy "5"
                                    :resolution "30"
@@ -129,6 +121,14 @@
                                    :period "CUMULATIVE"
                                    :max "200"
                                    :min "10"}
+                                  {:device_id 3000
+                                   :type "CO2"
+                                   :accuracy "0"
+                                   :resolution "60"
+                                   :frequency "frequency3000/1"
+                                   :period "INSTANT"
+                                   :max "100"
+                                   :min "0"}
                                   {:device_id 3000
                                    :type "solarRadiation"
                                    :accuracy "10"

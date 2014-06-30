@@ -179,18 +179,20 @@
 
 (defn entity-resource-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [entity_id (:id (:kixi.hecuba.api.entities/item ctx))
-          devices   (->> (db/execute session (hayt/select :devices (hayt/where [[= :entity_id entity_id]])))
-                         (map (fn [x] [(:id x) x]))
-                         (into {}))
-          sensors   (db/execute session (hayt/select :sensors (hayt/where [[:in :device_id (keys devices)]])))
-          items     (->> sensors
-                         (map (partial join-to-device devices))
-                         (map relocate-customer-ref)
-                         (map relocate-location)
-                         (map extract-columns-in-order)
-                         (apply map vector)
-                         (map #(apply vector %1 %2) headers-in-order))]
+    (let [entity_id       (:id (:kixi.hecuba.api.entities/item ctx))
+          devices         (->> (db/execute session (hayt/select :devices (hayt/where [[= :entity_id entity_id]])))
+                               (map (fn [x] [(:id x) x]))
+                               (into {}))
+          sensors         (db/execute session (hayt/select :sensors (hayt/where [[:in :device_id (keys devices)]])))
+          device-and-type #(str (:device_id %) "-" (:type %))
+          items           (->> sensors
+                               (map (partial join-to-device devices))
+                               (sort-by device-and-type)
+                               (map relocate-customer-ref)
+                               (map relocate-location)
+                               (map extract-columns-in-order)
+                               (apply map vector)
+                               (map #(apply vector %1 %2) headers-in-order))]
       (ring-response {:headers {"Content-Disposition" (str "attachment; filename=" entity_id "_template.csv")}
                       :body (util/render-items ctx items)}))))
 
