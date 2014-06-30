@@ -18,27 +18,30 @@
         (assoc :lower_ts lower_ts)
         (assoc :upper_ts upper_ts))))
 
-(defn enrich-sensor [sensor session]
+(defn enrich-sensor [session sensor]
   (-> sensor
       (dissoc :user_id)
       (add-metadata session)))
 
-(defn get-sensors [device_id session]
-  (db/execute session
-              (hayt/select :sensors
-                           (hayt/where [[= :device_id device_id]]))))
-
-(defn ->clojure
-  "Sensors are called readings in the API."
-  [device_id session]
-  (let [sensors (get-sensors device_id session)]
-    (mapv #(enrich-sensor % session) sensors)))
-
-(defn sensor-exists? [session m]
-  (first (db/execute session
+(defn get
+  "Returns a single sensor matching m or nil if not found."
+  [session m]
+  (->> (db/execute session
                      (hayt/select :sensors
                                   (hayt/where [[= :device_id (:device_id m)]
-                                               [= :type (:type m)]])))))
+                                               [= :type (:type m)]])))
+       (mapv (partial enrich-sensor session))
+       first))
+
+(defn get-all
+  ([session]
+     (db/execute session
+                 (hayt/select :sensors)))
+  ([session device_id]
+     (->>  (db/execute session
+                       (hayt/select :sensors
+                                    (hayt/where [[= :device_id device_id]])))
+           (mapv (partial enrich-sensor session)))))
 
 (defn sensor-metadata [session m]
   (first (db/execute session
@@ -49,5 +52,5 @@
 
 (defn sensor-and-metadata [session m]
   (some-> session
-   (sensor-exists? m)
+   (get m)
    (merge (sensor-metadata session m))))

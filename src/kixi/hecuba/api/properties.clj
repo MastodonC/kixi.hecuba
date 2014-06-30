@@ -51,8 +51,8 @@
                                                 {})
                                :photos (if-let [photos (:photos %)] (mapv (fn [p] (json/parse-string p keyword)) photos) [])
                                :documents (if-let [docs (:documents %)] (mapv (fn [d] (json/parse-string d keyword)) docs) [])
-                               :devices (devices/->clojure (:id %) session)
-                               :profiles (profiles/->clojure (:id %) session)
+                               :devices (devices/get-all session (:id %))
+                               :profiles (profiles/get-all session (:id %))
                                :href (format entity-resource (:id %)))))]
       coll)))
 

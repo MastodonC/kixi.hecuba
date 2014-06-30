@@ -55,10 +55,20 @@
       ;; window_sets list<text>,
       (parse-list :window_sets)))
 
-(defn get-profiles [entity_id session]
-  (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]]))))
+(defn get
+  ([session m]
+     (->> (db/execute session (hayt/select :profiles)
+                      (hayt/where [[= :id (:profile_id m)]]))
+          (mapv parse-profile)
+          first)))
 
-(defn ->clojure [entity_id session]
-  (let [profiles (get-profiles entity_id session)]
-    (log/infof "Got %s profiles to parse" (count profiles))
-    (mapv parse-profile profiles)))
+(defn get-all
+  ([session]
+     (->> (db/execute session (hayt/select :profiles))
+          (mapv parse-profile)))
+
+  ([session entity_id]
+     (let [profiles (db/execute session
+                                (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
+       ;; (log/infof "Got %s profiles to parse" (count profiles))
+       (mapv parse-profile profiles))))
