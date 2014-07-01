@@ -38,6 +38,7 @@
     <!-- <appender-ref ref="EMAIL" /> -->
   </root>
 
+  <logger name="com.amazonaws" level="INFO" />
   <logger name="org.apache" level="INFO" />
   <logger name="com.datastax.driver.core" level="INFO" />
   <logger name="org.eclipse.jetty" level="INFO" />
@@ -50,7 +51,7 @@
   <logger name="kixi.hecuba.session" level="INFO" />
   <logger name="kixi.hecuba.security" level="INFO" />
   <logger name="kixi.hecuba.webutil" level="INFO" />
-  
+
   <logger name="user" level="ALL" />
   <logger name="application" level="ALL" />
 

@@ -1,0 +1,8 @@
+#!/bin/zsh
+
+if [ -z "$1" ]; then 
+    echo "must supply (u|prm|prj|support) as first arg"
+    exit 1
+fi
+
+curl -L -u $1@example.com:password -vvv -X POST -F "data=@$PWD/examples/csv-upload/simple-good.csv;type=text/csv;filename=data.csv" http://localhost:8010/4/measurements/

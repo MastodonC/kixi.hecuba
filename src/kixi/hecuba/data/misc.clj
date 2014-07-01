@@ -67,7 +67,7 @@
   for that sensor."
   [store device_id type]
   (db/with-session [session (:hecuba-session store)]
-    (let [sensor (first (db/execute session 
+    (let [sensor (first (db/execute session
                                     (hayt/select :sensors (hayt/where [[= :device_id device_id]
                                                                        [= :type type]]))))]
       (merge-sensor-metadata store sensor))))
@@ -89,7 +89,7 @@
                (not= start end))
       {:start-date (tc/from-date start) :end-date (tc/from-date end)})))
 
-(defn min-max-dates 
+(defn min-max-dates
   "Takes a sequence of measurements and retuns a map
   of min and max dates for that sequence. It should be passed
   a batch of measurements."
@@ -112,7 +112,7 @@
         max-date   (tc/to-date-time (apply max (map tc/to-long all-ends)))]
     [min-date max-date]))
 
-(defn dates-overlap? 
+(defn dates-overlap?
   "Takes a start/end range from sensor_metadata \"dirty dates\" and a period,
   and returns range to calculate if it overlaps. Otherwise it returns nil."
   [{:keys [start-date end-date]} period]
@@ -141,7 +141,7 @@
   "Takes measurements in the format returned from the database.
    Returns a list of maps, with all values parsed approprietly."
   [measurements]
-  (map (fn [m] (assoc-in m [:value] 
+  (map (fn [m] (assoc-in m [:value]
                          (if (metadata-is-number? m)
                            (edn/read-string (:value m))
                            nil)))
@@ -201,7 +201,7 @@
     (assert (and (not (nil? min-date)) (not (nil? max-date))) (format "Min and max dates are null. Sensor: %s,  column: %s" sensor column))
     (cond
      (or (nil? start) (nil? end)) {"start" min-date "end" max-date}
-     (.before min-date start) {"start" min-date} 
+     (.before min-date start) {"start" min-date}
      (.after max-date end) {"end" max-date})))
 
 (defn update-bounds [min-date max-date {:keys [lower_ts upper_ts]}]
@@ -210,7 +210,7 @@
    (.before min-date lower_ts) {:lower_ts min-date}
    (.after max-date upper_ts) {:upper_ts max-date}))
 
-(defn columns-to-update? 
+(defn columns-to-update?
   "It returns columns to update, if there are any. Otherwise it returns nil."
   [sensor start end new-bounds]
   (merge
@@ -274,4 +274,3 @@
       (let [{:keys [min-date max-date]} (min-max-dates batch)]
         (insert-batch session batch)
         (update-sensor-metadata store sensor min-date max-date)))))
-

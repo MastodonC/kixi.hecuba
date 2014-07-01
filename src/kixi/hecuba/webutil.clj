@@ -201,3 +201,17 @@
 (defn request-method-from-context [& args]
   (let [ctx (last args)]
     (get-in ctx [:request :request-method])))
+
+(defn media-type-from-context [& args]
+  (some-> (last args)
+      (get-in [:representation :media-type])
+      (string/split #";\s*")
+      first))
+
+(defn content-type-from-context
+  "Returns the first part of the content type."
+  [& args]
+  (some-> (last args)
+          (get-in [:request :content-type])
+          (string/split #";\s*")
+          first))

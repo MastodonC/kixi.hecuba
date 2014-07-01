@@ -3,10 +3,12 @@
   (:require [kixipipe.pipeline             :refer [defnconsumer produce-item produce-items submit-item] :as p]
             [pipejine.core                 :as pipejine :refer [new-queue producer-of]]
             [clojure.tools.logging         :as log]
+            [kixipipe.storage.s3           :as s3]
             [kixi.hecuba.data.batch-checks :as checks]
             [kixi.hecuba.data.misc         :as misc]
             [kixi.hecuba.data.calculate    :as calculate]
             [kixi.hecuba.data.calculated-fields :as fields]
+            [kixi.hecuba.data.measurements.upload :as upload]
             [clj-time.core :as t]
             [com.stuartsierra.component    :as component]
             [kixi.hecuba.api.datasets      :as datasets]))
@@ -24,7 +26,9 @@
         convert-to-co2-q      (new-queue {:name "convert-to-co2-q" :queue-size 50})
         convert-to-kwh-q      (new-queue {:name "convert-to-kwh-q" :queue-size 50})
         sensor-status-q       (new-queue {:name "sensor-status" :queue-size 50})
-        actual-annual-q       (new-queue {:name "actual-annual-q" :queue-size 50})]
+        actual-annual-q       (new-queue {:name "actual-annual-q" :queue-size 50})
+        store-upload-s3-q     (new-queue {:name "store-upload-s3-q" :queue-size 50})
+        upload-measurements-q (new-queue {:name "data-upload-q" :queue-size 10})]
 
     (defnconsumer fanout-q [{:keys [dest type] :as item}]
       (let [item (dissoc item :dest)]
@@ -42,7 +46,9 @@
                                  :convert-to-co2     (produce-item item convert-to-co2-q)
                                  :convert-to-kwh     (produce-item item convert-to-kwh-q))
           :calculated-fields (condp = type
-                               :actual-annual (produce-item item actual-annual-q)))))
+                               :actual-annual (produce-item item actual-annual-q))
+          :upload (condp = type
+                    :measurements (produce-item item upload-measurements-q)))))
 
     (defnconsumer median-calculation-q [item]
       (log/info "Starting median calculation.")
@@ -135,7 +141,7 @@
               (calculate/gas-volume->kWh store new-item)
               (misc/reset-date-range store s :kwh (:start-date range) (:end-date range))))))
       (log/info "Finished conversion from vol to kwh."))
-    
+
     (defnconsumer rollups-q [item]
       (log/info "Starting rollups.")
       (let [sensors (misc/all-sensors store)]
@@ -199,13 +205,13 @@
                   range (misc/start-end-dates :actual_annual_calculation s where)]
 
               (when-let [new-range (misc/dates-overlap? range (t/months 12))]
-                (fields/calculate store s :actual-annual 
+                (fields/calculate store s :actual-annual
                                   "actual_annual_12months"
                                   new-range))
 
               (when-let [new-range (misc/dates-overlap? range (t/months 1))]
                 (prn "dates overlap")
-                (fields/calculate store s :actual-annual 
+                (fields/calculate store s :actual-annual
                                   "actual_annual_1month"
                                   new-range))
 
@@ -227,11 +233,20 @@
           (checks/sensor-status store {:sensor s :range {:start-date start :end-date end}})))
       (log/info "Finished sensor status check"))
 
+    (defnconsumer store-upload-s3-q [item]
+      (s3/store-file (:s3 store) item)
+      (produce-item item upload-measurements-q))
+
+    (defnconsumer upload-measurements-q [item]
+      (upload/upload-item store item))
+
     (producer-of fanout-q median-calculation-q mislabelled-sensors-q spike-check-q rollups-q synthetic-readings-q
-                 resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q sensor-status-q actual-annual-q)
+                 resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q sensor-status-q actual-annual-q
+                 upload-measurements-q)
 
     (list fanout-q #{median-calculation-q mislabelled-sensors-q spike-check-q rollups-q synthetic-readings-q
-                     resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q sensor-status-q actual-annual-q})))
+                     resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q sensor-status-q actual-annual-q
+                     upload-measurements-q})))
 
 (defrecord Pipeline []
   component/Lifecycle

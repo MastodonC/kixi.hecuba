@@ -26,7 +26,7 @@
    [kixi.hecuba.api.rollups :as rollups]
    [kixi.hecuba.api.datasets :as datasets]
    [kixi.hecuba.api.templates :as templates]
-   ))
+   [kixi.hecuba.api.uploads :as uploads]))
 
 (defn index-page [req]
   {:status 200
@@ -76,7 +76,7 @@
          params
          handler)))
 
-(defn amon-api-routes [store]
+(defn amon-api-routes [store s3 pipeline-head]
   (routes
    ;; API
    ;; Programmes
@@ -107,7 +107,7 @@
    (resource-route :entity-device-resource [:entity_id :device_id] (devices/resource store))
 
    ;; Measurements
-   (index-routes :entity-device-measurement-index [:entity_id :device_id] (measurements/index store))
+   (index-routes :entity-device-measurement-index [:entity_id :device_id] (measurements/index store s3 pipeline-head))
 
    ;; Readings
    ;; FIXME This should be an index route with the start/stop times
@@ -128,9 +128,14 @@
    (index-routes :templates-index (templates/index store))
    (resource-route :templates-resource [:template_id] (templates/resource store))
    (resource-route :entity-templates-resource [:entity_id] (templates/entity-resource store))
+   (index-routes :measurements [] (measurements/index store s3 pipeline-head))
+
+   ;; Uploads
+   (resource-route :uploads-status-resource [:upload_id] (uploads/status-resource store))
+   (resource-route :uploads-data-resource [:upload_id] (uploads/data-resource store))
    ))
 
-(defn all-routes [store]
+(defn all-routes [store s3 pipeline-head]
   (routes
 
    ;; landing page
@@ -151,7 +156,7 @@
          #{:kixi.hecuba.security/user}))
 
    ;; AMON API Routes
-   (amon-api-routes store)
+   (amon-api-routes store s3 pipeline-head)
 
    ;; js/css/etc
    (route/resources "/" {:root "site/"})
@@ -162,20 +167,22 @@
 (defrecord Routes [context]
   component/Lifecycle
   (start [this]
-    (let [store      (:store this)
-          all-routes (handler/site
-                      (friend/authenticate
-                       (all-routes store)
-                       {:credential-fn (partial creds/bcrypt-credential-fn (security/get-user store))
-                        :allow-anon? true
-                        :default-landing-uri "/app"
-                        :workflows
-                        ;; Note that ordering matters here. Basic first.
-                        [(workflows/http-basic :realm "/")
-                         (workflows/interactive-form :login-uri "/login")]})
-                      ;; Don't forget that Cassandra Session Store
-                      {:session {:store (cassandra-store store)}})
-          server     (run-server all-routes {:port 8010})]
+    (let [store         (:store this)
+          s3            (:s3 this)
+          pipeline-head (:head (:pipeline this))
+          all-routes    (handler/site
+                         (friend/authenticate
+                          (all-routes store s3 pipeline-head)
+                          {:credential-fn (partial creds/bcrypt-credential-fn (security/get-user store))
+                           :allow-anon? true
+                           :default-landing-uri "/app"
+                           :workflows
+                           ;; Note that ordering matters here. Basic first.
+                           [(workflows/http-basic :realm "/")
+                            (workflows/interactive-form :login-uri "/login")]})
+                         ;; Don't forget that Cassandra Session Store
+                         {:session {:store (cassandra-store store)}})
+          server        (run-server all-routes {:port 8010})]
       (assoc this ::server server)))
   (stop [this]
     ((::server this))))

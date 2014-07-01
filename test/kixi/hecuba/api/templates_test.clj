@@ -109,9 +109,9 @@
 
 (deftest entity-resource-handle-ok-returns-correct-results
   (let [store    (new-mock-store [{:id 3001 :metadata {:customer_ref "cref 2"} :description "description2"
-                                   :location {:name "Lounge"} :parent_id 1000}
+                                   :location {:name "Lounge"} :entity_id 1000}
                                   {:id 3000 :metadata {:customer_ref "cref 1"} :description "description"
-                                   :location {:name "Bedroom"} :parent_id 1000}
+                                   :location {:name "Bedroom"} :entity_id 1000}
                                   ]
                                  [{:device_id 3000
                                    :type "electricityConsumption"

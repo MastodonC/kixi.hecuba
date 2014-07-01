@@ -41,19 +41,23 @@
 (defn- relocate-location [m]
   (assoc m :location (get-in m [:location :name])))
 
-(def ^:private extract-columns-in-order (juxt
-                                         :device_id
-                                         :type
-                                         :customer_ref
-                                         :description
-                                         :location
-                                         :accuracy
-                                         :resolution
-                                         :frequency
-                                         :period
-                                         :parent_id
-                                         :max
-                                         :min))
+(def columns-in-order [:device_id
+                       :type
+                       :customer_ref
+                       :description
+                       :location
+                       :accuracy
+                       :resolution
+                       :frequency
+                       :period
+                       :entity_id ;; NOTE: This is shown as "Parent
+                                  ;; UUID" in the samples. Assuming
+                                  ;; parent_id column is old API and
+                                  ;; using entity_id instead
+                       :max
+                       :min])
+
+(def ^:private extract-columns-in-order (apply juxt columns-in-order))
 
 (def ^:private headers-in-order ["Device UUID"
                                  "Reading Type"

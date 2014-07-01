@@ -54,6 +54,10 @@
    :templates-index "templates"
    :templates-resource "templates/%s"
    :entity-templates-resource "templates/for-entity/%s" ;; TODO better url
+   :measurements "measurements"
+
+   :uploads-status-resource "uploads/%s/status"
+   :uploads-data-resource "uploads/%s/data"
    })
 
 (defn compojure-route

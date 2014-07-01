@@ -13,6 +13,7 @@
    kixi.hecuba.application.safe
    [kixi.hecuba.controller.pipeline :refer (new-pipeline)]
    [kixipipe.scheduler]
+   [kixipipe.storage.s3 :as s3]
    [kixi.hecuba.routes :refer (new-web-app)]
    [kixi.hecuba.storage.db :as db]
    [shadow.cljs.build :as cljs]
@@ -127,14 +128,15 @@
     (-> (component/system-map
          :cluster (db/new-cluster (:cassandra-cluster cfg))
          :hecuba-session (db/new-session (:hecuba-session cfg))
+         :s3 (s3/mk-session (:s3 cfg))
          :store (db/new-store)
          :pipeline (new-pipeline)
          :scheduler (kixipipe.scheduler/mk-session cfg)
          :cljs-builder (new-cljs-builder)
          :web-app (new-web-app cfg))
         (mod/system-using
-         {:web-app [:store]
-          :store [:hecuba-session]
+         {:web-app [:store :s3 :pipeline]
+          :store [:hecuba-session :s3]
           :pipeline [:store]
           :scheduler [:pipeline]
           :hecuba-session [:cluster]}))))

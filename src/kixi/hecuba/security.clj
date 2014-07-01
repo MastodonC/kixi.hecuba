@@ -14,6 +14,12 @@
 (derive ::admin ::programme-manager)
 (derive ::super-admin ::admin)
 
+(defn has-super-admin? [roles] (some #(isa? % ::super-admin) roles))
+(defn has-admin? [roles] (some #(isa? % ::admin) roles))
+(defn has-programme-manager? [roles] (some #(isa? % ::project-manager) roles))
+(defn has-project-manager? [roles] (some #(isa? % ::project-manager) roles))
+(defn has-user? [roles] (some #(isa? % ::user) roles))
+
 (defn add-user!
   ([store username password roles programmes projects]
      (db/with-session [session (:hecuba-session store)]
@@ -105,4 +111,3 @@
         :authentications
         (get (:current identity-map)))
     {:projects #{} :programmes #{} :roles #{}}))
-
