@@ -7,6 +7,7 @@
    [cheshire.core :as json]
    [cemerick.friend :as friend]
    [kixi.hecuba.data.users :as users]
+   [kixi.hecuba.data.programmes :as programmes]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
    [kixi.hecuba.webutil :refer (decode-body authorized? allowed? uuid stringify-values sha1-regex)]
@@ -28,7 +29,7 @@
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [web-session (-> ctx :request :session)
-          items       (db/execute session (hayt/select :programmes))]
+          items       (programmes/get-all session)]
       (->> items
            (items->authz-items web-session)
            (map #(-> %
@@ -56,10 +57,7 @@
 
 (defn resource-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (when-let [item (-> (db/execute session
-                                    (hayt/select :programmes
-                                                 (hayt/where [[= :id (get-in ctx [:request :route-params :programme_id])]])))
-                        first)]
+    (when-let [item (programmes/get-by-map session (-> ctx :request :route-params))]
       {::item item})))
 
 (defn resource-handle-ok [ctx]

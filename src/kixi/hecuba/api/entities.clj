@@ -3,7 +3,9 @@
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
    [kixi.hecuba.data.users :as users]
+   [kixi.hecuba.data.devices :as devices]
    [kixi.hecuba.data.projects :as projects]
+   [kixi.hecuba.data.entities :as entities]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
    [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values sha1-regex update-stringified-lists)]
@@ -57,15 +59,14 @@
 
 (defn resource-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [id (get-in ctx [:request :route-params :entity_id])]
-      (when-let [item (-> (db/execute session (hayt/select :entities (hayt/where [[= :id id]]))) first)]
-        {::item item}))))
+    (when-let [item (entities/get-by-map (-> ctx :request :route-params) :entity_id)]
+      {::item item})))
 
 (defn resource-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request      (:request ctx)
-          route-params (:route-params request)
-          ids          (map :id (db/execute session (hayt/select :devices (hayt/where [[= :entity_id (:entity_id route-params)]]))))
+          entity_id    (-> request :route-params :entity_id)
+          ids          (map :id (devices/get-all session entity_id))
           item         (::item ctx)]
       (util/render-item request (-> item
                                     (assoc :device_ids ids)
@@ -78,7 +79,7 @@
           entity_id (-> (::item ctx) :id)
           username  (sec/session-username (-> ctx :request :session))
           ;; FIXME: Why user_id?
-          user_id   (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)]
+          user_id   (-> (users/get-by-username session username) :id)]
       (db/execute session (hayt/insert :entities (hayt/values (-> entity
                                                                   (assoc :user_id user_id :id entity_id)
                                                                   (dissoc :device_ids))))))))

@@ -29,7 +29,7 @@
           devices (db/execute session (hayt/select :devices (hayt/where [[= :entity_id (entity_id-from ctx)]])))
           sensors (mapcat (fn [{:keys [id location]}]
                             (map #(assoc % :location (json/decode location))
-                                 (db/execute session (hayt/select :sensors (hayt/where [[= :device_id id]])))))
+                                 (sensors/get-all session id)))
                           devices)]
       (util/render-items request sensors))))
 

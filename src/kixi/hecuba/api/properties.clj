@@ -10,6 +10,7 @@
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.data.profiles :as profiles]
    [kixi.hecuba.data.devices :as devices]
+   [kixi.hecuba.data.entities :as entities]
    [kixi.hecuba.web-paths :as p]))
 
 (def ^:private entity-resource (p/resource-path-string :entity-resource))
@@ -41,8 +42,8 @@
     (let [request (:request ctx)
           coll    (->> (db/execute session
                                    (if-let [project_id (project_id-from ctx)]
-                                     (hayt/select :entities (hayt/where [[= :project_id project_id]]))
-                                     (hayt/select :entities)))
+                                     (entities/get-all session project_id)
+                                     (entities/get-all session)))
                        (map #(assoc %
                                :property_data (if-let [property_data (:property_data %)]
                                                 (-> property_data

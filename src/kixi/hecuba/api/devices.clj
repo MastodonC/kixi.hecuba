@@ -7,6 +7,7 @@
    [kixi.hecuba.data.misc :as m]
    [kixi.hecuba.data.entities :as entities]
    [kixi.hecuba.data.devices :as devices]
+   [kixi.hecuba.data.users :as users]
    [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex request-method-from-context)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
@@ -93,7 +94,7 @@
     (let [{:keys [request body]} ctx
           entity_id              (-> request :route-params :entity_id)
           username               (sec/session-username (-> ctx :request :session))
-          user_id                (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)]
+          user_id                (-> (users/get-by-username session username) :id)]
 
       (when-not (entities/get-by-id session entity_id)
         (let [device       (-> body
@@ -144,9 +145,8 @@
 
 (defn resource-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [entity_id (-> ctx :request :route-params :entity_id)
-          device_id (-> ctx :request :route-params :device_id)
-          item (-> (db/execute session (hayt/select :devices (hayt/where [[= :id device_id]]))) first)]
+    (let [device_id (-> ctx :request :route-params :device_id)
+          item (devices/get-by-id session device_id)]
       (if-not (empty? item)
         {::item (-> item
                     (assoc :device_id device_id)

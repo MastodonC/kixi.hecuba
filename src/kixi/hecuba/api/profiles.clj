@@ -4,27 +4,31 @@
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values update-stringified-lists sha1-regex)]
+   [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values update-stringified-lists sha1-regex request-method-from-context)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
+   [kixi.hecuba.data.entities :as entities]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.web-paths :as p]))
 
 (def ^:private entity-profiles-resource (p/resource-path-string :entity-profiles-resource))
 
-(defn index-exists? [store ctx]
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; index-exists?
+(defmulti index-exists request-method-from-context)
+
+(defmethod index-exists? :post [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request      (:request ctx)
-          method       (:request-method request)
-          route-params (:route-params request)
-          entity_id    (:entity_id route-params)
-          entity       (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first)]
-      (case method
-        :post (not (nil? entity))
-        :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
-               {::items items})))))
+    (entities/get-by-map session (-> ctx :request :route-params))))
+
+(defmethod index-exists? :get [store ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (let [entity_id    (-> ctx :request :route-params :entity_id)
+          entity       (entities/get-by-map session entity_id)]
+      (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
+        {::items items}))))
 
 (defn index-malformed? [ctx]
   (let [request (:request ctx)

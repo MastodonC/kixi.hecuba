@@ -8,6 +8,8 @@
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
+   [kixi.hecuba.data.projects :as projects]
+   [kixi.hecuba.data.users :as users]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.web-paths :as p]))
@@ -28,10 +30,9 @@
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
           coll    (->> (db/execute session
-                                   (if (programme_id-from ctx)
-                                     (hayt/select :projects
-                                                  (hayt/where [[= :programme_id (-> (:route-params request) :programme_id)]]))
-                                     (hayt/select :projects)))
+                                   (if-let [programme_id (programme_id-from ctx)]
+                                     (projects/get-all session programme_id)
+                                     (projects/get-all session)))
                        (map #(-> %
                                  (assoc :href (format programme-projects-resource (:programme_id %) (:id %))
                                         :properties (format project-properties-index (:id %))))))]
@@ -42,7 +43,7 @@
     (let [request (:request ctx)
           username  (sec/session-username (-> ctx :request :session))
           ;; FIXME: Why user_id?
-          user_id       (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+          user_id       (-> (users/get-by-username session username) :id)
           project       (-> request decode-body stringify-values)
           project_id    (if-let [id (:id project)] id (sha1/gen-key :project project))]
       (db/execute session
