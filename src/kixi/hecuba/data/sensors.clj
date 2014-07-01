@@ -23,15 +23,20 @@
       (dissoc :user_id)
       (add-metadata session)))
 
-(defn get
+(defn get-by-device_id-and-type [session device_id type]
+  (->> (db/execute session
+                   (hayt/select :sensors
+                                (hayt/where [[= :device_id device_id]
+                                             [= :type type]])))
+       (mapv (partial enrich-sensor session))
+       first)
+  )
+
+(defn get-by-map
   "Returns a single sensor matching m or nil if not found."
   [session m]
-  (->> (db/execute session
-                     (hayt/select :sensors
-                                  (hayt/where [[= :device_id (:device_id m)]
-                                               [= :type (:type m)]])))
-       (mapv (partial enrich-sensor session))
-       first))
+  (let [{:keys [device_id type]} m]
+    (get-by-device_id-and-type session device_id type)))
 
 (defn get-all
   ([session]

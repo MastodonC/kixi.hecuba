@@ -6,13 +6,19 @@
 (defn parse-project [session m]
   (identity m))
 
-(defn get
-  ([session m]
+(defn get-by-id
+  ([session id]
      (->> (db/execute session
                       (hayt/select :projects
-                                   (hayt/where [[= :id (:project_id m)]])))
+                                   (hayt/where [[= :id id]])))
           (mapv (partial parse-project session))
           first)))
+
+(defn get-by-map
+  ([session m]
+     (get-by-map m :project_id))
+  ([session m key]
+     (get-by-id (get m key))))
 
 (defn get-all
   ([session]

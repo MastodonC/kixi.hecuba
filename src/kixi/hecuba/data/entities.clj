@@ -6,13 +6,19 @@
   ;; TODO - do we need to parse?
   (identity x))
 
-(defn get
-  ([session m]
+(defn get-by-id
+  ([session entity_id]
      (->> (db/execute session
                       (hayt/select :entities
-                                   (hayt/where [[= :id (:entity_id m)]])))
+                                   (hayt/where [[= :id entity_id]])))
           (mapv (partial parse-entity session))
           first)))
+
+(defn get-by-map
+  ([session m]
+     (get-by-map session :entity_id))
+  ([session m key]
+     (get-by-id session (get m key))))
 
 (defn get-all
   ([session]

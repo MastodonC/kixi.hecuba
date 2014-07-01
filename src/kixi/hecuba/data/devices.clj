@@ -14,13 +14,18 @@
         (assoc :device_id device_id)
         (dissoc :id))))
 
-(defn get
+(defn get-by-id [session id]
+  (->> (db/execute session
+                   (hayt/select :devices
+                                (hayt/where [[= :id id]])))
+       (mapv (partial parse-device session))
+       first))
+
+(defn get-by-map
   ([session m]
-     (->> (db/execute session
-                      (hayt/select :devices
-                                   (hayt/where [[= :id (:device_id m)]])))
-          (mapv (partial parse-device session))
-          first)))
+     (get-by-map session m :device_id))
+  ([session m key]
+     (get-by-id (get m key))))
 
 (defn get-all
   ([session]

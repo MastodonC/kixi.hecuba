@@ -55,18 +55,22 @@
       ;; window_sets list<text>,
       (parse-list :window_sets)))
 
-(defn get
-  ([session m]
-     (->> (db/execute session (hayt/select :profiles)
-                      (hayt/where [[= :id (:profile_id m)]]))
+(defn get-by-id [session id]
+       (->> (db/execute session (hayt/select :profiles)
+                      (hayt/where [[= :id id]]))
           (mapv parse-profile)
-          first)))
+          first))
+
+(defn get-by-map
+  ([session m]
+     (get-by-map session m :profile_id))
+  ([session m key]
+     (get-by-id session (get m key))))
 
 (defn get-all
   ([session]
      (->> (db/execute session (hayt/select :profiles))
           (mapv parse-profile)))
-
   ([session entity_id]
      (let [profiles (db/execute session
                                 (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]

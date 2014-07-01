@@ -28,11 +28,11 @@
 
 (defmethod index-exists? :post [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (entities/get (-> ctx :request :route-params))))
+    (entities/get-by-map (-> ctx :request :route-params))))
 
 (defmethod index-exists? :get [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [entity_id  (:id (entities/get (-> ctx :request :route-params)))]
+    (let [entity_id  (:id (entities/get-by-map (-> ctx :request :route-params)))]
       {::items (devices/get-all session entity_id)})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -95,7 +95,7 @@
           username               (sec/session-username (-> ctx :request :session))
           user_id                (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)]
 
-      (when-not (entities/get session {:id entity_id})
+      (when-not (entities/get-by-id session entity_id)
         (let [device       (-> body
                                (assoc :user_id user_id)
                                (update-in [:metadata] json/encode)

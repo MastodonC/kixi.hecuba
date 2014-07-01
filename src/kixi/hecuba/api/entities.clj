@@ -27,7 +27,7 @@
           ;; FIXME: Why user_id?
           user_id       (-> (users/get-by-username session username) :id)]
       (when (and project_id property_code)
-        (when-not (projects/get session {:id project_id})
+        (when-not (projects/get-by-id session project_id)
           (let [entity_id (sha1/gen-key :entity entity)]
             (db/execute session
                         (hayt/insert :entities (hayt/values (-> entity
