@@ -103,7 +103,7 @@
   (pr-str (vec items)))
 
 (defmethod render-items "application/json" [_ items]
-  (map encode items))
+  (encode items))
 
 (defmethod render-items "text/csv" [_ items]
   (if (map? (first items))
