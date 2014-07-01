@@ -41,7 +41,7 @@
     (let [request      (:request ctx)
           username     (sec/session-username (-> ctx :request :session))
           ;; FIXME why user_id?
-          user_id      (-> (users/get session {:username username}) :id)
+          user_id      (-> (users/get-by-username session username) :id)
           programme    (-> request decode-body stringify-values)
           programme_id (if-let [id (:id programme)] id (sha1/gen-key :programme programme))]
       (db/execute session (hayt/insert :programmes (hayt/values (assoc programme :user_id user_id :id programme_id))))

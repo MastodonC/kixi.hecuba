@@ -8,18 +8,15 @@
 (defn- parse-user [session m]
   (identity m))
 
-(defn get
-  ([session m]
+(defn get-by-username
+  ([session username]
      (->> (db/execute session
-                      (hayt/select :devices
-                                   (hayt/where [[= :id (:device_id m)]])))
+                      (hayt/select :users
+                                   (hayt/where [[= :username username]])))
           (mapv (partial parse-user session))
           first)))
 
 (defn get-all
   ([session]
-     (->> (db/execute session (hayt/select :devices))
-          (mapv (partial parse-user session))))
-  ([session entity_id]
-     (->> (db/execute session (hayt/select :devices (hayt/where [[= :entity_id entity_id]])))
+     (->> (db/execute session (hayt/select :users))
           (mapv (partial parse-user session)))))
