@@ -56,6 +56,7 @@
                 new-item  (assoc item :sensor s :range range)]
             (when period
               (when (and range (not= period "PULSE"))
+                (log/info  "Calculating median for: " device_id type)
                 (checks/median-calculation store new-item)
                 (misc/reset-date-range store s :median_calc_check (:start-date range) (:end-date range)))))))
       (log/info "Finished median calculation."))
@@ -71,6 +72,7 @@
                 range     (misc/start-end-dates :mislabelled_sensors_check s where)
                 new-item  (assoc item :sensor s :range range)]
             (when range
+              (log/info  "Checking if mislabelled: " device_id type)
               (checks/mislabelled-sensors store new-item)
               (misc/reset-date-range store s :mislabelled_sensors_check (:start-date range) (:end-date range))))))
       (log/info "Finished mislabelled sensors check."))
@@ -112,6 +114,7 @@
                        (= "KWH" (.toUpperCase unit))
                        (= "PULSE" period)
                        (should-convert-type? type))
+              (log/info  "Converting to co2: " device_id type)
               (calculate/kWh->co2 store new-item)
               (misc/reset-date-range store s :co2 (:start-date range) (:end-date range))))))
       (log/info "Finished conversion from kWh to co2."))
@@ -126,7 +129,8 @@
                 new-item  (assoc item :sensor s :range range)]
             (when (and range
                        unit
-                       (some #(= (.toUpperCase unit) (.toUpperCase %)) ["m^3" "ft^3"]))
+                       (some #(= (.toUpperCase unit) (.toUpperCase %)) ["m^3" "ft^3"])
+                       (some #(= type %) ["gasConsumption" "oilConsumption"]))
               (log/info  "Converting to kWh: " device_id type)
               (calculate/gas-volume->kWh store new-item)
               (misc/reset-date-range store s :kwh (:start-date range) (:end-date range))))))

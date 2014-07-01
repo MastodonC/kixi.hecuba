@@ -48,10 +48,11 @@
 (defn conversion-fn [{:keys [type unit]} operation]
   (let [typ   (first (str/split type #"_"))
         factor (get-in conversion-factors [operation typ unit])]
-    (fn [m]
-      (cond-> m (m/metadata-is-number? m)
-              (assoc :value (str (round (* factor (edn/read-string (:value m)))))
-                     :type (m/output-type-for type operation))))))
+    (when factor
+      (fn [m]
+        (cond-> m (m/metadata-is-number? m)
+                (assoc :value (str (round (* factor (edn/read-string (:value m)))))
+                       :type (m/output-type-for type operation)))))))
 
 (defmulti quantize-timestamp (fn [m resolution] resolution))
 
@@ -145,11 +146,12 @@
         new-type                (m/output-type-for type "kwh2co2")
         get-fn-and-measurements (fn [s] [(conversion-fn s "kwh2co2")
                                          (measurements/measurements-for-range store s range (t/hours 1))])
-        convert                 (fn [[f xs]] (map f xs))
+        convert                 (fn [[f xs]] (when-not (nil? f) (map f xs)))
         calculated              (->> sensor
                                      get-fn-and-measurements
                                      convert)]
-    (m/insert-measurements store {:device_id device_id :type new-type} calculated 100)))
+    (when calculated
+      (m/insert-measurements store {:device_id device_id :type new-type} calculated 100))))
 
 (defn gas-volume->kWh 
   "Converts measurements from m^3 and ft^3 to kWh."
@@ -157,12 +159,13 @@
   (let [{:keys [device_id type]} sensor
         get-fn-and-measurements  (fn [s] [(conversion-fn s "vol2kwh") 
                                           (measurements/measurements-for-range store s range (t/hours 1))])
-        convert                  (fn [[f xs]] (map f xs))
+        convert                  (fn [[f xs]] (when-not (nil? f) (map f xs)))
         new-type                 (m/output-type-for type "vol2kwh")
         calculated               (->> sensor
                                       get-fn-and-measurements
                                       convert)]
-    (m/insert-measurements store {:device_id device_id :type new-type} calculated 100)))
+    (when calculated
+      (m/insert-measurements store {:device_id device_id :type new-type} calculated 100))))
 
 ;;;;;;;;;;; Rollups of measurements ;;;;;;;;;
 
