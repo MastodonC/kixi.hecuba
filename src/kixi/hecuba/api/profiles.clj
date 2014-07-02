@@ -620,11 +620,19 @@
     exploded-item))
 
 (defn extract-attribute [attr-key input]
+  "Extracts a hash-map containing a single key and its value from the input.
+  The key is expected to be a keyword, while input is supposed to be a hash-map
+  with strings as keys"
   (let [attr-name (name attr-key)
         attr-value (input attr-name)]
   {attr-key attr-value}))
 
 (defn extract-nested-item [attr input]
+  "Extracts a nested item from input, returning a hashmap with a single pair,
+  where the key is the nested item association name, and the value is a json
+  string representing all the attributes of the nested item.
+  attr is expected to be a hash-map with at least :name and :schema keys,
+  while input is expected to be a hash-map representing the profile, with strings as keys"
   (let [association-name   (:name   attr)
         association-schema (:schema attr)
         nested-item (->> association-schema
@@ -637,6 +645,7 @@
     {association-name nested-item}))
 
 (defn extract-associated-item [association-name association-schema input index]
+  "Extracts the item belonging to a 'has many' association from input, at position index."
   (->> association-schema
     (reduce
       (fn [associated-item associated-item-attr]
@@ -646,6 +655,11 @@
       {})))
 
 (defn extract-associated-items [attr input]
+  "Extracts a collection representing a 'has many' association from input.
+  It returns a list of hash-maps, each representing one of the items from
+  the association.
+  attr is expected to be a hash-map with at least :name and :schema keys,
+  while input is expected to be a hash-map representing the whole profile, with strings as keys"
   (let [association-name   (:name attr)
         association-schema (:schema attr)
         attribute-names    (doall (keys input))
@@ -657,6 +671,18 @@
     {association-name associated-items}))
 
 (defn parse-by-schema [input schema]
+  "Parses input according to schema, assuming it was shaped as a
+  'tall' CSV profile.
+  This means that the first column contains attribute names, and the
+  second column contains values. Attribute names are presented in
+  'exploded' format, in order to properly address associations and
+  nesting.
+  Example:
+
+  attribute type | attribute name              | exploded name              |
+  standaed       | timestamp                   | timestamp                  |
+  nested item    | profile_data, bedroom_count | profile_data_bedroom_count |
+  association    | storeys, first storey_type  | storeys_0_storey_type      |"
   (->> schema
        (reduce
          (fn [item attr]
