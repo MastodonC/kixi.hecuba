@@ -29,7 +29,6 @@
                      (hayt/where [[= :id username]])))))
   ([store username password roles]
      (add-user! store username password roles #{} #{})))
-
 ;; (kixi.hecuba.security/add-user! (:store system) "support@example.com" "<password>" #{:kixi.hecuba.security/super-admin})
 
 (defn get-user [store]
@@ -48,6 +47,39 @@
                   :password (:password user)}
                  (edn/read-string (:data user)))
           nil)))))
+
+(defn update-user-data! [store username user-data]
+  (db/with-session [session (:hecuba-session store)]
+    (db/execute
+     session
+     (hayt/update :users
+                  (hayt/set-columns
+                   {:data (pr-str user-data)})
+                  (hayt/where [[= :id username]])))))
+
+(defn add-programme! [store username programme_id]
+  (let [{:keys [projects programmes roles]} ((get-user store) username)]
+    (update-user-data! store username {:roles      roles
+                                       :programmes (conj programmes programme_id)
+                                       :projects   projects})))
+
+(defn remove-programme! [store username programme_id]
+  (let [{:keys [projects programmes roles]} ((get-user store) username)]
+    (update-user-data! store username {:roles      roles
+                                       :programmes (set (remove #(= programme_id %) programmes))
+                                       :projects   projects})))
+
+(defn add-project! [store username project_id]
+  (let [{:keys [projects programmes roles]} ((get-user store) username)]
+    (update-user-data! store username {:roles      roles
+                                       :programmes programmes
+                                       :projects   (conj projects project_id)})))
+
+(defn remove-project! [store username project_id]
+  (let [{:keys [projects programmes roles]} ((get-user store) username)]
+    (update-user-data! store username {:roles      roles
+                                       :programmes programmes
+                                       :projects   (set (remove #(= project_id %) projects))})))
 
 (defn friend-middleware
   "Returns a middleware that enables authentication via Friend."
