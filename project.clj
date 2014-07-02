@@ -8,6 +8,7 @@
 
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/data.csv "0.1.2"]
+                 [org.clojure/core.match "0.2.1"]
 
                  ;; logging
                  [org.clojure/tools.logging "0.3.0"]
