@@ -511,13 +511,14 @@
 (def profile-schema
   [ :id
     :entity_id
+    :timestamp
     { :name    :profile_data
       :type    :nested-item
       :schema  profile-data-schema }
     { :name    :window_sets
       :type    :associated-items
       :schema   window-set-schema}
-    { :name    :thermal-images
+    { :name    :thermal_images
       :type    :associated-items
       :schema  thermal-images-schema }
     { :name    :storeys
@@ -618,35 +619,53 @@
                                            (explode-associated-items attr (item (:name attr)))))))))]
     exploded-item))
 
-(defn extract-attribute [attr input]
-  (println "Attribute: " attr)
-  (println "Input: " input)
-  {attr (input attr)})
+(defn extract-attribute [attr-key input]
+  (let [attr-name (name attr-key)
+        attr-value (input attr-name)]
+  {attr-key attr-value}))
 
 (defn extract-nested-item [attr input]
   (let [association-name   (:name   attr)
         association-schema (:schema attr)
         nested-item (->> association-schema
                          (reduce
-                           (fn [nested-item attr]
-                             (let [attr-name (name attr)
-                                   exploded-attr-name (str association-name "_" attr-name)]
-                               { (keyword attr-name) (input exploded-attr-name) }))
+                           (fn [nested-item nested-attr]
+                             (let [nested-attr-name (name nested-attr)
+                                   exploded-attr-name (str (name association-name) "_" nested-attr-name)]
+                               (conj nested-item { nested-attr (input exploded-attr-name)})))
                            {}))]
     {association-name nested-item}))
 
+(defn extract-associated-item [association-name association-schema input index]
+  (->> association-schema
+    (reduce
+      (fn [associated-item associated-item-attr]
+        (let [associated-item-attr-name (name associated-item-attr)
+              exploded-attr-name (str (name association-name) "_" index "_" associated-item-attr-name)]
+          (conj associated-item { associated-item-attr (input exploded-attr-name)})))
+      {})))
+
 (defn extract-associated-items [attr input]
-  {})
+  (let [association-name   (:name attr)
+        association-schema (:schema attr)
+        attribute-names    (doall (keys input))
+        items-id-pattern   (re-pattern (str (name association-name) "_(\\d+)_"))
+        items-ids (reduce conj #{} (->> attribute-names
+                                        (map #(when-some [x (re-find items-id-pattern %)] (last x)))
+                                        (filter #(not (nil? %)))))
+        associated-items (map #(extract-associated-item association-name association-schema input %) items-ids) ]
+    {association-name associated-items}))
 
 (defn parse-by-schema [input schema]
   (->> schema
        (reduce
          (fn [item attr]
-           (let [t (attribute-type attr)]
-             (case t
-               :attribute               (extract-attribute attr input)
-               :nested-item             (extract-nested-item attr input)
-               :associated-item         (extract-associated-items attr input))))
+           (let [t (attribute-type attr)
+                 imploded-attribute (case t
+                   :attribute               (extract-attribute attr input)
+                   :nested-item             (extract-nested-item attr input)
+                   :associated-items        (extract-associated-items attr input))]
+             (conj item imploded-attribute)))
          {})))
 
 (defn index-malformed? [ctx]
@@ -655,17 +674,10 @@
         entity_id (:entity_id route-params)]
     (case request-method
       :post (let [decoded-body  (decode-body request)
-                  _ (log/info "BODY SIZE: " (count decoded-body))
-                  _ (log/info "Oh damn, why is it just one vector-in-a-list? Let's see what's in there at least")
-                  raw-body (first decoded-body)
-                  _ (log/info "RAW BODY:\n" raw-body)
-                  _ (log/info "BODY SIZE:\t" (count raw-body))
-                  _ (log/info "doesn't make much sense does it... it's like we got back a vector of strings, joined on \\n")
                   body     (if (= "text/csv" (:content-type request))
-                             (let [body-map (reduce conj {} raw-body)
-                                   _ (println "BODY:\n" body-map)]
+                             (let [body-map (reduce conj {} decoded-body)]
                                (parse-by-schema body-map profile-schema))
-                             raw-body)]
+                             decoded-body)]
               ;; We need to assert a few things
               (if (not= (:entity_id body) entity_id)
                 true                  ; it's malformed, game over
@@ -728,18 +740,31 @@
 
 (defn resource-put! [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [{request :request} ctx]
+    (let [request (:request ctx)]
       (if-let [item (::item ctx)]
-        (let [body       (decode-body request)
+        (let [decoded-body  (decode-body request)
+              body     (if (= "text/csv" (:content-type request))
+                         (let [body-map (reduce conj {} decoded-body)]
+                           (parse-by-schema body-map profile-schema))
+                         decoded-body)
               entity_id  (-> item :entity_id)
               username   (sec/session-username (-> ctx :request :session))
-              user_id    (:id (users/get-by-username session username))
-              profile_id (-> item :profile-id)]
+              user_id    (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+              profile_id (-> item :profile_id)]
           (db/execute session (hayt/insert :profiles (hayt/values (-> body
                                                                       (assoc :id profile_id)
                                                                       (assoc :user_id user_id)
-                                                                      ;; TODO: add storeys, walls, etc.
-                                                                      stringify-values)))))
+                                                                      (update-stringified-lists
+                                                                        [:airflow_measurements :chps
+                                                                         :conservatories :door_sets
+                                                                         :extensions :floors :heat_pumps
+                                                                         :heating_systems :hot_water_systems
+                                                                         :low_energy_lights :photovoltaics
+                                                                         :roof_rooms :roofs :small_hydros
+                                                                         :solar_thermals :storeys :thermal_images
+                                                                         :ventilation_systems :walls
+                                                                         :wind_turbines :window_sets])
+                                                                       (update-in [:profile_data] json/encode))))))
         (ring-response {:status 404 :body "Please provide valid entity_id and timestamp"})))))
 
 (defn resource-handle-ok [store ctx]
@@ -763,31 +788,29 @@
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request    (-> ctx :request)
-          profile    (-> ctx :body)
-          entity_id  (-> profile :entity_id)
-          timestamp  (-> profile :timestamp)
+    (let [{:keys [request profile]} ctx
+          {:keys [entity_id timestamp]} profile
           username   (sec/session-username (-> ctx :request :session))
           ;; FIXME: Why user_id?
           user_id    (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
           profile_id (sha1/gen-key :profile profile)]
       (when (and entity_id timestamp)
         (when-not (empty? (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first))
-          (db/execute session (hayt/insert :profiles (-> profile
-                                                         (assoc :user_id user_id)
-                                                         (update-stringified-lists
-                                                          [:airflow_measurements :chps
-                                                           :conservatories :door_sets
-                                                           :extensions :floors :heat_pumps
-                                                           :heating_systems :hot_water_systems
-                                                           :low_energy_lights :photovoltaics
-                                                           :roof_rooms :roofs :small_hydros
-                                                           :solar_thermals :storeys :thermal_images
-                                                           :ventilation_systems :walls
-                                                           :wind_turbines :window_sets])
-                                                         (update-in [:profile_data] json/encode)
-                                                         )))
-          {:profile_id profile_id})))))
+          (let [query-profile (-> profile
+                                 (assoc :user_id user_id)
+                                 (update-stringified-lists
+                                  [:airflow_measurements :chps
+                                   :conservatories :door_sets
+                                   :extensions :floors :heat_pumps
+                                   :heating_systems :hot_water_systems
+                                   :low_energy_lights :photovoltaics
+                                   :roof_rooms :roofs :small_hydros
+                                   :solar_thermals :storeys :thermal_images
+                                   :ventilation_systems :walls
+                                   :wind_turbines :window_sets])
+                                 (update-in [:profile_data] json/encode))]
+          (db/execute session (hayt/insert :profiles (hayt/values query-profile)))
+          {:profile_id profile_id}))))))
 
 
 (defresource index [store]
