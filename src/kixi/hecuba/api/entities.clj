@@ -19,12 +19,6 @@
 (def ^:private entities-index-path (p/index-path-string :entities-index))
 (def ^:private entity-resource-path (p/resource-path-string :entity-resource))
 
-(defn index-allowed? [store]
-  (fn [ctx]
-    (let [request (:request ctx)]
-      (log/infof "CTX in allowed? %s" ctx)
-      true)))
-
 (defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
   (match [(some #(isa? % :kixi.hecuba.security/admin) roles)
           (some #(isa? % :kixi.hecuba.security/programme-manager) roles)
@@ -45,16 +39,24 @@
          [_ _ _ _ true true :get] true
          :else false))
 
+(defn index-allowed? [store]
+  (fn [ctx]
+    (let [{:keys [body request-method session params]} (:request ctx)
+          {:keys [projects programmes roles]} (sec/current-authentication session)
+          project_id (:project_id body)
+          programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
+      (when (and project_id programme_id)
+        (allowed?* programme_id project_id projects programmes roles request-method)))))
+
 (defn resource-allowed? [store]
   (fn [ctx]
     (let [{:keys [request-method session params]} (:request ctx)
           {:keys [projects programmes roles]}     (sec/current-authentication session)
-          entity (entities/get-by-id (:hecuba-session store) (:entity_id params))
-          project (projects/get-by-id (:hecuba-session store) (:project_id entity))
-          programme (programmes/get-by-id (:hecuba-session store) (:programme_id project))]
-      (log/infof "Request: req-method: %s projects: %s programmes: %s roles %s entity_id %s" request-method projects programmes roles params)
-      (log/infof "Data: project: %s programme: %s" (:id project) (:id programme))
-      (allowed?* (:programme_id project) (:project_id entity) projects programmes roles request-method))))
+          entity_id (:entity_id params)
+          project_id (when entity_id (:project_id (entities/get-by-id (:hecuba-session store) entity_id)))
+          programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
+      (when (and project_id programme_id)
+        (allowed?* programme_id project_id projects programmes roles request-method)))))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
