@@ -21,7 +21,7 @@
           method       (:request-method request)
           route-params (:route-params request)
           entity_id    (:entity_id route-params)
-          entity       (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first)]
+          entity       (first (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))))]
       (case method
         :post (not (nil? entity))
         :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
@@ -586,10 +586,10 @@
   (let [item (json/decode item-string)
         association-name   (:name   association)
         association-schema (:schema association)]
-    (->> association-schema
-         (map
-           (fn [attr]
-             [ (str (name association-name) "_" (name attr)) (item (name attr)) ])))))
+    (map
+     (fn [attr]
+       [ (str (name association-name) "_" (name attr)) (item (name attr)) ])
+     association-schema)))
 
 (defn explode-associated-items [association items]
   (let [association-name   (name (:name    association))
@@ -606,17 +606,14 @@
 
 (defn explode-and-sort-by-schema [item schema]
   (let [exploded-item
-        (->> schema
-             (mapcat
-               (fn [attr]
-                 (let [t (attribute-type attr)]
-                   (case t
-                     :attribute          (do
-                                           (list [(name attr) (item attr)]))
-                     :nested-item        (do
-                                           (explode-nested-item attr (item (:name attr))))
-                     :associated-items   (do
-                                           (explode-associated-items attr (item (:name attr)))))))))]
+         (mapcat
+           (fn [attr]
+             (let [t (attribute-type attr)]
+               (case t
+                 :attribute          (list [(name attr) (item attr)])
+                 :nested-item        (explode-nested-item attr (item (:name attr)))
+                 :associated-items   (explode-associated-items attr (item (:name attr))))))
+           schema)]
     exploded-item))
 
 (defn extract-attribute [attr-key input]
@@ -635,24 +632,24 @@
   while input is expected to be a hash-map representing the profile, with strings as keys"
   (let [association-name   (:name   attr)
         association-schema (:schema attr)
-        nested-item (->> association-schema
-                         (reduce
-                           (fn [nested-item nested-attr]
-                             (let [nested-attr-name (name nested-attr)
-                                   exploded-attr-name (str (name association-name) "_" nested-attr-name)]
-                               (conj nested-item { nested-attr (input exploded-attr-name)})))
-                           {}))]
+        nested-item (reduce
+                      (fn [nested-item nested-attr]
+                        (let [nested-attr-name (name nested-attr)
+                              exploded-attr-name (str (name association-name) "_" nested-attr-name)]
+                          (conj nested-item { nested-attr (input exploded-attr-name)})))
+                      {}
+                      association-schema)]
     {association-name nested-item}))
 
 (defn extract-associated-item [association-name association-schema input index]
   "Extracts the item belonging to a 'has many' association from input, at position index."
-  (->> association-schema
-    (reduce
-      (fn [associated-item associated-item-attr]
-        (let [associated-item-attr-name (name associated-item-attr)
-              exploded-attr-name (str (name association-name) "_" index "_" associated-item-attr-name)]
-          (conj associated-item { associated-item-attr (input exploded-attr-name)})))
-      {})))
+  (reduce
+    (fn [associated-item associated-item-attr]
+      (let [associated-item-attr-name (name associated-item-attr)
+            exploded-attr-name (str (name association-name) "_" index "_" associated-item-attr-name)]
+        (conj associated-item { associated-item-attr (input exploded-attr-name)})))
+    {}
+    association-schema))
 
 (defn extract-associated-items [attr input]
   "Extracts a collection representing a 'has many' association from input.
@@ -683,16 +680,16 @@
   standaed       | timestamp                   | timestamp                  |
   nested item    | profile_data, bedroom_count | profile_data_bedroom_count |
   association    | storeys, first storey_type  | storeys_0_storey_type      |"
-  (->> schema
-       (reduce
-         (fn [item attr]
-           (let [t (attribute-type attr)
-                 imploded-attribute (case t
-                   :attribute               (extract-attribute attr input)
-                   :nested-item             (extract-nested-item attr input)
-                   :associated-items        (extract-associated-items attr input))]
-             (conj item imploded-attribute)))
-         {})))
+  (reduce
+    (fn [item attr]
+      (let [t (attribute-type attr)
+            imploded-attribute (case t
+              :attribute               (extract-attribute attr input)
+              :nested-item             (extract-nested-item attr input)
+              :associated-items        (extract-associated-items attr input))]
+        (conj item imploded-attribute)))
+    {}
+    schema))
 
 (defn index-malformed? [ctx]
   (let [request (:request ctx)
@@ -718,8 +715,7 @@
                              (map #(dissoc % :user_id)))
          formatted-items (if (= "text/csv" mime)
                            ; serving tall csv style profiles
-                           (let [exploded-items (->> userless-items
-                                                     (map #(explode-and-sort-by-schema % profile-schema)))]
+                           (let [exploded-items (map #(explode-and-sort-by-schema % profile-schema) userless-items)]
                              (apply util/map-longest
                                     add-profile-keys ["" ""] exploded-items))
                            ; serving json profiles
@@ -744,7 +740,7 @@
 
 (defn resource-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request    (-> ctx :request)
+    (let [request    (:request ctx)
           _          (log/infof "resource-exists? request: %s" request)
           entity_id  (-> request :params :entity_id)
           profile_id (-> request :params :profile_id)
@@ -773,10 +769,10 @@
                          (let [body-map (reduce conj {} decoded-body)]
                            (parse-by-schema body-map profile-schema))
                          decoded-body)
-              entity_id  (-> item :entity_id)
+              {:keys [entity_id profile_id]} item
               username   (sec/session-username (-> ctx :request :session))
               user_id    (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
-              profile_id (-> item :profile_id)]
+              ]
           (db/execute session (hayt/insert :profiles (hayt/values (-> body
                                                                       (assoc :id profile_id)
                                                                       (assoc :user_id user_id)
@@ -821,7 +817,9 @@
           user_id    (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
           profile_id (sha1/gen-key :profile profile)]
       (when (and entity_id timestamp)
-        (when-not (empty? (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first))
+        (when (seq
+                (first
+                  (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]])))))
           (let [query-profile (-> profile
                                  (assoc :user_id user_id)
                                  (update-stringified-lists
