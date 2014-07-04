@@ -14,7 +14,31 @@
    [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex time-range)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
-   [qbits.hayt :as hayt]))
+   [qbits.hayt :as hayt]
+   [schema.core :as s]))
+
+(def Measurement
+  "A schema for a sensor measurements."
+  (s/either
+   {(s/required-key :type) s/Str
+    (s/required-key :timestamp) s/Str
+    (s/required-key :value) (s/either s/Str s/Num)
+    (s/optional-key :error) s/Str}
+   {(s/required-key :type) s/Str
+    (s/required-key :timestamp) s/Str
+    (s/required-key :error) s/Str
+    (s/optional-key :value) (s/either s/Str s/Num)}))
+
+(defn index-malformed? [ctx]
+  (let [request (:request ctx)
+        {:keys [route-params request-method]} request
+        {:keys [entity_id device_id]} route-params]
+    (case request-method
+      :post (let [body (decode-body request)
+                  measurement (first (:measurements body))]
+              (if (s/check Measurement measurement) ;;TODO should we check all measurements or only the first one?
+                true
+                [false {:body body}])))))
 
 (defn sensor_metadata-for [store sensor_id]
   (let [{:keys [type device_id]} sensor_id]
@@ -156,7 +180,7 @@
   (let [request       (:request ctx)
         route-params  (:route-params request)
         device_id     (:device_id route-params)
-        measurements  (:measurements (decode-body request))
+        measurements  (:measurements (:body ctx))
         type          (-> measurements first :type)]
     (db/with-session [session (:hecuba-session store)]
       (if-let [sensor (sensor-exists? session device_id type)]
@@ -202,6 +226,7 @@
   :available-media-types #{"application/json" "application/edn"}
   :known-content-type? #{"application/json" "application/edn"}
   :authorized? (authorized? store)
+  :malformed? index-malformed?
   :post! (partial index-post! store)
   :handle-created index-handle-created)
 
