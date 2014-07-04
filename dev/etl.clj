@@ -137,8 +137,12 @@
                                                           :resolution 60
                                                           :period "PULSE"})]
     (post-resource (:measurement-1 urls) "application/json" {:measurements
-                                                             (map (fn [x] (update-in x [:timestamp]
-                                                                                     #(tf/unparse custom-formatter (tc/from-date %))))
+                                                             (map (fn [x] 
+                                                                    (-> x
+                                                                        (dissoc :reading_metadata :error)
+                                                                        (update-in [:timestamp]
+                                                                                   #(tf/unparse custom-formatter (tc/from-date %)))
+                                                                        (assoc-in [:type] "electricityConsumption")))
                                                                   generated-measurements)})))
 
 (defn load-test-data [system]
