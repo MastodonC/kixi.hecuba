@@ -717,7 +717,7 @@
 
               (if (not= (:entity_id body) entity_id)
                 true                  ; it's malformed, game over
-                [false {:body body}]))  ; it's not malformed, return the body now we've read it
+                [false {:profile body}]))  ; it's not malformed, return the body now we've read it
       false)))
 
 (defn index-handle-ok [ctx]
@@ -783,12 +783,10 @@
                            (parse-by-schema body-map profile-schema))
                          decoded-body)
               {:keys [entity_id profile_id]} item
-              username   (sec/session-username (-> ctx :request :session))
-              user_id    (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
-              ]
+              username   (sec/session-username (-> ctx :request :session))]
           (db/execute session (hayt/insert :profiles (hayt/values (-> body
                                                                       (assoc :id profile_id)
-                                                                      (assoc :user_id user_id)
+                                                                      (assoc :user_id username)
                                                                       (update-stringified-lists
                                                                         [:airflow_measurements :chps
                                                                          :conservatories :door_sets
@@ -826,15 +824,13 @@
     (let [{:keys [request profile]} ctx
           {:keys [entity_id timestamp]} profile
           username   (sec/session-username (-> ctx :request :session))
-          ;; FIXME: Why user_id?
-          user_id    (-> (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
           profile_id (sha1/gen-key :profile profile)]
       (when (and entity_id timestamp)
         (when (seq
                 (first
                   (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]])))))
           (let [query-profile (-> profile
-                                 (assoc :user_id user_id)
+                                 (assoc :user_id username)
                                  (update-stringified-lists
                                   [:airflow_measurements :chps
                                    :conservatories :door_sets
