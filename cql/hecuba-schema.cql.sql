@@ -88,10 +88,6 @@ CREATE INDEX synthetic_devices_idx ON devices (synthetic);
 
 CREATE TABLE entities (
   id text,
-  address_country text,
-  address_county text,
-  address_region text,
-  address_street_two text,
   calculated_fields_values map<text, text>,
   calculated_fields_labels map<text, text>,
   calculated_fields_last_calc map<text, timestamp>,

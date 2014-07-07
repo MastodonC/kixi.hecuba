@@ -11,7 +11,8 @@
    [kixi.hecuba.webutil :refer (decode-body authorized? allowed? uuid stringify-values sha1-regex)]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.storage.sha1 :as sha1]
-   [kixi.hecuba.web-paths :as p]))
+   [kixi.hecuba.web-paths :as p]
+   [kixi.hecuba.data.users :as users]))
 
 (def ^:private programmes-index (p/index-path-string :programmes-index))
 (def ^:private programme-resource (p/resource-path-string :programme-resource))
@@ -39,8 +40,7 @@
   (db/with-session [session (:hecuba-session store)]
     (let [request      (:request ctx)
           username     (sec/session-username (-> ctx :request :session))
-          ;; FIXME why user_id?
-          user_id      (->  (db/execute session (hayt/select :users (hayt/where [[= :username username]]))) first :id)
+          user_id      (:id (users/get-by-username session username))
           programme    (-> request decode-body stringify-values)
           programme_id (if-let [id (:id programme)] id (sha1/gen-key :programme programme))]
       (db/execute session (hayt/insert :programmes (hayt/values (assoc programme :user_id user_id :id programme_id))))
