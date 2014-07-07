@@ -1,4 +1,4 @@
-drop keyspace test;
+DROP KEYSPACE test;
 
 CREATE KEYSPACE test WITH replication = {
   'class': 'SimpleStrategy',
@@ -6,6 +6,28 @@ CREATE KEYSPACE test WITH replication = {
 };
 
 USE test;
+
+CREATE TABLE csv_templates (
+  id text,
+  template text,
+  name text,
+  filename text,
+  PRIMARY KEY (id)
+) WITH
+  bloom_filter_fp_chance=0.010000 AND
+  caching='KEYS_ONLY' AND
+  comment='' AND
+  dclocal_read_repair_chance=0.000000 AND
+  gc_grace_seconds=864000 AND
+  index_interval=128 AND
+  read_repair_chance=0.100000 AND
+  replicate_on_write='true' AND
+  populate_io_cache_on_flush='false' AND
+  default_time_to_live=0 AND
+  speculative_retry='99.0PERCENTILE' AND
+  memtable_flush_period_in_ms=0 AND
+  compaction={'class': 'SizeTieredCompactionStrategy'} AND
+  compression={'sstable_compression': 'SnappyCompressor'};
 
 CREATE TABLE daily_rollups (
   device_id text,
@@ -29,13 +51,34 @@ CREATE TABLE daily_rollups (
   compaction={'class': 'SizeTieredCompactionStrategy'} AND
   compression={'sstable_compression': 'SnappyCompressor'};
 
+CREATE TABLE data_sets (
+  entity_id text,
+  name text,
+  members text,
+  PRIMARY KEY (entity_id, name)
+) WITH
+  bloom_filter_fp_chance=0.010000 AND
+  caching='KEYS_ONLY' AND
+  comment='' AND
+  dclocal_read_repair_chance=0.000000 AND
+  gc_grace_seconds=864000 AND
+  index_interval=128 AND
+  read_repair_chance=0.100000 AND
+  replicate_on_write='true' AND
+  populate_io_cache_on_flush='false' AND
+  default_time_to_live=0 AND
+  speculative_retry='99.0PERCENTILE' AND
+  memtable_flush_period_in_ms=0 AND
+  compaction={'class': 'SizeTieredCompactionStrategy'} AND
+  compression={'sstable_compression': 'SnappyCompressor'};
+
 CREATE TABLE datasets (
   entity_id text,
   name text,
+  device_id text,
   members set<text>,
   operation text,
   type text,
-  device_id text,
   PRIMARY KEY (entity_id, name)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
@@ -88,9 +131,13 @@ CREATE INDEX synthetic_devices_idx ON devices (synthetic);
 
 CREATE TABLE entities (
   id text,
-  calculated_fields_values map<text, text>,
+  address_country text,
+  address_county text,
+  address_region text,
+  address_street_two text,
   calculated_fields_labels map<text, text>,
   calculated_fields_last_calc map<text, timestamp>,
+  calculated_fields_values map<text, text>,
   csv_uploads list<text>,
   devices map<text, text>,
   documents list<text>,
@@ -303,19 +350,19 @@ CREATE TABLE projects (
 CREATE INDEX projects_programme_id_idx_1 ON projects (programme_id);
 
 CREATE TABLE sensor_metadata (
-  calculated_datasets map<text, timestamp>,
-  actual_annual map<text, timestamp>,
-  co2 map<text, timestamp>,
   device_id text,
+  type text,
+  actual_annual_calculation map<text, timestamp>,
+  calculated_datasets map<text, timestamp>,
+  co2 map<text, timestamp>,
   difference_series map<text, timestamp>,
   kwh map<text, timestamp>,
   lower_ts timestamp,
   median_calc_check map<text, timestamp>,
-  mislabelled_sensors_check map<text, timestamp>,
   mislabelled text,
+  mislabelled_sensors_check map<text, timestamp>,
   rollups map<text, timestamp>,
   spike_check map<text, timestamp>,
-  type text,
   upper_ts timestamp,
   PRIMARY KEY (device_id, type)
 ) WITH
@@ -403,28 +450,6 @@ CREATE TABLE users (
   data text,
   password text,
   username text,
-  PRIMARY KEY (id)
-) WITH
-  bloom_filter_fp_chance=0.010000 AND
-  caching='KEYS_ONLY' AND
-  comment='' AND
-  dclocal_read_repair_chance=0.000000 AND
-  gc_grace_seconds=864000 AND
-  index_interval=128 AND
-  read_repair_chance=0.100000 AND
-  replicate_on_write='true' AND
-  populate_io_cache_on_flush='false' AND
-  default_time_to_live=0 AND
-  speculative_retry='99.0PERCENTILE' AND
-  memtable_flush_period_in_ms=0 AND
-  compaction={'class': 'SizeTieredCompactionStrategy'} AND
-  compression={'sstable_compression': 'SnappyCompressor'};
-
-CREATE TABLE csv_templates (
-  id text,
-  template text,
-  name text,
-  filename text,
   PRIMARY KEY (id)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
