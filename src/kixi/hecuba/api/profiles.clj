@@ -673,9 +673,9 @@
         association-schema (:schema attr)
         attribute-names    (doall (keys input))
         items-id-pattern   (re-pattern (str (name association-name) "_(\\d+)_"))
-        items-ids (reduce conj #{} (->> attribute-names
-                                        (map #(when-some [x (re-find items-id-pattern %)] (last x)))
-                                        (filter #(not (nil? %)))))
+        items-ids (into #{} (->> attribute-names
+                                 (map #(when-some [x (re-find items-id-pattern %)] (last x)))
+                                 (filter #(not (nil? %)))))
         associated-items (map #(extract-associated-item association-name association-schema input %) items-ids) ]
     {association-name associated-items}))
 
