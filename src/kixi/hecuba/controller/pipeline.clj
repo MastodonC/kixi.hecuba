@@ -77,7 +77,7 @@
                 where     {:device_id device_id :type type}
                 range     (misc/start-end-dates :mislabelled_sensors_check s where)
                 new-item  (assoc item :sensor s :range range)]
-            (when range
+            (when (and range (some #{period} ["INSTANT" "PULSE" "CUMULATIVE"]))
               (log/info  "Checking if mislabelled: " device_id type)
               (checks/mislabelled-sensors store new-item)
               (misc/reset-date-range store s :mislabelled_sensors_check (:start-date range) (:end-date range))))))
