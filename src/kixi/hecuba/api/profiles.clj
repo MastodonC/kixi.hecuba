@@ -583,6 +583,10 @@
       :schema  airflow-measurement-schema }])
 
 (defn explode-nested-item [association item-string]
+  "Explodes a nested item, that is represented in the object coming from
+  the datastore as a json encoded string. Returns a list of vectors of
+  two elements, the first being the attribute key, and the second the value.
+  The key is expanded to <nested item name>_<attribute name>"
   (let [item (json/decode item-string)
         association-name   (:name   association)
         association-schema (:schema association)]
@@ -592,6 +596,11 @@
      association-schema)))
 
 (defn explode-associated-items [association items]
+  "Explodes the elements of a (one to many) association, that is represented
+  in the object coming from the datastore as a list of json encoded strings.
+  Returns a list of vectors of two elements, the first being the attribute key,
+  and the second the value.
+  The keys are expanded like <association name>_<associated item index>_<attribute name>"
   (let [association-name   (name (:name    association))
         association-schema (:schema  association)]
     (apply concat
@@ -605,6 +614,9 @@
       items))))
 
 (defn explode-and-sort-by-schema [item schema]
+  "Take a (profile) item from the datastore and converts into a list
+  of pairs (represented as a vector) where the first element is the
+  exploded key for the attribute and the second is the value"
   (let [exploded-item
          (mapcat
            (fn [attr]
@@ -677,7 +689,7 @@
   Example:
 
   attribute type | attribute name              | exploded name              |
-  standaed       | timestamp                   | timestamp                  |
+  standard       | timestamp                   | timestamp                  |
   nested item    | profile_data, bedroom_count | profile_data_bedroom_count |
   association    | storeys, first storey_type  | storeys_0_storey_type      |"
   (reduce
@@ -702,6 +714,7 @@
                                (parse-by-schema body-map profile-schema))
                              decoded-body)]
               ;; We need to assert a few things
+
               (if (not= (:entity_id body) entity_id)
                 true                  ; it's malformed, game over
                 [false {:body body}]))  ; it's not malformed, return the body now we've read it
