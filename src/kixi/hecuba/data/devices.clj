@@ -5,9 +5,22 @@
             [kixi.hecuba.data.sensors :as sensors]
             [kixi.hecuba.data :refer [parse-item parse-list]]
             [kixi.hecuba.webutil :refer (stringify-values)]
-            [cheshire.core :as json]))
+            [cheshire.core :as json]
+            [schema.core :as s]))
 
-(def user-editable-keys [:id :description :entity_id 
+(def Device {(s/required-key :device_id) s/Str
+             (s/optional-key :description)                (s/maybe s/Str)
+             (s/optional-key :parent_id)                  (s/maybe s/Str)
+             (s/optional-key :entity_id)                  (s/maybe s/Str)
+             (s/optional-key :location)                   (s/maybe s/Str) ;; TODO - is really a nested map
+             (s/optional-key :metadata)                   (s/maybe s/Str)
+             (s/optional-key :privacy)                    (s/maybe s/Str)
+             (s/optional-key :metering_point_id)          (s/maybe s/Str)})
+
+(defn invalid? [device]
+  (s/check Device device))
+
+(def user-editable-keys [:id :description :entity_id
                         :location :metadata :metering_point_id
                         :name :parent_id :privacy])
 
@@ -35,14 +48,22 @@
                                      (hayt/set-columns {:devices [+ {id (str encoded-device)}]})
                                      (hayt/where [[= :id entity_id]])))))
 
-(defn update [session entity_id id device]
-  (let [encoded-device (encode device)]
-    (db/execute session (hayt/update :devices
-                                     (hayt/set-columns encoded-device)
-                                     (hayt/where [[= :id id]])))
-    (db/execute session (hayt/update :entities
-                                     (hayt/set-columns {:devices [+ {id (str encoded-device)}]})
-                                     (hayt/where [[= :id entity_id]])))))
+(defn get-by-id [session id]
+  (first (db/execute session (hayt/select :devices
+                                          (hayt/where [[= :id id]])))))
+
+(defn update
+  ([session device]
+     (update session (:entity_id device) (:id device) device))
+  ([session entity_id id device]
+     (let [encoded-device (encode device)
+           entity_id (or entity_id (:entity_id(get-by-id session id)))]
+       (db/execute session (hayt/update :devices
+                                        (hayt/set-columns encoded-device)
+                                        (hayt/where [[= :id id]])))
+       (db/execute session (hayt/update :entities
+                                        (hayt/set-columns {:devices [+ {id (str encoded-device)}]})
+                                        (hayt/where [[= :id entity_id]]))))))
 
 (defn delete [session entity_id id]
   (let [response1 (db/execute session (hayt/delete :devices
@@ -59,9 +80,7 @@
 (defn get-devices [session entity_id]
   (db/execute session (hayt/select :devices (hayt/where [[= :entity_id entity_id]]))))
 
-(defn get-by-id [session id]
-  (first (db/execute session (hayt/select :devices
-                                          (hayt/where [[= :id id]])))))
+
 
 (defn ->clojure [entity_id session]
   (let [devices (get-devices session entity_id)]
