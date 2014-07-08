@@ -11,7 +11,8 @@
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.web-paths :as p]
-   [kixi.hecuba.data.users :as users]))
+   [kixi.hecuba.data.users :as users]
+   [kixi.hecuba.data.entity :as entity]))
 
 (def ^:private entity-profiles-resource (p/resource-path-string :entity-profiles-resource))
 
@@ -21,7 +22,7 @@
           method       (:request-method request)
           route-params (:route-params request)
           entity_id    (:entity_id route-params)
-          entity       (first (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))))]
+          entity       (entity/get-by-id session entity_id)]
       (case method
         :post (not (nil? entity))
         :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
@@ -592,7 +593,7 @@
         association-schema (:schema association)]
     (map
      (fn [attr]
-       [ (str (name association-name) "_" (name attr)) (item (name attr)) ])
+       [(str (name association-name) "_" (name attr)) (item (name attr))])
      association-schema)))
 
 (defn explode-associated-items [association items]
@@ -601,15 +602,15 @@
   Returns a list of vectors of two elements, the first being the attribute key,
   and the second the value.
   The keys are expanded like <association name>_<associated item index>_<attribute name>"
-  (let [association-name   (name (:name    association))
-        association-schema (:schema  association)]
+  (let [association-name   (name (:name association))
+        association-schema (:schema association)]
     (apply concat
     (map-indexed
       (fn [index item-string]
          (let [item-name         (str association-name "_" index)
                named-association (assoc association :name item-name)]
            (if (empty? association-schema)
-             [ item-name item-string ]
+             [item-name item-string]
              (explode-nested-item named-association item-string))))
       items))))
 
@@ -659,7 +660,7 @@
     (fn [associated-item associated-item-attr]
       (let [associated-item-attr-name (name associated-item-attr)
             exploded-attr-name (str (name association-name) "_" index "_" associated-item-attr-name)]
-        (conj associated-item { associated-item-attr (input exploded-attr-name)})))
+        (conj associated-item {associated-item-attr (input exploded-attr-name)})))
     {}
     association-schema))
 
@@ -826,9 +827,7 @@
           username   (sec/session-username (-> ctx :request :session))
           profile_id (sha1/gen-key :profile profile)]
       (when (and entity_id timestamp)
-        (when (seq
-                (first
-                  (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]])))))
+        (when (seq (entity/get-by-id session entity_id))
           (let [query-profile (-> profile
                                  (assoc :user_id username)
                                  (update-stringified-lists
