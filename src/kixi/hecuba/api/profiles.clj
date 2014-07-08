@@ -12,7 +12,7 @@
    [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.web-paths :as p]
    [kixi.hecuba.data.users :as users]
-   [kixi.hecuba.data.entity :as entity]))
+   [kixi.hecuba.data.entities :as entities]))
 
 (def ^:private entity-profiles-resource (p/resource-path-string :entity-profiles-resource))
 
@@ -22,7 +22,7 @@
           method       (:request-method request)
           route-params (:route-params request)
           entity_id    (:entity_id route-params)
-          entity       (entity/get-by-id session entity_id)]
+          entity       (entities/get-by-id session entity_id)]
       (case method
         :post (not (nil? entity))
         :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
@@ -827,7 +827,7 @@
           username   (sec/session-username (-> ctx :request :session))
           profile_id (sha1/gen-key :profile profile)]
       (when (and entity_id timestamp)
-        (when (seq (entity/get-by-id session entity_id))
+        (when (entities/get-by-id session entity_id)
           (let [query-profile (-> profile
                                  (assoc :user_id username)
                                  (update-stringified-lists
