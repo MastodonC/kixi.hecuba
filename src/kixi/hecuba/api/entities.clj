@@ -60,7 +60,7 @@
           project_id (when entity_id (:project_id (entities/get-by-id (:hecuba-session store) entity_id)))
           programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
       (if (and project_id programme_id)
-        (allowed?* programme_id project_id projects programmes roles request-method)
+        (allowed?* programme_id project_id programmes projects roles request-method)
         true))))
 
 (defn index-post! [store ctx]
