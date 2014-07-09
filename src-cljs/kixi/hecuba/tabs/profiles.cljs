@@ -1,6 +1,7 @@
 (ns kixi.hecuba.tabs.profiles
   (:require [om.core :as om :include-macros true]
-            [sablono.core :as html :refer-macros [html]]))
+            [sablono.core :as html :refer-macros [html]]
+            [kixi.hecuba.bootstrap :as bs]))
 
 (defn get-profiles [selected-property-id data]
   (->>  data
@@ -10,9 +11,65 @@
         first
         :profiles))
 
-(defn format-profiles [profiles]
-  (let [profile_data (:profile_data (first profiles))]
-    [:div.col-md-12
+(defn profile-rows [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (om/build occupancy profiles)
+        (om/build measurements profiles)
+        (om/build energy profiles)
+        (om/build efficiency profiles)
+        (om/build flats profiles)
+        (om/build firepalces profiles)
+        (om/build glazing profiles)
+        (om/build issues profiles)
+        (om/build sap-results profiles)
+        (om/build documents profiles)
+        (om/build co-heating profiles)
+        (om/build air-tightness profiles)
+        (om/build conservatories profiles)
+        (om/build extensions profiles)
+        (om/build heating-systems profiles)
+        (om/build hot-water-systems profiles)
+        (om/build storeys profiles)
+        (om/build walls profiles)
+        (om/build roofs profiles)
+        (om/build window-types profiles)
+        (om/build door-types profiles)
+        (om/build floors profiles)
+        (om/build roof-rooms profiles)
+        (om/build low-energy-lights profiles)
+        (om/build ventilation-systems profiles)
+        (om/build photovoltaic-panels profiles)
+        (om/build solar-thermal-panels profiles)
+        (om/build wind-turbines profiles)
+        (om/build small-hydro-plants profiles)
+        (om/build heat-pumps profiles)
+        (om/build biomass-boilers profiles)
+        (om/build mCHP-systems profiles)])))
+  
+  )
+
+(defn profiles-div [data owner]
+  (reify
+    om/IRender
+    (render [_]
+      (let [selected-property-id (-> data :active-components :properties)
+            profiles             (get-profiles selected-property-id data)]
+        (html
+         [:div
+          [:h3 "Profiles"]
+          (if (seq profiles)
+            (om/build profiles-rows profiles)
+            [:div.col-md-12.text-center
+             [:p.lead {:style {:padding-top 30}}
+              "No profile data to display"]])])))))
+
+
+(comment
+  [:div.col-md-12
      [:dl
       [:dt "Number Of Storeys"] [:dd (get profile_data :number_of_storeys "")]
       [:dt "Air Tightness Equipment"] [:dd (get profile_data :air_tightness_equipment "")]
@@ -134,20 +191,4 @@
       [:dt "Planning Considerations"] [:dd (get profile_data :planning_considerations "")]
       [:dt "Draught Proofing"] [:dd (get profile_data :draught_proofing "")]
       [:dt "Occupancy Under 18"] [:dd (get profile_data :occupancy_under_18 "")]
-      [:dt "Profile Health"] [:dd (get profile_data :profile_health "")]]]
-    ))
-
-(defn profiles-div [data owner]
-  (reify
-    om/IRender
-    (render [_]
-      (let [selected-property-id (-> data :active-components :properties)
-            profiles             (get-profiles selected-property-id data)]
-        (html
-         [:div
-          [:h3 "Profiles"]
-          (if (seq profiles)
-            (format-profiles profiles)
-            [:div.col-md-12.text-center
-             [:p.lead {:style {:padding-top 30}}
-              "No profile data to display"]])])))))
+      [:dt "Profile Health"] [:dd (get profile_data :profile_health "")]]])
