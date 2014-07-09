@@ -291,8 +291,15 @@
           user_id       (:id (users/get-by-username session username))]
       (when (and project_id property_code)
         (when-not (empty? (-> (db/execute session (hayt/select :projects (hayt/where [[= :id project_id]]))) first))
-          (let [entity_id (sha1/gen-key :entity entity)]
-            (entities/insert session (assoc entity :user_id user_id :id entity_id))
+          (let [entity_id (sha1/gen-key :entity entity)
+                query-entity (-> entity
+                                 (assoc :user_id user_id
+                                        :id entity_id)
+                                 ;;(update-stringified-lists
+                                 ;;  [:documents :notes :photos])
+                                 ;;(update-in [:property_data] json/encode)
+                                 )]
+            (entities/insert session query-entity)
             {::entity_id entity_id}))))))
 
 (defn index-handle-created [ctx]
@@ -330,7 +337,6 @@
                            (let [exploded-item (explode-and-sort-by-schema clean-item entity-schema)]
                              exploded-item)
                            clean-item)]
-      (println "ENTITY: " formatted-item)
       (util/render-item request formatted-item))))
 
 (defn resource-put! [store ctx]
@@ -355,8 +361,8 @@
 
 (defresource index [store]
   :allowed-methods #{:post}
-  :available-media-types #{"application/json" "application/edn"}
-  :known-content-type? #{"application/json"}
+  :available-media-types #{"text/csv" "application/json" "application/edn"}
+  :known-content-type? #{"text/csv" "application/json"}
   :authorized? (authorized? store)
   :allowed? (index-allowed? store)
   :post! (partial index-post! store)
