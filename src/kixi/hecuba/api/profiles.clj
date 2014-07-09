@@ -1,5 +1,6 @@
 (ns kixi.hecuba.api.profiles
   (:require
+   [clojure.core.match :refer (match)]
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :as sec]
@@ -12,9 +13,55 @@
    [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.web-paths :as p]
    [kixi.hecuba.data.users :as users]
+   [kixi.hecuba.data.projects :as projects]
    [kixi.hecuba.data.entities :as entities]))
 
 (def ^:private entity-profiles-resource (p/resource-path-string :entity-profiles-resource))
+
+(defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
+  (match [(some #(isa? % :kixi.hecuba.security/admin) roles)
+          (some #(isa? % :kixi.hecuba.security/programme-manager) roles)
+          (some #(= % programme-id) allowed-programmes)
+          (some #(isa? % :kixi.hecuba.security/project-manager) roles)
+          (some #(= % project-id) allowed-projects)
+          (some #(isa? % :kixi.hecuba.security/user) roles)
+          request-method]
+         ;; super-admin - do everything
+         [true _ _ _ _ _ _] true
+         ;; programme-manager for this programme - do everything
+         [_ true true _ _ _ _] true
+         ;; project-manager for this project - do everything
+         [_ _ _ true true _ _] true
+         ;; user with this programme - get allowed
+         [_ _ true _ _ true :get] true
+         ;; user with this project - get allowed
+         [_ _ _ _ true true :get] true
+         :else false))
+
+(defn index-allowed? [store]
+  (fn [ctx]
+    (let [{:keys [body request-method session params route-params]} (:request ctx)
+          {:keys [projects programmes roles]} (sec/current-authentication session)
+          entity_id (:entity_id route-params)
+          entity (entities/get-by-id (:hecuba-session store) entity_id)
+          project_id (:project_id entity)
+          programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
+      (if (and project_id programme_id)
+        (allowed?* programme_id project_id projects programmes roles request-method)
+        true))))
+
+(defn resource-allowed? [store]
+  (fn [ctx]
+    (let [{:keys [request-method session params route-params]} (:request ctx)
+          {:keys [projects programmes roles]}     (sec/current-authentication session)
+          entity_id (:entity_id route-params)
+          entity (entities/get-by-id (:hecuba-session store) entity_id)
+          project_id (:project_id entity)
+          programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
+      (if (and project_id programme_id)
+        (allowed?* programme_id project_id projects programmes roles request-method)
+        true))))
+
 
 (defn index-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -26,7 +73,9 @@
       (case method
         :post (not (nil? entity))
         :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
-               {::items items})))))
+               (if (empty? items)
+                 false
+                 [true {::items items}]))))))
 
 (defn add-profile-keys [& pairs]
   (->> pairs
@@ -850,6 +899,7 @@
   :available-media-types #{"text/csv" "application/json" "application/edn"}
   :known-content-type? #{"text/csv" "application/json" "application/edn"}
   :authorized? (authorized? store)
+  :allowed? (index-allowed? store)
   :exists? (partial index-exists? store)
   :malformed? index-malformed?
   :post! (partial index-post! store)
@@ -861,6 +911,7 @@
   :available-media-types #{"text/csv" "application/json"}
   :known-content-type? #{"text/csv" "application/json"}
   :authorized? (authorized? store)
+  :allowed? (resource-allowed? store)
   :exists? (partial resource-exists? store)
   :delete-enacted? (partial resource-delete-enacted? store)
   :respond-with-entity? resource-respond-with-entity
