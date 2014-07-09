@@ -73,7 +73,9 @@
       (case method
         :post (not (nil? entity))
         :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
-               {::items items})))))
+               (if (empty? items)
+                 false
+                 [true {::items items}]))))))
 
 (defn add-profile-keys [& pairs]
   (->> pairs
