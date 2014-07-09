@@ -803,10 +803,10 @@
 
 (defn resource-handle-ok [store ctx]
   (let [{item ::item
-         {mime :media-type} :representation} ctx
+        {mime :media-type} :representation} ctx
         userless-item (-> item
-            (update-in [:timestamp] str)
-            (dissoc :user_id))
+                          (update-in [:timestamp] str)
+                          (dissoc :user_id))
         formatted-item (if (= "text/csv" mime)
                          (let [exploded-item (explode-and-sort-by-schema userless-item profile-schema)]
                            exploded-item)
