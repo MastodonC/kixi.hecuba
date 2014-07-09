@@ -94,6 +94,7 @@
 
 (def profile-data-schema
   [ :id
+    :event_type
     :occupancy_under_18
     :onsite_days_new_build
     :flat_floor_heat_loss_type
@@ -760,7 +761,7 @@
     (case request-method
       :post (let [decoded-body  (decode-body request)
                   body     (if (= "text/csv" (:content-type request))
-                             (let [body-map (reduce conj {} decoded-body)]
+                             (let [body-map (into {} decoded-body)]
                                (parse-by-schema body-map profile-schema))
                              decoded-body)]
               ;; We need to assert a few things
@@ -852,10 +853,10 @@
 
 (defn resource-handle-ok [store ctx]
   (let [{item ::item
-         {mime :media-type} :representation} ctx
+        {mime :media-type} :representation} ctx
         userless-item (-> item
-            (update-in [:timestamp] str)
-            (dissoc :user_id))
+                          (update-in [:timestamp] str)
+                          (dissoc :user_id))
         formatted-item (if (= "text/csv" mime)
                          (let [exploded-item (explode-and-sort-by-schema userless-item profile-schema)]
                            exploded-item)
