@@ -711,7 +711,7 @@
     (case request-method
       :post (let [decoded-body  (decode-body request)
                   body     (if (= "text/csv" (:content-type request))
-                             (let [body-map (reduce conj {} decoded-body)]
+                             (let [body-map (into {} decoded-body)]
                                (parse-by-schema body-map profile-schema))
                              decoded-body)]
               ;; We need to assert a few things
