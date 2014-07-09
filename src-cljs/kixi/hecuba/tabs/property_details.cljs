@@ -175,6 +175,7 @@
       (let [active-tab           (:active-tab state)
             selected-property-id (-> data :active-components :properties)
             property-details     (get-property-details selected-property-id data)
+            {:keys [editable devices]}  property-details
             property_data        (:property_data property-details)]
         (html [:div {:class (str "col-md-12" (if selected-property-id "" " hidden"))}
                [:h2 "Property Details"]
@@ -190,7 +191,11 @@
                     "Profiles"]]
                   [:li {:class (if (= active-tab :sensors) "active" nil)}
                    [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :sensors))}
-                    "Sensor Data"]]]
+                    "Sensor Data"]]
+                  (when (and editable (seq devices))
+                    [:li {:class (if (= active-tab :upload) "active" nil)}
+                     [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :upload))}
+                      "CSV"]])]
                  ;; Overview
                  [:div {:class (if (not= active-tab :overview) "hidden" "col-md-12")}
                   (om/build property-details-form data)]
@@ -199,4 +204,14 @@
                   (om/build sensors/sensors-div data)]
                  ;; Profiles
                  [:div {:class (if (not= active-tab :profiles) "hidden" "col-md-12")}
-                  (om/build profiles/profiles-div data)]])])))))
+                  (om/build profiles/profiles-div data)]
+                 ;; CSV Management
+                 [:div {:class (if (not= active-tab :upload) "hidden" "col-md-12")}
+                  [:div {:style {:padding-top "15px"}}
+                   [:div {:class "panel panel-default"}
+                    [:div.panel-body
+                     [:div
+                      [:h4 "Download CSV measurements template"]
+                      [:a {:class "btn btn-primary"
+                           :type "button"
+                           :href (str "/4/templates/for-entity/" selected-property-id)} "Download"]]]]]]])])))))
