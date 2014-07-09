@@ -2,11 +2,15 @@
   (:require [clojure.tools.logging :as log]
             [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
-            [kixi.hecuba.webutil :refer (stringify-values)]))
+            [kixi.hecuba.webutil :refer (stringify-values)]
+            [clojure.walk :as walk]))
 
 (defn encode [sensor]
   (-> sensor
-      (merge (stringify-values (dissoc sensor :synthetic :actual_annual)))))
+      (merge (stringify-values (dissoc sensor :synthetic :actual_annual :user_metadata)))
+      (update-in [:user_metadata] #(-> %
+                                       walk/stringify-keys
+                                       stringify-values))))
 
 (defn sensor-time-range [device_id type session]
   (first
@@ -39,9 +43,17 @@
   (db/execute session (hayt/insert :sensor_metadata
                                    (hayt/values {:device_id (:device_id sensor) :type (:type sensor)}))))
 
+(defn update-user-metadata [sensor]
+  (if-not (empty? (:user_metadata sensor))
+    (update-in sensor [:user_metadata] (fn [metadata] [+ metadata]))
+    sensor))
+
 (defn update [session device_id sensor]
   (db/execute session (hayt/update :sensors
-                                   (hayt/set-columns (dissoc (encode sensor) :type :device_id))
+                                   (hayt/set-columns (-> sensor
+                                                         encode
+                                                         (dissoc :type :device_id)
+                                                         update-user-metadata))
                                    (hayt/where [[= :device_id device_id] 
                                                 [= :type (:type sensor)]]))))
 
