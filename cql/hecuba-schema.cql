@@ -402,6 +402,7 @@ CREATE TABLE sensors (
   synthetic boolean,
   unit text,
   user_id text,
+  user_metadata map<text,text>,
   PRIMARY KEY (device_id, type)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
