@@ -21,6 +21,8 @@
 (def ^:private entity-resource-path (p/resource-path-string :entity-resource))
 
 (defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
+  (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
+             programme-id project-id allowed-programmes allowed-projects roles request-method)
   (match [(some #(isa? % :kixi.hecuba.security/admin) roles)
           (some #(isa? % :kixi.hecuba.security/programme-manager) roles)
           (some #(= % programme-id) allowed-programmes)
