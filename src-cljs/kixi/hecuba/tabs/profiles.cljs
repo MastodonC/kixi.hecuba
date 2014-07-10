@@ -1,6 +1,8 @@
 (ns kixi.hecuba.tabs.profiles
   (:require [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]
+            [cljs-time.coerce :as tc]
+            [cljs-time.format :as tf]
             [kixi.hecuba.bootstrap :as bs]))
 
 (enable-console-print!)
@@ -13,6 +15,12 @@
         first
         :profiles))
 
+(defn format-time-inst [t format]
+  (if (nil? t)
+    "Undated"
+    (let [date (tc/from-date t)]
+      (tf/unparse (tf/formatter format) date))))
+
 (defn displayable? [d]
   (and d
        (not (re-find #"\w" d))))
@@ -21,6 +29,21 @@
   (if-let [d (displayable? (get m k))]
     d
     "N/A"))
+
+(defn profile-column-width []
+  "col-md-3")
+
+(defn header-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          (let [category (get-in profile [:profile_data :category] "Intervention")
+                timestamp (format-time-inst  (:timestamp profile) "yyyy-MM-dd")]
+            [:div {:class (profile-column-width)}
+             [:h3.text-center category [:br ] [:small timestamp]]]))]))))
 
 (defn occupancy-row [profiles owner]
   (reify
@@ -31,7 +54,7 @@
        [:div.col-md-12
         (for [profile profiles]
           (let [profile_data (:profile_data profile)]
-            [:div.col-md-4
+            [:div {:class (profile-column-width)}
              (bs/panel
               "Occupancy"
               [:dl
@@ -46,6 +69,7 @@
     (render-state [_ state]
       (html
        [:div.col-md-12
+        (om/build header-row profiles)
         (om/build occupancy-row profiles)
         ;; (om/build measurements profiles)
         ;; (om/build energy profiles)
