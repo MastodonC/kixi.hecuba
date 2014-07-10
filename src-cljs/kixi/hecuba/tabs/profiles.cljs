@@ -3,6 +3,8 @@
             [sablono.core :as html :refer-macros [html]]
             [kixi.hecuba.bootstrap :as bs]))
 
+(enable-console-print!)
+
 (defn get-profiles [selected-property-id data]
   (->>  data
         :properties
@@ -11,19 +13,32 @@
         first
         :profiles))
 
+(defn displayable? [d]
+  (and d
+       (not (re-find #"\w" d))))
+
+(defn display [m k]
+  (if-let [d (displayable? (get m k))]
+    d
+    "N/A"))
+
 (defn occupancy-row [profiles owner]
   (reify
     om/IRenderState
     (render-state [_ state]
-      (let [occupancy-profiles []
-            profile_data {}]
-        (bs/panel
-         "Occupancy"
-         [:dl
-          [:dt "Occupancy Under 18"] [:dd (get profile_data :occupancy_under_18 "")]
-          [:dt "Occupancy 18 To 60"] [:dd (get profile_data :occupancy_18_to_60 "")]
-          [:dt "Occupancy Over 60"] [:dd (get profile_data :occupancy_over_60 "")]
-          [:dt "Occupant Change"] [:dd (get profile_data :occupant_change "")]])))))
+      (println "Number of profiles: " (count profiles))
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          (let [profile_data (:profile_data profile)]
+            [:div.col-md-4
+             (bs/panel
+              "Occupancy"
+              [:dl
+               [:dt "Occupancy Under 18"] [:dd (display profile_data :occupancy_under_18)]
+               [:dt "Occupancy 18 To 60"] [:dd (display profile_data :occupancy_18_to_60)]
+               [:dt "Occupancy Over 60"] [:dd (display profile_data :occupancy_over_60)]
+               [:dt "Occupant Change"] [:dd (display profile_data :occupant_change)]])]))]))))
 
 (defn profile-rows [profiles owner]
   (reify
@@ -72,12 +87,12 @@
     om/IRender
     (render [_]
       (let [selected-property-id (-> data :active-components :properties)
-            profiles             (get-profiles selected-property-id data)]
+            profiles             (sort-by :timestamp (get-profiles selected-property-id data))]
         (html
          [:div
           [:h3 "Profiles"]
           (if (seq profiles)
-            (om/build profiles-rows profiles)
+            (om/build profile-rows profiles)
             [:div.col-md-12.text-center
              [:p.lead {:style {:padding-top 30}}
               "No profile data to display"]])])))))
