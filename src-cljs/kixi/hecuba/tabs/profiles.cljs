@@ -49,7 +49,6 @@
   (reify
     om/IRenderState
     (render-state [_ state]
-      (println "Number of profiles: " (count profiles))
       (html
        [:div.col-md-12
         (for [profile profiles]
@@ -63,6 +62,29 @@
                [:dt "Occupancy Over 60"] [:dd (display profile_data :occupancy_over_60)]
                [:dt "Occupant Change"] [:dd (display profile_data :occupant_change)]])]))]))))
 
+(defn measurements-row [profiles ownwer]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          (let [profile_data (:profile_data profile)]
+            [:div {:class (profile-column-width)}
+             (bs/panel
+              "Measurements"
+              [:dl
+               [:dt "Footprint (internal groundfloor area (m2)"] [:dd (display profile_data :footprint)]
+               [:dt "External Perimeter (m)"] [:dd (display profile_data :external_perimeter)]
+               [:dt "Gross Internal Area (m2)"] [:dd (display profile_data :gross_internal_area)]
+               [:dt "Number Of Storeys"] [:dd (display profile_data :number_of_storeys)]
+               [:dt "Total Volume (m3)"] [:dd (display profile_data :total_volume)]
+               [:dt "Total Rooms"] [:dd (display profile_data :total_rooms)]
+               [:dt "Total Bedrooms"] [:dd (display profile_data :bedroom_count)]
+               [:dt "Habitable Rooms"] [:dd (display profile_data :habitable_rooms)]
+               [:dt "Inadequate Heating?"] [:dd (display profile_data :inadequate_heating)]
+               [:dt "Heated Habitable Rooms"] [:dd (display profile_data :heated_habitable_rooms)]])]))]))))
+
 (defn profile-rows [profiles owner]
   (reify
     om/IRenderState
@@ -71,7 +93,7 @@
        [:div.col-md-12
         (om/build header-row profiles)
         (om/build occupancy-row profiles)
-        ;; (om/build measurements profiles)
+        (om/build measurements-row profiles)
         ;; (om/build energy profiles)
         ;; (om/build efficiency profiles)
         ;; (om/build flats profiles)
