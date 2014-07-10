@@ -11,44 +11,59 @@
         first
         :profiles))
 
+(defn occupancy-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (let [occupancy-profiles []
+            profile_data {}]
+        (bs/panel
+         "Occupancy"
+         [:dl
+          [:dt "Occupancy Under 18"] [:dd (get profile_data :occupancy_under_18 "")]
+          [:dt "Occupancy 18 To 60"] [:dd (get profile_data :occupancy_18_to_60 "")]
+          [:dt "Occupancy Over 60"] [:dd (get profile_data :occupancy_over_60 "")]
+          [:dt "Occupant Change"] [:dd (get profile_data :occupant_change "")]])))))
+
 (defn profile-rows [profiles owner]
   (reify
     om/IRenderState
     (render-state [_ state]
       (html
        [:div.col-md-12
-        (om/build occupancy profiles)
-        (om/build measurements profiles)
-        (om/build energy profiles)
-        (om/build efficiency profiles)
-        (om/build flats profiles)
-        (om/build firepalces profiles)
-        (om/build glazing profiles)
-        (om/build issues profiles)
-        (om/build sap-results profiles)
-        (om/build documents profiles)
-        (om/build co-heating profiles)
-        (om/build air-tightness profiles)
-        (om/build conservatories profiles)
-        (om/build extensions profiles)
-        (om/build heating-systems profiles)
-        (om/build hot-water-systems profiles)
-        (om/build storeys profiles)
-        (om/build walls profiles)
-        (om/build roofs profiles)
-        (om/build window-types profiles)
-        (om/build door-types profiles)
-        (om/build floors profiles)
-        (om/build roof-rooms profiles)
-        (om/build low-energy-lights profiles)
-        (om/build ventilation-systems profiles)
-        (om/build photovoltaic-panels profiles)
-        (om/build solar-thermal-panels profiles)
-        (om/build wind-turbines profiles)
-        (om/build small-hydro-plants profiles)
-        (om/build heat-pumps profiles)
-        (om/build biomass-boilers profiles)
-        (om/build mCHP-systems profiles)])))
+        (om/build occupancy-row profiles)
+        ;; (om/build measurements profiles)
+        ;; (om/build energy profiles)
+        ;; (om/build efficiency profiles)
+        ;; (om/build flats profiles)
+        ;; (om/build firepalces profiles)
+        ;; (om/build glazing profiles)
+        ;; (om/build issues profiles)
+        ;; (om/build sap-results profiles)
+        ;; (om/build documents profiles)
+        ;; (om/build co-heating profiles)
+        ;; (om/build air-tightness profiles)
+        ;; (om/build conservatories profiles)
+        ;; (om/build extensions profiles)
+        ;; (om/build heating-systems profiles)
+        ;; (om/build hot-water-systems profiles)
+        ;; (om/build storeys profiles)
+        ;; (om/build walls profiles)
+        ;; (om/build roofs profiles)
+        ;; (om/build window-types profiles)
+        ;; (om/build door-types profiles)
+        ;; (om/build floors profiles)
+        ;; (om/build roof-rooms profiles)
+        ;; (om/build low-energy-lights profiles)
+        ;; (om/build ventilation-systems profiles)
+        ;; (om/build photovoltaic-panels profiles)
+        ;; (om/build solar-thermal-panels profiles)
+        ;; (om/build wind-turbines profiles)
+        ;; (om/build small-hydro-plants profiles)
+        ;; (om/build heat-pumps profiles)
+        ;; (om/build biomass-boilers profiles)
+        ;; (om/build mCHP-systems profiles)
+        ])))
   
   )
 
