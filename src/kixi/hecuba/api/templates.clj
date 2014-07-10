@@ -187,16 +187,20 @@
           devices         (->> (db/execute session (hayt/select :devices (hayt/where [[= :entity_id entity_id]])))
                                (map (fn [x] [(:id x) x]))
                                (into {}))
-          sensors         (db/execute session (hayt/select :sensors (hayt/where [[:in :device_id (keys devices)]])))
+          sensors         (if (seq devices)
+                            (db/execute session (hayt/select :sensors (hayt/where [[:in :device_id (keys devices)]])))
+                            [])
           device-and-type #(str (:device_id %) "-" (:type %))
-          items           (->> sensors
-                               (map (partial join-to-device devices))
-                               (sort-by device-and-type)
-                               (map relocate-customer-ref)
-                               (map relocate-location)
-                               (map extract-columns-in-order)
-                               (apply map vector)
-                               (map #(apply vector %1 %2) headers-in-order))]
+          items           (if (seq sensors) 
+                            (->> sensors
+                                 (map (partial join-to-device devices))
+                                 (sort-by device-and-type)
+                                 (map relocate-customer-ref)
+                                 (map relocate-location)
+                                 (map extract-columns-in-order)
+                                 (apply map vector)
+                                 (map #(apply vector %1 %2) headers-in-order))
+                            [])]
       (ring-response {:headers {"Content-Disposition" (str "attachment; filename=" entity_id "_template.csv")}
                       :body (util/render-items ctx items)}))))
 
