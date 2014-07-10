@@ -292,13 +292,9 @@
       (when (and project_id property_code)
         (when-not (empty? (-> (db/execute session (hayt/select :projects (hayt/where [[= :id project_id]]))) first))
           (let [entity_id (sha1/gen-key :entity entity)
-                query-entity (-> entity
-                                 (assoc :user_id user_id
-                                        :id entity_id)
-                                 ;;(update-stringified-lists
-                                 ;;  [:documents :notes :photos])
-                                 ;;(update-in [:property_data] json/encode)
-                                 )]
+                query-entity (assoc entity
+                                    :user_id user_id
+                                    :id entity_id)]
             (entities/insert session query-entity)
             {::entity_id entity_id}))))))
 
@@ -342,11 +338,14 @@
 (defn resource-put! [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request   (:request ctx)
-          entity    (-> request decode-body)
+          decoded-body (decode-body request)
+          body      (if (= "text/csv" (:content-type request))
+                      (let [body-map (into {} decoded-body)]
+                        (parse-by-schema body-map entity-schema))
+                      decoded-body)
           entity_id (-> (::item ctx) :id)
-          username  (sec/session-username (-> ctx :request :session))
-          user_id   (:id (users/get-by-username session username))]
-      (entities/update session entity_id (assoc entity :user_id user_id)))))
+          username  (sec/session-username (-> ctx :request :session))]
+      (entities/update session entity_id (assoc body :user_id username)))))
 
 (defn resource-delete! [store ctx]
   (db/with-session [session (:hecuba-session store)]
