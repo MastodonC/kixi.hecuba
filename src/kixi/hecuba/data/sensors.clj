@@ -5,12 +5,22 @@
             [kixi.hecuba.webutil :refer (stringify-values)]
             [clojure.walk :as walk]))
 
-(defn encode [sensor]
+(def user-editable-keys [:device_id :type :accuracy
+                        :corrected_unit :correction
+                        :correction_factor :correction_factor_breakdown
+                        :frequency :max :min :period
+                        :resolution :unit :user_metadata])
+
+(defn user-metadata [sensor]
   (-> sensor
-      (merge (stringify-values (dissoc sensor :synthetic :actual_annual :user_metadata)))
+      (merge (stringify-values (dissoc sensor :user_metadata)))
       (update-in [:user_metadata] #(-> %
                                        walk/stringify-keys
                                        stringify-values))))
+
+(defn encode [sensor]
+  (-> (select-keys sensor user-editable-keys)   
+      (user-metadata)))
 
 (defn sensor-time-range [device_id type session]
   (first
@@ -52,8 +62,7 @@
   (db/execute session (hayt/update :sensors
                                    (hayt/set-columns (-> sensor
                                                          encode
-                                                         (dissoc :type :device_id)
-                                                         update-user-metadata))
+                                                         (dissoc :type :device_id)))
                                    (hayt/where [[= :device_id device_id] 
                                                 [= :type (:type sensor)]]))))
 
