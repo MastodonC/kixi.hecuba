@@ -13,6 +13,35 @@
         first
         :profiles))
 
+(defn handle-change [owner key e]
+  (let [value (.-value (.-target e))]
+    (om/set-state! owner [:profile_data key] value)))
+
+(defn text-control [data state owner key label]
+  [:div.form-group
+   [:label.control-label {:for (name key)} label]
+   (if (:editing state)
+     [:div
+      [:input {:defaultValue (get data key "")
+               :class "form-control"
+               :on-change #(handle-change owner key %1)
+               :type "text"
+               :id (name key)}]]
+     [:p {:class "form-control-static col-md-10"} (get data key "")])])
+
+(defn text-area-control [data state owner key title]
+  (let [text (get data key)]
+    (if (:editing state)
+      [:div
+       [:div.form-group
+        [:label.control-label  title]
+        [:form {:role "form"}
+         [:textarea.form-control {:on-change #(handle-change owner key %1) :rows 2} text]]]]
+      (if (and text (re-find #"\w" text))
+        [:div [:h3 title]
+         [:p text]]
+        [:div {:class "hidden"} [:p {:class "form-control-static col-md-10"} text]]))))
+
 (defn format-time-inst [t format]
   (if (nil? t)
     "Undated"
@@ -54,13 +83,13 @@
             [:div {:class (profile-column-width)}
              (bs/panel
               "Occupancy"
-              [:dl
-               [:dt "Occupancy Under 18"] [:dd (display profile_data :occupancy_under_18)]
-               [:dt "Occupancy 18 To 60"] [:dd (display profile_data :occupancy_18_to_60)]
-               [:dt "Occupancy Over 60"] [:dd (display profile_data :occupancy_over_60)]
-               [:dt "Occupant Change"] [:dd (display profile_data :occupant_change)]])]))]))))
+              [:div
+               (text-control profile_data state owner :occupancy_under_18 "Occupancy Under 18")
+               (text-control profile_data state owner :occupancy_18_to_60 "Occupancy 18 To 60")
+               (text-control profile_data state owner :occupancy_over_60 "Occupancy Over 60")
+               (text-control profile_data state owner :occupant_change "Occupant Change")])]))]))))
 
-(defn measurements-row [profiles ownwer]
+(defn measurements-row [profiles owner]
   (reify
     om/IRenderState
     (render-state [_ state]
@@ -71,19 +100,19 @@
             [:div {:class (profile-column-width)}
              (bs/panel
               "Measurements"
-              [:dl
-               [:dt "Footprint (internal groundfloor area (m2)"] [:dd (display profile_data :footprint)]
-               [:dt "External Perimeter (m)"] [:dd (display profile_data :external_perimeter)]
-               [:dt "Gross Internal Area (m2)"] [:dd (display profile_data :gross_internal_area)]
-               [:dt "Number Of Storeys"] [:dd (display profile_data :number_of_storeys)]
-               [:dt "Total Volume (m3)"] [:dd (display profile_data :total_volume)]
-               [:dt "Total Rooms"] [:dd (display profile_data :total_rooms)]
-               [:dt "Total Bedrooms"] [:dd (display profile_data :bedroom_count)]
-               [:dt "Habitable Rooms"] [:dd (display profile_data :habitable_rooms)]
-               [:dt "Inadequate Heating?"] [:dd (display profile_data :inadequate_heating)]
-               [:dt "Heated Habitable Rooms"] [:dd (display profile_data :heated_habitable_rooms)]])]))]))))
+              [:div
+               (text-control profile_data state owner :footprint "Footprint (internal groundfloor area (m2)")
+               (text-control profile_data state owner :external_perimeter "External Perimeter (m)")
+               (text-control profile_data state owner :gross_internal_area "Gross Internal Area (m2)")
+               (text-control profile_data state owner :number_of_storeys "Number Of Storeys")
+               (text-control profile_data state owner :total_volume "Total Volume (m3)")
+               (text-control profile_data state owner :total_rooms "Total Rooms")
+               (text-control profile_data state owner :bedroom_count "Total Bedrooms")
+               (text-control profile_data state owner :habitable_rooms "Habitable Rooms")
+               (text-control profile_data state owner :inadequate_heating "Inadequate Heating?")
+               (text-control profile_data state owner :heated_habitable_rooms "Heated Habitable Rooms")])]))]))))
 
-(defn energy-row [profiles ownwer]
+(defn energy-row [profiles owner]
   (reify
     om/IRenderState
     (render-state [_ state]
@@ -94,20 +123,33 @@
             [:div {:class (profile-column-width)}
              (bs/panel
               "Energy"
-              [:dl
-               [:dt "DER (kgCO2/m2/yr)"] [:dd (display profile_data :der)]
-               [:dt "TER (kgCO2/m2/yr)"] [:dd (display profile_data :ter)]
-               [:dt "Total Primary Energy Requirement"] [:dd (display profile_data :primary_energy_requirement)]
-               [:dt "Space Heating Requirement"] [:dd (display profile_data :space_heating_requirement)]
-               [:dt "Annual Space Heating Requirement"] [:dd (display profile_data :annual_space_heating_requirement)]
-               ;; hot water?
-               [:dt "Renewable Contribution Heat"] [:dd (display profile_data :renewable_contribution_heat)]
-               [:dt "Renewable Contribution Elec"] [:dd (display profile_data :renewable_contribution_elec)]
+              [:div
+               (text-control profile_data state owner :der "DER (kgCO2/m2/yr)")
+               (text-control profile_data state owner :ter "TER (kgCO2/m2/yr)")
+               (text-control profile_data state owner :primary_energy_requirement "Total Primary Energy Requirement")
+               (text-control profile_data state owner :space_heating_requirement "Space Heating Requirement")
+               (text-control profile_data state owner :annual_space_heating_requirement "Annual Space Heating Requirement")
+               (text-control profile_data state owner :renewable_contribution_heat "Renewable Contribution Heat")
+               (text-control profile_data state owner :renewable_contribution_elec "Renewable Contribution Elec")
+               (text-control profile_data state owner :electricity_meter_type "Electricity Meter Type")
+               (text-control profile_data state owner :mains_gas "Linked to Mains Gas Supply")
+               (text-control profile_data state owner :electricity_storage_present "Electricity Storage Present")
+               (text-control profile_data state owner :heat_storage_present "Heat Storage Present")])]))]))))
 
-               [:dt "Electricity Meter Type"] [:dd (display profile_data :electricity_meter_type)]
-               [:dt "Linked to Mains Gas Supply"] [:dd (display profile_data :mains_gas)]
-               [:dt "Electricity Storage Present"] [:dd (display profile_data :electricity_storage_present)]
-               [:dt "Heat Storage Present"] [:dd (display profile_data :heat_storage_present)]])]))]))))
+(defn efficiency-row [profiles ownwer]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          (let [profile_data (:profile_data profile)]
+            [:div {:class (profile-column-width)}
+             (bs/panel
+              "Energy"
+              [:div
+               
+               ])]))]))))
 
 
 (defn profile-rows [profiles owner]
@@ -116,11 +158,12 @@
     (render-state [_ state]
       (html
        [:div.col-md-12
-        (om/build header-row profiles)
-        (om/build occupancy-row profiles)
-        (om/build measurements-row profiles)
-        (om/build energy-row profiles)
-        ;; (om/build efficiency profiles)
+        [:form {:role "form"}
+         (om/build header-row profiles)
+         (om/build occupancy-row profiles)
+         (om/build measurements-row profiles)
+         (om/build energy-row profiles)
+         (om/build efficiency-row profiles)]
         ;; (om/build flats profiles)
         ;; (om/build firepalces profiles)
         ;; (om/build glazing profiles)
