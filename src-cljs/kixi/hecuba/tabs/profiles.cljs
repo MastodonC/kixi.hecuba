@@ -5,8 +5,6 @@
             [cljs-time.format :as tf]
             [kixi.hecuba.bootstrap :as bs]))
 
-(enable-console-print!)
-
 (defn get-profiles [selected-property-id data]
   (->>  data
         :properties
@@ -89,7 +87,6 @@
   (reify
     om/IRenderState
     (render-state [_ state]
-      (println "Profiles: " profiles)
       (html
        [:div.col-md-12
         (for [profile profiles]
