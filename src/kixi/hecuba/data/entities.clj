@@ -17,8 +17,8 @@
   (db/execute session (hayt/insert :entities (hayt/values (encode entity)))))
 
 (defn update [session id entity]
-  (db/execute session (hayt/update :entities 
-                                   (hayt/set-columns (encode entity))
+  (db/execute session (hayt/update :entities
+                                   (hayt/set-columns (encode (dissoc entity :id)))
                                    (hayt/where [[= :id id]]))))
 
 (defn get-by-id
