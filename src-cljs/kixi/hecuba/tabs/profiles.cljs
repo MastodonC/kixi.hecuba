@@ -223,6 +223,26 @@
                (text-control profile_data state owner :appliances_strategy "Appliances Strategy")
                (text-control profile_data state owner :cellar_basement_issues "Cellar Basement Issues")])]))]))))
 
+(defn sap-results-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          (let [profile_data (:profile_data profile)]
+            [:div {:class (profile-column-width)}
+             (bs/panel
+              "SAP Results"
+              [:div
+               (text-control profile_data state owner :sap_rating "SAP Rating")
+               (text-control profile_data state owner :sap_performed_on "SAP Performed On")
+               (text-control profile_data state owner :sap_assessor "SAP Assessor")
+               (text-control profile_data state owner :sap_version_issue "SAP Version Issue")
+               (text-control profile_data state owner :sap_version_year "SAP Version Year")
+               (text-control profile_data state owner :sap_regulations_date "SAP Regulations Date")
+               (text-control profile_data state owner :sap_software "Name of SAP Software")])]))]))))
+
 (defn profile-rows [profiles owner]
   (reify
     om/IRenderState
@@ -239,7 +259,7 @@
          (om/build fireplaces-row profiles)
          (om/build glazing-row profiles)
          (om/build issues-row profiles)
-         ;; (om/build sap-results profiles)
+         (om/build sap-results-row profiles)
          ;; (om/build documents profiles)
          ;; (om/build co-heating profiles)
          ;; (om/build air-tightness profiles)
