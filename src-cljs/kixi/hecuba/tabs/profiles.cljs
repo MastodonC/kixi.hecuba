@@ -279,6 +279,108 @@
                (text-control profile_data state owner :water_saving_strategy "Water Saving Strategy")
                (text-control profile_data state owner :innovation_approaches "Innovation Approaches")])]))]))))
 
+(defn project-details-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          (let [profile_data (:profile_data profile)]
+            [:div {:class (profile-column-width)}
+             (bs/panel
+              "Project Details"
+              [:div
+               (text-control profile_data state owner :total_budget_new_build "Total Budget New Build")
+               (text-control profile_data state owner :estimated_cost_new_build "Estimated Cost New Build")
+               (text-control profile_data state owner :final_cost_new_build "Final Cost New Build")
+               (text-control profile_data state owner :construction_time_new_build "Construction Time New Build (Days)")
+               (text-control profile_data state owner :design_guidance "Design Guidance")
+               (text-control profile_data state owner :planning_considerations "Planning Considerations")
+               (text-control profile_data state owner :total_budget "Total Budget")])]))]))))
+
+(defn coheating-test-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          (let [profile_data (:profile_data profile)]
+            [:div {:class (profile-column-width)}
+             (bs/panel
+              "Coheating Test"
+              [:div
+               (text-control profile_data state owner :co_heating_loss "Fabric Heat Loss (W/m2)")
+               (text-control profile_data state owner :co_heating_performed_on "Dates Performed")
+               (text-control profile_data state owner :co_heating_assessor "Assessor Used")
+               (text-control profile_data state owner :co_heating_equipment "Equipment")])]))]))))
+
+(defn dwelling-u-values-summary-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          (let [profile_data (:profile_data profile)]
+            [:div {:class (profile-column-width)}
+             (bs/panel
+              "Dwelling U-values Summary"
+              [:div
+               (text-control profile_data state owner :best_u_value_for_doors "Best U Value For Doors")
+               (text-control profile_data state owner :best_u_value_for_floors "Best U Value For Floors")
+               (text-control profile_data state owner :best_u_value_for_other "Best U Value For Other")
+               (text-control profile_data state owner :best_u_value_for_roof "Best U Value For Roof")
+               (text-control profile_data state owner :best_u_value_for_walls "Best U Value For Walls")
+               (text-control profile_data state owner :best_u_value_for_windows "Best U Value For Windows")
+               (text-control profile_data state owner :best_u_value_party_walls "Best U Value Party Walls")
+               (text-control profile_data state owner :dwelling_u_value_other "Dwelling U Value Other")])]))]))))
+
+(defn air-tightness-test-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          (let [profile_data (:profile_data profile)]
+            [:div {:class (profile-column-width)}
+             (bs/panel
+              "Air Tightness Test"
+              [:div
+               (text-control profile_data state owner :air_tightness_assessor "Air Tightness Assessor")
+               (text-control profile_data state owner :air_tightness_equipment "Air Tightness Equipment")
+               (text-control profile_data state owner :air_tightness_performed_on "Air Tightness Performed On")
+               (text-control profile_data state owner :air_tightness_rate "Air Tightness Rate")])]))]))))
+
+(defn bus-survey-information-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          (let [profile_data (:profile_data profile)]
+            [:div {:class (profile-column-width)}
+             (bs/panel
+              "BUS Survey Information"
+              [:div
+               (text-control profile_data state owner :profile_temperature_in_summer "Temperature In Summer")
+               (text-control profile_data state owner :profile_temperature_in_winter "Temperature In Winter")
+               (text-control profile_data state owner :profile_air_in_summer "Air In Summer")
+               (text-control profile_data state owner :profile_air_in_winter "Air In Winter")
+               (text-control profile_data state owner :profile_lightning "Lightning")
+               (text-control profile_data state owner :profile_noise "Noise")
+               (text-control profile_data state owner :profile_comfort "Comfort")               
+               (text-control profile_data state owner :profile_design "Design")
+               (text-control profile_data state owner :profile_needs "Needs")
+               (text-control profile_data state owner :profile_health "Health (perceived)")
+               (text-control profile_data state owner :profile_image_to_visitors "Image To Visitors")
+               (text-control profile_data state owner :profile_productivity "Productivity")
+               (text-control profile_data state owner :profile_bus_summary_index "Bus Summary Index")
+               (text-control profile_data state owner :profile_bus_report_url "BUS Report Url")])]))]))))
+
 (defn sap-results-row [profiles owner]
   (reify
     om/IRenderState
@@ -306,6 +408,7 @@
       (html
        [:div.col-md-12
         [:form {:role "form"}
+         ;; profile data
          (om/build header-row profiles)
          (om/build description-row profiles)
          (om/build occupancy-row profiles)
@@ -319,9 +422,14 @@
          (om/build issues-row profiles)
          (om/build sap-results-row profiles)
          (om/build lessons-learnt-row profiles)
+         (om/build bus-survey-information-row profiles)
+         (om/build dwelling-u-values-summary-row profiles)
+         (om/build air-tightness-test-row profiles)
+         (om/build bus-survey-information-row profiles)
+         (om/build project-details-row profiles)
          ;; (om/build documents profiles)
-         ;; (om/build co-heating profiles)
-         ;; (om/build air-tightness profiles)
+         
+         ;; dwelling details
          ;; (om/build conservatories profiles)
          ;; (om/build extensions profiles)
          ;; (om/build heating-systems profiles)
@@ -335,6 +443,9 @@
          ;; (om/build roof-rooms profiles)
          ;; (om/build low-energy-lights profiles)
          ;; (om/build ventilation-systems profiles)
+         ;; (om/build airflow-measurements profiles)
+         
+         ;; renewable energy systems
          ;; (om/build photovoltaic-panels profiles)
          ;; (om/build solar-thermal-panels profiles)
          ;; (om/build wind-turbines profiles)
@@ -363,72 +474,26 @@
 
 
 (comment
-
-  (text-control profile_data state owner :air_tightness_assessor "Air Tightness Assessor")
-  (text-control profile_data state owner :air_tightness_equipment "Air Tightness Equipment")
-  (text-control profile_data state owner :air_tightness_performed_on "Air Tightness Performed On")
-  (text-control profile_data state owner :air_tightness_rate "Air Tightness Rate")
-
+  
   (text-control profile_data state owner :annual_heating_load "Annual Heating Load")
-  (text-control profile_data state owner :best_u_value_for_doors "Best U Value For Doors")
-  (text-control profile_data state owner :best_u_value_for_floors "Best U Value For Floors")
-  (text-control profile_data state owner :best_u_value_for_other "Best U Value For Other")
-  (text-control profile_data state owner :best_u_value_for_roof "Best U Value For Roof")
-  (text-control profile_data state owner :best_u_value_for_walls "Best U Value For Walls")
-  (text-control profile_data state owner :best_u_value_for_windows "Best U Value For Windows")
-  (text-control profile_data state owner :best_u_value_party_walls "Best U Value Party Walls")
-  (text-control profile_data state owner :co_heating_assessor "Co Heating Assessor")
-  (text-control profile_data state owner :co_heating_equipment "Co Heating Equipment")
-  (text-control profile_data state owner :co_heating_loss "Co Heating Loss")
-  (text-control profile_data state owner :co_heating_performed_on "Co Heating Performed On")
   (text-control profile_data state owner :completeness "Completeness")
   (text-control profile_data state owner :conservation_issues "Conservation Issues")
-  (text-control profile_data state owner :construction_time_new_build "Construction Time New Build")
-
-  (text-control profile_data state owner :design_guidance "Design Guidance")
-  (text-control profile_data state owner :dwelling_u_value_other "Dwelling U Value Other")
-  (text-control profile_data state owner :estimated_cost_new_build "Estimated Cost New Build")
   (text-control profile_data state owner :fabric_energy_efficiency "Fabric Energy Efficiency")
-  (text-control profile_data state owner :final_cost_new_build "Final Cost New Build")
   (text-control profile_data state owner :heat_loss_parameter_hlp "Heat Loss Parameter Hlp")
   (text-control profile_data state owner :id "ID")
-
   (text-control profile_data state owner :intention_ofpassvhaus "Intention Ofpassvhaus")
   (text-control profile_data state owner :intervention_completion_date "Intervention Completion Date")
   (text-control profile_data state owner :intervention_description "Intervention Description")
   (text-control profile_data state owner :intervention_start_date "Intervention Start Date")
-
   (text-control profile_data state owner :modelling_software_methods_used "Modelling Software Methods Used")
   (text-control profile_data state owner :onsite_days "Onsite Days")
   (text-control profile_data state owner :onsite_days_new_build "Onsite Days New Build")
   (text-control profile_data state owner :orientation "Orientation")
-
-  
-  (text-control profile_data state owner :planning_considerations "Planning Considerations")
-  (text-control profile_data state owner :profile_air_in_summer "Profile Air In Summer")
-  (text-control profile_data state owner :profile_air_in_winter "Profile Air In Winter")
-  (text-control profile_data state owner :profile_bus_report_url "Profile Bus Report Url")
-  (text-control profile_data state owner :profile_bus_summary_index "Profile Bus Summary Index")
-  (text-control profile_data state owner :profile_comfort "Profile Comfort")
-  (text-control profile_data state owner :profile_design "Profile Design")
-  (text-control profile_data state owner :profile_health "Profile Health")
-  (text-control profile_data state owner :profile_image_to_visitors "Profile Image To Visitors")
-  (text-control profile_data state owner :profile_lightning "Profile Lightning")
-  (text-control profile_data state owner :profile_needs "Profile Needs")
-  (text-control profile_data state owner :profile_noise "Profile Noise")
-  (text-control profile_data state owner :profile_productivity "Profile Productivity")
-  (text-control profile_data state owner :profile_temperature_in_summer "Profile Temperature In Summer")
-  (text-control profile_data state owner :profile_temperature_in_winter "Profile Temperature In Winter")
   (text-control profile_data state owner :property_id "Property Id")
   (text-control profile_data state owner :roof_rooms_present "Roof Rooms Present")
   (text-control profile_data state owner :space_heating_requirement "Space Heating Requirement")
-
   (text-control profile_data state owner :total_area "Total Area")
-  (text-control profile_data state owner :total_budget "Total Budget")
-  (text-control profile_data state owner :total_budget_new_build "Total Budget New Build")
   (text-control profile_data state owner :total_envelope_area "Total Envelope Area")
-
   (text-control profile_data state owner :ventilation_approach "Ventilation Approach")
   (text-control profile_data state owner :ventilation_approach_other "Ventilation Approach Other")
-
   )
