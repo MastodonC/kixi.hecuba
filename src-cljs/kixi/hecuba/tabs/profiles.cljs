@@ -171,7 +171,7 @@
                (text-control profile_data state owner :flat_length_sheltered_wall "Length of Sheltered Wall (m)")
                (text-control profile_data state owner :flat_floor_heat_loss_type "Floor Heat Loss Type")])]))]))))
 
-(defn firepalces-row [profiles owner]
+(defn fireplaces-row [profiles owner]
   (reify
     om/IRenderState
     (render-state [_ state]
@@ -185,6 +185,27 @@
               [:div
                (text-control profile_data state owner :open_fireplaces "Number of Open Fireplaces")
                (text-control profile_data state owner :sealed_fireplaces "Number of Sealed Fireplaces")])]))]))))
+
+(defn glazing-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          (let [profile_data (:profile_data profile)]
+            [:div {:class (profile-column-width)}
+             (bs/panel
+              "Glazing"
+              [:div
+               (text-control profile_data state owner :glazing_area_glass_only "Glazing Area Glass Only")
+               (text-control profile_data state owner :glazing_area_percentage "Glazing Area (% if known)")
+               (text-control profile_data state owner :multiple_glazing_type "Multiple Glazing Type")
+               (text-control profile_data state owner :multiple_glazing_area_percentage "Multiple Glazing Area (% if known)")
+               (text-control profile_data state owner :multiple_glazing_u_value "Multiple Glazing U Value")
+               (text-control profile_data state owner :multiple_glazing_type_other "Multiple Glazing Type Other")
+               (text-control profile_data state owner :frame_type "Frame Type")
+               (text-control profile_data state owner :frame_type_other "Frame Type Other")])]))]))))
 
 
 (defn profile-rows [profiles owner]
@@ -200,8 +221,8 @@
          (om/build energy-row profiles)
          (om/build efficiency-row profiles)
          (om/build flats-row profiles)
-         (om/build firepalces-row profiles)
-         ;; (om/build glazing profiles)
+         (om/build fireplaces-row profiles)
+         (om/build glazing-row profiles)
          ;; (om/build issues profiles)
          ;; (om/build sap-results profiles)
          ;; (om/build documents profiles)
