@@ -62,7 +62,7 @@
 
                  [ankha "0.1.3"]
 
-                 [cc.qbits/alia "2.0.0-rc3" :exclusions [com.google.guava/guava org.flatland/useful]]
+                 [cc.qbits/alia "2.0.0-rc4" :exclusions [com.google.guava/guava org.flatland/useful]]
                  [cc.qbits/hayt "2.0.0-beta4"]
                  ;; add lz4 to avoid startup warning.
                  [net.jpountz.lz4/lz4 "1.2.0"]
