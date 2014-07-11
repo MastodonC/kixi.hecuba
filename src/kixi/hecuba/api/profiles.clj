@@ -5,7 +5,7 @@
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values update-stringified-lists sha1-regex)]
+   [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values update-stringified-lists sha1-regex content-type-from-context)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
@@ -14,7 +14,9 @@
    [kixi.hecuba.web-paths :as p]
    [kixi.hecuba.data.users :as users]
    [kixi.hecuba.data.projects :as projects]
-   [kixi.hecuba.data.entities :as entities]))
+   [kixi.hecuba.data.entities :as entities]
+   [clojure.java.io           :as io]
+   [clojure.data.csv          :as csv]))
 
 (def ^:private entity-profiles-resource (p/resource-path-string :entity-profiles-resource))
 
@@ -743,18 +745,46 @@
   standard       | timestamp                   | timestamp                  |
   nested item    | profile_data, bedroom_count | profile_data_bedroom_count |
   association    | storeys, first storey_type  | storeys_0_storey_type      |"
-  (reduce
-    (fn [item attr]
-      (let [t (attribute-type attr)
-            imploded-attribute (case t
-              :attribute               (extract-attribute attr input)
-              :nested-item             (extract-nested-item attr input)
-              :associated-items        (extract-associated-items attr input))]
-        (conj item imploded-attribute)))
-    {}
-    schema))
+  (try
+    (reduce
+     (fn [item attr]
+       (let [t (attribute-type attr)
+             imploded-attribute (case t
+                                  :attribute               (extract-attribute attr input)
+                                  :nested-item             (extract-nested-item attr input)
+                                  :associated-items        (extract-associated-items attr input))]
+         (conj item imploded-attribute)))
+     {}
+     schema)
+    (catch Throwable t
+      (log/error "Got malformed profiles CSV.")
+      nil)))
 
-(defn index-malformed? [ctx]
+(defmulti index-malformed? content-type-from-context)
+
+(defmethod index-malformed? "multipart/form-data" [ctx]
+  (let [file-data (-> ctx :request :multipart-params (get "data"))
+        {:keys [tempfile content-type]} file-data
+        dir       (.getParent tempfile)
+        filename  (.getName tempfile)
+        in-file   (io/file dir filename)
+        request   (:request ctx)
+        {:keys [route-params]} request
+        entity_id (:entity_id route-params)]
+    (with-open [in (io/reader in-file)]
+      (try
+        (let [data (->> in
+                        (csv/read-csv)
+                        (into {}))
+              parsed (parse-by-schema data profile-schema)]
+          (if (and parsed (= (:entity_id parsed) entity_id) (:timestamp parsed))
+            [false {:profile parsed}]
+            true))
+        (catch Throwable t
+          (log/error "Unparsable CSV.")
+          true)))))
+
+(defmethod index-malformed? :default [ctx]
   (let [request (:request ctx)
         {:keys [route-params request-method]} request
         entity_id (:entity_id route-params)]
@@ -902,7 +932,7 @@
   :authorized? (authorized? store)
   :allowed? (index-allowed? store)
   :exists? (partial index-exists? store)
-  :malformed? index-malformed?
+  :malformed? #(index-malformed? %)
   :post! (partial index-post! store)
   :handle-ok index-handle-ok
   :handle-created index-handle-created)
