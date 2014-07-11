@@ -256,6 +256,29 @@
                (text-control profile_data state owner :appliances_strategy "Appliances Strategy")
                (text-control profile_data state owner :cellar_basement_issues "Cellar Basement Issues")])]))]))))
 
+(defn lessons-learnt-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          (let [profile_data (:profile_data profile)]
+            [:div {:class (profile-column-width)}
+             (bs/panel
+              "Lesson Learnt"
+              [:div
+               (text-control profile_data state owner :thermal_bridging_strategy "Thermal Bridging Strategy")
+               (text-control profile_data state owner :airtightness_and_ventilation_strategy "Airtightness And Ventilation Strategy")
+               ;; moisture/mould/condensation?
+               ;; passive solar?
+               (text-control profile_data state owner :overheating_cooling_strategy "Overheating Cooling Strategy")
+               (text-control profile_data state owner :controls_strategy "Controls Strategy")
+               ;; appliances
+               (text-control profile_data state owner :lighting_strategy "Lighting Strategy")
+               (text-control profile_data state owner :water_saving_strategy "Water Saving Strategy")
+               (text-control profile_data state owner :innovation_approaches "Innovation Approaches")])]))]))))
+
 (defn sap-results-row [profiles owner]
   (reify
     om/IRenderState
@@ -295,6 +318,7 @@
          (om/build glazing-row profiles)
          (om/build issues-row profiles)
          (om/build sap-results-row profiles)
+         (om/build lessons-learnt-row profiles)
          ;; (om/build documents profiles)
          ;; (om/build co-heating profiles)
          ;; (om/build air-tightness profiles)
@@ -344,7 +368,7 @@
   (text-control profile_data state owner :air_tightness_equipment "Air Tightness Equipment")
   (text-control profile_data state owner :air_tightness_performed_on "Air Tightness Performed On")
   (text-control profile_data state owner :air_tightness_rate "Air Tightness Rate")
-  (text-control profile_data state owner :airtightness_and_ventilation_strategy "Airtightness And Ventilation Strategy")
+
   (text-control profile_data state owner :annual_heating_load "Annual Heating Load")
   (text-control profile_data state owner :best_u_value_for_doors "Best U Value For Doors")
   (text-control profile_data state owner :best_u_value_for_floors "Best U Value For Floors")
@@ -360,7 +384,7 @@
   (text-control profile_data state owner :completeness "Completeness")
   (text-control profile_data state owner :conservation_issues "Conservation Issues")
   (text-control profile_data state owner :construction_time_new_build "Construction Time New Build")
-  (text-control profile_data state owner :controls_strategy "Controls Strategy")
+
   (text-control profile_data state owner :design_guidance "Design Guidance")
   (text-control profile_data state owner :dwelling_u_value_other "Dwelling U Value Other")
   (text-control profile_data state owner :estimated_cost_new_build "Estimated Cost New Build")
@@ -368,18 +392,18 @@
   (text-control profile_data state owner :final_cost_new_build "Final Cost New Build")
   (text-control profile_data state owner :heat_loss_parameter_hlp "Heat Loss Parameter Hlp")
   (text-control profile_data state owner :id "ID")
-  (text-control profile_data state owner :innovation_approaches "Innovation Approaches")
+
   (text-control profile_data state owner :intention_ofpassvhaus "Intention Ofpassvhaus")
   (text-control profile_data state owner :intervention_completion_date "Intervention Completion Date")
   (text-control profile_data state owner :intervention_description "Intervention Description")
   (text-control profile_data state owner :intervention_start_date "Intervention Start Date")
-  (text-control profile_data state owner :lighting_strategy "Lighting Strategy")
+
   (text-control profile_data state owner :modelling_software_methods_used "Modelling Software Methods Used")
   (text-control profile_data state owner :onsite_days "Onsite Days")
   (text-control profile_data state owner :onsite_days_new_build "Onsite Days New Build")
   (text-control profile_data state owner :orientation "Orientation")
-  (text-control profile_data state owner :overheating_cooling_strategy "Overheating Cooling Strategy")
-  (text-control profile_data state owner :passive_solar_strategy "Passive Solar Strategy")
+
+  
   (text-control profile_data state owner :planning_considerations "Planning Considerations")
   (text-control profile_data state owner :profile_air_in_summer "Profile Air In Summer")
   (text-control profile_data state owner :profile_air_in_winter "Profile Air In Winter")
@@ -398,13 +422,13 @@
   (text-control profile_data state owner :property_id "Property Id")
   (text-control profile_data state owner :roof_rooms_present "Roof Rooms Present")
   (text-control profile_data state owner :space_heating_requirement "Space Heating Requirement")
-  (text-control profile_data state owner :thermal_bridging_strategy "Thermal Bridging Strategy")
+
   (text-control profile_data state owner :total_area "Total Area")
   (text-control profile_data state owner :total_budget "Total Budget")
   (text-control profile_data state owner :total_budget_new_build "Total Budget New Build")
   (text-control profile_data state owner :total_envelope_area "Total Envelope Area")
-  (text-control profile_data state owner :used_passivehaus_principles "Used Passivehaus Principles")
+
   (text-control profile_data state owner :ventilation_approach "Ventilation Approach")
   (text-control profile_data state owner :ventilation_approach_other "Ventilation Approach Other")
-  (text-control profile_data state owner :water_saving_strategy "Water Saving Strategy")
+
   )
