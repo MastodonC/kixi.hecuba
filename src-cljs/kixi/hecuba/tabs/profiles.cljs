@@ -207,6 +207,21 @@
                (text-control profile_data state owner :frame_type "Frame Type")
                (text-control profile_data state owner :frame_type_other "Frame Type Other")])]))]))))
 
+(defn issues-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          (let [profile_data (:profile_data profile)]
+            [:div {:class (profile-column-width)}
+             (bs/panel
+              "Issues"
+              [:div
+               (text-control profile_data state owner :moisture_condensation_mould_strategy "Moisture Condensation Mould Strategy")
+               (text-control profile_data state owner :appliances_strategy "Appliances Strategy")
+               (text-control profile_data state owner :cellar_basement_issues "Cellar Basement Issues")])]))]))))
 
 (defn profile-rows [profiles owner]
   (reify
@@ -223,7 +238,7 @@
          (om/build flats-row profiles)
          (om/build fireplaces-row profiles)
          (om/build glazing-row profiles)
-         ;; (om/build issues profiles)
+         (om/build issues-row profiles)
          ;; (om/build sap-results profiles)
          ;; (om/build documents profiles)
          ;; (om/build co-heating profiles)
