@@ -85,6 +85,34 @@
                [:dt "Inadequate Heating?"] [:dd (display profile_data :inadequate_heating)]
                [:dt "Heated Habitable Rooms"] [:dd (display profile_data :heated_habitable_rooms)]])]))]))))
 
+(defn energy-row [profiles ownwer]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (println "Profiles: " profiles)
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          (let [profile_data (:profile_data profile)]
+            [:div {:class (profile-column-width)}
+             (bs/panel
+              "Energy"
+              [:dl
+               [:dt "DER (kgCO2/m2/yr)"] [:dd (display profile_data :der)]
+               [:dt "TER (kgCO2/m2/yr)"] [:dd (display profile_data :ter)]
+               [:dt "Total Primary Energy Requirement"] [:dd (display profile_data :primary_energy_requirement)]
+               [:dt "Space Heating Requirement"] [:dd (display profile_data :space_heating_requirement)]
+               [:dt "Annual Space Heating Requirement"] [:dd (display profile_data :annual_space_heating_requirement)]
+               ;; hot water?
+               [:dt "Renewable Contribution Heat"] [:dd (display profile_data :renewable_contribution_heat)]
+               [:dt "Renewable Contribution Elec"] [:dd (display profile_data :renewable_contribution_elec)]
+
+               [:dt "Electricity Meter Type"] [:dd (display profile_data :electricity_meter_type)]
+               [:dt "Linked to Mains Gas Supply"] [:dd (display profile_data :mains_gas)]
+               [:dt "Electricity Storage Present"] [:dd (display profile_data :electricity_storage_present)]
+               [:dt "Heat Storage Present"] [:dd (display profile_data :heat_storage_present)]])]))]))))
+
+
 (defn profile-rows [profiles owner]
   (reify
     om/IRenderState
@@ -94,7 +122,7 @@
         (om/build header-row profiles)
         (om/build occupancy-row profiles)
         (om/build measurements-row profiles)
-        ;; (om/build energy profiles)
+        (om/build energy-row profiles)
         ;; (om/build efficiency profiles)
         ;; (om/build flats profiles)
         ;; (om/build firepalces profiles)
