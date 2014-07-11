@@ -171,6 +171,21 @@
                (text-control profile_data state owner :flat_length_sheltered_wall "Length of Sheltered Wall (m)")
                (text-control profile_data state owner :flat_floor_heat_loss_type "Floor Heat Loss Type")])]))]))))
 
+(defn firepalces-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          (let [profile_data (:profile_data profile)]
+            [:div {:class (profile-column-width)}
+             (bs/panel
+              "Fireplaces"
+              [:div
+               (text-control profile_data state owner :open_fireplaces "Number of Open Fireplaces")
+               (text-control profile_data state owner :sealed_fireplaces "Number of Sealed Fireplaces")])]))]))))
+
 
 (defn profile-rows [profiles owner]
   (reify
@@ -185,7 +200,7 @@
          (om/build energy-row profiles)
          (om/build efficiency-row profiles)
          (om/build flats-row profiles)
-         ;; (om/build firepalces profiles)
+         (om/build firepalces-row profiles)
          ;; (om/build glazing profiles)
          ;; (om/build issues profiles)
          ;; (om/build sap-results profiles)
