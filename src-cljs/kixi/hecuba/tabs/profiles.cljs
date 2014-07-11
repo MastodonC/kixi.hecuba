@@ -154,6 +154,21 @@
                (text-control profile_data state owner :electricity_storage_present "Electricity Storage Present")
                (text-control profile_data state owner :heat_storage_present "Heat Storage Present")])]))]))))
 
+(defn passivhaus-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          (let [profile_data (:profile_data profile)]
+            [:div {:class (profile-column-width)}
+             (bs/panel
+              "PassivHaus"
+              [:div
+               (text-control profile_data state owner :passive_solar_strategy "Passive Solar Strategy")
+               (text-control profile_data state owner :used_passivehaus_principles "Used Passivehaus Principles")])]))]))))
+
 (defn efficiency-row [profiles owner]
   (reify
     om/IRenderState
@@ -274,6 +289,7 @@
          (om/build measurements-row profiles)
          (om/build energy-row profiles)
          (om/build efficiency-row profiles)
+         (om/build passivhaus-row profiles)
          (om/build flats-row profiles)
          (om/build fireplaces-row profiles)
          (om/build glazing-row profiles)
