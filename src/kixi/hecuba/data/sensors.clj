@@ -11,16 +11,18 @@
                         :frequency :max :min :period
                         :resolution :unit :user_metadata])
 
-(defn user-metadata [sensor]
+(defn user-metadata [sensor synthetic]
   (-> sensor
       (merge (stringify-values (dissoc sensor :user_metadata)))
-      (update-in [:user_metadata] #(-> %
-                                       walk/stringify-keys
-                                       stringify-values))))
+      (update-in [:user_metadata] (fn [user_metadata]
+                                    (when-not synthetic
+                                      (-> user_metadata
+                                          walk/stringify-keys
+                                          stringify-values))))))
 
 (defn encode [sensor]
   (-> (select-keys sensor user-editable-keys)   
-      (user-metadata)))
+      (user-metadata (:synthetic sensor))))
 
 (defn sensor-time-range [device_id type session]
   (first

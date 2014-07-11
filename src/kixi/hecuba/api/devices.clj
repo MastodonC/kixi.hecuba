@@ -94,7 +94,7 @@
 (defn- ext-type [sensor type-ext]
   (-> sensor
       (update-in [:type] #(str % "_" type-ext))
-      (assoc :period "PULSE")))
+      (assoc :period "PULSE" :synthetic true)))
 
 (defmulti calculated-sensor (fn [sensor] (.toUpperCase (:unit sensor))))
 
