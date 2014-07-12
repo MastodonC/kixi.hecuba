@@ -103,14 +103,15 @@
       (loop [[device-and-sensor & more-headers] header
              [measurements & more-measurements] data]
         (when (and device-and-sensor measurements)
-          (let [[device sensor] (split-device-and-sensor device-and-sensor)
+          (let [[device sensor]        (split-device-and-sensor device-and-sensor)
                 validated-measurements (map #(-> %
                                                  (prepare-measurement sensor)
                                                  (v/validate sensor))
-                                            measurements)]
+                                            measurements)
+                page-size              10]
             (update-device-data store (prepare-device device))
             (update-sensor-data store (prepare-sensor sensor))
-            (misc/insert-measurements store sensor validated-measurements 100)
+            (misc/insert-measurements store sensor validated-measurements page-size)
             (recur more-headers more-measurements)))))))
 
 (defn- devices-by-project-id [header]

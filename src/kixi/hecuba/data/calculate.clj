@@ -136,22 +136,24 @@
     (when (> (count (take 2 measurements)) 1)
       (let [{:keys [device_id type]} sensor
             new-type                 (ext-type type)
-            calculated               (diff-seq measurements)]
-        (m/insert-measurements store {:device_id device_id :type new-type} calculated 100)))))
+            calculated               (diff-seq measurements)
+            page-size                10]
+        (m/insert-measurements store {:device_id device_id :type new-type} calculated page-size)))))
 
 (defn kWh->co2 
   "Converts measurements from kWh to co2."
   [store {:keys [sensor range]}]
   (let [{:keys [device_id type]} sensor
-        new-type                (m/output-type-for type "kwh2co2")
-        get-fn-and-measurements (fn [s] [(conversion-fn s "kwh2co2")
-                                         (measurements/measurements-for-range store s range (t/hours 1))])
-        convert                 (fn [[f xs]] (when-not (nil? f) (map f xs)))
-        calculated              (->> sensor
-                                     get-fn-and-measurements
-                                     convert)]
+        new-type                 (m/output-type-for type "kwh2co2")
+        get-fn-and-measurements  (fn [s] [(conversion-fn s "kwh2co2")
+                                          (measurements/measurements-for-range store s range (t/hours 1))])
+        convert                  (fn [[f xs]] (when-not (nil? f) (map f xs)))
+        calculated               (->> sensor
+                                      get-fn-and-measurements
+                                      convert)
+        page-size                10]
     (when calculated
-      (m/insert-measurements store {:device_id device_id :type new-type} calculated 100))))
+      (m/insert-measurements store {:device_id device_id :type new-type} calculated page-size))))
 
 (defn gas-volume->kWh 
   "Converts measurements from m^3 and ft^3 to kWh."
@@ -163,9 +165,10 @@
         new-type                 (m/output-type-for type "vol2kwh")
         calculated               (->> sensor
                                       get-fn-and-measurements
-                                      convert)]
+                                      convert)
+        page-size                10]
     (when calculated
-      (m/insert-measurements store {:device_id device_id :type new-type} calculated 100))))
+      (m/insert-measurements store {:device_id device_id :type new-type} calculated page-size))))
 
 ;;;;;;;;;;; Rollups of measurements ;;;;;;;;;
 
@@ -385,13 +388,14 @@
                 resolution      (first all-resolutions)]
             
             (if (every? #(= resolution %) all-resolutions)
-              (let [padded     (padded-measurements sensors measurements resolution)
-                    new-type   (:name ds)
-                    sensor     {:device_id device_id :type new-type}
-                    calculated (apply compute-datasets operation device_id new-type padded)
-                    {:keys [start-date end-date]} range]
+              (let [padded                        (padded-measurements sensors measurements resolution)
+                    new-type                      (:name ds)
+                    sensor                        {:device_id device_id :type new-type}
+                    calculated                    (apply compute-datasets operation device_id new-type padded)
+                    {:keys [start-date end-date]} range
+                    page-size                     10]
                 
-                (m/insert-measurements store sensor calculated 100)
+                (m/insert-measurements store sensor calculated page-size)
                 (m/reset-date-range store sensor :calculated_datasets start-date end-date)
                 (log/info "Finished calculation for sensors: " (:members ds) "and operation: " operation))
               (log/info "Sensors are not of the same resolution.")))
