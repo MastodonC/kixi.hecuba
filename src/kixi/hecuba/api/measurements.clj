@@ -252,11 +252,12 @@
                 :body "Accepted"}}))
 
 (defmethod index-post! :default [store pipe ctx]
-  (let [request       (:request ctx)
-        route-params  (:route-params request)
-        device_id     (:device_id route-params)
-        measurements  (:measurements (:body ctx))
-        type          (-> measurements first :type)]
+  (let [request      (:request ctx)
+        route-params (:route-params request)
+        device_id    (:device_id route-params)
+        measurements (:measurements (:body ctx))
+        type         (-> measurements first :type)
+        page-size    10]
     (db/with-session [session (:hecuba-session store)]
       (if-let [sensor (sensor-exists? session device_id type)]
         (let [validated-measurements (map #(-> %
@@ -264,7 +265,7 @@
                                                (v/validate sensor))
                                           measurements)
               {:keys [min-date max-date]} (misc/min-max-dates validated-measurements)]
-          (misc/insert-measurements store sensor validated-measurements 100)
+          (misc/insert-measurements store sensor validated-measurements page-size)
           {:response {:status 202 :body "Accepted"}})
         {:response {:status 400 :body "Provide valid device_id and type."}}))))
 
