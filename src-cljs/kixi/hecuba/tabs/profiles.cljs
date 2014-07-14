@@ -442,6 +442,57 @@
                    (text-control item state owner :construction_date ":construction_date")]))]
               [:p "No extensions."]))])]))))
 
+(defn heating-systems-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Heating Systems"
+            (if-let [heating-systems (seq (:heating-systems profile))]
+              [:div {:class (profile-column-width)}
+               (for [item heating-systems]
+                 (bs/panel
+                  "Heating System"
+                  [(text-control item state owner :heating_type "Heating Type")
+                   (text-control item state owner :heat_source "Heat Source")
+                   (text-control item state owner :heat_transport "Heat Transport")
+                   (text-control item state owner :heat_delivery "Heat Delivery")
+                   (text-control item state owner :heat_delivery_source "Heat Delivery Source")
+                   (text-control item state owner :efficiency_derivation "Efficiency Derivation")
+                   (text-control item state owner :boiler_type "Boiler Type")
+                   (text-control item state owner :boiler_type_other "Boiler Type Other")
+                   (text-control item state owner :fan_flue "Fan Flue")
+                   (text-control item state owner :open_flue "Open Flue")
+                   (text-control item state owner :fuel "Fuel")
+                   (text-control item state owner :heating_system "Heating System")
+                   (text-control item state owner :heating_system_other "Heating System Other")
+                   (text-control item state owner :heating_system_type "Heating System Type")
+                   (text-control item state owner :heating_system_type_other "Heating System Type Other")
+                   (text-control item state owner :heating_system_solid_fuel "Heating System Solid Fuel")
+                   (text-control item state owner :heating_system_solid_fuel_other "Heating System Solid Fuel Other")
+                   (text-control item state owner :bed_index "Bed Index")
+                   (text-control item state owner :make_and_model "Make and Model")
+                   (text-control item state owner :controls "Controls")
+                   (text-control item state owner :controls_other "Controls Other")
+                   (text-control item state owner :controls_make_and_model "Controls Make and Model")
+                   (text-control item state owner :emitter "Emitter")
+                   (text-control item state owner :trvs_on_emitters "TRVs on Emitters")
+                   (text-control item state owner :use_hours_per_week "Use Hours per Week")
+                   (text-control item state owner :installer "Installer")
+                   (text-control item state owner :installer_engineers_name "Installer Engineers Name")
+                   (text-control item state owner :installer_registration_number "Installer Registration Number")
+                   (text-control item state owner :commissioning_date "Commissioning Date")
+                   (text-control item state owner :inspector "Inspector")
+                   (text-control item state owner :inspector_engineers_name "Inspector Engineers Name")
+                   (text-control item state owner :inspector_registration_number "Inspector Registration Number ")
+                   (text-control item state owner :inspection_date "Inspection Date")
+                   (text-control item state owner :efficiency "Efficiency")]))]
+              [:p "No heating systems."]))])]))))
+
 (defn profile-rows [profiles owner]
   (reify
     om/IRenderState
@@ -472,8 +523,8 @@
 
          ;; dwelling details
          (om/build conservatories-row profiles)
-         ;; (om/build heating-systems profiles)
          (om/build extensions-row profiles)
+         (om/build heating-systems-row profiles)
          ;; (om/build hot-water-systems profiles)
          ;; (om/build storeys profiles)
          ;; (om/build walls profiles)
