@@ -245,6 +245,7 @@ CREATE TABLE partitioned_measurements (
 
 CREATE TABLE profiles (
   id text,
+  biomasses list<text>,
   airflow_measurements list<text>,
   chps list<text>,
   conservatories list<text>,
