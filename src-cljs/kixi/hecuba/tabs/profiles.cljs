@@ -423,6 +423,25 @@
                    (text-control c state owner :height "Height")]))]
               [:p "No conservatories."]))])]))))
 
+(defn extensions-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Extensions"
+            (if-let [extensions (seq (:extensions profile))]
+              [:div {:class (profile-column-width)}
+               (for [item extensions]
+                 (bs/panel
+                  "Extension"
+                  [(text-control item state owner :age ":age")
+                   (text-control item state owner :construction_date ":construction_date")]))]
+              [:p "No extensions."]))])]))))
+
 (defn profile-rows [profiles owner]
   (reify
     om/IRenderState
@@ -453,8 +472,8 @@
 
          ;; dwelling details
          (om/build conservatories-row profiles)
-         ;; (om/build extensions profiles)
          ;; (om/build heating-systems profiles)
+         (om/build extensions-row profiles)
          ;; (om/build hot-water-systems profiles)
          ;; (om/build storeys profiles)
          ;; (om/build walls profiles)
