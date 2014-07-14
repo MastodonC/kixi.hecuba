@@ -440,8 +440,8 @@
                  (bs/panel
                   "Extension"
                   [:div
-                   (text-control item state owner :age ":age")
-                   (text-control item state owner :construction_date ":construction_date")]))]
+                   (text-control item state owner :age "Age")
+                   (text-control item state owner :construction_date "Construction Date")]))]
               [:p "No extensions."]))])]))))
 
 (defn heating-systems-row [profiles owner]
@@ -543,7 +543,7 @@
                   "Storey"
                   [:div
                    (text-control item state owner :storey_type "Storey Type")
-                   (text-control item state owner :storey ":Storey")
+                   (text-control item state owner :storey "Storey")
                    (text-control item state owner :heat_loss_w_per_k "Heat Loss W Per K")
                    (text-control item state owner :heat_requirement_kwth_per_year "Heat Requirement kWh Per Year")]))]
               [:p "No storeys recorded."]))])]))))
