@@ -5,7 +5,7 @@
             [clojure.tools.logging        :as log]
             [clj-time.core                :as t]
             [clj-time.coerce              :as tc]
-            [kixi.hecuba.api.measurements :as measurements]
+            [kixi.hecuba.data.measurements :as measurements]
             [kixi.hecuba.data.calculate   :as calculate]
             [kixi.hecuba.data.misc        :as misc]))
 
@@ -33,7 +33,7 @@
 
         (db/execute session (hayt/update :entities
                                          (hayt/set-columns {:calculated_fields_values [+ {field (str value)}]
-                                                            :calculated_fields_labels [+ {field (str name type)}] 
+                                                            :calculated_fields_labels [+ {field (str name type)}]
                                                             :calculated_fields_last_calc [+ {field timestamp}]})
                                          (hayt/where [[= :id entity_id]])))))
 
