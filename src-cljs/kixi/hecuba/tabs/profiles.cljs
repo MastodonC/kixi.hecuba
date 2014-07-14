@@ -416,7 +416,8 @@
                (for [c conservatories]
                  (bs/panel
                   "Conservtory"
-                  [(text-control c state owner :conservatory_type "Conservatory Type")
+                  [:div
+                   (text-control c state owner :conservatory_type "Conservatory Type")
                    (text-control c state owner :area "Area")
                    (text-control c state owner :double_glazed "Double Glazed")
                    (text-control c state owner :glazed_perimeter "Glazed Perimeter")
@@ -438,7 +439,8 @@
                (for [item extensions]
                  (bs/panel
                   "Extension"
-                  [(text-control item state owner :age ":age")
+                  [:div
+                   (text-control item state owner :age ":age")
                    (text-control item state owner :construction_date ":construction_date")]))]
               [:p "No extensions."]))])]))))
 
@@ -457,7 +459,8 @@
                (for [item heating-systems]
                  (bs/panel
                   "Heating System"
-                  [(text-control item state owner :heating_type "Heating Type")
+                  [:div
+                   (text-control item state owner :heating_type "Heating Type")
                    (text-control item state owner :heat_source "Heat Source")
                    (text-control item state owner :heat_transport "Heat Transport")
                    (text-control item state owner :heat_delivery "Heat Delivery")
@@ -493,6 +496,36 @@
                    (text-control item state owner :efficiency "Efficiency")]))]
               [:p "No heating systems."]))])]))))
 
+(defn hot-water-systems-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Hot Water Systems"
+            (if-let [hot-water-systems (seq (:hot-water-systems profile))]
+              [:div {:class (profile-column-width)}
+               (for [item hot-water-systems]
+                 (bs/panel
+                  "Hot Water System"
+                  [:div
+                   (text-control item state owner :dhw_type "DHW Type")
+                   (text-control item state owner :fuel "Fuel")
+                   (text-control item state owner :fuel_other "Fuel Other")
+                   (text-control item state owner :immersion "Immersion")
+                   (text-control item state owner :cylinder_capacity "Cylinder Capacity")
+                   (text-control item state owner :cylinder_capacity_other "Cylinder Capacity Other")
+                   (text-control item state owner :cylinder_insulation_type "Cylinder Insulation Type")
+                   (text-control item state owner :cylinder_insulation_type_other "Cylinder Insulation Type Other")
+                   (text-control item state owner :cylinder_insulation_thickness "Cylinder Insulation Thickness")
+                   (text-control item state owner :cylinder_insulation_thickness_other "Cylinder Insulation Thickness Other")
+                   (text-control item state owner :cylinder_thermostat "Cylinder Thermostat")
+                   (text-control item state owner :controls_same_for_all_zones "Controls Same For All Zones")]))]
+              [:p "No hot water systems."]))])]))))
+
 (defn profile-rows [profiles owner]
   (reify
     om/IRenderState
@@ -525,7 +558,7 @@
          (om/build conservatories-row profiles)
          (om/build extensions-row profiles)
          (om/build heating-systems-row profiles)
-         ;; (om/build hot-water-systems profiles)
+         (om/build hot-water-systems-row profiles)
          ;; (om/build storeys profiles)
          ;; (om/build walls profiles)
          ;; (om/build roofs profiles)
