@@ -27,7 +27,7 @@
                :on-change #(handle-change owner key %1)
                :type "text"
                :id (name key)}]]
-     [:p {:class "form-control-static col-md-10"} (get data key "")])])
+     [:p.form-control-static (get data key "")])])
 
 (defn text-area-control [data state owner key title]
   (let [text (get data key)]
@@ -40,7 +40,7 @@
       (if (and text (re-find #"\w" text))
         [:div [:h3 title]
          [:p text]]
-        [:div {:class "hidden"} [:p {:class "form-control-static col-md-10"} text]]))))
+        [:div {:class "hidden"} [:p.form-control-static text]]))))
 
 (defn format-time-inst [t format]
   (if (nil? t)
@@ -119,7 +119,7 @@
              (bs/panel
               "Measurements"
               [:div
-               (text-control profile_data state owner :footprint "Footprint (internal groundfloor area (m2)")
+               (text-control profile_data state owner :footprint "Footprint (internal groundfloor area m2)")
                (text-control profile_data state owner :external_perimeter "External Perimeter (m)")
                (text-control profile_data state owner :gross_internal_area "Gross Internal Area (m2)")
                (text-control profile_data state owner :number_of_storeys "Number Of Storeys")
@@ -412,7 +412,7 @@
            (bs/panel
             "Conservatories"
             (if-let [conservatories (seq (:conservatories profile))]
-              [:div {:class (profile-column-width)}
+              [:div
                (for [c conservatories]
                  (bs/panel
                   "Conservtory"
@@ -435,7 +435,7 @@
            (bs/panel
             "Extensions"
             (if-let [extensions (seq (:extensions profile))]
-              [:div {:class (profile-column-width)}
+              [:div
                (for [item extensions]
                  (bs/panel
                   "Extension"
@@ -455,7 +455,7 @@
            (bs/panel
             "Heating Systems"
             (if-let [heating-systems (seq (:heating-systems profile))]
-              [:div {:class (profile-column-width)}
+              [:div
                (for [item heating-systems]
                  (bs/panel
                   "Heating System"
@@ -507,7 +507,7 @@
            (bs/panel
             "Hot Water Systems"
             (if-let [hot-water-systems (seq (:hot-water-systems profile))]
-              [:div {:class (profile-column-width)}
+              [:div
                (for [item hot-water-systems]
                  (bs/panel
                   "Hot Water System"
@@ -525,6 +525,286 @@
                    (text-control item state owner :cylinder_thermostat "Cylinder Thermostat")
                    (text-control item state owner :controls_same_for_all_zones "Controls Same For All Zones")]))]
               [:p "No hot water systems."]))])]))))
+
+(defn storeys-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Storeys"
+            (if-let [storeys (seq (:storeys profile))]
+              [:div
+               (for [item storeys]
+                 (bs/panel
+                  "Storey"
+                  [:div
+                   (text-control item state owner :storey_type "Storey Type")
+                   (text-control item state owner :storey ":Storey")
+                   (text-control item state owner :heat_loss_w_per_k "Heat Loss W Per K")
+                   (text-control item state owner :heat_requirement_kwth_per_year "Heat Requirement kWh Per Year")]))]
+              [:p "No storeys recorded."]))])]))))
+
+(defn walls-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Walls"
+            (if-let [walls (seq (:walls profile))]
+              [:div
+               (for [item walls]
+                 (bs/panel
+                  "Wall"
+                  [:div
+                   (text-control item state owner :wall_type "Wall Type")
+                   (text-control item state owner :construction "Construction")
+                   (text-control item state owner :construction_other "Construction Other")
+                   (text-control item state owner :insulation "Insulation")
+                   (text-control item state owner :insulation_date "Insulation Date")
+                   (text-control item state owner :insulation_type "Insulation Type")
+                   (text-control item state owner :insulation_thickness "Insulation Thickness")
+                   (text-control item state owner :insulation_product "Insulation Product")
+                   (text-control item state owner :uvalue "U Value")
+                   (text-control item state owner :location "Location")
+                   (text-control item state owner :area "Area")]))]
+              [:p "No walls recorded."]))])]))))
+
+(defn roofs-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Roofs"
+            (if-let [roofs (seq (:roofs profile))]
+              [:div
+               (for [item roofs]
+                 (bs/panel
+                  "Roof"
+                  [:div
+                   (text-control item state owner :roof_type "Roof Type")
+                   (text-control item state owner :construction "Construction")
+                   (text-control item state owner :construction_other "Construction Other")
+                   (text-control item state owner :insulation_location_one "Insulation Location One")
+                   (text-control item state owner :insulation_location_one_other "Insulation Location One Other")
+                   (text-control item state owner :insulation_location_two "Insulation Location Two")
+                   (text-control item state owner :insulation_location_two_other "Insulation Location Two Other")
+                   (text-control item state owner :insulation_thickness_one "Insulation Thickness One")
+                   (text-control item state owner :insulation_thickness_one_other "Insulation Thickness One Other")
+                   (text-control item state owner :insulation_thickness_two "Insulation Thickness Two")
+                   (text-control item state owner :insulation_thickness_two_other "Insulation Thickness Two Other")
+                   (text-control item state owner :insulation_date "Insulation Date")
+                   (text-control item state owner :insulation_type "Insulation Type")
+                   (text-control item state owner :insulation_product "Insulation Product")
+                   (text-control item state owner :uvalue "U Value")
+                   (text-control item state owner :uvalue_derived "U Value Derived")]))]
+              [:p "No roofs recorded."]))])]))))
+
+(defn window-sets-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Window Sets"
+            (if-let [window-sets (seq (:window-sets profile))]
+              [:div
+               (for [item window-sets]
+                 (bs/panel
+                  "Window Set"
+                  [:div
+                   (text-control item state owner :window_type "Window Type")
+                   (text-control item state owner :frame_type "Frame Type")
+                   (text-control item state owner :frame_type_other "Frame Type Other")
+                   (text-control item state owner :percentage_glazing "Percentage Glazing")
+                   (text-control item state owner :area "Area")
+                   (text-control item state owner :location "Location")
+                   (text-control item state owner :uvalue "Uvalue")]))]
+              [:p "No window sets recorded."]))])]))))
+
+(defn door-sets-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Door Sets"
+            (if-let [door-sets (seq (:door-sets profile))]
+              [:div
+               (for [item door-sets]
+                 (bs/panel
+                  "Door Set"
+                  [:div
+                   (text-control item state owner :door_type "Door Type")
+                   (text-control item state owner :door_type_other "Door Type Other")
+                   (text-control item state owner :frame_type "Frame Type")
+                   (text-control item state owner :frame_type_other "Frame Type Other")
+                   (text-control item state owner :percentage_glazing "Percentage Glazing")
+                   (text-control item state owner :area "Area")
+                   (text-control item state owner :location "Location")
+                   (text-control item state owner :uvalue "U Value")]))]
+              [:p "No door sets recorded."]))])]))))
+
+
+(defn floors-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Floors"
+            (if-let [floors (seq (:floors profile))]
+              [:div
+               (for [item floors]
+                 (bs/panel
+                  "Floor"
+                  [:div
+                   (text-control item state owner :floor_type "Floor Type")
+                   (text-control item state owner :construction "Construction")
+                   (text-control item state owner :construction_other "Construction Other")
+                   (text-control item state owner :insulation_thickness_one "Insulation Thickness One")
+                   (text-control item state owner :insulation_thickness_two "Insulation Thickness Two")
+                   (text-control item state owner :insulation_type "Insulation Type")
+                   (text-control item state owner :insulation_product "Insulation Product")
+                   (text-control item state owner :uvalue "U Value")
+                   (text-control item state owner :uvalue_derived "Uvalue Derived")]))]
+              [:p "No floors recorded."]))])]))))
+
+(defn roof-rooms-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Door Sets"
+            (if-let [roof-rooms (seq (:roof-rooms profile))]
+              [:div
+               (for [item roof-rooms]
+                 (bs/panel
+                  "Door Set"
+                  [:div
+                   (text-control item state owner :location "Location")
+                   (text-control item state owner :age "Age")
+                   (text-control item state owner :insulation_placement "Insulation Placement")
+                   (text-control item state owner :insulation_thickness_one "Insulation Thickness One")
+                   (text-control item state owner :insulation_thickness_one_other "Insulation Thickness One Other")
+                   (text-control item state owner :insulation_thickness_two "Insulation Thickness Two")
+                   (text-control item state owner :insulation_thickness_two_other "Insulation Thickness Two Other")
+                   (text-control item state owner :insulation_date "Insulation Date")
+                   (text-control item state owner :insulation_type "Insulation Type")
+                   (text-control item state owner :insulation_product "Insulation Product")
+                   (text-control item state owner :uvalue "U Value")
+                   (text-control item state owner :uvalue_derived "Uvalue Derived")]))]
+              [:p "No roof rooms recorded."]))])]))))
+
+(defn low-energy-lights-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Low Energy Lights"
+            (if-let [low-energy-lights (seq (:low-energy-lights profile))]
+              [:div
+               (for [item low-energy-lights]
+                 (bs/panel
+                  "Low Energy Light"
+                  [:div
+                   (text-control item state owner :light_type "Light Type")
+                   (text-control item state owner :light_type_other "Light Type Other")
+                   (text-control item state owner :bed_index "Bed Index")
+                   (text-control item state owner :proportion "Proportion")]))]
+              [:p "No low energy lights recorded."]))])]))))
+
+(defn ventilation-systems-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Ventilation Systems"
+            (if-let [ventilation-systems (seq (:ventilation-systems profile))]
+              [:div
+               (for [item ventilation-systems]
+                 (bs/panel
+                  "Ventilation System"
+                  [:div
+                   (text-control item state owner :approach "Approach")
+                   (text-control item state owner :approach_other "Approach Other")
+                   (text-control item state owner :ventilation_type "Ventilation Type")
+                   (text-control item state owner :ventilation_type_other "Ventilation Type Other")
+                   (text-control item state owner :mechanical_with_heat_recovery "Mechanical With Heat Recovery")
+                   (text-control item state owner :manufacturer "Manufacturer")
+                   (text-control item state owner :ductwork_type "Ductwork Type")
+                   (text-control item state owner :ductwork_type_other "Ductwork Type Other")
+                   (text-control item state owner :controls "Controls")
+                   (text-control item state owner :controls_other "Controls Other")
+                   (text-control item state owner :manual_control_location "Manual Control Location")
+                   (text-control item state owner :operational_settings "Operational Settings")
+                   (text-control item state owner :operational_settings_other "Operational Settings Other")
+                   (text-control item state owner :installer "Installer")
+                   (text-control item state owner :installer_engineers_name "Installer Engineers Name")
+                   (text-control item state owner :installer_registration_number "Installer Registration Number")
+                   (text-control item state owner :commissioning_date "Commissioning Date")
+                   (text-control item state owner :total_installed_area "Total Installed Area")]))]
+              [:p "No ventilation systems lights recorded."]))])]))))
+
+(defn airflow-measurements-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Air Flow Measurements"
+            (if-let [airflow-measurements (seq (:airflow-measurements profile))]
+              [:div
+               (for [item airflow-measurements]
+                 (bs/panel
+                  "Air Flow Measurements"
+                  [:div
+                   (text-control item state owner :reference "Reference")
+                   (text-control item state owner :system "System")
+                   (text-control item state owner :inspector "Inspector")
+                   (text-control item state owner :inspector_engineers_name "Inspector Engineers Name")
+                   (text-control item state owner :inspector_registration_number "Inspector Registration Number")
+                   (text-control item state owner :inspection_date "Inspection Date")
+                   (text-control item state owner :measured_low "Measured Low")
+                   (text-control item state owner :design_low "Design Low")
+                   (text-control item state owner :measured_high "Measured High")
+                   (text-control item state owner :design_high "Design High")]))]
+              [:p "No air flow measurements recorded."]))])]))))
 
 (defn profile-rows [profiles owner]
   (reify
@@ -547,7 +827,6 @@
          (om/build issues-row profiles)
          (om/build sap-results-row profiles)
          (om/build lessons-learnt-row profiles)
-         (om/build bus-survey-information-row profiles)
          (om/build dwelling-u-values-summary-row profiles)
          (om/build air-tightness-test-row profiles)
          (om/build bus-survey-information-row profiles)
@@ -559,16 +838,16 @@
          (om/build extensions-row profiles)
          (om/build heating-systems-row profiles)
          (om/build hot-water-systems-row profiles)
-         ;; (om/build storeys profiles)
-         ;; (om/build walls profiles)
-         ;; (om/build roofs profiles)
-         ;; (om/build window-types profiles)
-         ;; (om/build door-types profiles)
-         ;; (om/build floors profiles)
-         ;; (om/build roof-rooms profiles)
-         ;; (om/build low-energy-lights profiles)
-         ;; (om/build ventilation-systems profiles)
-         ;; (om/build airflow-measurements profiles)
+         (om/build storeys-row profiles)
+         (om/build walls-row profiles)
+         (om/build roofs-row profiles)
+         (om/build window-sets-row profiles)
+         (om/build door-sets-row profiles)
+         (om/build floors-row profiles)
+         (om/build roof-rooms-row profiles)
+         (om/build low-energy-lights-row profiles)
+         (om/build ventilation-systems-row profiles)
+         (om/build airflow-measurements-row profiles)
 
          ;; renewable energy systems
          ;; (om/build photovoltaic-panels profiles)
