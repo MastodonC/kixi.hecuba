@@ -372,7 +372,7 @@
                (text-control profile_data state owner :profile_air_in_winter "Air In Winter")
                (text-control profile_data state owner :profile_lightning "Lightning")
                (text-control profile_data state owner :profile_noise "Noise")
-               (text-control profile_data state owner :profile_comfort "Comfort")               
+               (text-control profile_data state owner :profile_comfort "Comfort")
                (text-control profile_data state owner :profile_design "Design")
                (text-control profile_data state owner :profile_needs "Needs")
                (text-control profile_data state owner :profile_health "Health (perceived)")
@@ -401,6 +401,28 @@
                (text-control profile_data state owner :sap_regulations_date "SAP Regulations Date")
                (text-control profile_data state owner :sap_software "Name of SAP Software")])]))]))))
 
+(defn conservatories-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Conservatories"
+            (if-let [conservatories (seq (:conservatories profile))]
+              [:div {:class (profile-column-width)}
+               (for [c conservatories]
+                 (bs/panel
+                  "Conservtory"
+                  [(text-control c state owner :conservatory_type "Conservatory Type")
+                   (text-control c state owner :area "Area")
+                   (text-control c state owner :double_glazed "Double Glazed")
+                   (text-control c state owner :glazed_perimeter "Glazed Perimeter")
+                   (text-control c state owner :height "Height")]))]
+              [:p "No conservatories."]))])]))))
+
 (defn profile-rows [profiles owner]
   (reify
     om/IRenderState
@@ -428,9 +450,9 @@
          (om/build bus-survey-information-row profiles)
          (om/build project-details-row profiles)
          ;; (om/build documents profiles)
-         
+
          ;; dwelling details
-         ;; (om/build conservatories profiles)
+         (om/build conservatories-row profiles)
          ;; (om/build extensions profiles)
          ;; (om/build heating-systems profiles)
          ;; (om/build hot-water-systems profiles)
@@ -444,7 +466,7 @@
          ;; (om/build low-energy-lights profiles)
          ;; (om/build ventilation-systems profiles)
          ;; (om/build airflow-measurements profiles)
-         
+
          ;; renewable energy systems
          ;; (om/build photovoltaic-panels profiles)
          ;; (om/build solar-thermal-panels profiles)
@@ -454,7 +476,7 @@
          ;; (om/build biomass-boilers profiles)
          ;; (om/build mCHP-systems profiles)
          ]])))
-  
+
   )
 
 (defn profiles-div [data owner]
@@ -474,7 +496,7 @@
 
 
 (comment
-  
+
   (text-control profile_data state owner :annual_heating_load "Annual Heating Load")
   (text-control profile_data state owner :completeness "Completeness")
   (text-control profile_data state owner :conservation_issues "Conservation Issues")
