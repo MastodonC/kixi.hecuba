@@ -806,6 +806,238 @@
                    (text-control item state owner :design_high "Design High")]))]
               [:p "No air flow measurements recorded."]))])]))))
 
+
+(defn photovoltaic-panels-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Photovoltaic-Panels"
+            (if-let [photovoltaic-panels (seq (:photovoltaic-panels profile))]
+              [:div
+               (for [item photovoltaic-panels]
+                 (bs/panel
+                  "Photovoltaic Panel"
+                  [:div
+                   (text-control item state owner :percentage_roof_covered "Percentage Roof Covered")
+                   (text-control item state owner :photovoltaic_type "Photovoltaic Type")
+                   (text-control item state owner :photovoltaic_type_other "Photovoltaic Type Other")
+                   (text-control item state owner :make_model "Make Model")
+                   (text-control item state owner :mcs_no "MCS No")
+                   (text-control item state owner :efficiency "Efficiency")
+                   (text-control item state owner :inverter_type "Inverter Type")
+                   (text-control item state owner :inverter_make_model "Inverter Make Model")
+                   (text-control item state owner :inverter_mcs_no "Inverter MCS No")
+                   (text-control item state owner :installer "Installer")
+                   (text-control item state owner :installer_mcs_no "Installer MCS No")
+                   (text-control item state owner :commissioning_date "Commissioning Date")
+                   (text-control item state owner :capacity "Capacity")
+                   (text-control item state owner :area "Area")
+                   (text-control item state owner :orientation "Orientation")
+                   (text-control item state owner :pitch "Pitch")
+                   (text-control item state owner :est_annual_generation "Est Annual Generation")
+                   (text-control item state owner :est_percentage_requirement_met "Est Percentage Requirement Met")
+                   (text-control item state owner :est_percentage_exported "Est Percentage Exported")
+                   (text-control item state owner :performance "Performance")]))]
+              [:p "No Photovoltaic-Panels recorded."]))])]))))
+
+(defn solar-thermal-panels-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Solar Thermal Panels"
+            (if-let [solar-thermal-panels (seq (:solar-thermal-panels profile))]
+              [:div
+               (for [item solar-thermal-panels]
+                 (bs/panel
+                  "Solar Thermal Panel"
+                  [:div
+                   (text-control item state owner :solar_type "Solar Type")
+                   (text-control item state owner :solar_type_other "Solar Type Other")
+                   (text-control item state owner :make_model "Make Model")
+                   (text-control item state owner :mcs_no "MCS No")
+                   (text-control item state owner :installer "Installer")
+                   (text-control item state owner :installer_mcs_no "Installer MCS No")
+                   (text-control item state owner :commissioning_date "Commissioning Date")
+                   (text-control item state owner :capacity "Capacity")
+                   (text-control item state owner :area "Area")
+                   (text-control item state owner :orientation "Orientation")
+                   (text-control item state owner :pitch "Pitch")
+                   (text-control item state owner :est_annual_generation "Est Annual Generation")
+                   (text-control item state owner :est_percentage_requirement_met "Est Percentage Requirement Met")]))]
+              [:p "No solar thermal panels recorded."]))])]))))
+
+(defn wind-turbines-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Wind Turbines"
+            (if-let [wind-turbines (seq (:wind-turbines profile))]
+              [:div
+               (for [item wind-turbines]
+                 (bs/panel
+                  "Wind Turbine"
+                  [:div
+                   (text-control item state owner :turbine_type "Turbine Type")
+                   (text-control item state owner :turbine_type_other "Turbine Type Other")
+                   (text-control item state owner :make_model "Make Model")
+                   (text-control item state owner :mcs_no "MCS No")
+                   (text-control item state owner :inverter_type "Inverter Type")
+                   (text-control item state owner :inverter_make_model "Inverter Make Model")
+                   (text-control item state owner :inverter_mcs_no "Inverter MCS No")
+                   (text-control item state owner :installer "Installer")
+                   (text-control item state owner :installer_mcs_no "Installer MCS No")
+                   (text-control item state owner :commissioning_date "Commissioning Date")
+                   (text-control item state owner :capacity "Capacity")
+                   (text-control item state owner :hub_height "Hub Height")
+                   (text-control item state owner :height_above_canpoy "Height Above Canpoy")
+                   (text-control item state owner :wind_speed "Wind Speed")
+                   (text-control item state owner :wind_speed_info_source "Wind Speed Info Source")
+                   (text-control item state owner :wind_speed_info_source_other "Wind Speed Info Source Other")
+                   (text-control item state owner :est_annual_generation "Est Annual Generation")
+                   (text-control item state owner :est_percentage_requirement_met "Est Percentage Requirement Met")
+                   (text-control item state owner :est_percentage_exported "Est Percentage Exported")]))]
+              [:p "No wind turbines recorded."]))])]))))
+
+(defn small-hydro-plants-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Small Hydro Plants"
+            (if-let [small-hydro-plants (seq (:small-hydro-plants profile))]
+              [:div
+               (for [item small-hydro-plants]
+                 (bs/panel
+                  "Small Hydro Plant"
+                  [:div
+                   (text-control item state owner :hydro_type "Hydro Type")
+                   (text-control item state owner :make_model "Make Model")
+                   (text-control item state owner :mcs_no "MCS No")
+                   (text-control item state owner :inverter_type "Inverter Type")
+                   (text-control item state owner :inverter_make_model "Inverter Make Model")
+                   (text-control item state owner :inverter_mcs_no "Inverter MCS No")
+                   (text-control item state owner :installer "Installer")
+                   (text-control item state owner :installer_mcs_no "Installer MCS No")
+                   (text-control item state owner :commissioning_date "Commissioning Date")
+                   (text-control item state owner :capacity "Capacity")
+                   (text-control item state owner :head_drop "Head Drop")
+                   (text-control item state owner :design_flow "Design Flow")
+                   (text-control item state owner :est_annual_generation "Est Annual Generation")
+                   (text-control item state owner :est_percentage_requirement_met "Est Percentage Requirement Met")
+                   (text-control item state owner :est_percentage_exported "Est Percentage Exported")]))]
+              [:p "No small hydro plants recorded."]))])]))))
+
+(defn heat-pumps-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Heat Pumps"
+            (if-let [heat-pumps (seq (:heat-pumps profile))]
+              [:div
+               (for [item heat-pumps]
+                 (bs/panel
+                  "Heat Pump"
+                  [:div
+                   (text-control item state owner :heat_pump_type "Heat Pump Type")
+                   (text-control item state owner :make_model "Make Model")
+                   (text-control item state owner :cop "CoP")
+                   (text-control item state owner :spf "SPF")
+                   (text-control item state owner :mcs_no "MCS No")
+                   (text-control item state owner :installer "Installer")
+                   (text-control item state owner :installer_mcs_no "Installer MCS No")
+                   (text-control item state owner :commissioning_date "Commissioning Date")
+                   (text-control item state owner :heat_source_type "Heat Source Type")
+                   (text-control item state owner :heat_source_type_other "Heat Source Type Other")
+                   (text-control item state owner :depth "Depth")
+                   (text-control item state owner :geology "Geology")
+                   (text-control item state owner :capacity "Capacity")
+                   (text-control item state owner :est_annual_generation "Est Annual Generation")
+                   (text-control item state owner :est_percentage_requirement_met "Est Percentage Requirement Met")
+                   (text-control item state owner :dhw "DHW")
+                   (text-control item state owner :est_percentage_dhw_requirement_met "Est Percentage Dhw Requirement Met")]))]
+              [:p "No heat pumps recorded."]))])]))))
+
+(defn biomass-boilers-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "Biomass Boilers"
+            (if-let [biomass-boilers (seq (:biomass-boilers profile))]
+              [:div
+               (for [item biomass-boilers]
+                 (bs/panel
+                  "Biomass Boiler"
+                  [:div
+                   (text-control item state owner :biomass_type "Biomass Type")
+                   (text-control item state owner :model "Model")
+                   (text-control item state owner :mcs_no "MCS No")
+                   (text-control item state owner :installer "Installer")
+                   (text-control item state owner :installer_mcs_no "Installer MCS No")
+                   (text-control item state owner :commissioning_date "Commissioning Date")
+                   (text-control item state owner :capacity "Capacity")
+                   (text-control item state owner :percentage_efficiency_from_spec "Percentage Efficiency From Spec")
+                   (text-control item state owner :est_annual_generation "Est Annual Generation")
+                   (text-control item state owner :est_percentage_requirement_met "Est Percentage Requirement Met")]))]
+              [:p "No biomass boilers recorded."]))])]))))
+
+(defn mCHP-systems-row [profiles owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.col-md-12
+        (for [profile profiles]
+          [:div {:class (profile-column-width)}
+           (bs/panel
+            "mCHP Systems"
+            (if-let [mCHP-systems (seq (:mCHP-systems profile))]
+              [:div
+               (for [item mCHP-systems]
+                 (bs/panel
+                  "mCHP System"
+                  [:div
+                   (text-control item state owner :chp_type "CHP Type")
+                   (text-control item state owner :model "Model")
+                   (text-control item state owner :mcs_no "MCS No")
+                   (text-control item state owner :installer "Installer")
+                   (text-control item state owner :installer_mcs_no "Installer MCS No")
+                   (text-control item state owner :commissioning_date "Commissioning Date")
+                   (text-control item state owner :capacity_elec "Capacity Elec")
+                   (text-control item state owner :capacity_thermal "Capacity Thermal")
+                   (text-control item state owner :est_annual_generation "Est Annual Generation")
+                   (text-control item state owner :est_percentage_thermal_requirement_met "Est Percentage Thermal Requirement Met")
+                   (text-control item state owner :est_percentage_exported "Est Percentage Exported")]))]
+              [:p "No mCHP systems recorded."]))])]))))
+
 (defn profile-rows [profiles owner]
   (reify
     om/IRenderState
@@ -850,16 +1082,13 @@
          (om/build airflow-measurements-row profiles)
 
          ;; renewable energy systems
-         ;; (om/build photovoltaic-panels profiles)
-         ;; (om/build solar-thermal-panels profiles)
-         ;; (om/build wind-turbines profiles)
-         ;; (om/build small-hydro-plants profiles)
-         ;; (om/build heat-pumps profiles)
-         ;; (om/build biomass-boilers profiles)
-         ;; (om/build mCHP-systems profiles)
-         ]])))
-
-  )
+         (om/build photovoltaic-panels-row profiles)
+         (om/build solar-thermal-panels-row profiles)
+         (om/build wind-turbines-row profiles)
+         (om/build small-hydro-plants-row profiles)
+         (om/build heat-pumps-row profiles)
+         (om/build biomass-boilers-row profiles)
+         (om/build mCHP-systems-row profiles)]]))))
 
 (defn profiles-div [data owner]
   (reify
