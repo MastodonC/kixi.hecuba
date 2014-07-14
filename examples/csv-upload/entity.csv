@@ -1,0 +1,75 @@
+name,value
+id,9ac7f5635832d843dda594f58525239263ffdd37
+address_country,
+address_county,
+address_region,
+address_street_two,
+name,
+project_id,ba776928f94b3aaa1e444569276ee5b66d6b21f7
+user_id,
+property_code,BB4 6LP_SWI082
+retrofit_completion_date,
+property_data_description,SWI082
+property_data_monitoring_policy,
+property_data_address_street,SWI082
+property_data_address_city,Rossendale
+property_data_address_county,Lancashire
+property_data_address_code,SE1 2NQ
+property_data_created_at,2011/02/04 16:47:13 +0000
+property_data_updated_at,2012/10/09 08:53:07 +0000
+property_data_address_country,England
+property_data_terrain,Suburban
+property_data_address_region,North West
+property_data_degree_day_region,North West
+property_data_ownership,
+property_data_fuel_poverty,
+property_data_property_value,
+property_data_property_value_basis,
+property_data_retrofit_start_date,
+property_data_retrofit_completion_date,
+property_data_project_summary,
+property_data_energy_strategy,
+property_data_project_team,
+property_data_design_strategy,
+property_data_other_notes,
+property_data_property_type,House
+property_data_property_type_other,
+property_data_built_form,Mid-terrace
+property_data_built_form_other,
+property_data_age,Pre 1900 (A)
+property_data_construction_date,
+property_data_conservation_area,false
+property_data_listed,false
+property_data_address_street_two,"16 Bent Street, Haslingdon"
+property_data_property_code,
+property_data_monitoring_hierarchy,
+property_data_project_phase,
+property_data_construction_start_date,
+property_data_practical_completion_date,
+property_data_photo_file_name,
+property_data_photo_content_type,
+property_data_photo_file_size,
+property_data_photo_updated_at,
+property_data_completeness,44
+property_data_entity_completeness_6m,0.0
+property_data_latitude,53.7041
+property_data_longitude,-2.29654
+property_data_technology_icons,<img src='/images/icons/cavity_wall_insulation.jpg' alt='Cavity Wall Insulation' title='Cavity Wall Insulation' width='40' height='40' />
+property_data_address_code_masked,BB4
+documents_0_id,1557
+documents_0_content-type,
+documents_0_name,SAP Summary
+documents_0_file_name,082 - 16 Bent Street - BB4 6LP - Design INPUT INFORMATION SHEET.pdf
+documents_1_id,1561
+documents_1_content-type,
+documents_1_name,SAP Full Report
+documents_1_file_name,082 - 16 Bent Street - BB4 6LP - Full SAP Calculation.pdf
+documents_2_id,2193
+documents_2_content-type,
+documents_2_name,Air Tightness Report
+documents_2_file_name,DAT-EST-082-16BENTSTREET-T1.pdf
+documents_3_id,2545
+documents_3_content-type,
+documents_3_name,EST SWIFT - Property Report
+documents_3_file_name,082_EST SWIFT Property Report.pdf
+photos_0_path,property_photos/medium/53.jpg

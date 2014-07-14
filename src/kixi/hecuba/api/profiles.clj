@@ -794,11 +794,9 @@
                              (let [body-map (into {} decoded-body)]
                                (parse-by-schema body-map profile-schema))
                              decoded-body)]
-              ;; We need to assert a few things
-
               (if (not= (:entity_id body) entity_id)
-                true                  ; it's malformed, game over
-                [false {:profile body}]))  ; it's not malformed, return the body now we've read it
+                true
+                [false {:profile body}]))
       false)))
 
 (defn index-handle-ok [ctx]
