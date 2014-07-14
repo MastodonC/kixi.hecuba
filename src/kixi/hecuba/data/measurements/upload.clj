@@ -90,7 +90,7 @@
   (misc/insert-measurements store sensor measurements page-size))
 
 (defn split-device-and-sensor [m]
-  [(select-keys m [:device_id :description :parent_id :entity_id
+  [(select-keys m [:device_id :description
                    :location :metadata :privacy :metering_point_id])
    (select-keys m [:device_id :type :accuracy :actual_annual :corrected_unit
                    :correction :correction_factor :correction_factor_breakdown
@@ -202,7 +202,7 @@
         db-devices        (devices-to-property store header-device-ids)
         add-non-existent  (fn [m]
                             (cond-> m
-                                    (not (contains? db-devices (:id m))) (merge-meta {:non-existent? true})))]
+                                    (not (contains? db-devices (:device_id m))) (merge-meta {:non-existent? true})))]
     (map add-non-existent header)))
 
 (defn- enrich-with-authz [header store {:keys [projects programmes roles]}]
