@@ -32,12 +32,16 @@
         (assoc :device_id device_id :readings sensors)
         (dissoc :id))))
 
-(defn encode [device]
-  (-> device
-      (select-keys user-editable-keys)
-      (update-in [:location] json/encode)
-      (update-in [:metadata] json/encode)
-      stringify-values))
+(defn encode
+  ([device]
+     (encode device false))
+  ([device remove-pk?]
+                (-> device
+                    (select-keys user-editable-keys)
+                    (update-in [:location] json/encode)
+                    (update-in [:metadata] json/encode)
+                    (cond-> remove-pk? (dissoc :id))
+                    stringify-values)))
 
 (defn insert [session entity_id device]
   (let [id             (:id device)
@@ -56,8 +60,8 @@
   ([session device]
      (update session (:entity_id device) (:id device) device))
   ([session entity_id id device]
-     (let [encoded-device (encode device)
-           entity_id (or entity_id (:entity_id(get-by-id session id)))]
+     (let [encoded-device (encode device :remove-pk)
+           entity_id (or entity_id (:entity_id (get-by-id session id)))]
        (db/execute session (hayt/update :devices
                                         (hayt/set-columns encoded-device)
                                         (hayt/where [[= :id id]])))

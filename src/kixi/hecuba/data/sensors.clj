@@ -21,9 +21,13 @@
                                           walk/stringify-keys
                                           stringify-values))))))
 
-(defn encode [sensor]
-  (-> (select-keys sensor user-editable-keys)
-      (user-metadata (:synthetic sensor))))
+(defn encode
+  ([sensor]
+     (encode sensor false))
+  ([sensor remove-pk?]
+     (-> (select-keys sensor user-editable-keys)
+         (user-metadata (:synthetic sensor))
+         (cond-> remove-pk? (dissoc :device_id :type)))))
 
 (def Sensor {(s/required-key :device_id)                   s/Str
              (s/required-key :type)                        s/Str
@@ -91,12 +95,11 @@
 
 (defn update
   ([session sensor]
-     (update session (:device_id sensor sensor)))
+     (update session (:device_id sensor) sensor))
   ([session device_id sensor]
      (db/execute session (hayt/update :sensors
                                       (hayt/set-columns (-> sensor
-                                                            encode
-                                                            (dissoc :type :device_id)
+                                                            (encode :remove-pk)
                                                             update-user-metadata))
                                       (hayt/where [[= :device_id device_id]
                                                    [= :type (:type sensor)]])))))
