@@ -83,11 +83,11 @@
   (db/with-session [session (:hecuba-session store)]
     (devices/update session device)))
 
-(defn update-data [store [device sensor] measurements]
+(defn update-data [store [device sensor] page-size measurements]
   (update-device-data store (prepare-device device))
   (update-sensor-data store (prepare-sensor sensor))
   (log/info "Inserting measurements into sensor " (str (:device_id sensor) "-" (:type sensor)))
-  (misc/insert-measurements store sensor measurements 100))
+  (misc/insert-measurements store sensor measurements page-size))
 
 (defn split-device-and-sensor [m]
   [(select-keys m [:device_id :description :parent_id :entity_id
@@ -149,7 +149,7 @@
                                          (v/validate sensor))
                                     measurements)]
     (when (valid-header? device-and-sensor)
-      (update-data store ds validated-measurements))))
+      (update-data store ds page-size validated-measurements))))
 
 (defn- get-data [in]
   (->> in
@@ -169,8 +169,9 @@
 
 (defn- parse-file-to-db [store header in-file ]
   (with-open [in (io/reader in-file)]
-    (let [data   (get-data in)]
-      (dorun (map (partial process-column store) header data))
+    (let [data      (get-data in)
+          page-size 10]
+      (dorun (map (partial process-column store page-size) header data))
       (when-let [errors (not-empty (parse-errors header))]
         (throw (ex-info "Errors found" errors))))))
 
