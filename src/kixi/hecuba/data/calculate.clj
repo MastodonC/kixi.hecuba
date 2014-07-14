@@ -8,7 +8,7 @@
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [kixi.hecuba.api.datasets :as datasets]
-            [kixi.hecuba.api.measurements :as measurements]
+            [kixi.hecuba.data.measurements :as measurements]
             [kixi.hecuba.data.misc :as m]
             [kixi.hecuba.data.validate :as v]
             [kixi.hecuba.storage.db :as db]
@@ -78,7 +78,7 @@
   ([start end] (timestamp-seq-inclusive start end 60))
   ([start end resolution] (map (fn [t] (tc/to-date t)) (take-while #(not (t/after? % end)) (p/periodic-seq start (t/seconds resolution))))))
 
-(defn all-timestamps-for-range 
+(defn all-timestamps-for-range
   "Takes a start date, end date and resolution (in seconds) and creates a sequence
   of timestamps (inclusive). Seconds are truncated. "
   [start end resolution]
@@ -140,7 +140,7 @@
             page-size                10]
         (m/insert-measurements store {:device_id device_id :type new-type} calculated page-size)))))
 
-(defn kWh->co2 
+(defn kWh->co2
   "Converts measurements from kWh to co2."
   [store {:keys [sensor range]}]
   (let [{:keys [device_id type]} sensor
@@ -155,11 +155,11 @@
     (when calculated
       (m/insert-measurements store {:device_id device_id :type new-type} calculated page-size))))
 
-(defn gas-volume->kWh 
+(defn gas-volume->kWh
   "Converts measurements from m^3 and ft^3 to kWh."
   [store {:keys [sensor range]}]
   (let [{:keys [device_id type]} sensor
-        get-fn-and-measurements  (fn [s] [(conversion-fn s "vol2kwh") 
+        get-fn-and-measurements  (fn [s] [(conversion-fn s "vol2kwh")
                                           (measurements/measurements-for-range store s range (t/hours 1))])
         convert                  (fn [[f xs]] (when-not (nil? f) (map f xs)))
         new-type                 (m/output-type-for type "vol2kwh")
@@ -292,7 +292,7 @@
 
 ;;;;;; Calculated datasets ;;;;;;;;;;;
 
-(defn- sum 
+(defn- sum
   "Adds all numeric values in a sequence of measurements. Some measurements might contain
   error messages instead of readings."
   [m]
@@ -356,17 +356,17 @@
 (defmulti should-calculate? (fn [ds sensors] (keyword (:operation ds))))
 
 (defmethod should-calculate? :sum [ds sensors]
-  (let [{:keys [period unit]} (first sensors)] 
+  (let [{:keys [period unit]} (first sensors)]
     (every? #(and (= period (:period %))
                   (= unit   (:unit %))) sensors)))
 
 (defmethod should-calculate? :divide [ds sensors]
-  (let [{:keys [period unit]} (first sensors)]  
+  (let [{:keys [period unit]} (first sensors)]
     (every? #(and (= period (:period %))
                   (= unit (:unit %))) sensors)))
 
 (defmethod should-calculate? :subtract [ds sensors]
-  (let [{:keys [period]} (first sensors)]  
+  (let [{:keys [period]} (first sensors)]
     (every? #(= period (:period %)) sensors)))
 
 (defn calculate-dataset [store ds sensors range]
@@ -375,18 +375,18 @@
         operation (keyword operation)]
 
     (log/info "Calculating datasets for sensors: " members "and operation: " operation "and range: " range)
-    
+
     (if (and (> (count sensors) 1)
              (should-calculate? ds sensors))
-      
-      (let [measurements (into [] (map #(m/parse-measurements 
+
+      (let [measurements (into [] (map #(m/parse-measurements
                                          (measurements/measurements-for-range store % range (t/hours 1)))
                                        sensors))]
-        
+
         (if (every? #(> (count (take 2 %)) 1) measurements)
           (let [all-resolutions (map #(get-resolution store %1 (take 100 %2)) sensors measurements)
                 resolution      (first all-resolutions)]
-            
+
             (if (every? #(= resolution %) all-resolutions)
               (let [padded                        (padded-measurements sensors measurements resolution)
                     new-type                      (:name ds)
@@ -394,11 +394,10 @@
                     calculated                    (apply compute-datasets operation device_id new-type padded)
                     {:keys [start-date end-date]} range
                     page-size                     10]
-                
+
                 (m/insert-measurements store sensor calculated page-size)
                 (m/reset-date-range store sensor :calculated_datasets start-date end-date)
                 (log/info "Finished calculation for sensors: " (:members ds) "and operation: " operation))
               (log/info "Sensors are not of the same resolution.")))
           (log/info "Sensors do not have enough measurements to calculate.")))
       (log/info "Sensors do not meet requirements for calculation."))))
-

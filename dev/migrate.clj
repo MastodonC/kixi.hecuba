@@ -1,7 +1,7 @@
 (ns migrate
   (:require [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
-            [kixi.hecuba.api.measurements :as measurements]
+            [kixi.hecuba.data.measurements :as measurements]
             [kixi.hecuba.data.misc :as misc]
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
