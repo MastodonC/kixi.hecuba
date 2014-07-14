@@ -10,7 +10,8 @@
             [kixi.hecuba.tabs.sensors :as sensors]
             [kixi.hecuba.tabs.profiles :as profiles]
             [kixi.hecuba.tabs.programmes :as programmes]
-            [ajax.core :refer [PUT]]))
+            [ajax.core :refer [PUT]]
+            [kixi.hecuba.widgets.fileupload :as file]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Property Details Helpers
@@ -214,4 +215,12 @@
                       [:h4 "Download CSV measurements template"]
                       [:a {:class "btn btn-primary"
                            :type "button"
-                           :href (str "/4/templates/for-entity/" selected-property-id)} "Download"]]]]]]])])))))
+                           :href (str "/4/templates/for-entity/" selected-property-id)} "Download"]]]]
+                   [:div {:class "panel panel-default"}
+                    [:div.panel-body
+                     [:div
+                      [:h4 "Upload CSV profile data"]
+                      (let [div-id "file-form"]
+                        (om/build (file/file-upload (str "/4/entities/" selected-property-id "/profiles/")
+                                                    div-id)
+                                  nil))]]]]]])])))))
