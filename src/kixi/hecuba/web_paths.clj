@@ -56,9 +56,10 @@
    :entity-templates-resource "templates/for-entity/%s" ;; TODO better url
    :measurements "measurements"
 
-   :uploads-status-resource "uploads/%s/status"
-   :uploads-data-resource "uploads/%s/data"
-   :uploads-for-username "programme/%s/project/%s/uploads/username"}) ;; Used to display status. programme_id and  project_id used for allowed?
+   :uploads-status-resource "uploads/%s/%s/status"
+   :uploads-data-resource "uploads/%s/%s/data"
+   :uploads-for-username "programme/%s/project/%s/uploads/username" ;; Used to display status. programme_id and  project_id used for allowed?
+   })
 
 (defn compojure-route
   ([route keys]

@@ -16,6 +16,7 @@
 
 (def ^:private templates-resource (p/resource-path-string :templates-resource))
 (def ^:private entity-templates-resource (p/resource-path-string :entity-templates-resource))
+(def ^:private uploads-status-resource-path (p/resource-path-string :uploads-status-resource))
 
 (defn- payload-from
   ([multipart] (payload-from (uuid) multipart))
@@ -141,10 +142,16 @@
 
 (defn entity-resource-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [entity_id       (:id (:kixi.hecuba.api.entities/item ctx))
-          items           (measurements-download/get-header entity_id)]
-      (ring-response {:headers {"Content-Disposition" (str "attachment; filename=" entity_id "_template.csv")}
-                      :body (util/render-items ctx items)}))))
+    (let [entity_id (-> ctx :kixi.hecuba.api.entities/item :id)
+          data?     (-> ctx :request :params "data")
+          user_id   (-> ctx :auth :user_id)
+          location  (format uploads-status-resource-path user_id uuid)]
+      (if data?
+        {:response {:status 202
+                    :headers {"Location" location}
+                    :body "Accepted"}}
+        (ring-response {:headers {"Content-Disposition" (str "attachment; filename=" entity_id "_template.csv")}
+                        :body (util/render-items ctx (measurements-download/get-header store entity_id))})))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; RESOURCES
