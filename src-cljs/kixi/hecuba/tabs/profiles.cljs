@@ -454,7 +454,7 @@
           [:div {:class (profile-column-width)}
            (bs/panel
             "Heating Systems"
-            (if-let [heating-systems (seq (:heating-systems profile))]
+            (if-let [heating-systems (seq (:heating_systems profile))]
               [:div
                (for [item heating-systems]
                  (bs/panel
@@ -506,7 +506,7 @@
           [:div {:class (profile-column-width)}
            (bs/panel
             "Hot Water Systems"
-            (if-let [hot-water-systems (seq (:hot-water-systems profile))]
+            (if-let [hot-water-systems (seq (:hot_water_systems profile))]
               [:div
                (for [item hot-water-systems]
                  (bs/panel
@@ -621,7 +621,7 @@
           [:div {:class (profile-column-width)}
            (bs/panel
             "Window Sets"
-            (if-let [window-sets (seq (:window-sets profile))]
+            (if-let [window-sets (seq (:window_sets profile))]
               [:div
                (for [item window-sets]
                  (bs/panel
@@ -646,7 +646,7 @@
           [:div {:class (profile-column-width)}
            (bs/panel
             "Door Sets"
-            (if-let [door-sets (seq (:door-sets profile))]
+            (if-let [door-sets (seq (:door_sets profile))]
               [:div
                (for [item door-sets]
                  (bs/panel
@@ -700,7 +700,7 @@
           [:div {:class (profile-column-width)}
            (bs/panel
             "Door Sets"
-            (if-let [roof-rooms (seq (:roof-rooms profile))]
+            (if-let [roof-rooms (seq (:roof_rooms profile))]
               [:div
                (for [item roof-rooms]
                  (bs/panel
@@ -730,7 +730,7 @@
           [:div {:class (profile-column-width)}
            (bs/panel
             "Low Energy Lights"
-            (if-let [low-energy-lights (seq (:low-energy-lights profile))]
+            (if-let [low-energy-lights (seq (:low_energy_lights profile))]
               [:div
                (for [item low-energy-lights]
                  (bs/panel
@@ -752,7 +752,7 @@
           [:div {:class (profile-column-width)}
            (bs/panel
             "Ventilation Systems"
-            (if-let [ventilation-systems (seq (:ventilation-systems profile))]
+            (if-let [ventilation-systems (seq (:ventilation_systems profile))]
               [:div
                (for [item ventilation-systems]
                  (bs/panel
@@ -788,7 +788,7 @@
           [:div {:class (profile-column-width)}
            (bs/panel
             "Air Flow Measurements"
-            (if-let [airflow-measurements (seq (:airflow-measurements profile))]
+            (if-let [airflow-measurements (seq (:airflow_measurements profile))]
               [:div
                (for [item airflow-measurements]
                  (bs/panel
@@ -817,7 +817,7 @@
           [:div {:class (profile-column-width)}
            (bs/panel
             "Photovoltaic-Panels"
-            (if-let [photovoltaic-panels (seq (:photovoltaic-panels profile))]
+            (if-let [photovoltaic-panels (seq (:photovoltaics profile))]
               [:div
                (for [item photovoltaic-panels]
                  (bs/panel
@@ -855,7 +855,7 @@
           [:div {:class (profile-column-width)}
            (bs/panel
             "Solar Thermal Panels"
-            (if-let [solar-thermal-panels (seq (:solar-thermal-panels profile))]
+            (if-let [solar-thermal-panels (seq (:solar_thermals profile))]
               [:div
                (for [item solar-thermal-panels]
                  (bs/panel
@@ -886,7 +886,7 @@
           [:div {:class (profile-column-width)}
            (bs/panel
             "Wind Turbines"
-            (if-let [wind-turbines (seq (:wind-turbines profile))]
+            (if-let [wind-turbines (seq (:wind_turbines profile))]
               [:div
                (for [item wind-turbines]
                  (bs/panel
@@ -923,7 +923,7 @@
           [:div {:class (profile-column-width)}
            (bs/panel
             "Small Hydro Plants"
-            (if-let [small-hydro-plants (seq (:small-hydro-plants profile))]
+            (if-let [small-hydro-plants (seq (:small_hydro profile))]
               [:div
                (for [item small-hydro-plants]
                  (bs/panel
@@ -956,7 +956,7 @@
           [:div {:class (profile-column-width)}
            (bs/panel
             "Heat Pumps"
-            (if-let [heat-pumps (seq (:heat-pumps profile))]
+            (if-let [heat-pumps (seq (:heat_pumps profile))]
               [:div
                (for [item heat-pumps]
                  (bs/panel
@@ -991,7 +991,7 @@
           [:div {:class (profile-column-width)}
            (bs/panel
             "Biomass Boilers"
-            (if-let [biomass-boilers (seq (:biomass-boilers profile))]
+            (if-let [biomass-boilers (seq (:biomass_boilers profile))]
               [:div
                (for [item biomass-boilers]
                  (bs/panel
@@ -1019,7 +1019,7 @@
           [:div {:class (profile-column-width)}
            (bs/panel
             "mCHP Systems"
-            (if-let [mCHP-systems (seq (:mCHP-systems profile))]
+            (if-let [mCHP-systems (seq (:chps profile))]
               [:div
                (for [item mCHP-systems]
                  (bs/panel
