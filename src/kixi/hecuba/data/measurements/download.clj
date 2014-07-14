@@ -65,3 +65,6 @@
              (apply map vector)
              (map #(apply vector %1 %2) headers-in-order))
         []))))
+
+
+(defn download-item [store item])

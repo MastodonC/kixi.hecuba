@@ -8,27 +8,30 @@
             [kixi.hecuba.data.misc         :as misc]
             [kixi.hecuba.data.calculate    :as calculate]
             [kixi.hecuba.data.calculated-fields :as fields]
+            [kixi.hecuba.data.measurements.download :as download]
             [kixi.hecuba.data.measurements.upload :as upload]
             [clj-time.core :as t]
             [com.stuartsierra.component    :as component]
             [kixi.hecuba.api.datasets      :as datasets]))
 
 (defn build-pipeline [store]
-  (let [fanout-q              (new-queue {:name "fanout-q" :queue-size 50})
-        data-quality-q        (new-queue {:name "data-quality-q" :queue-size 50})
-        median-calculation-q  (new-queue {:name "median-calculation-q" :queue-size 50})
-        mislabelled-sensors-q (new-queue {:name "mislabelled-sensors-q" :queue-size 50})
-        rollups-q             (new-queue {:name "rollups-q" :queue-size 50})
-        spike-check-q         (new-queue {:name "spike-check-q" :queue-size 50})
-        synthetic-readings-q  (new-queue {:name "synthetic-readings-q" :queue-size 50})
-        resolution-q          (new-queue {:name "resolution-q" :queue-size 50})
-        difference-series-q   (new-queue {:name "difference-series-q" :queue-size 50})
-        convert-to-co2-q      (new-queue {:name "convert-to-co2-q" :queue-size 50})
-        convert-to-kwh-q      (new-queue {:name "convert-to-kwh-q" :queue-size 50})
-        sensor-status-q       (new-queue {:name "sensor-status" :queue-size 50})
-        actual-annual-q       (new-queue {:name "actual-annual-q" :queue-size 50})
-        store-upload-s3-q     (new-queue {:name "store-upload-s3-q" :queue-size 50})
-        upload-measurements-q (new-queue {:name "data-upload-q" :queue-size 10})]
+  (let [fanout-q                (new-queue {:name "fanout-q" :queue-size 50})
+        data-quality-q          (new-queue {:name "data-quality-q" :queue-size 50})
+        median-calculation-q    (new-queue {:name "median-calculation-q" :queue-size 50})
+        mislabelled-sensors-q   (new-queue {:name "mislabelled-sensors-q" :queue-size 50})
+        rollups-q               (new-queue {:name "rollups-q" :queue-size 50})
+        spike-check-q           (new-queue {:name "spike-check-q" :queue-size 50})
+        synthetic-readings-q    (new-queue {:name "synthetic-readings-q" :queue-size 50})
+        resolution-q            (new-queue {:name "resolution-q" :queue-size 50})
+        difference-series-q     (new-queue {:name "difference-series-q" :queue-size 50})
+        convert-to-co2-q        (new-queue {:name "convert-to-co2-q" :queue-size 50})
+        convert-to-kwh-q        (new-queue {:name "convert-to-kwh-q" :queue-size 50})
+        sensor-status-q         (new-queue {:name "sensor-status" :queue-size 50})
+        actual-annual-q         (new-queue {:name "actual-annual-q" :queue-size 50})
+        store-upload-s3-q       (new-queue {:name "store-upload-s3-q" :queue-size 50})
+        upload-measurements-q   (new-queue {:name "data-upload-q" :queue-size 10})
+        download-measurements-q (new-queue {:name "data-download-q" :queue-size 10})
+        ]
 
     (defnconsumer fanout-q [{:keys [dest type] :as item}]
       (let [item (dissoc item :dest)]
@@ -48,7 +51,9 @@
           :calculated-fields (condp = type
                                :actual-annual (produce-item item actual-annual-q))
           :upload (condp = type
-                    :measurements (produce-item item upload-measurements-q)))))
+                    :measurements (produce-item item upload-measurements-q))
+          :download (condp = type
+                      :measurements (produce-item item download-measurements-q)))))
 
     (defnconsumer median-calculation-q [item]
       (log/info "Starting median calculation.")
@@ -239,6 +244,9 @@
 
     (defnconsumer upload-measurements-q [item]
       (upload/upload-item store item))
+
+    (defnconsumer download-measurements-q [item]
+      (download/download-item store item))
 
     (producer-of fanout-q median-calculation-q mislabelled-sensors-q spike-check-q rollups-q synthetic-readings-q
                  resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q sensor-status-q actual-annual-q
