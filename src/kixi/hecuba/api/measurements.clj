@@ -81,7 +81,8 @@
      :filename  (.getName tempfile)
      :metadata  {:timestamp timestamp
                  :content-type "text/csv"
-                 :user      username}}))
+                 :user      username
+                 :filename filename}}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; index-malformed?

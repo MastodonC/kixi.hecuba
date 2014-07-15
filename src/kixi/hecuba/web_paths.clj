@@ -58,7 +58,7 @@
 
    :uploads-status-resource "uploads/%s/status"
    :uploads-data-resource "uploads/%s/data"
-   })
+   :uploads-for-username "programme/%s/project/%s/uploads/username"}) ;; Used to display status. programme_id and  project_id used for allowed?
 
 (defn compojure-route
   ([route keys]

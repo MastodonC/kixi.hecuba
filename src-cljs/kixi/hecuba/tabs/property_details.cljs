@@ -11,6 +11,7 @@
             [kixi.hecuba.tabs.sensors :as sensors]
             [kixi.hecuba.tabs.profiles :as profiles]
             [kixi.hecuba.tabs.programmes :as programmes]
+            [kixi.hecuba.tabs.upload-status :as status]
             [ajax.core :refer [PUT]]
             [kixi.hecuba.widgets.fileupload :as file]))
 
@@ -209,38 +210,48 @@
                   (om/build profiles/profiles-div data)]
                  ;; CSV Management
                  [:div {:class (if (not= active-tab :upload) "hidden" "col-md-12")}
-                  [:div {:style {:padding-top "15px"}}
-                   ;; Download measurements template
+                  [:div.col-md-6
+                   [:div {:style {:padding-top "15px"}}
+                    ;; Download measurements template
+                    [:div {:class (if (seq devices) "panel panel-default" "hidden")}
+                     [:div.panel-body
+                      [:div
+                       [:h4 "Download CSV measurements template"]
+                       [:a {:class "btn btn-primary"
+                            :type "button"
+                            :href (str "/4/templates/for-entity/" selected-property-id)} "Download"]]]]]
+                   ;; Upload measurements
                    [:div {:class (if (seq devices) "panel panel-default" "hidden")}
                     [:div.panel-body
                      [:div
-                      [:h4 "Download CSV measurements template"]
-                      [:a {:class "btn btn-primary"
-                           :type "button"
-                           :href (str "/4/templates/for-entity/" selected-property-id)} "Download"]]]]]
-                  ;; Upload measurements
-                  [:div {:class (if (seq devices) "panel panel-default" "hidden")}
-                   [:div.panel-body
-                    [:div
-                     [:h4 "Upload measurements CSV"]
-                     (let [div-id "measurements-upload"]
-                       (om/build (file/file-upload "/4/measurements/"
-                                                   div-id)
-                                 nil {:opts {:method "POST"}}))]]]
-                  ;; Upload profile data
-                  [:div.panel.panel-default
-                   [:div.panel-body
-                    [:div
-                     [:h4 "Upload CSV profile data"]
-                     (let [div-id "file-form"]
-                       (om/build (file/file-upload (str "/4/entities/" selected-property-id "/profiles/")
-                                                   div-id)
-                                 nil {:opts {:method "POST"}}))]]]
-                  ;; Upload property details
-                  [:div.panel.panel-default
-                   [:div.panel-body
-                    [:div
-                     [:h4 "Upload CSV property details"]
-                     (let [div-id "property-details-form"]
-                       (om/build (file/file-upload (str "/4/entities/" selected-property-id) div-id)
-                                 nil {:opts {:method "PUT"}}))]]]]])])))))
+                      [:h4 "Upload measurements CSV"]
+                      (let [div-id "measurements-upload"]
+                        (om/build (file/file-upload "/4/measurements/"
+                                                    div-id)
+                                  nil {:opts {:method "POST"}}))]]]
+                   ;; Upload profile data
+                   [:div.panel.panel-default
+                    [:div.panel-body
+                     [:div
+                      [:h4 "Upload CSV profile data"]
+                      (let [div-id "file-form"]
+                        (om/build (file/file-upload (str "/4/entities/" selected-property-id "/profiles/")
+                                                    div-id)
+                                  nil {:opts {:method "POST"}}))]]]
+                   ;; Upload property details
+                   [:div.panel.panel-default
+                    [:div.panel-body
+                     [:div
+                      [:h4 "Upload CSV property details"]
+                      (let [div-id "property-details-form"]
+                        (om/build (file/file-upload (str "/4/entities/" selected-property-id) div-id)
+                                  nil {:opts {:method "PUT"}}))]]]]
+                  [:div.col-md-6
+                   ;; Upload status
+                   [:div {:style {:padding-top "15px"}}
+                    [:div.panel.panel-default
+                     [:div.panel-body
+                      [:div
+                       [:h4 "Upload status"]
+                       (om/build (status/upload-status (-> data :active-components :programmes)
+                                                       (-> data :active-components :projects)) (:upload-status data))]]]]]]])])))))

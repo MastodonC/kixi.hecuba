@@ -39,6 +39,7 @@
                                    :name nil}}
     :sensor-edit {:editing false
                   :row nil}
+    :upload-status []
     :chart    {:property ""
                :sensor ""
                :unit ""
