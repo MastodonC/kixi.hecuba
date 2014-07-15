@@ -1,4 +1,5 @@
 (ns kixi.hecuba.tabs.property-details
+  (:import goog.net.XhrIo)
   (:require [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map< filter< mult tap map>]]
             [cljs.reader :as reader]
             [om.core :as om :include-macros true]
@@ -209,25 +210,37 @@
                  ;; CSV Management
                  [:div {:class (if (not= active-tab :upload) "hidden" "col-md-12")}
                   [:div {:style {:padding-top "15px"}}
-                   [:div {:class "panel panel-default"}
+                   ;; Download measurements template
+                   [:div.panel.panel-default
                     [:div.panel-body
                      [:div
                       [:h4 "Download CSV measurements template"]
                       [:a {:class "btn btn-primary"
                            :type "button"
-                           :href (str "/4/templates/for-entity/" selected-property-id)} "Download"]]]]
-                   [:div {:class "panel panel-default"}
-                    [:div.panel-body
-                     [:div
-                      [:h4 "Upload CSV profile data"]
-                      (let [div-id "file-form"]
-                        (om/build (file/file-upload (str "/4/entities/" selected-property-id "/profiles/")
-                                                    div-id)
-                                  nil {:opts {:method "POST"}}))]]]
-                   [:div {:class "panel panel-default"}
-                    [:div.panel-body
-                     [:div
-                      [:h4 "Upload CSV property details"]
-                      (let [div-id "property-details-form"]
-                        (om/build (file/file-upload (str "/4/entities/" selected-property-id) div-id)
-                                  nil {:opts {:method "PUT"}}))]]]]]])])))))
+                           :href (str "/4/templates/for-entity/" selected-property-id)} "Download"]]]]]   
+                  ;; Upload measurements
+                  [:div.panel.panel-default
+                   [:div.panel-body
+                    [:div
+                     [:h4 "Upload measurements CSV"]
+                     (let [div-id "measurements-upload"]
+                       (om/build (file/file-upload "/4/measurements/"
+                                                   div-id)
+                                 nil {:opts {:method "POST"}}))]]]
+                  ;; Upload profile data
+                  [:div.panel.panel-default
+                   [:div.panel-body
+                    [:div
+                     [:h4 "Upload CSV profile data"]
+                     (let [div-id "file-form"]
+                       (om/build (file/file-upload (str "/4/entities/" selected-property-id "/profiles/")
+                                                   div-id)
+                                 nil {:opts {:method "POST"}}))]]]
+                  ;; Upload property details
+                  [:div.panel.panel-default
+                   [:div.panel-body
+                    [:div
+                     [:h4 "Upload CSV property details"]
+                     (let [div-id "property-details-form"]
+                       (om/build (file/file-upload (str "/4/entities/" selected-property-id) div-id)
+                                 nil {:opts {:method "PUT"}}))]]]]])])))))
