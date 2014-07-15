@@ -5,7 +5,7 @@
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values sha1-regex update-stringified-lists)]
+   [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values sha1-regex update-stringified-lists content-type-from-context)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
@@ -15,7 +15,9 @@
    [kixi.hecuba.data.entities :as entities]
    [kixi.hecuba.data.users :as users]
    [kixi.hecuba.storage.sha1 :as sha1]
-   [kixi.hecuba.web-paths :as p]))
+   [kixi.hecuba.web-paths :as p]
+   [clojure.java.io :as io]
+   [clojure.data.csv :as csv]))
 
 (def ^:private entities-index-path (p/index-path-string :entities-index))
 (def ^:private entity-resource-path (p/resource-path-string :entity-resource))
@@ -44,9 +46,9 @@
 
 (defn index-allowed? [store]
   (fn [ctx]
-    (let [{:keys [body request-method session params]} (:request ctx)
+    (let [{:keys [request-method session params]} (:request ctx)
           {:keys [projects programmes roles]} (sec/current-authentication session)
-          project_id (:project_id body)
+          project_id (:project_id (:entity ctx))
           programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
       (if (and project_id programme_id)
         (allowed?* programme_id project_id programmes projects roles request-method)
@@ -266,37 +268,93 @@
   standard       | timestamp                   | timestamp                  |
   nested item    | profile_data, bedroom_count | profile_data_bedroom_count |
   association    | storeys, first storey_type  | storeys_0_storey_type      |"
-  (reduce
-    (fn [item attr]
-      (let [t (attribute-type attr)
-            imploded-attribute (case t
-              :attribute               (extract-attribute attr input)
-              :nested-item             (extract-nested-item attr input)
-              :associated-items        (extract-associated-items attr input))]
-        (conj item imploded-attribute)))
-    {}
-    schema))
+  (try 
+    (reduce
+     (fn [item attr]
+       (let [t (attribute-type attr)
+             imploded-attribute (case t
+                                  :attribute               (extract-attribute attr input)
+                                  :nested-item             (extract-nested-item attr input)
+                                  :associated-items        (extract-associated-items attr input))]
+         (conj item imploded-attribute)))
+     {}
+     schema)
+    (catch Throwable t
+      (log/error "Got malformed CSV. " t)
+      nil)))
+
+(defn process-file [ctx]
+  (let [file-data (-> ctx :request :multipart-params (get "data"))
+        {:keys [tempfile content-type]} file-data
+        dir       (.getParent tempfile)
+        filename  (.getName tempfile)
+        in-file   (io/file dir filename)]
+    (with-open [in (io/reader in-file)]
+      (try
+        (let [data (->> in
+                        (csv/read-csv)
+                        (into {}))]
+          (parse-by-schema data entity-schema))
+        (catch Throwable t
+          (log/error "Unparsable CSV." t)
+          nil)))))
+
+(defmulti malformed? content-type-from-context)
+
+(defmethod malformed? "multipart/form-data" [ctx]
+  (let [request   (:request ctx)
+        {:keys [route-params request-method]} request
+        project_id (:project_id route-params)]
+    (case request-method
+      :post (let [parsed-csv    (process-file ctx)
+                  property_code (:property_code parsed-csv)]
+              (if (and property_code parsed-csv (= project_id (:project_id parsed-csv)))
+               [false {:entity parsed-csv}]
+               true))
+      :put  (let [entity_id  (:entity_id route-params)
+                  parsed-csv (process-file ctx)]
+              (if (and parsed-csv (= entity_id (:id parsed-csv)))
+                [false {:entity parsed-csv}]
+                true))
+      false)))
+
+(defmethod malformed? :default [ctx]
+  (let [request (:request ctx)
+        {:keys [route-params request-method]} request]
+    (case request-method
+      :post (let [decoded-body  (decode-body request)
+                  entity        (if (= "text/csv" (:content-type request))
+                                  (let [body-map (into {} decoded-body)]
+                                    (parse-by-schema body-map entity-schema))
+                                  decoded-body)
+                  {:keys [property_code project_id]} entity]
+              (if (and property_code project_id)
+                [false {:entity entity}]
+                true))
+      :put (let [decoded-body  (decode-body request)
+                 entity_id     (:entity_id route-params)
+                 entity        (if (= "text/csv" (:content-type request))
+                                 (let [body-map (into {} decoded-body)]
+                                   (parse-by-schema body-map entity-schema))
+                                 decoded-body)]
+             (if entity 
+               [false {:entity (assoc entity :id entity_id)}]
+               true))
+       false)))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request       (:request ctx)
-          decoded-body  (decode-body request)
-          entity        (if (= "text/csv" (:content-type request))
-                          (let [body-map (into {} decoded-body)]
-                            (parse-by-schema body-map entity-schema))
-                          decoded-body)
+    (let [{:keys [request entity]} ctx
           project_id    (:project_id entity)
-          property_code (:property_code entity)
           username      (sec/session-username (:session request))
           user_id       (:id (users/get-by-username session username))]
-      (when (and project_id property_code)
-        (when-not (empty? (-> (db/execute session (hayt/select :projects (hayt/where [[= :id project_id]]))) first))
-          (let [entity_id (sha1/gen-key :entity entity)
-                query-entity (assoc entity
-                                    :user_id user_id
-                                    :id entity_id)]
-            (entities/insert session query-entity)
-            {::entity_id entity_id}))))))
+      (when (projects/get-by-id session project_id)
+        (let [entity_id (sha1/gen-key :entity entity)
+              query-entity (assoc entity
+                             :user_id user_id
+                             :id entity_id)]
+          (entities/insert session query-entity)
+          {::entity_id entity_id})))))
 
 (defn index-handle-created [ctx]
   (let [request (:request ctx)
@@ -316,7 +374,7 @@
 (defn resource-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [id (get-in ctx [:request :route-params :entity_id])]
-      (when-let [item (-> (db/execute session (hayt/select :entities (hayt/where [[= :id id]]))) first)]
+      (when-let [item (entities/get-by-id session id)]
         {::item item}))))
 
 (defn resource-handle-ok [store ctx]
@@ -337,15 +395,10 @@
 
 (defn resource-put! [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request   (:request ctx)
-          decoded-body (decode-body request)
-          body      (if (= "text/csv" (:content-type request))
-                      (let [body-map (into {} decoded-body)]
-                        (parse-by-schema body-map entity-schema))
-                      decoded-body)
-          entity_id (-> (::item ctx) :id)
+    (let [{:keys [request entity]} ctx
           username  (sec/session-username (-> ctx :request :session))]
-      (entities/update session entity_id (assoc body :user_id username)))))
+      (when entity
+        (entities/update session (:id entity) (assoc entity :user_id username))))))
 
 (defn resource-delete! [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -364,6 +417,7 @@
   :known-content-type? #{"text/csv" "application/json"}
   :authorized? (authorized? store)
   :allowed? (index-allowed? store)
+  :malformed? #(malformed? %)
   :post! (partial index-post! store)
   :handle-created index-handle-created)
 
@@ -375,6 +429,7 @@
   :allowed? (resource-allowed? store)
   :exists? (partial resource-exists? store)
   :handle-ok (partial resource-handle-ok store)
+  :malformed? #(malformed? %)
   :put! (partial resource-put! store)
   :respond-with-entity? (partial resource-respond-with-entity)
   :delete! (partial resource-delete! store))

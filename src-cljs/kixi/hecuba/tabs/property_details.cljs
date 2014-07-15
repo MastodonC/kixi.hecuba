@@ -223,4 +223,11 @@
                       (let [div-id "file-form"]
                         (om/build (file/file-upload (str "/4/entities/" selected-property-id "/profiles/")
                                                     div-id)
-                                  nil))]]]]]])])))))
+                                  nil {:opts {:method "POST"}}))]]]
+                   [:div {:class "panel panel-default"}
+                    [:div.panel-body
+                     [:div
+                      [:h4 "Upload CSV property details"]
+                      (let [div-id "property-details-form"]
+                        (om/build (file/file-upload (str "/4/entities/" selected-property-id) div-id)
+                                  nil {:opts {:method "PUT"}}))]]]]]])])))))
