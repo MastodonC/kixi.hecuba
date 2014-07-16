@@ -115,9 +115,9 @@
     (render-state [_ state]
       (let [selected-property-id    (-> data :active-components :properties)
             property-details        (get-property-details selected-property-id data)
-            {:keys [project_id  
+            {:keys [project_id
                     property_data
-                    editable]} property-details]   
+                    editable]} property-details]
         (html
          [:div
           [:h3 "Overview"]
@@ -194,7 +194,7 @@
                   [:li {:class (if (= active-tab :sensors) "active" nil)}
                    [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :sensors))}
                     "Sensor Data"]]
-                  (when (and editable (seq devices))
+                  (when editable
                     [:li {:class (if (= active-tab :upload) "active" nil)}
                      [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :upload))}
                       "CSV"]])]
@@ -211,15 +211,15 @@
                  [:div {:class (if (not= active-tab :upload) "hidden" "col-md-12")}
                   [:div {:style {:padding-top "15px"}}
                    ;; Download measurements template
-                   [:div.panel.panel-default
+                   [:div {:class (if (seq devices) "panel panel-default" "hidden")}
                     [:div.panel-body
                      [:div
                       [:h4 "Download CSV measurements template"]
                       [:a {:class "btn btn-primary"
                            :type "button"
-                           :href (str "/4/templates/for-entity/" selected-property-id)} "Download"]]]]]   
+                           :href (str "/4/templates/for-entity/" selected-property-id)} "Download"]]]]]
                   ;; Upload measurements
-                  [:div.panel.panel-default
+                  [:div {:class (if (seq devices) "panel panel-default" "hidden")}
                    [:div.panel-body
                     [:div
                      [:h4 "Upload measurements CSV"]
