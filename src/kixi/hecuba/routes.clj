@@ -127,7 +127,7 @@
    ;; Templates
    (index-routes :templates-index (templates/index store))
    (resource-route :templates-resource [:template_id] (templates/resource store))
-   (resource-route :entity-templates-resource [:entity_id] (templates/entity-resource store))
+   (resource-route :entity-templates-resource [:entity_id] (templates/entity-resource store pipeline-head))
    (index-routes :measurements [] (measurements/index store s3 pipeline-head))
 
    ;; Uploads

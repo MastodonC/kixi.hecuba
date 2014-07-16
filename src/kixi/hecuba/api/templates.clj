@@ -3,6 +3,7 @@
             [clojure.set :as set]
             [clojure.tools.logging :as log]
             [kixi.hecuba.api.entities :as entities]
+            [kixipipe.pipeline :as pipe]
             [kixi.hecuba.security :as sec]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.storage.sha1 :as sha1]
@@ -140,16 +141,21 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; entity-resource-handle-ok
 
-(defn entity-resource-handle-ok [store ctx]
+(defn entity-resource-handle-ok [store pipe ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [entity_id (-> ctx :kixi.hecuba.api.entities/item :id)
           data?     (-> ctx :request :params "data")
           user_id   (-> ctx :auth :user_id)
+          uuid      (uuid)
+          item      {:dest :downloads :type :measurements}
           location  (format uploads-status-resource-path user_id uuid)]
       (if data?
-        {:response {:status 202
-                    :headers {"Location" location}
-                    :body "Accepted"}}
+        (do  (pipe/submit-item pipe (assoc item
+                                      :uuid uuid
+                                      :auth (:auth ctx)))
+             {:response {:status 202
+                         :headers {"Location" location}
+                         :body "Accepted"}})
         (ring-response {:headers {"Content-Disposition" (str "attachment; filename=" entity_id "_template.csv")}
                         :body (util/render-items ctx (measurements-download/get-header store entity_id))})))))
 
@@ -179,10 +185,10 @@
   :put! (partial resource-put! store)
   :handle-ok (partial resource-handle-ok store))
 
-(defresource entity-resource [store]
+(defresource entity-resource [store pipeline]
   :allowed-methods #{:get}
   :available-media-types #{"text/csv"}
   :known-content-type? #{"text/csv"}
   :authorized? (authorized? store)
   :exists? (partial entities/resource-exists? store)
-  :handle-ok (partial entity-resource-handle-ok store))
+  :handle-ok (partial entity-resource-handle-ok store pipeline))
