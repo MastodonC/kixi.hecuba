@@ -144,7 +144,7 @@
 (defn entity-resource-handle-ok [store pipe ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [entity_id (-> ctx :kixi.hecuba.api.entities/item :id)
-          data?     (-> ctx :request :params "data")
+          data?     (-> ctx :request :params (get "data"))
           user_id   (-> ctx :auth :user_id)
           uuid      (uuid)
           item      {:dest :downloads :type :measurements}

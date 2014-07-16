@@ -65,14 +65,17 @@
   (let [sentinel         (Object.)
         is-sentinel?     #(identical? % sentinel)
         next-or-sentinel #(if-let [n (next %)] n [sentinel])
+        replace-empty    (partial map (fn [x] (if (seq x) x [sentinel])))
         next-row         (fn [xs]
-                           (when-let [row (first (apply map vector xs))]
+                           (when-let [row (first (apply map vector (replace-empty xs)))]
                              (when (not-every? is-sentinel? row)
                                row)))]
     (loop [ms measurements data (list)]
       (let [row (next-row ms)]
         (if-not row
-          (apply map vector data)
+          (if (seq data)
+            (apply map vector data)
+            (list))
           (let [row-timestamps (mapv :timestamp row)
                 row-timestamp  (first (sort (remove nil? row-timestamps)))
                 data-indexes   (indexes-of row-timestamp row-timestamps)
@@ -85,7 +88,6 @@
             (recur (step ms) (concat data [out-row]))))))))
 
 (defn generate-file [store item]
-
   (let [{:keys [header data]} item
         tmpfile (ioplus/mk-temp-file! "hecuba" ".csv-download")]
     (try

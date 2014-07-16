@@ -145,7 +145,8 @@
                                    :period "INSTANT"
                                    :max "10"
                                    :min "5"}])
-        result   (entity-resource-handle-ok store
+        pipeline                   nil
+        result   (entity-resource-handle-ok store pipeline
                                             {:kixi.hecuba.api.entities/item {:id 1000 :name "foo"}
                                              :request {:route-params {:entity_id 123}}
                                              :content-type "text/csv"})]
