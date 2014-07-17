@@ -245,10 +245,11 @@
       (finally (ioplus/delete! status-file)))))
 
 (defn upload-item [store item]
-  (s3/store-file (:s3 store) (update-in item [:uuid] str "/data"))
-  (try
-    (db-store store item)
-    (write-status store (assoc (update-in item [:uuid] str "/status") :status "SUCCESS"))
-    (catch Throwable t
-      (log/error t "failed")
-      (write-status store (assoc (update-in item [:uuid] str "/status") :status "FAILURE" :data (ex-data t))))))
+  (let [username (-> item :metadata :user)]
+    (s3/store-file (:s3 store) (update-in item [:uuid] #(str username "/" % "/data")))
+    (try
+      (db-store store item)
+      (write-status store (assoc (update-in item [:uuid] #(str username "/" % "/status")) :status "SUCCESS"))
+      (catch Throwable t
+        (log/error t "failed")
+        (write-status store (assoc (update-in item [:uuid] #(str username "/" % "/status")) :status "FAILURE" :data (ex-data t)))))))

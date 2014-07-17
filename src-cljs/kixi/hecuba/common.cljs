@@ -1,8 +1,8 @@
 (ns kixi.hecuba.common
   (:require [clojure.string   :as str]
             [cljs-time.core   :as t]
-            [cljs-time.format :as tf])
-  )
+            [cljs-time.format :as tf]
+            [cljs-time.coerce :as tc]))
 
 (defn find-first [pred coll]
   (first (filter pred coll)))
@@ -42,3 +42,14 @@
      (<= interval 1440) :raw
      (and (> interval 1440) (< interval 20160)) :hourly_rollups
      (>= interval 20160) :daily_rollups)))
+
+(defn unparse-date [timestamp f]
+  (when-not (nil? timestamp)
+    (let [date (tc/from-date timestamp)]
+      (tf/unparse (tf/formatter f) date))))
+
+(defn unparse-date-str [timestamp f]
+  (when-not (nil? timestamp)   
+    (let [parsed (tf/parse (tf/formatter "yyyy-MM-dd'T'HH:mm:ss.SSSZ") timestamp)
+          date   (tc/to-date parsed)]
+      (unparse-date date f))))

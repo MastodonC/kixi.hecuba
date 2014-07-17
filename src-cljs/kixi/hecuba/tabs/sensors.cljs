@@ -12,9 +12,8 @@
             [kixi.hecuba.widgets.datetimepicker :as dtpicker]
             [ajax.core :refer [GET POST PUT]]
             [kixi.hecuba.tabs.programmes :as programmes]
-            [cljs-time.coerce :as tc]
-            [cljs-time.format :as tf]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [kixi.hecuba.common :as common]))
 
 (defn chart-feedback-box [cursor owner]
   (om/component
@@ -28,11 +27,6 @@
 
 (defn extract-sensors [devices]
   (vec (mapcat flatten-device devices)))
-
-(defn parse-date [t]
-  (when-not (nil? t)
-    (let [date (tc/from-date t)]
-      (tf/unparse (tf/formatter "yyyy-MM-dd") date))))
 
 ;; FIXME: This is a dupe from property-details
 (defn get-property-details [selected-property-id data]
@@ -178,8 +172,8 @@
             [:td resolution]
             [:td device_id]
             [:td location]
-            [:td (if-let [t (parse-date lower_ts)] t "")]
-            [:td (if-let [t (parse-date upper_ts)] t "")]
+            [:td (if-let [t (common/unparse-date lower_ts "yyyy-MM-dd")] t "")]
+            [:td (if-let [t (common/unparse-date upper_ts "yyyy-MM-dd")] t "")]
             [:td (status-label status privacy actual_annual)]]))))))
 
 (defn sensors-table [editing-chan]
@@ -303,6 +297,5 @@
                (om/build chart/chart-figure (:chart data))]]]
             [:div.col-md-12.text-center
              [:p.lead {:style {:padding-top 30}}
-              "Charting in Internet Explorer version " agent/VERSION " coming soon."]])
-         ])))))
+              "Charting in Internet Explorer version " agent/VERSION " coming soon."]])])))))
 
