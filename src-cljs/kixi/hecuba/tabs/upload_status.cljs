@@ -9,9 +9,10 @@
     (reify
       om/IWillMount
       (will-mount [_]
-        (let [url (str "/4/programme/" programme_id "/project/" project_id "/uploads/username")]
-          (GET url {:handler #(om/update! cursor  %)
-                    :headers {"Accept" "application/edn"}})))
+        (when (and programme_id project_id)
+          (let [url (str "/4/programme/" programme_id "/project/" project_id "/uploads/username")]
+            (GET url {:handler #(om/update! cursor  %)
+                      :headers {"Accept" "application/edn"}}))))
       om/IRender
       (render [_]
         (html

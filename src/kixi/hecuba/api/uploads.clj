@@ -48,6 +48,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; uploads-for-username
 
+;; List of files is retrieved for a username (read from the current session) so only users who can upload files can also GET those files. Other users will get an empty list.
 (defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
   (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
              programme-id project-id allowed-programmes allowed-projects roles request-method)
