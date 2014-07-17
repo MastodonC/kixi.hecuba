@@ -69,7 +69,6 @@
 
                  [org.clojure/tools.macro "0.1.5"]
 
-                 [reiddraper/simple-check "0.5.6"]
                  [roul "0.2.0"]
                  [com.stuartsierra/frequencies "0.1.0"]
                  [clj-time "0.6.0"]
@@ -90,7 +89,7 @@
                                   [ring-mock "0.1.5"]
                                   [org.clojure/tools.namespace "0.2.4"]
                                   [javax.servlet/servlet-api "2.5"]
-                                  ]
+                                  [org.clojure/test.check "0.5.8"]]
                    :plugins [[com.cemerick/austin "0.1.4"]] }
 
              :uberjar {:main kixi.hecuba.controller.main :aot [kixi.hecuba.controller.main]}}
