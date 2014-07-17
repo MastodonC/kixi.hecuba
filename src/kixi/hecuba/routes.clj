@@ -131,8 +131,8 @@
    (index-routes :measurements [] (measurements/index store s3 pipeline-head))
 
    ;; Uploads
-   (resource-route :uploads-status-resource [:upload_id] (uploads/status-resource store))
-   (resource-route :uploads-data-resource [:upload_id] (uploads/data-resource store))
+   (resource-route :uploads-status-resource [:user_id :upload_id] (uploads/status-resource store))
+   (resource-route :uploads-data-resource [:user_id :upload_id] (uploads/data-resource store))
    (resource-route :uploads-for-username [:programme_id :project_id :username] (uploads/uploads-for-username store))))
 
 (defn all-routes [store s3 pipeline-head]

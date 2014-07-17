@@ -2,7 +2,7 @@
   (:require [clj-time.coerce               :as tc]
             [clojure.data.csv              :as csv]
             [clojure.java.io               :as io]
-            [clojure.tools.logging     :as log]
+            [clojure.tools.logging         :as log]
             [kixi.hecuba.data.calculate    :as calculate]
             [kixi.hecuba.data.measurements :as measurements]
             [kixi.hecuba.data.measurements.core :refer (headers-in-order extract-columns-in-order)]
@@ -11,6 +11,8 @@
             [kixipipe.ioplus               :as ioplus]
             [kixipipe.storage.s3           :as s3]
             [qbits.hayt                    :as hayt]
+            [clj-time.core                 :as t]
+            [clj-time.coerce               :as tc]
             [kixi.hecuba.data.measurements.core :refer (write-status)]))
 
 (defn- relocate-customer-ref [m]
@@ -30,19 +32,36 @@
   (let [device_id (:device_id x)]
     (merge (get devices device_id) x)))
 
+(defn min-date-time [& ts]
+  (reduce (fn [t1 t2]  (if (t/before? t1 t2) t1 t2)) (map (fnil tc/to-date-time (t/date-time 3000)) ts))) ;; TODO a Y3K problem?
+
+(defn max-date-time [& ts]
+  (reduce (fn [t1 t2]  (if (t/after? t1 t2) t1 t2)) (map (fnil tc/to-date-time (t/date-time 1970) ) ts)))
+
+(defn- find-ts-range [xs]
+  (let [tss (map (juxt :lower_ts :upper_ts) xs)]
+    (reduce (fn [[l1 u1] [l2 u2]] [(min-date-time l1 l2)
+                                   (max-date-time u1 u2)])
+            tss)))
+
 (defn- get-devices-and-sensors-for [session entity_id]
-    (let [devices         (->> (db/execute session (hayt/select :devices (hayt/where [[= :entity_id entity_id]])))
-                               (map (fn [x] [(:id x) x]))
-                               (into {}))
-          sensors         (if (seq devices)
-                            (db/execute session (hayt/select :sensors (hayt/where [[:in :device_id (keys devices)]])))
-                            [])
-          device-and-type #(str (:device_id %) "-" (:type %))]
-      (if (seq sensors)
-        (->> sensors
-             (map (partial join-to-device devices))
-             (sort-by device-and-type))
-        [])))
+  (let [devices         (->> (db/execute session (hayt/select :devices (hayt/where [[= :entity_id entity_id]])))
+                             (map (fn [x] [(:id x) x]))
+                             (into {}))
+        sensors         (if (seq devices)
+                          (db/execute session (hayt/select :sensors (hayt/where [[:in :device_id (keys devices)]])))
+                          [])
+        sensor-metadata (if (seq sensors)
+                          (db/execute session (hayt/select :sensor_metadata
+                                                           (hayt/columns :lower_ts :upper_ts)
+                                                           (hayt/where [[:in :device_id (keys devices)]]))))
+        device-and-type #(str (:device_id %) "-" (:type %))]
+    (with-meta (if (seq sensors)
+                 (->> sensors
+                      (map (partial join-to-device devices))
+                      (sort-by device-and-type))
+                 [])
+      {:ts-range       (find-ts-range sensor-metadata)})))
 
 (defn format-header [devices-and-sensors]
   (->> devices-and-sensors
@@ -103,11 +122,12 @@
 
 (defn download-item [store item]
   (db/with-session [session (:hecuba-session store)]
-    (let [{:keys [entity_id
-                  start-date
-                  end-date]}  item
-          devices-and-sensors (get-devices-and-sensors-for session entity_id)
+    (let [devices-and-sensors (get-devices-and-sensors-for session (:entity_id item))
           formatted-header    (format-header devices-and-sensors)
+          [lower upper]       (:ts-range (meta devices-and-sensors))
+          {:keys [start-date
+                  end-date] :or {start-date lower end-date upper}} item
+          _ (log/info "S:" start-date ", E:" end-date)
           measurements        (map (fn [m] (measurements/retrieve-measurements session
                                                                               start-date
                                                                               end-date
