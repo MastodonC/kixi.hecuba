@@ -5,7 +5,7 @@
             [clj-time.format :as tf]
             [clj-time.coerce :as tc]
             [clj-time.periodic :as periodic]
-            [simple-check.generators :as gen]
+            [clojure.test.check.generators :as gen]
             [clojure.data.json :as json]))
 
 ;; Malcolm says: Sorry Anna, but I really need some predicatability to
@@ -133,7 +133,7 @@
                                       :reading_metadata {"is-number" "true"}
                                       :error nil)) timestamps)))
 
-(defn generate-measurements-with-interval 
+(defn generate-measurements-with-interval
   "Takes a sensor and n (number of seconds) and generates measurements with this interval."
   [sensor n]
    (let [timestamps (timestamps (t/seconds n))
