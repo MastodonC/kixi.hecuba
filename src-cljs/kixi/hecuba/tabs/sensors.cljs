@@ -142,7 +142,7 @@
                      :defaultChecked (get row :actual_annual "")
                      :on-change #(om/set-state! owner [:sensor :actual_annual] (.-checked (.-target %)))}]]]]])))))
 
-(defn form-row [data chart history table-id editing-chan] 
+(defn form-row [data chart history table-id editing-chan]
   (fn [cursor owner]
     (reify
       om/IRender
@@ -224,7 +224,7 @@
                (sorting-th owner "Earliest Event" :lower_ts)
                (sorting-th owner "Last Event" :upper_ts)
                (sorting-th owner "Status" :status)]]
-             [:tbody 
+             [:tbody
               (for [row (if sort-asc
                           (sort-by sort-key flattened-sensors)
                           (reverse (sort-by sort-key flattened-sensors)))]
@@ -281,7 +281,7 @@
           [:div {:id "sensors-table"}
            (om/build (sensors-table editing-chan) data {:opts {:histkey :sensors
                                                                :path    :readings}})]
-          
+
           [:div {:id "sensor-edit-div" :class (if editing "" "hidden")}
            (om/build (sensor-edit-form data) (:sensor-edit data))]
           ;; FIXME: We should have better handling for IE8 here.
@@ -298,4 +298,3 @@
             [:div.col-md-12.text-center
              [:p.lead {:style {:padding-top 30}}
               "Charting in Internet Explorer version " agent/VERSION " coming soon."]])])))))
-
