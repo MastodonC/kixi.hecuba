@@ -19,13 +19,11 @@
    [kixi.hecuba.tabs.property-details :as property-details]
    [sablono.core :as html :refer-macros [html]]))
 
-(when (or (not agent/IE)
-          (agent/isVersionOrHigher 9))
+(when (not agent/IE)
   (enable-console-print!))
 
 (defn log [& msgs]
-  (when (or (not agent/IE)
-            (agent/isVersionOrHigher 9))
+  (when (not agent/IE)    
     (apply println msgs)))
 
 ;; our banner is 50px so we need to tweak the scrolling
