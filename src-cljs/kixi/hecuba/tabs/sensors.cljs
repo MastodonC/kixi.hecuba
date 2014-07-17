@@ -155,10 +155,12 @@
                        sensors (:sensors data)
                        selected? (= id (:selected sensors))]
            [:tr {:onClick (fn [e] (let [div-id (.-id (.-target e))]
-                                    (when-not (= "edit" div-id) 
+                                    (when-not (= "edit" div-id)
                                         (om/update! sensors :selected id)
                                         (om/update! chart :sensor id)
                                         (om/update! chart :unit unit)
+                                        (when (and lower_ts upper_ts) (om/update! chart :range {:start-date (common/unparse-date lower_ts "yyyy-MM-dd HH:MM:SS")
+                                                                                                :end-date (common/unparse-date upper_ts "yyyy-MM-dd HH:MM:SS")}))
                                         (history/update-token-ids! history :sensors id))))
                  :class (when selected? "success")
                  :id (str table-id "-selected")}
