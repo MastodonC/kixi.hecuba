@@ -113,16 +113,22 @@
 (defn generate-file [store item]
   (let [{:keys [header data]} item
         item (dissoc item :header :data)
-        tmpfile (ioplus/mk-temp-file! "hecuba" ".csv-download")]
+        tmpfile (ioplus/mk-temp-file! "hecuba" ".csv-download")
+        metadata  {:timestamp (t/now)
+                   :content-type "text/csv"
+                   :filename "measurements.csv"}]
     (try
       (with-open [out (io/writer tmpfile)]
         (csv/write-csv out header)
         (filled-measurements data out))
       (s3/store-file (:s3 store) (-> item
                                      (assoc :dir      (.getParent tmpfile)
-                                            :filename (.getName tmpfile))
+                                            :filename (.getName tmpfile)
+                                            :metadata  metadata)
                                      (update-in [:uuid] str "/data")))
-      (write-status store (assoc (update-in item [:uuid] str "/status") :status "SUCCESS"))
+      (write-status store (assoc (-> item
+                                     (assoc :metadata metadata)
+                                     (update-in [:uuid] str "/status")) :status "SUCCESS"))
       (catch Throwable t
         (log/error t "failed")
         (write-status store (assoc (update-in item [:uuid] str "/status") :status "FAILURE" :data (ex-data t))))
@@ -135,11 +141,12 @@
           [lower upper]       (:ts-range (meta devices-and-sensors))
           {:keys [start-date
                   end-date] :or {start-date lower end-date upper}} item
-          measurements        (map (fn [m] (measurements/retrieve-measurements session
-                                                                              start-date
-                                                                              end-date
-                                                                              (:device_id m)
-                                                                              (:type m)))
+          measurements        (map (fn [m]
+                                     (measurements/retrieve-measurements session
+                                                                         start-date
+                                                                         end-date
+                                                                         (:device_id m)
+                                                                         (:type m)))
                                    devices-and-sensors)
           uuid                (uuid)]
       (generate-file store

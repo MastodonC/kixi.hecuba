@@ -54,14 +54,16 @@
    :templates-index "templates"
    :templates-resource "templates/%s"
    :entity-templates-resource "templates/for-entity/%s" ;; TODO better url
-   :measurements "measurements"
+   :measurements "measurements/for-entity/%s"
 
    :uploads-status-resource "uploads/%s/%s/status"
    :uploads-data-resource "uploads/%s/%s/data"
-   :uploads-for-username "programme/%s/project/%s/uploads/username" ;; Used to display status. programme_id and  project_id used for allowed?
 
    :downloads-status-resource "downloads/%s/%s/status"
-   :downloads-data-resource "downloads/%s/%s/data"})
+   :download-data-resource "download/%s/data"
+
+   :upload-status-for-username "uploads/for-username/programme/%s/project/%s/entity/%s/status"
+   :download-status "downloads/programme/%s/project/%s/entity/%s/status"})
 
 (defn compojure-route
   ([route keys]

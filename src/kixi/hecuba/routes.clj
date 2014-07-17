@@ -26,6 +26,7 @@
    [kixi.hecuba.api.rollups :as rollups]
    [kixi.hecuba.api.datasets :as datasets]
    [kixi.hecuba.api.templates :as templates]
+   [kixi.hecuba.api.downloads :as downloads]
    [kixi.hecuba.api.uploads :as uploads]))
 
 (defn index-page [req]
@@ -128,12 +129,16 @@
    (index-routes :templates-index (templates/index store))
    (resource-route :templates-resource [:template_id] (templates/resource store))
    (resource-route :entity-templates-resource [:entity_id] (templates/entity-resource store pipeline-head))
-   (index-routes :measurements [] (measurements/index store s3 pipeline-head))
+   (index-routes :measurements [:entity_id] (measurements/index store s3 pipeline-head))
 
    ;; Uploads
-   (resource-route :uploads-status-resource [:user_id :upload_id] (uploads/status-resource store))
-   (resource-route :uploads-data-resource [:user_id :upload_id] (uploads/data-resource store))
-   (resource-route :uploads-for-username [:programme_id :project_id :username] (uploads/uploads-for-username store))))
+   (resource-route :uploads-status-resource [:user_id :upload_id] (uploads/uploads-status-resource store))
+   (resource-route :uploads-data-resource [:user_id :upload_id] (uploads/uploads-data-resource store))
+   (resource-route :upload-status-for-username [:programme_id :project_id :entity_id] (uploads/uploads-for-username store))
+   
+   ;; Downloads
+   (resource-route :download-data-resource [:entity_id] (downloads/downloads-data-resource store))
+   (resource-route :download-status [:programme_id :project_id :entity_id] (downloads/downloads-for-entity store))))
 
 (defn all-routes [store s3 pipeline-head]
   (routes

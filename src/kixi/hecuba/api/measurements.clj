@@ -164,12 +164,14 @@
   (let [file-data (::file-data ctx)
         session   (-> ctx :request :session)
         username  (sec/session-username session)
+        route-params (:route-params (:request ctx))
+        entity_id    (:entity_id route-params)
         auth      (sec/current-authentication session)
         item      (template-upload->item file-data username)
         uuid      (uuid)
         location  (format uploads-status-resource-path (:user_id auth) uuid)]
     (pipe/submit-item pipe (assoc item
-                             :uuid uuid
+                             :uuid (str entity_id "/" uuid)
                              :auth auth))
     {:response {:status 202
                 :headers {"Location" location}

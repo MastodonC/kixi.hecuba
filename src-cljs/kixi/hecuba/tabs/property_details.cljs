@@ -11,9 +11,20 @@
             [kixi.hecuba.tabs.sensors :as sensors]
             [kixi.hecuba.tabs.profiles :as profiles]
             [kixi.hecuba.tabs.programmes :as programmes]
-            [kixi.hecuba.tabs.upload-status :as status]
-            [ajax.core :refer [PUT]]
+            [kixi.hecuba.tabs.status :as status]
+            [ajax.core :refer [GET PUT]]
             [kixi.hecuba.widgets.fileupload :as file]))
+
+
+(when (not agent/IE)
+  (enable-console-print!))
+
+(defn log [& msgs]
+  (when (or (and agent/GECKO
+                 (agent/isVersionOrHigher 30))
+            (and agent/WEBKIT
+                 (agent/isVersionOrHigher 537)))
+    (apply println msgs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Property Details Helpers
@@ -166,6 +177,76 @@
             (for [ti (:technology_icons property_data)]
               [:img.tmg-responsive {:src ti :width 80 :height 80}])]]])))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; CSV measurements template (with & without data)
+
+(defn measurements-template [entity_id]
+  (fn [cursor owner]
+    (om/component
+      (html
+       [:div {:id "measurements-template"}
+        [:form.form-horizontal {:role "form" :style {:padding-left "15px"}}
+         [:div.form-group
+          [:div.btn-toolbar
+           [:a {:class "btn btn-primary"
+                :type "button"
+                :href (str "/4/templates/for-entity/" entity_id "?data=false")}
+            "Download"]]]]]))))
+
+(defn alert [id class {:keys [body display]} owner]
+  [:div {:id id :class class :style {:display (if display "block" "none")}}
+   [:button.close {:type "button"
+                   :onClick (fn [_]
+                              (om/set-state! owner :status {:body "" :display false}))}
+    [:span {:class "fa fa-times"}]]
+   body])
+
+(defn measurements-template-with-data [programme_id project_id entity_id]
+  (fn [cursor owner]
+    (reify
+      om/IInitState
+      (init-state [_]
+        {:status {:body "" :display false}})
+      om/IWillMount
+      (will-mount [_]
+        (when (and programme_id project_id entity_id)
+          (let [url (str "/4/downloads/programme/" programme_id "/project/" project_id "/entity/" entity_id "/status")]
+            (GET url {:handler #(om/update! cursor :files %)
+                      :headers {"Accept" "application/edn"}}))))
+      om/IRenderState
+      (render-state [_ {:keys [status] :as state}]
+        (html
+         (let [id "download-status-alert"
+               pending-file? (some #{"PENDING"} (map :status (:files cursor)))]
+           [:div {:id "measurements-template-with-data"}
+            [:div 
+             ;; Status alert
+             (alert id "alert alert-info" status owner)]
+            
+            ;; Allow to trigger download when there are no pending files
+            (when-not pending-file?
+              [:button {:type "button"
+                        :class "btn btn-primary"
+                        :onClick (fn [_]
+                                   (GET (str "/4/templates/for-entity/" entity_id "?data=true")
+                                        {:headers {"Accept" "application/edn"}
+                                         :handler #(let [status (:status (:response %))]
+                                                     (om/set-state! owner :status
+                                                                    (case status
+                                                                      202 {:body "File will be generated shortly. Please check back later for the download link"
+                                                                           :display true}
+                                                                      303 {:body "File is currently being generated. Please check back later for the download link."
+                                                                           :display true})))}))}
+               "Trigger download with data"])
+
+            [:div {:id "download-status" :class (if-not pending-file? "hidden" "")}
+             "File is being currently generated. Please check back later for the download link."]
+
+            ;; Show link and status of generated file
+            [:div {:style {:padding-top "10px"}}
+             (when (seq (:files cursor))
+               (om/build status/download-status (:files cursor)))]]))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; property-details
 (defn property-details-div [data owner]
@@ -175,12 +256,14 @@
       {:active-tab :overview})
     om/IRenderState
     (render-state [_ state]
-      (let [active-tab           (:active-tab state)
-            selected-property-id (-> data :active-components :properties)
-            property-details     (get-property-details selected-property-id data)
+      (let [active-tab        (:active-tab state)
+            programme-id      (-> data :active-components :programmes)
+            project-id        (-> data :active-components :projects)
+            property-id       (-> data :active-components :properties)
+            property-details  (get-property-details property-id data)
             {:keys [editable devices]}  property-details
             property_data        (:property_data property-details)]
-        (html [:div {:class (str "col-md-12" (if selected-property-id "" " hidden"))}
+        (html [:div {:class (str "col-md-12" (if property-id "" " hidden"))}
                [:h2 "Property Details"]
                (bs/panel
                 (:slug property-details)
@@ -215,18 +298,16 @@
                     ;; Download measurements template
                     [:div {:class (if (seq devices) "panel panel-default" "hidden")}
                      [:div.panel-body
-                      [:div
-                       [:h4 "Download CSV measurements template"]
-                       [:a {:class "btn btn-primary"
-                            :type "button"
-                            :href (str "/4/templates/for-entity/" selected-property-id)} "Download"]]]]]
+                      [:div [:h4 "Download measurements CSV template"]]
+                      (om/build (measurements-template property-id) nil)
+                      (om/build (measurements-template-with-data programme-id project-id property-id) (:downloads data))]]]
                    ;; Upload measurements
                    [:div {:class (if (seq devices) "panel panel-default" "hidden")}
                     [:div.panel-body
                      [:div
                       [:h4 "Upload measurements CSV"]
                       (let [div-id "measurements-upload"]
-                        (om/build (file/file-upload "/4/measurements/"
+                        (om/build (file/file-upload (str "/4/measurements/for-entity/" property-id "/")
                                                     div-id)
                                   nil {:opts {:method "POST"}}))]]]
                    ;; Upload profile data
@@ -235,7 +316,7 @@
                      [:div
                       [:h4 "Upload CSV profile data"]
                       (let [div-id "file-form"]
-                        (om/build (file/file-upload (str "/4/entities/" selected-property-id "/profiles/")
+                        (om/build (file/file-upload (str "/4/entities/" property-id "/profiles/")
                                                     div-id)
                                   nil {:opts {:method "POST"}}))]]]
                    ;; Upload property details
@@ -244,7 +325,7 @@
                      [:div
                       [:h4 "Upload CSV property details"]
                       (let [div-id "property-details-form"]
-                        (om/build (file/file-upload (str "/4/entities/" selected-property-id) div-id)
+                        (om/build (file/file-upload (str "/4/entities/" property-id) div-id)
                                   nil {:opts {:method "PUT"}}))]]]]
                   [:div.col-md-6
                    ;; Upload status
@@ -253,5 +334,4 @@
                      [:div.panel-body
                       [:div
                        [:h4 "Upload status"]
-                       (om/build (status/upload-status (-> data :active-components :programmes)
-                                                       (-> data :active-components :projects)) (:upload-status data))]]]]]]])])))))
+                       (om/build (status/upload-status programme-id project-id property-id) (:uploads data))]]]]]]])])))))
