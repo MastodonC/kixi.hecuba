@@ -244,4 +244,4 @@
       (write-status store (assoc (update-in item [:uuid] #(str username "/" % "/status")) :status "SUCCESS"))
       (catch Throwable t
         (log/error t "failed")
-        (write-status store (assoc (update-in item [:uuid] #(str username "/" % "/status")) :status "FAILURE" :data (ex-data t)))))))
+        (write-status store (assoc (update-in item [:uuid] #(str username "/" % "/status")) :status "FAILURE" :data (str (ex-data t))))))))
