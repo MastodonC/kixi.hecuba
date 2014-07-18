@@ -39,10 +39,11 @@
   (reduce (fn [t1 t2]  (if (t/after? t1 t2) t1 t2)) (map (fnil tc/to-date-time (t/date-time 1970) ) ts)))
 
 (defn- find-ts-range [xs]
-  (let [tss (map (juxt :lower_ts :upper_ts) xs)]
-    (reduce (fn [[l1 u1] [l2 u2]] [(min-date-time l1 l2)
+  (when (seq xs)
+   (let [tss (map (juxt :lower_ts :upper_ts) xs)]
+     (reduce (fn [[l1 u1] [l2 u2]] [(min-date-time l1 l2)
                                    (max-date-time u1 u2)])
-            tss)))
+             tss))))
 
 (defn- get-devices-and-sensors-for [session entity_id]
   (let [devices         (->> (db/execute session (hayt/select :devices (hayt/where [[= :entity_id entity_id]])))
