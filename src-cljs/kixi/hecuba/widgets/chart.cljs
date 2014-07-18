@@ -23,11 +23,11 @@
         dimple-chart     (.setBounds (Chart. svg) "5%" "15%" "80%" "50%")
         x                (.addTimeAxis dimple-chart "x" "timestamp")
         y                (.addMeasureAxis dimple-chart "y" "value")
-        s                (.addSeries dimple-chart type js/dimple.plot.line (clj->js [x y]))]
+        s                (.addSeries dimple-chart "sensor" js/dimple.plot.line (clj->js [x y]))]
     (aset s "data" (clj->js data))
     (set! (.-tickFormat x) "%a %-d %b %Y %H:%M")
     (set! (.-title x) "Time")
-    (.addLegend dimple-chart "5%" "10%" "20%" "10%" "right")
+    (.addLegend dimple-chart "20%" "5%" "25%" "10%" "right")
     (.draw dimple-chart)
     (.text (.-titleShape y) unit)))
 
@@ -47,7 +47,7 @@
       (let [n (.getElementById js/document "chart")]
         (while (.hasChildNodes n)
           (.removeChild n (.-lastChild n))))
-      (let [measurements (get-in cursor [:measurements :measurements])]
+      (let [measurements (get-in cursor [:measurements])]
         (when-not (empty? measurements)
           (draw-chart cursor measurements))))))
 

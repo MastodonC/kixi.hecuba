@@ -19,7 +19,7 @@
               :selected nil}
     :sensors {:name     "Sensors"
               :data     []
-              :selected nil}
+              :selected #{}}
     :measurements {:name     "Measurements"
                    :header   {:cols {:timestamp {:label "Timestamp"}
                                      :type      {:label "Type"}
@@ -41,7 +41,7 @@
                   :row nil}
     :upload-status []
     :chart    {:property ""
-               :sensor ""
+               :sensor #{}
                :unit ""
                :range {}
                :measurements []

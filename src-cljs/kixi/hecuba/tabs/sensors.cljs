@@ -15,6 +15,16 @@
             [clojure.string :as string]
             [kixi.hecuba.common :as common]))
 
+(when (not agent/IE)
+  (enable-console-print!))
+
+(defn log [& msgs]
+  (when (or (and agent/GECKO
+                 (agent/isVersionOrHigher 30))
+            (and agent/WEBKIT
+                 (agent/isVersionOrHigher 537)))
+    (apply println msgs)))
+
 (defn chart-feedback-box [cursor owner]
   (om/component
    (dom/div nil cursor)))
@@ -153,15 +163,19 @@
                        {:keys [name privacy location]} parent-device
                        id (str type "-" device_id)
                        sensors (:sensors data)
-                       selected? (= id (:selected sensors))]
+                       selected? (contains? (:selected sensors) id)]
            [:tr {:onClick (fn [e] (let [div-id (.-id (.-target e))]
                                     (when-not (= "edit" div-id)
-                                        (om/update! sensors :selected id)
-                                        (om/update! chart :sensor id)
-                                        (om/update! chart :unit unit)
-                                        (when (and lower_ts upper_ts) (om/update! chart :range {:start-date (common/unparse-date lower_ts "yyyy-MM-dd HH:MM:SS")
-                                                                                                :end-date (common/unparse-date upper_ts "yyyy-MM-dd HH:MM:SS")}))
-                                        (history/update-token-ids! history :sensors id))))
+                                      (let [selected-sensors ((if selected? disj conj) (:selected @sensors) id)]
+                                        (om/update! sensors :selected selected-sensors)
+                                        (om/update! chart :sensor selected-sensors)
+                                        (om/update! chart :unit unit) ;; TODO sensors should be of the same unit (?)
+                                        (when (and lower_ts upper_ts)
+                                          (om/update! chart :range {:start-date (common/unparse-date lower_ts "yyyy-MM-dd HH:MM:SS")
+                                                                    :end-date (common/unparse-date upper_ts "yyyy-MM-dd HH:MM:SS")}))
+                                        (history/update-token-ids! history :sensors (if (seq selected-sensors)
+                                                                                      (string/join ";" selected-sensors)
+                                                                                      nil))))))
                  :class (when selected? "success")
                  :id (str table-id "-selected")}
             (when editable
@@ -178,8 +192,8 @@
             [:td (if-let [t (common/unparse-date upper_ts "yyyy-MM-dd")] t "")]
             [:td (status-label status privacy actual_annual)]]))))))
 
-(defn sensors-table [editing-chan]
-  (fn [data owner {:keys [histkey path]}]
+(defn sensors-table [editing-chan data]
+  (fn [cursor owner {:keys [histkey path]}]
     (reify
       om/IInitState
       (init-state [_]
@@ -203,7 +217,6 @@
       om/IRenderState
       (render-state [_ state]
         (let [{:keys [sort-key sort-asc]} (:sort-spec state)
-              sensors                     (:sensors data)
               selected-property-id        (-> data :active-components :properties)
               selected-project-id         (-> data :active-components :projects)
               flattened-sensors           (get-sensors selected-property-id data)
@@ -281,9 +294,10 @@
          [:div.col-md-12
           [:h3 "Sensors"]
           [:div {:id "sensors-table"}
-           (om/build (sensors-table editing-chan) data {:opts {:histkey :sensors
-                                                               :path    :readings}})]
-
+           (om/build (sensors-table editing-chan data)
+                     (:sensors data)
+                     {:opts {:histkey :sensors
+                             :path    :readings}})]
           [:div {:id "sensor-edit-div" :class (if editing "" "hidden")}
            (om/build (sensor-edit-form data) (:sensor-edit data))]
           ;; FIXME: We should have better handling for IE8 here.

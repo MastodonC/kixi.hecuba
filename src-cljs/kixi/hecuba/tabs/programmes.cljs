@@ -168,9 +168,6 @@
         (om/update! data [:sensors :data] [])
         (om/update! data [:measurements :data] []))
 
-      (when-not sensors
-        (om/update! data [:sensors :selected] nil))
-
       (when (and (not= programmes old-programmes)
                  programmes)
         (log "Setting selected programme to: " programmes)
@@ -188,10 +185,12 @@
       (when (and (not= properties old-properties)
                  properties)
         (log "Setting property details to: " properties)
-        (om/update! data [:properties :selected] properties))
+        (om/update! data [:properties :selected] properties)
+        (om/update! data [:sensors :selected] #{}))
 
-      (when sensors
-        (om/update! data [:sensors :selected] sensors))
+      (when (seq sensors)
+        (log "Setting selected sensors to: " sensors)
+        (om/update! data [:sensors :selected] (into #{} (str/split sensors #";"))))
 
       ;; Update the new active components
       (om/update! data :active-components history-status))
@@ -219,6 +218,7 @@
   (str "/4/entities/" entity_id "/devices/" device_id "/daily_rollups/"
        type "?startDate=" start "&endDate=" end))
 
+;; updates chart cursor only
 (defn chart-ajax [in data {:keys [selection-key content-type]}]
   (go-loop []
     (let [nav-event (<! in)]
@@ -226,26 +226,29 @@
                                                                selection-key
                                                                nav-event)]
         (let [[start-date end-date] search
-              entity_id        (get ids :properties)
-              sensor_id        (get ids :sensors)
-              [type device_id] (str/split sensor_id #"-")]
+              entity_id  (get ids :properties)
+              sensor_ids (get ids :sensors)]
 
           (om/update! data :range {:start-date start-date :end-date end-date})
-          (om/update! data :sensors sensor_id)
-          (om/update! data :measurements [])
+          (om/update! data :sensors sensor_ids) 
+          (om/update! data :measurements []) ;; TOFIX why are we resetting it?
 
           (when (and (not (empty? start-date))
                      (not (empty? end-date))
-                     (not (nil? device_id))
-                     (not (nil? entity_id))
-                     (not (nil? type)))
-
-            (let [url (url-str start-date end-date entity_id device_id type (interval start-date end-date))]
-              (GET url
-                   {:handler #(om/update! data :measurements %)
-                    :headers {"Accept" "application/json"}
-                    :response-format :json
-                    :keywords? true}))))))
+                     (not (empty? sensor_ids)))
+            (log "Fetching measurements for sensors: " sensor_ids " and range: " start-date end-date)
+            (doseq [sensor (str/split sensor_ids #";")]
+              (let [[type device_id] (str/split sensor #"-")
+                    url (url-str start-date end-date entity_id device_id type (interval start-date end-date))]
+                (GET url
+                     {:handler #(om/update! data :measurements (concat (:measurements @data)
+                                                                       (into []
+                                                                             (map (fn [m]
+                                                                                    (assoc m "sensor" sensor))
+                                                                                  (:measurements %)))))
+                      :headers {"Accept" "application/json"}
+                      :response-format :json
+                      :keywords? true})))))))
     (recur)))
 
 (defn row-for [{:keys [selected data]}]
@@ -254,10 +257,6 @@
 (defn title-for [cursor & {:keys [title-key] :or {title-key :slug}}]
   (let [row (row-for cursor)]
     (get-in row (if (vector? title-key) title-key (vector title-key)))))
-
-(defn title-for-sensor [{:keys [selected]}]
-  (let [[type _] (str/split selected #"-")]
-    type))
 
 (defn error-row [data]
   [:div.row
