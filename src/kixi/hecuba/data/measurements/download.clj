@@ -81,7 +81,10 @@
 (defn indexes-of [v xs]
   (set (keep-indexed (fn [i x] (when (= x v) i)) xs)))
 
-(defn filled-measurements [measurements]
+(defn measurements->columns [ms]
+  (map (fn [[{:keys [timestamp value]} & more]] (apply vector timestamp value (map :value more))) ms))
+
+(defn filled-measurements [measurements out]
   (let [sentinel         (Object.)
         is-sentinel?     #(identical? % sentinel)
         next-or-sentinel #(if-let [n (next %)] n [sentinel])
@@ -90,12 +93,9 @@
                            (when-let [row (first (apply map vector (replace-empty xs)))]
                              (when (not-every? is-sentinel? row)
                                row)))]
-    (loop [ms measurements data (list)]
+    (loop [ms measurements]
       (let [row (next-row ms)]
-        (if-not row
-          (if (seq data)
-            (apply map vector data)
-            (list))
+        (when row
           (let [row-timestamps (mapv :timestamp row)
                 row-timestamp  (first (sort (remove nil? row-timestamps)))
                 data-indexes   (indexes-of row-timestamp row-timestamps)
@@ -105,10 +105,9 @@
                                                        (hash-map :timestamp row-timestamp :value nil))) row)
                 fns            (map-indexed (fn [i _] (if (has-data? i) next-or-sentinel identity)) row)
                 step           (fn [xs] (map (fn [f v] (f v)) fns xs))]
-            (recur (step ms) (concat data [out-row]))))))))
+            (csv/write-csv out (map measurements->columns out-row))
+            (recur (step ms))))))))
 
-(defn measurements->columns [ms]
-  (map (fn [[x & more]] (apply vector (:timestamp x) (:value x) (map :value more))) ms))
 
 (defn generate-file [store item]
   (let [{:keys [header data]} item
@@ -117,7 +116,7 @@
     (try
       (with-open [out (io/writer tmpfile)]
         (csv/write-csv out header)
-        (csv/write-csv out (measurements->columns (filled-measurements data))))
+        (filled-measurements data out))
       (s3/store-file (:s3 store) (-> item
                                      (assoc :dir      (.getParent tmpfile)
                                             :filename (.getName tmpfile))
