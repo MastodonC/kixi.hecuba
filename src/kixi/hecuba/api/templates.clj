@@ -145,13 +145,15 @@
   (db/with-session [session (:hecuba-session store)]
     (let [entity_id (-> ctx :kixi.hecuba.api.entities/item :id)
           data?     (-> ctx :request :query-params (get "data"))
-          user_id   (-> ctx :auth :user_id)
+          session   (-> ctx :request :session)
+          username  (sec/session-username session)
+          auth      (sec/current-authentication session)
           uuid      (uuid)
           item      {:dest :download :type :measurements :entity_id entity_id}
-          location  (format uploads-status-resource-path user_id uuid)]
+          location  (format uploads-status-resource-path username uuid)]
       (if data?
         (do  (pipe/submit-item pipe (assoc item
-                                      :uuid uuid
+                                      :uuid (str "downloads/" username "/" uuid)
                                       :auth (:auth ctx)))
              {:response {:status 202
                          :headers {"Location" location}

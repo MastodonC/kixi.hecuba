@@ -119,7 +119,7 @@
         (csv/write-csv out header)
         (csv/write-csv out (measurements->columns (filled-measurements data))))
       (s3/store-file (:s3 store) (-> item
-                                     (assoc :dir (.getParent tmpfile)
+                                     (assoc :dir      (.getParent tmpfile)
                                             :filename (.getName tmpfile))
                                      (update-in [:uuid] str "/data")))
       (write-status store (assoc (update-in item [:uuid] str "/status") :status "SUCCESS"))
@@ -135,7 +135,6 @@
           [lower upper]       (:ts-range (meta devices-and-sensors))
           {:keys [start-date
                   end-date] :or {start-date lower end-date upper}} item
-          _ (log/info "S:" start-date ", E:" end-date)
           measurements        (map (fn [m] (measurements/retrieve-measurements session
                                                                               start-date
                                                                               end-date
