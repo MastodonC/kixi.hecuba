@@ -23,7 +23,10 @@
   (enable-console-print!))
 
 (defn log [& msgs]
-  (when (not agent/IE)    
+  (when (or (and agent/GECKO
+                 (agent/isVersionOrHigher 30))
+            (and agent/WEBKIT
+                 (agent/isVersionOrHigher 537)))
     (apply println msgs)))
 
 ;; our banner is 50px so we need to tweak the scrolling
@@ -189,7 +192,7 @@
 
       (when sensors
         (om/update! data [:sensors :selected] sensors))
-      
+
       ;; Update the new active components
       (om/update! data :active-components history-status))
     (recur)))
@@ -206,7 +209,7 @@
    (dom/div nil cursor)))
 
 (defmulti url-str (fn [start end entity_id device_id type measurements-type] measurements-type))
-(defmethod url-str :raw [start end entity_id device_id type _]  
+(defmethod url-str :raw [start end entity_id device_id type _]
   (str "/4/entities/" entity_id "/devices/" device_id "/measurements/"
        type "?startDate=" start "&endDate=" end))
 (defmethod url-str :hourly_rollups [start end entity_id device_id type _]
