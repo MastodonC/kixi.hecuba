@@ -107,13 +107,16 @@
                 step           (fn [xs] (map (fn [f v] (f v)) fns xs))]
             (recur (step ms) (concat data [out-row]))))))))
 
+(defn measurements->columns [ms]
+  (map (fn [[x & more]] (apply vector (:timestamp x) (:value x) (map :value more))) ms))
+
 (defn generate-file [store item]
   (let [{:keys [header data]} item
         tmpfile (ioplus/mk-temp-file! "hecuba" ".csv-download")]
     (try
       (with-open [out (io/writer tmpfile)]
         (csv/write-csv out header)
-        (csv/write-csv out (filled-measurements data))
+        (csv/write-csv out (measurements->columns (filled-measurements data)))
         (s3/store-file (:s3 store) (update-in item [:uuid] str "/data")))
       (write-status store (assoc (update-in item [:uuid] str "/status") :status "SUCCESS"))
       (catch Throwable t
