@@ -149,11 +149,11 @@
           username  (sec/session-username session)
           auth      (sec/current-authentication session)
           uuid      (uuid)
-          item      {:dest :download :type :measurements :entity_id entity_id}
+          item      [:src-name "downloads" :dest :download :type :measurements :entity_id entity_id]
           location  (format uploads-status-resource-path username uuid)]
       (if data?
         (do  (pipe/submit-item pipe (assoc item
-                                      :uuid (str "downloads/" username "/" uuid)
+                                      :uuid (str username "/" uuid)
                                       :auth (:auth ctx)))
              {:response {:status 202
                          :headers {"Location" location}
