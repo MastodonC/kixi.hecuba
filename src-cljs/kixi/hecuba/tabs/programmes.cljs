@@ -23,7 +23,10 @@
   (enable-console-print!))
 
 (defn log [& msgs]
-  (when (not agent/IE)    
+  (when (or (and agent/GECKO
+                 (agent/isVersionOrHigher 30))
+            (and agent/WEBKIT
+                 (agent/isVersionOrHigher 537)))
     (apply println msgs)))
 
 ;; our banner is 50px so we need to tweak the scrolling
