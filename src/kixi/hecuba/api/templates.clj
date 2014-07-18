@@ -149,15 +149,14 @@
           username  (sec/session-username session)
           auth      (sec/current-authentication session)
           uuid      (uuid)
-          item      [:src-name "downloads" :dest :download :type :measurements :entity_id entity_id]
+          item      {:src-name "downloads" :dest :download :type :measurements :entity_id entity_id}
           location  (format uploads-status-resource-path username uuid)]
       (if data?
-        (do  (pipe/submit-item pipe (assoc item
-                                      :uuid (str username "/" uuid)
-                                      :auth (:auth ctx)))
-             {:response {:status 202
-                         :headers {"Location" location}
-                         :body "Accepted"}})
+        (do (pipe/submit-item pipe (assoc item
+                                     :uuid (str username "/" uuid)))
+            {:response {:status 202
+                        :headers {"Location" location}
+                        :body "Accepted"}})
         (ring-response {:headers {"Content-Disposition" (str "attachment; filename=" entity_id "_template.csv")}
                         :body (util/render-items ctx (measurements-download/get-header store entity_id))})))))
 
