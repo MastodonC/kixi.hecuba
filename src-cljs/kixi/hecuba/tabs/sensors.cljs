@@ -142,7 +142,7 @@
                      :defaultChecked (get row :actual_annual "")
                      :on-change #(om/set-state! owner [:sensor :actual_annual] (.-checked (.-target %)))}]]]]])))))
 
-(defn form-row [data chart history table-id editing-chan] 
+(defn form-row [data chart history table-id editing-chan]
   (fn [cursor owner]
     (reify
       om/IRender
@@ -155,10 +155,12 @@
                        sensors (:sensors data)
                        selected? (= id (:selected sensors))]
            [:tr {:onClick (fn [e] (let [div-id (.-id (.-target e))]
-                                    (when-not (= "edit" div-id) 
+                                    (when-not (= "edit" div-id)
                                         (om/update! sensors :selected id)
                                         (om/update! chart :sensor id)
                                         (om/update! chart :unit unit)
+                                        (when (and lower_ts upper_ts) (om/update! chart :range {:start-date (common/unparse-date lower_ts "yyyy-MM-dd HH:MM:SS")
+                                                                                                :end-date (common/unparse-date upper_ts "yyyy-MM-dd HH:MM:SS")}))
                                         (history/update-token-ids! history :sensors id))))
                  :class (when selected? "success")
                  :id (str table-id "-selected")}
@@ -224,7 +226,7 @@
                (sorting-th owner "Earliest Event" :lower_ts)
                (sorting-th owner "Last Event" :upper_ts)
                (sorting-th owner "Status" :status)]]
-             [:tbody 
+             [:tbody
               (for [row (if sort-asc
                           (sort-by sort-key flattened-sensors)
                           (reverse (sort-by sort-key flattened-sensors)))]
@@ -281,7 +283,7 @@
           [:div {:id "sensors-table"}
            (om/build (sensors-table editing-chan) data {:opts {:histkey :sensors
                                                                :path    :readings}})]
-          
+
           [:div {:id "sensor-edit-div" :class (if editing "" "hidden")}
            (om/build (sensor-edit-form data) (:sensor-edit data))]
           ;; FIXME: We should have better handling for IE8 here.
@@ -298,4 +300,3 @@
             [:div.col-md-12.text-center
              [:p.lead {:style {:padding-top 30}}
               "Charting in Internet Explorer version " agent/VERSION " coming soon."]])])))))
-
