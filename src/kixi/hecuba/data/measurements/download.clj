@@ -81,8 +81,8 @@
 (defn indexes-of [v xs]
   (set (keep-indexed (fn [i x] (when (= x v) i)) xs)))
 
-(defn measurements->columns [ms]
-  (map (fn [[{:keys [timestamp value]} & more]] (apply vector timestamp value (map :value more))) ms))
+(defn measurements->columns [[{:keys [timestamp value]} & more]]
+  (apply vector timestamp value (map :value more)))
 
 (defn filled-measurements [measurements out]
   (let [sentinel         (Object.)
@@ -104,8 +104,9 @@
                                                        (assoc x :timestamp row-timestamp)
                                                        (hash-map :timestamp row-timestamp :value nil))) row)
                 fns            (map-indexed (fn [i _] (if (has-data? i) next-or-sentinel identity)) row)
-                step           (fn [xs] (map (fn [f v] (f v)) fns xs))]
-            (csv/write-csv out (map measurements->columns out-row))
+                step           (fn [xs] (map (fn [f v] (f v)) fns xs))
+                cols           (measurements->columns out-row)]
+            (csv/write-csv out [cols])
             (recur (step ms))))))))
 
 
