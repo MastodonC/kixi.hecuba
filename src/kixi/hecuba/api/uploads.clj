@@ -15,15 +15,17 @@
             [kixi.hecuba.webutil :as util]
             [kixipipe.storage.s3 :as s3])) ;; TODO move to k.h.d.uploads.clj
 
-(def ^:private entities-index-path (p/resource-path-string :uploads-resource))
+(def ^:private uploads-status-path (p/resource-path-string :uploads-status-resource))
+(def ^:private uploads-data-path (p/resource-path-string :uploads-data-resource))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; status-resource-exists?
 
 (defn status-resource-exists? [{session :s3} ctx]
   (let [upload_id (-> ctx :request :route-params :upload_id)
+        user_id (-> ctx :request :route-params :user_id)
         s3-key    (s3/s3-key-from {:src-name "uploads"
-                                   :uuid (str upload_id "/status")})]
+                                   :uuid (format uploads-status-path user_id upload_id)})]
     (when (s3/item-exists? session s3-key)
       {::item (slurp
                (s3/get-object-by-metadata session {:key s3-key}))})))

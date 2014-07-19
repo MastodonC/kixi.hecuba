@@ -167,7 +167,7 @@
         auth      (sec/current-authentication session)
         item      (template-upload->item file-data username)
         uuid      (uuid)
-        location  (format uploads-status-resource-path uuid)]
+        location  (format uploads-status-resource-path (:user_id auth) uuid)]
     (pipe/submit-item pipe (assoc item
                              :uuid uuid
                              :auth auth))

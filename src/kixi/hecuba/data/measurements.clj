@@ -4,7 +4,8 @@
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.data.misc  :as misc]
             [qbits.hayt             :as hayt]
-            [kixi.hecuba.webutil    :as util]))
+            [kixi.hecuba.webutil    :as util]
+            [clojure.tools.logging  :as log]))
 
 (defn sensor_metadata-for [store sensor_id]
   (let [{:keys [type device_id]} sensor_id]
@@ -67,6 +68,14 @@
                 (when (t/before? next-start end-date)
                   (measurements-for-range store sensor {:start-date next-start :end-date end-date} page))))))
 
+(defn- retrieve-measurements-for-months [session [month & more]  where]
+  (log/info "Got month " month)
+  (lazy-cat (db/execute session
+                        (hayt/select :partitioned_measurements
+                                     (hayt/where (conj where [= :month month]))))
+            (when (seq more)
+              (retrieve-measurements-for-months session more where))))
+
 (defn retrieve-measurements
   "Iterate over a sequence of months and concatanate measurements retrieved from the database."
   [session start-date end-date device-id reading-type]
@@ -76,6 +85,4 @@
                 [= :type reading-type]
                 [>= :timestamp (tc/to-date start-date)]
                 [<= :timestamp (tc/to-date end-date)]]]
-    (mapcat (fn [month] (db/execute session
-                                    (hayt/select :partitioned_measurements
-                                                 (hayt/where (conj where [= :month month]))))) months)))
+    (retrieve-measurements-for-months session months where)))

@@ -3,6 +3,7 @@
             [clojure.set :as set]
             [clojure.tools.logging :as log]
             [kixi.hecuba.api.entities :as entities]
+            [kixipipe.pipeline :as pipe]
             [kixi.hecuba.security :as sec]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.storage.sha1 :as sha1]
@@ -11,10 +12,12 @@
             [kixi.hecuba.webutil :refer (request-method-from-context decode-body authorized? stringify-values update-stringified-lists sha1-regex uuid)]
             [liberator.core :refer (defresource)]
             [liberator.representation :refer (ring-response)]
-            [qbits.hayt :as hayt])
-  )
+            [qbits.hayt :as hayt]
+            [kixi.hecuba.data.measurements.download :as measurements-download]))
+
 (def ^:private templates-resource (p/resource-path-string :templates-resource))
 (def ^:private entity-templates-resource (p/resource-path-string :entity-templates-resource))
+(def ^:private uploads-status-resource-path (p/resource-path-string :uploads-status-resource))
 
 (defn- payload-from
   ([multipart] (payload-from (uuid) multipart))
@@ -32,49 +35,6 @@
        content-type
        filename
        name))
-
-(defn- relocate-customer-ref [m]
-  (-> m
-      (dissoc :metadata)
-      (assoc :customer_ref (get-in m [:metadata :customer_ref]))))
-
-(defn- relocate-location [m]
-  (assoc m :location (get-in m [:location :name])))
-
-(def columns-in-order [:device_id
-                       :type
-                       :customer_ref
-                       :description
-                       :location
-                       :accuracy
-                       :resolution
-                       :frequency
-                       :period
-                       :entity_id ;; NOTE: This is shown as "Parent
-                                  ;; UUID" in the samples. Assuming
-                                  ;; parent_id column is old API and
-                                  ;; using entity_id instead
-                       :max
-                       :min])
-
-(def ^:private extract-columns-in-order (apply juxt columns-in-order))
-
-(def ^:private headers-in-order ["Device UUID"
-                                 "Reading Type"
-                                 "Customer Ref"
-                                 "Description"
-                                 "Location"
-                                 "Accuracy (percent)"
-                                 "Sample Interval (seconds)"
-                                 "Frequency"
-                                 "Period"
-                                 "Parent UUID"
-                                 "Sensor Range Max"
-                                 "Sensor Range Min"])
-
-(defn- join-to-device [devices x]
-  (let [device_id (:device_id x)]
-    (merge (get devices device_id) x)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; RESOURCE FUNCTIONS
@@ -181,28 +141,24 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; entity-resource-handle-ok
 
-(defn entity-resource-handle-ok [store ctx]
+(defn entity-resource-handle-ok [store pipe ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [entity_id       (:id (:kixi.hecuba.api.entities/item ctx))
-          devices         (->> (db/execute session (hayt/select :devices (hayt/where [[= :entity_id entity_id]])))
-                               (map (fn [x] [(:id x) x]))
-                               (into {}))
-          sensors         (if (seq devices)
-                            (db/execute session (hayt/select :sensors (hayt/where [[:in :device_id (keys devices)]])))
-                            [])
-          device-and-type #(str (:device_id %) "-" (:type %))
-          items           (if (seq sensors) 
-                            (->> sensors
-                                 (map (partial join-to-device devices))
-                                 (sort-by device-and-type)
-                                 (map relocate-customer-ref)
-                                 (map relocate-location)
-                                 (map extract-columns-in-order)
-                                 (apply map vector)
-                                 (map #(apply vector %1 %2) headers-in-order))
-                            [])]
-      (ring-response {:headers {"Content-Disposition" (str "attachment; filename=" entity_id "_template.csv")}
-                      :body (util/render-items ctx items)}))))
+    (let [entity_id (-> ctx :kixi.hecuba.api.entities/item :id)
+          data?     (-> ctx :request :query-params (get "data"))
+          session   (-> ctx :request :session)
+          username  (sec/session-username session)
+          auth      (sec/current-authentication session)
+          uuid      (uuid)
+          item      {:src-name "downloads" :dest :download :type :measurements :entity_id entity_id}
+          location  (format uploads-status-resource-path username uuid)]
+      (if data?
+        (do (pipe/submit-item pipe (assoc item
+                                     :uuid (str username "/" uuid)))
+            {:response {:status 202
+                        :headers {"Location" location}
+                        :body "Accepted"}})
+        (ring-response {:headers {"Content-Disposition" (str "attachment; filename=" entity_id "_template.csv")}
+                        :body (util/render-items ctx (measurements-download/get-header store entity_id))})))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; RESOURCES
@@ -230,10 +186,10 @@
   :put! (partial resource-put! store)
   :handle-ok (partial resource-handle-ok store))
 
-(defresource entity-resource [store]
+(defresource entity-resource [store pipeline]
   :allowed-methods #{:get}
   :available-media-types #{"text/csv"}
   :known-content-type? #{"text/csv"}
   :authorized? (authorized? store)
   :exists? (partial entities/resource-exists? store)
-  :handle-ok (partial entity-resource-handle-ok store))
+  :handle-ok (partial entity-resource-handle-ok store pipeline))

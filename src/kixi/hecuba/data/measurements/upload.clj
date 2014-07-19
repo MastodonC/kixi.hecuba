@@ -1,24 +1,25 @@
 (ns kixi.hecuba.data.measurements.upload
-  (:require [clojure.data.csv          :as csv]
+  (:require [cheshire.core             :as json]
+            [clj-time.coerce           :as tc]
+            [clj-time.format           :as tf]
+            [clojure.core.match        :refer (match)]
+            [clojure.data.csv          :as csv]
             [clojure.java.io           :as io]
             [clojure.set               :as set]
             [clojure.tools.logging     :as log]
-            [clojure.core.match        :refer (match)]
             [kixi.hecuba.api.templates :as templates]
-            [kixi.hecuba.data.misc     :as misc]
             [kixi.hecuba.data.devices  :as devices]
+            [kixi.hecuba.data.measurements.core :refer (columns-in-order write-status)]
+            [kixi.hecuba.data.misc     :as misc]
             [kixi.hecuba.data.sensors  :as sensors]
             [kixi.hecuba.data.validate :as v]
             [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-            [kixi.hecuba.webutil       :as util]
-            [kixipipe.storage.s3       :as s3]
-            [kixipipe.ioplus           :as ioplus]
-            [qbits.hayt                :as hayt]
             [kixi.hecuba.storage.db    :as db]
-            [clj-time.format           :as tf]
-            [clj-time.coerce           :as tc]
-            [schema.core               :as s]
-            [cheshire.core             :as json]))
+            [kixi.hecuba.webutil       :as util]
+            [kixipipe.ioplus           :as ioplus]
+            [kixipipe.storage.s3       :as s3]
+            [qbits.hayt                :as hayt]
+            [schema.core               :as s]))
 
 (def header-row-count 12)
 
@@ -26,7 +27,7 @@
   (with-meta obj (merge (meta obj) meta)))
 
 (defn convert-to-maps [xs]
-  (map (partial zipmap templates/columns-in-order) xs))
+  (map (partial zipmap columns-in-order) xs))
 
 (defn transpose [xs]
   (apply map vector xs))
@@ -54,7 +55,7 @@
 
 ;; TODO - this is copied from api.measurements.
 (defn prepare-measurement [m sensor]
-  (let [t  (tc/to-date (tf/parse (:timestamp m)))]
+  (let [t  (tc/to-date (tf/parse (:tidmestamp m)))]
     {:device_id        (:device_id sensor)
      :type             (:type sensor)
      :timestamp        t
@@ -212,8 +213,8 @@
         devices-to-property   (devices-to-property store device-ids)
         properties-to-project (properties-to-project store (set (vals devices-to-property)))
         projects-to-programme (projects-to-programme store (set (vals properties-to-project)))
-        devices-to-project    (reduce (fn [a [k v]] [k (get properties-to-project v)]) {} devices-to-property)
-        devices-to-programme  (reduce (fn [a [k v]] [k (get projects-to-programme v)]) {} devices-to-project)
+        devices-to-project    (reduce (fn [a [k v]] (assoc a k (get properties-to-project v))) {} devices-to-property)
+        devices-to-programme  (reduce (fn [a [k v]] (assoc a k (get projects-to-programme v))) {} devices-to-project)
         not-allowed?          #(not (allowed?* (get devices-to-programme %)
                                                (get devices-to-project %)
                                                programmes
@@ -235,15 +236,6 @@
       (parse-file-to-db store header in-file)
       (finally (ioplus/delete! in-file)))))
 
-(defn write-status [store item]
-  (let [status-file (ioplus/mk-temp-file! "hecuba" ".tmp")]
-    (try
-      (spit status-file (json/generate-string (select-keys item [:status :data])))
-      (s3/store-file (:s3 store) (assoc item
-                                   :dir (.getParent status-file)
-                                   :filename (.getName status-file)))
-      (finally (ioplus/delete! status-file)))))
-
 (defn upload-item [store item]
   (let [username (-> item :metadata :user)]
     (s3/store-file (:s3 store) (update-in item [:uuid] #(str username "/" % "/data")))
@@ -252,4 +244,4 @@
       (write-status store (assoc (update-in item [:uuid] #(str username "/" % "/status")) :status "SUCCESS"))
       (catch Throwable t
         (log/error t "failed")
-        (write-status store (assoc (update-in item [:uuid] #(str username "/" % "/status")) :status "FAILURE" :data (ex-data t)))))))
+        (write-status store (assoc (update-in item [:uuid] #(str username "/" % "/status")) :status "FAILURE" :data (str (ex-data t))))))))
