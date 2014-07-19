@@ -387,6 +387,7 @@ CREATE INDEX sensor_metadata_mislabelled_idx ON sensor_metadata (mislabelled);
 CREATE TABLE sensors (
   device_id text,
   type text,
+  alias text,
   accuracy text,
   actual_annual boolean,
   corrected_unit text,

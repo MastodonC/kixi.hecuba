@@ -1,7 +1,8 @@
 (ns kixi.hecuba.data.measurements.core
-  (:require [cheshire.core :as json]
-            [kixipipe.ioplus               :as ioplus]
-            [kixipipe.storage.s3           :as s3]))
+  (:require [cheshire.core         :as json]
+            [clojure.tools.logging :as log]
+            [kixipipe.ioplus       :as ioplus]
+            [kixipipe.storage.s3   :as s3]))
 
 (def columns-in-order [:device_id
                        :type
@@ -49,3 +50,6 @@
                                    :dir (.getParent status-file)
                                    :filename (.getName status-file)))
       (finally (ioplus/delete! status-file)))))
+
+(defn transpose [xs]
+  (apply map vector xs))
