@@ -1,6 +1,7 @@
 (ns kixi.hecuba.data.measurements
   (:require [clj-time.core          :as t]
             [clj-time.coerce        :as tc]
+            [kixi.hecuba.time       :as time]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.data.misc  :as misc]
             [qbits.hayt             :as hayt]
@@ -24,6 +25,20 @@
             [(or start lower)
              (or end upper)])
           [start end])))
+
+(defn delete-measurements
+  "WARNING: This will delete data in 1 month chunks based on the dates
+  passed in."
+  [store sensor_id start-date end-date & [opts]]
+  (let [{:keys [device_id type]} sensor_id
+        months (time/range->months start-date end-date)]
+    (db/with-session [session (:hecuba-session store)]
+      (db/execute session
+                  (hayt/delete :partitioned_measurements
+                               (hayt/where [[= :device_id device_id]
+                                            [= :type type]
+                                            [:in :month months]]))
+                  opts))))
 
 (defn all-measurements
   "Returns a sequence of all the measurements for a sensor
