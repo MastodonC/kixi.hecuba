@@ -17,12 +17,14 @@
 (defn metadata-is-spike? [{:keys [reading_metadata] :as m}]
   (truthy? (get reading_metadata "median-spike")))
 
+;; FIXME: This should move to kixi.hecuba.data
 (defn where-from
   "Takes measurement or sensor and returns where clause"
   [m]
   [[= :device_id (:device_id m)] [= :type (:type m)]])
 
 ;;;;; Time conversion functions ;;;;;
+;; FIXME: These should all be moved to kixi.hecuba.time
 
 (defn hourly-timestamp [t]
   (tc/to-date (tf/unparse (tf/formatters :date-hour) (tc/from-date t))))
