@@ -27,7 +27,16 @@
 
 (defn chart-feedback-box [cursor owner]
   (om/component
-   (dom/div nil cursor)))
+   (let [message (:message cursor)]
+     (html
+      [:div
+       [:div {:id "chart-feedback" :class "alert alert-danger " :style {:display (if (empty? message) "none" "block")}}
+        [:button.close {:type "button" :onClick (fn [e]
+                                                  (om/update! cursor :message "")
+                                                  (set! (.-display (.-style (.getElementById js/document "chart-feedback")))
+                                                        "none"))}
+         [:span {:class "fa fa-times"}]]
+        [:div message]]]))))
 
 (defn flatten-device [device]
   (let [device-keys   (->> device keys (remove #(= % :readings)))
@@ -155,7 +164,7 @@
 (defn update-sensor-selection [selected-sensors unit chart sensors history]
   (om/update! sensors :selected selected-sensors)
   (om/update! chart :sensor selected-sensors)
-  (om/update! chart :unit unit)
+  (om/update! chart :unit (if (seq selected-sensors) unit ""))
   (om/update! chart :message "")
   (history/update-token-ids! history :sensors (if (seq selected-sensors)
                                                 (string/join ";" selected-sensors)
@@ -319,7 +328,7 @@
             [:div {:id "chart-div" :class (if editing "hidden" "")}
              [:div {:id "date-picker"}
               (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
-             (om/build chart-feedback-box (get-in data [:chart :message]))
+             (om/build chart-feedback-box (get-in data [:chart]))
              (om/build chart-summary (:chart data))
              [:div.col-md-12.well
               [:div#chart {:style {:width "100%" :height 600}}
