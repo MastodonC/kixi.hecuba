@@ -15,9 +15,28 @@
             [clojure.string :as string]
             [kixi.hecuba.common :as common]))
 
+(when (not agent/IE)
+  (enable-console-print!))
+
+(defn log [& msgs]
+  (when (or (and agent/GECKO
+                 (agent/isVersionOrHigher 30))
+            (and agent/WEBKIT
+                 (agent/isVersionOrHigher 537)))
+    (apply println msgs)))
+
 (defn chart-feedback-box [cursor owner]
   (om/component
-   (dom/div nil cursor)))
+   (let [message (:message cursor)]
+     (html
+      [:div
+       [:div {:id "chart-feedback" :class "alert alert-danger " :style {:display (if (empty? message) "none" "block")}}
+        [:button.close {:type "button" :onClick (fn [e]
+                                                  (om/update! cursor :message "")
+                                                  (set! (.-display (.-style (.getElementById js/document "chart-feedback")))
+                                                        "none"))}
+         [:span {:class "fa fa-times"}]]
+        [:div message]]]))))
 
 (defn flatten-device [device]
   (let [device-keys   (->> device keys (remove #(= % :readings)))
@@ -142,6 +161,26 @@
                      :defaultChecked (get row :actual_annual "")
                      :on-change #(om/set-state! owner [:sensor :actual_annual] (.-checked (.-target %)))}]]]]])))))
 
+(defn update-sensor-selection [selected-sensors unit chart sensors history]
+  (om/update! sensors :selected selected-sensors)
+  (om/update! chart :sensor selected-sensors)
+  (om/update! chart :unit (if (seq selected-sensors) unit ""))
+  (om/update! chart :message "")
+  (history/update-token-ids! history :sensors (if (seq selected-sensors)
+                                                (string/join ";" selected-sensors)
+                                                nil)))
+
+(defn sensor-click [selected? sensors chart history id unit]
+
+  (let [selected-sensors ((if selected? disj conj) (:selected @sensors) id)]
+    (if-not selected?
+      (let [current-unit (:unit @chart)]
+        (if (or (empty? current-unit)
+                (= current-unit unit))
+          (update-sensor-selection selected-sensors unit chart sensors history)
+          (om/update! chart :message "Sensors must be of the same unit.")))
+      (update-sensor-selection selected-sensors unit chart sensors history))))
+
 (defn form-row [data chart history table-id editing-chan]
   (fn [cursor owner]
     (reify
@@ -153,15 +192,13 @@
                        {:keys [name privacy location]} parent-device
                        id (str type "-" device_id)
                        sensors (:sensors data)
-                       selected? (= id (:selected sensors))]
+                       selected? (contains? (:selected sensors) id)]
            [:tr {:onClick (fn [e] (let [div-id (.-id (.-target e))]
                                     (when-not (= "edit" div-id)
-                                        (om/update! sensors :selected id)
-                                        (om/update! chart :sensor id)
-                                        (om/update! chart :unit unit)
-                                        (when (and lower_ts upper_ts) (om/update! chart :range {:start-date (common/unparse-date lower_ts "yyyy-MM-dd HH:MM:SS")
-                                                                                                :end-date (common/unparse-date upper_ts "yyyy-MM-dd HH:MM:SS")}))
-                                        (history/update-token-ids! history :sensors id))))
+                                      (sensor-click selected? sensors chart history id unit)
+                                      (when (and lower_ts upper_ts)
+                                        (om/update! chart :range {:start-date (common/unparse-date lower_ts "yyyy-MM-dd HH:MM:SS")
+                                                                  :end-date (common/unparse-date upper_ts "yyyy-MM-dd HH:MM:SS")})))))
                  :class (when selected? "success")
                  :id (str table-id "-selected")}
             (when editable
@@ -178,8 +215,8 @@
             [:td (if-let [t (common/unparse-date upper_ts "yyyy-MM-dd")] t "")]
             [:td (status-label status privacy actual_annual)]]))))))
 
-(defn sensors-table [editing-chan]
-  (fn [data owner {:keys [histkey path]}]
+(defn sensors-table [editing-chan data]
+  (fn [cursor owner {:keys [histkey path]}]
     (reify
       om/IInitState
       (init-state [_]
@@ -203,7 +240,6 @@
       om/IRenderState
       (render-state [_ state]
         (let [{:keys [sort-key sort-asc]} (:sort-spec state)
-              sensors                     (:sensors data)
               selected-property-id        (-> data :active-components :properties)
               selected-project-id         (-> data :active-components :projects)
               flattened-sensors           (get-sensors selected-property-id data)
@@ -240,24 +276,23 @@
     (render [_]
       (let [{:keys [unit measurements]} chart
             ;; FIXME why are measurements nested? (in prep for multi-series?)
-            series-1 (:measurements measurements)
-            vals-1 (map :value series-1)
-            series-1-min (apply min vals-1)
-            series-1-max (apply max vals-1)
-            series-1-sum (reduce + vals-1)
-            series-1-count (count series-1)
-            series-1-mean (if (not= 0 series-1-count) (/ series-1-sum series-1-count) "NA")]
+            values (map :value measurements)
+            measurements-min (apply min values)
+            measurements-max (apply max values)
+            measurements-sum (reduce + values)
+            measurements-count (count measurements)
+            measurements-mean (if (not= 0 measurements-count) (/ measurements-sum measurements-count) "NA")]
         (html
-         (if (seq series-1)
+         (if (seq measurements)
            [:div.col-md-12#summary-stats
             [:div {:class "col-md-3"}
-             (bs/panel "Minimum" (str (.toFixed (js/Number. series-1-min) 3) " " unit))]
+             (bs/panel "Minimum" (str (.toFixed (js/Number. measurements-min) 3) " " unit))]
             [:div {:class "col-md-3"}
-             (bs/panel "Maximum" (str (.toFixed (js/Number. series-1-max) 3) " " unit))]
+             (bs/panel "Maximum" (str (.toFixed (js/Number. measurements-max) 3) " " unit))]
             [:div {:class "col-md-3"}
-             (bs/panel "Average (mean)" (str (.toFixed (js/Number. series-1-mean) 3) " " unit))]
+             (bs/panel "Average (mean)" (str (.toFixed (js/Number. measurements-mean) 3) " " unit))]
             [:div {:class "col-md-3"}
-             (bs/panel "Range" (str (.toFixed (js/Number. (- series-1-max series-1-min)) 3) " " unit))]]
+             (bs/panel "Range" (str (.toFixed (js/Number. (- measurements-max measurements-min)) 3) " " unit))]]
            [:div.row#summary-stats [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data."]]]))))))
 
 (defn sensors-div [data owner]
@@ -281,9 +316,10 @@
          [:div.col-md-12
           [:h3 "Sensors"]
           [:div {:id "sensors-table"}
-           (om/build (sensors-table editing-chan) data {:opts {:histkey :sensors
-                                                               :path    :readings}})]
-
+           (om/build (sensors-table editing-chan data)
+                     (:sensors data)
+                     {:opts {:histkey :sensors
+                             :path    :readings}})]
           [:div {:id "sensor-edit-div" :class (if editing "" "hidden")}
            (om/build (sensor-edit-form data) (:sensor-edit data))]
           ;; FIXME: We should have better handling for IE8 here.
@@ -292,7 +328,7 @@
             [:div {:id "chart-div" :class (if editing "hidden" "")}
              [:div {:id "date-picker"}
               (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
-             (om/build chart-feedback-box (get-in data [:chart :message]))
+             (om/build chart-feedback-box (get-in data [:chart]))
              (om/build chart-summary (:chart data))
              [:div.col-md-12.well
               [:div#chart {:style {:width "100%" :height 600}}
