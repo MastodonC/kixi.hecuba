@@ -152,6 +152,26 @@
                      :defaultChecked (get row :actual_annual "")
                      :on-change #(om/set-state! owner [:sensor :actual_annual] (.-checked (.-target %)))}]]]]])))))
 
+(defn update-sensor-selection [selected-sensors unit chart sensors history]
+  (om/update! sensors :selected selected-sensors)
+  (om/update! chart :sensor selected-sensors)
+  (om/update! chart :unit unit)
+  (om/update! chart :message "")
+  (history/update-token-ids! history :sensors (if (seq selected-sensors)
+                                                (string/join ";" selected-sensors)
+                                                nil)))
+
+(defn sensor-click [selected? sensors chart history id unit]
+
+  (let [selected-sensors ((if selected? disj conj) (:selected @sensors) id)]
+    (if-not selected?
+      (let [current-unit (:unit @chart)]
+        (if (or (empty? current-unit)
+                (= current-unit unit))
+          (update-sensor-selection selected-sensors unit chart sensors history)
+          (om/update! chart :message "Sensors must be of the same unit.")))
+      (update-sensor-selection selected-sensors unit chart sensors history))))
+
 (defn form-row [data chart history table-id editing-chan]
   (fn [cursor owner]
     (reify
@@ -166,16 +186,10 @@
                        selected? (contains? (:selected sensors) id)]
            [:tr {:onClick (fn [e] (let [div-id (.-id (.-target e))]
                                     (when-not (= "edit" div-id)
-                                      (let [selected-sensors ((if selected? disj conj) (:selected @sensors) id)]
-                                        (om/update! sensors :selected selected-sensors)
-                                        (om/update! chart :sensor selected-sensors)
-                                        (om/update! chart :unit unit) ;; TODO sensors should be of the same unit (?)
-                                        (when (and lower_ts upper_ts)
-                                          (om/update! chart :range {:start-date (common/unparse-date lower_ts "yyyy-MM-dd HH:MM:SS")
-                                                                    :end-date (common/unparse-date upper_ts "yyyy-MM-dd HH:MM:SS")}))
-                                        (history/update-token-ids! history :sensors (if (seq selected-sensors)
-                                                                                      (string/join ";" selected-sensors)
-                                                                                      nil))))))
+                                      (sensor-click selected? sensors chart history id unit)
+                                      (when (and lower_ts upper_ts)
+                                        (om/update! chart :range {:start-date (common/unparse-date lower_ts "yyyy-MM-dd HH:MM:SS")
+                                                                  :end-date (common/unparse-date upper_ts "yyyy-MM-dd HH:MM:SS")})))))
                  :class (when selected? "success")
                  :id (str table-id "-selected")}
             (when editable
