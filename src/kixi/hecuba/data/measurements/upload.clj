@@ -55,7 +55,7 @@
 
 ;; TODO - this is copied from api.measurements.
 (defn prepare-measurement [m sensor]
-  (let [t  (tc/to-date (tf/parse (:tidmestamp m)))]
+  (let [t  (tc/to-date (tf/parse (:timestamp m)))]
     {:device_id        (:device_id sensor)
      :type             (:type sensor)
      :timestamp        t
