@@ -31,12 +31,25 @@
   passed in."
   [session device_id type start-date end-date]
   (log/infof "Deleting Measurements for %s:%s from %s to %s" device_id type start-date end-date)
-  (let [months (time/range->months start-date end-date)]
-    (db/execute session
-                (hayt/delete :partitioned_measurements
-                             (hayt/where [[= :device_id device_id]
-                                          [= :type type]
-                                          [:in :month months]])))))
+  (let [months (time/range->months start-date end-date)
+        years  (time/range->years start-date end-date)]
+    (concat
+     (db/execute session
+                 (hayt/delete :partitioned_measurements
+                              (hayt/where [[= :device_id device_id]
+                                           [= :type type]
+                                           [:in :month months]])))
+     (db/execute session
+                 (hayt/delete :hourly_rollups
+                              (hayt/where [[= :device_id device_id]
+                                           [= :type type]
+                                           ;; FIXME: This should be partitioned by years, but isn't
+                                           ;; [:in :year years]
+                                           ])))
+     (db/execute session
+                 (hayt/delete :daily_rollups
+                              (hayt/where [[= :device_id device_id]
+                                           [= :type type]]))))))
 
 (defn all-measurements
   "Returns a sequence of all the measurements for a sensor

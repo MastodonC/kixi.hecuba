@@ -46,3 +46,7 @@
 (defn range->months [start-date end-date]
   (->> (time-range start-date end-date (t/months 1))
        (map #(get-month-partition-key (tc/to-date %)))))
+
+(defn range->years [start-date end-date]
+  (->> (time-range start-date end-date (t/years 1))
+       (map #(get-year-partition-key (tc/to-date-time %)))))
