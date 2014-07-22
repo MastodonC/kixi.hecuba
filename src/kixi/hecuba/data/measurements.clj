@@ -70,11 +70,12 @@
 
 (defn- retrieve-measurements-for-months [session [month & more]  where]
   (log/info "Got month " month)
-  (lazy-cat (db/execute session
-                        (hayt/select :partitioned_measurements
-                                     (hayt/where (conj where [= :month month]))))
-            (when (seq more)
-              (retrieve-measurements-for-months session more where))))
+  (when month
+    (lazy-cat (db/execute session
+                          (hayt/select :partitioned_measurements
+                                       (hayt/where (conj where [= :month month]))))
+              (when (seq more)
+                (retrieve-measurements-for-months session more where)))))
 
 (defn retrieve-measurements
   "Iterate over a sequence of months and concatanate measurements retrieved from the database."

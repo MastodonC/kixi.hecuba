@@ -34,6 +34,13 @@
                        "Sensor Range Max"
                        "Sensor Range Min"])
 
+(defn get-status [{:keys [s3]} item]
+  ;; TODO there should be a better way to do this in s3 ns.
+  (let [s3-key (s3/s3-key-from item )]
+    (when (s3/item-exists? s3 s3-key)
+      (with-open [in (s3/get-object-by-metadata s3 {:key s3-key})]
+        (:status (json/parse-string (slurp in)))))))
+
 (defn write-status [store item]
   (let [status-file (ioplus/mk-temp-file! "hecuba" ".tmp")]
     (try

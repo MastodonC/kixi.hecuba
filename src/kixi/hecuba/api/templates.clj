@@ -4,6 +4,7 @@
             [clojure.tools.logging :as log]
             [kixi.hecuba.api.entities :as entities]
             [kixipipe.pipeline :as pipe]
+            [kixipipe.storage.s3 :as s3]
             [kixi.hecuba.security :as sec]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.storage.sha1 :as sha1]
@@ -13,11 +14,13 @@
             [liberator.core :refer (defresource)]
             [liberator.representation :refer (ring-response)]
             [qbits.hayt :as hayt]
+            [kixi.hecuba.data.measurements.core :refer (get-status write-status)]
             [kixi.hecuba.data.measurements.download :as measurements-download]))
 
 (def ^:private templates-resource (p/resource-path-string :templates-resource))
 (def ^:private entity-templates-resource (p/resource-path-string :entity-templates-resource))
 (def ^:private uploads-status-resource-path (p/resource-path-string :uploads-status-resource))
+(def ^:private downloads-status-resource-path (p/resource-path-string :downloads-status-resource))
 
 (defn- payload-from
   ([multipart] (payload-from (uuid) multipart))
@@ -141,6 +144,22 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; entity-resource-handle-ok
 
+(defn queue-data-generation [store pipe username item]
+  (let [entity_id (:entity_id item)
+        location (format downloads-status-resource-path username entity_id)
+        item     (assoc item :uuid (str username "/" entity_id))
+        status   (get-status store item)]
+    (if (= status "PENDING")
+      {:response {:status 303
+                  :headers {"Location" location}
+                  :body "In Progress"}}
+      (do
+        (write-status store (assoc item :status "PENDING"))
+        (pipe/submit-item pipe item)
+        {:response {:status 202
+                    :headers {"Location" location}
+                    :body "Accepted"}})))
+  )
 (defn entity-resource-handle-ok [store pipe ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [entity_id (-> ctx :kixi.hecuba.api.entities/item :id)
@@ -148,15 +167,10 @@
           session   (-> ctx :request :session)
           username  (sec/session-username session)
           auth      (sec/current-authentication session)
-          uuid      (uuid)
-          item      {:src-name "downloads" :dest :download :type :measurements :entity_id entity_id}
-          location  (format uploads-status-resource-path username uuid)]
+          item      {:src-name "downloads" :dest :download :type :measurements :entity_id entity_id}]
+
       (if data?
-        (do (pipe/submit-item pipe (assoc item
-                                     :uuid (str username "/" uuid)))
-            {:response {:status 202
-                        :headers {"Location" location}
-                        :body "Accepted"}})
+        (queue-data-generation store pipe username item)
         (ring-response {:headers {"Content-Disposition" (str "attachment; filename=" entity_id "_template.csv")}
                         :body (util/render-items ctx (measurements-download/get-header store entity_id))})))))
 

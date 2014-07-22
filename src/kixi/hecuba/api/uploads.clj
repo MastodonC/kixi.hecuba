@@ -97,7 +97,7 @@
 (defn merge-status-with-metadata [store s3-key]
   (let [[src-name username uuid typ] (str/split s3-key #"/")
         {:keys [auth file-bucket]} (:s3 store)
-        metadata (aws/get-object-metadata auth file-bucket (str src-name "/" username "/" uuid "/data"))
+        metadata (aws/get-object-metadata auth file-bucket (str src-name "/" username "/" uuid "/data")) ;; FIXME this call to aws/get-object-metadata should be to a fn in kixipipe, passed an item map with uuid set to the generated string.
         {:keys [uploads-timestamp uploads-filename]} (:user metadata)]
     (hash-map :id uuid
               :filename uploads-filename
