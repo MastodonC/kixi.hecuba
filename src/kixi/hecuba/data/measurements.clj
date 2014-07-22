@@ -26,19 +26,17 @@
              (or end upper)])
           [start end])))
 
-(defn delete-measurements
+(defn delete
   "WARNING: This will delete data in 1 month chunks based on the dates
   passed in."
-  [store sensor_id start-date end-date & [opts]]
-  (let [{:keys [device_id type]} sensor_id
-        months (time/range->months start-date end-date)]
-    (db/with-session [session (:hecuba-session store)]
-      (db/execute session
-                  (hayt/delete :partitioned_measurements
-                               (hayt/where [[= :device_id device_id]
-                                            [= :type type]
-                                            [:in :month months]]))
-                  opts))))
+  [session device_id type start-date end-date]
+  (log/infof "Deleting Measurements for %s:%s from %s to %s" device_id type start-date end-date)
+  (let [months (time/range->months start-date end-date)]
+    (db/execute session
+                (hayt/delete :partitioned_measurements
+                             (hayt/where [[= :device_id device_id]
+                                          [= :type type]
+                                          [:in :month months]])))))
 
 (defn all-measurements
   "Returns a sequence of all the measurements for a sensor

@@ -38,8 +38,8 @@
   "Return a lazy sequence of DateTime's from start to end, incremented
   by 'step' units of time."
   [start end step]
-  (let [start-date (t/first-day-of-the-month start)
-        end-date   (t/last-day-of-the-month end)
+  (let [start-date (t/first-day-of-the-month (tc/to-date-time start))
+        end-date   (t/last-day-of-the-month (tc/to-date-time end))
         in-range-inclusive? (complement (fn [t] (t/after? t end-date)))]
     (take-while in-range-inclusive? (tp/periodic-seq start-date step))))
 

@@ -3,6 +3,8 @@
             [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.webutil :refer (stringify-values)]
+            [kixi.hecuba.data.measurements :as measurements]
+            [kixi.hecuba.data.misc :as misc] ;; FIXME
             [clojure.walk :as walk]
             [schema.core :as s]))
 
@@ -109,3 +111,29 @@
   [device_id session]
   (let [sensors (get-sensors device_id session)]
     (mapv #(enrich-sensor % session) sensors)))
+
+(defn delete
+  ([session device_id]
+     (let [sensor-response
+           (db/execute session (hayt/delete :sensors
+                                            (hayt/where [[= :device_id device_id]])))
+           sensor_metadata-response
+           (db/execute session (hayt/delete :sensor_metadata
+                                            (hayt/where [[= :device_id device_id]])))]
+       [sensor-response sensor_metadata-response]))
+  ([session device_id type]
+     (let [sensor-response
+           (db/execute session (hayt/delete :sensors
+                                            (hayt/where [[= :device_id device_id]
+                                                         [= :type type]])))
+           sensor_metadata-response
+           (db/execute session (hayt/delete :sensor_metadata
+                                            (hayt/where [[= :device_id device_id]
+                                                         [= :type type]])))]
+       [sensor-response sensor_metadata-response])))
+
+(defn delete-measurements [session device_id type]
+  (let [{:keys [lower_ts upper_ts]} (sensor-time-range device_id type session)]
+    (when (and lower_ts upper_ts)
+      (measurements/delete session device_id type lower_ts upper_ts)
+      (misc/update-sensor-metadata session {:device_id device_id :type type} lower_ts upper_ts))))
