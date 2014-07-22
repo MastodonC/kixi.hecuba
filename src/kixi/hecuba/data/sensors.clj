@@ -8,7 +8,7 @@
             [clojure.walk :as walk]
             [schema.core :as s]))
 
-(def user-editable-keys [:device_id :type :accuracy
+(def user-editable-keys [:device_id :type :accuracy :alias
                         :corrected_unit :correction
                         :correction_factor :correction_factor_breakdown
                         :frequency :max :min :period
@@ -33,6 +33,7 @@
 
 (def Sensor {(s/required-key :device_id)                   s/Str
              (s/required-key :type)                        s/Str
+             (s/optional-key :alias)                       (s/maybe s/Str)
              (s/optional-key :accuracy)                    (s/maybe s/Str)
              (s/optional-key :actual_annual)               (s/maybe s/Bool)
              (s/optional-key :corrected_unit)              (s/maybe s/Str)
@@ -83,6 +84,11 @@
   (db/execute session
               (hayt/select :sensors
                            (hayt/where [[= :device_id device_id]]))))
+
+(defn get-sensors-by-device_ids [device_ids session]
+  (db/execute session
+              (hayt/select :sensors
+                           (hayt/where [[:in :device_id device_ids]]))))
 
 (defn insert [session sensor]
   (db/execute session (hayt/insert :sensors

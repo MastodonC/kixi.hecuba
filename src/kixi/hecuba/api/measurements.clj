@@ -189,7 +189,7 @@
                                                (v/validate sensor))
                                           measurements)
               {:keys [min-date max-date]} (misc/min-max-dates validated-measurements)]
-          (misc/insert-measurements store sensor validated-measurements page-size)
+          (misc/insert-measurements store sensor page-size validated-measurements)
           {:response {:status 202 :body "Accepted"}})
         {:response {:status 400 :body "Provide valid device_id and type."}}))))
 

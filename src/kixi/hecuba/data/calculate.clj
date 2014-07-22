@@ -138,7 +138,7 @@
             new-type                 (ext-type type)
             calculated               (diff-seq measurements)
             page-size                10]
-        (m/insert-measurements store {:device_id device_id :type new-type} calculated page-size)))))
+        (m/insert-measurements store {:device_id device_id :type new-type} page-size calculated)))))
 
 (defn kWh->co2
   "Converts measurements from kWh to co2."
@@ -153,7 +153,7 @@
                                       convert)
         page-size                10]
     (when calculated
-      (m/insert-measurements store {:device_id device_id :type new-type} calculated page-size))))
+      (m/insert-measurements store {:device_id device_id :type new-type} page-size calculated))))
 
 (defn gas-volume->kWh
   "Converts measurements from m^3 and ft^3 to kWh."
@@ -168,7 +168,7 @@
                                       convert)
         page-size                10]
     (when calculated
-      (m/insert-measurements store {:device_id device_id :type new-type} calculated page-size))))
+      (m/insert-measurements store {:device_id device_id :type new-type} page-size calculated))))
 
 ;;;;;;;;;;; Rollups of measurements ;;;;;;;;;
 
@@ -395,7 +395,7 @@
                     {:keys [start-date end-date]} range
                     page-size                     10]
 
-                (m/insert-measurements store sensor calculated page-size)
+                (m/insert-measurements store sensor page-size calculated)
                 (m/reset-date-range store sensor :calculated_datasets start-date end-date)
                 (log/info "Finished calculation for sensors: " (:members ds) "and operation: " operation))
               (log/info "Sensors are not of the same resolution.")))

@@ -269,7 +269,7 @@
 (defn insert-measurements
   "Takes store, lazy sequence of measurements and
    size of the batches and inserts them into the database."
-  [store sensor measurements page]
+  [store sensor page measurements]
   (db/with-session [session (:hecuba-session store)]
     (doseq [batch (partition-all page measurements)]
       (let [{:keys [min-date max-date]} (min-max-dates batch)]

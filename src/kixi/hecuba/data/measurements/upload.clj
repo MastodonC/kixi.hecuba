@@ -9,8 +9,10 @@
             [clojure.tools.logging     :as log]
             [kixi.hecuba.api.templates :as templates]
             [kixi.hecuba.data.devices  :as devices]
-            [kixi.hecuba.data.measurements.core :refer (columns-in-order write-status)]
+            [kixi.hecuba.data.measurements.core :refer (headers-in-order columns-in-order write-status transpose)]
             [kixi.hecuba.data.misc     :as misc]
+            [kixi.hecuba.data.entities :as entities]
+            [kixi.hecuba.data.devices  :as devices]
             [kixi.hecuba.data.sensors  :as sensors]
             [kixi.hecuba.data.validate :as v]
             [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
@@ -21,7 +23,7 @@
             [qbits.hayt                :as hayt]
             [schema.core               :as s]))
 
-(def header-row-count 12)
+(def full-header-row-count 12)
 
 (defn merge-meta [obj meta]
   (with-meta obj (merge (meta obj) meta)))
@@ -29,21 +31,64 @@
 (defn convert-to-maps [xs]
   (map (partial zipmap columns-in-order) xs))
 
-(defn transpose [xs]
-  (apply map vector xs))
+(defn identify-file-type
+  "Assumption is that if cell r0,c0 doesn't have the name of the first
+  header and cell r1,c0 has a date then we've got a file with aliases,
+  otherwise it's a full header."
+  [_ {:keys [dir filename]}]
+  (let [[r0 r1] (with-open [in (io/reader (io/file dir filename))]
+                  (->> in
+                       (csv/read-csv)
+                       (take 2)
+                       (doall)))
+        r0c0 (get r0 0 ::dummy-value)
+        r1c0 (get r1 0 ::dummy-value)]
+    (if (and (not= (first headers-in-order) r0c0)
+             (tf/parse r1c0))
+      :with-aliases
+      :full)))
 
-(defn get-header [item]
-  (let [{:keys [dir filename auth]} item
-        add-user-id #(assoc % :user_id (:id auth))]
-    (with-open [in (io/reader (io/file dir filename))]
-      (->> in
-           (csv/read-csv)
-           (take header-row-count)
-           (map (partial drop 1)) ;; first column is header headings ;-/
-           (transpose)
-           (convert-to-maps)
-           (map add-user-id)
-           (doall)))))
+(defn relocate-user-id [{:keys [auth] :as item} x]
+  (assoc x :user_id (:id auth)))
+
+(defmulti get-header #'identify-file-type)
+
+(defmethod get-header :full [_ item]
+  (let [{:keys [dir filename]} item]
+    (with-meta
+      (with-open [in (io/reader (io/file dir filename))]
+        (->> in
+             (csv/read-csv)
+             (take full-header-row-count)
+             (map (partial drop 1)) ;; first column is header headings ;-/
+             (transpose)
+             (convert-to-maps)
+             (map (partial relocate-user-id item))
+             (doall)))
+      {::row-count full-header-row-count
+       ::update-devices-and-sensors? true})))
+
+(defmethod get-header :with-aliases [store item]
+  (let [{:keys [dir filename]} item
+        [[entity-id & aliases]]   (with-open [in (io/reader (io/file dir filename))]
+                                     (->> in
+                                          (csv/read-csv)
+                                          (take 1)
+                                          (doall)))]
+    (db/with-session [session (:hecuba-session store)]
+      (let [entity                   (entities/get-by-id session entity-id)
+            devices                  (devices/get-devices session entity-id)
+            sensors                  (sensors/get-sensors-by-device_ids (map :id devices) session)
+            sensors-in-alias-order   (for [a aliases s sensors :when (= a (:alias s))] s)
+            ds-and-ss-in-alias-order (for [s sensors-in-alias-order
+                                           d devices
+                                           :when (= (:id d) (:device_id s))]
+                                       (merge d s))
+            header (map relocate-user-id item ds-and-ss-in-alias-order)]
+        (with-meta
+          header
+          {::row-count 1
+           ::update-devices-and-sensors? false})))))
 
 (defn seq-of-seq-of-seqs->seq-of-seq-of-maps [header xs]
   (map #(map (partial zipmap header) %) xs))
@@ -84,16 +129,10 @@
   (db/with-session [session (:hecuba-session store)]
     (devices/update session device)))
 
-(defn update-data [store [device sensor] page-size measurements]
-  (update-device-data store (prepare-device device))
-  (update-sensor-data store (prepare-sensor sensor))
-  (log/info "Inserting measurements into sensor " (str (:device_id sensor) "-" (:type sensor)))
-  (misc/insert-measurements store sensor measurements page-size))
-
 (defn split-device-and-sensor [m]
   [(select-keys m [:device_id :description
                    :location :metadata :privacy :metering_point_id])
-   (select-keys m [:device_id :type :accuracy :actual_annual :corrected_unit
+   (select-keys m [:device_id :type :alias :accuracy :actual_annual :corrected_unit
                    :correction :correction_factor :correction_factor_breakdown
                    :errors :events :frequency :max :median :min :period
                    :resolution :status :synthetic :unit :user_id])])
@@ -128,13 +167,14 @@
   "Takes a header and returns a vector of [device sensor] after splitting.
    meta data will be attached to the vector indicating
    whether the device/sensor is valid" [header]
-  (map (fn [device-and-sensor]
-         (let [[device sensor] (split-device-and-sensor device-and-sensor)
-               invalid-device? (devices/invalid? device)
-               invalid-sensor? (sensors/invalid? sensor)]
-           (-> device-and-sensor
-               (cond-> invalid-device? (merge-meta {:device-error invalid-device?}))
-               (cond-> invalid-sensor? (merge-meta {:sensor-error invalid-sensor?}))))) header))
+
+   (map (fn [device-and-sensor]
+          (let [[device sensor] (split-device-and-sensor device-and-sensor)
+                invalid-device? (devices/invalid? device)
+                invalid-sensor? (sensors/invalid? sensor)]
+            (-> device-and-sensor
+                (cond-> invalid-device? (merge-meta {:device-error invalid-device?}))
+                (cond-> invalid-sensor? (merge-meta {:sensor-error invalid-sensor?}))))) header))
 
 (defn- valid-header? [x]
   (let [m (meta x)]
@@ -143,16 +183,20 @@
              (contains? x :device-error)
              (contains? x :sensor-error)))))
 
-(defn process-column [store page-size device-and-sensor measurements]
+(defn process-column [store page-size update-devices-and-sensors? device-and-sensor measurements ]
   (let [[device sensor :as ds] (split-device-and-sensor device-and-sensor)
         validated-measurements (map #(-> %
                                          (prepare-measurement sensor)
                                          (v/validate sensor))
                                     measurements)]
-    (when (valid-header? device-and-sensor)
-      (update-data store ds page-size validated-measurements))))
 
-(defn- get-data [in]
+    (when (and update-devices-and-sensors? (valid-header? device-and-sensor)
+               (update-device-data store (prepare-device device))
+               (update-sensor-data store (prepare-sensor sensor))))
+
+    (misc/insert-measurements store device-and-sensor page-size validated-measurements)))
+
+(defn- get-data [header-row-count in]
   (->> in
        (csv/read-csv)
        (drop header-row-count)
@@ -165,14 +209,15 @@
   (into {} (for [{:keys [device_id type] :as x} header
                  :let [m  (meta x)
                        id (str device_id "-" type)]
-                 :when m]
+                 :when (::update-devices-and-sensors? m)]
              [id m])))
 
 (defn- parse-file-to-db [store header in-file ]
   (with-open [in (io/reader in-file)]
-    (let [data      (get-data in)
+    (let [{:keys [::row-count ::update-devices-and-sensors?]} (meta header)
+          data      (get-data row-count in)
           page-size 10]
-      (dorun (map (partial process-column store page-size) header data))
+      (dorun (map (partial process-column store page-size update-devices-and-sensors?) header data))
       (when-let [errors (not-empty (parse-errors header))]
         (throw (ex-info "Errors found" errors))))))
 
@@ -228,9 +273,11 @@
          header)))
 
 (defn db-store [store item]
-  (let [header     (-> (get-header item)
-                       (validate-header)
-                       (enrich-with-authz store (:auth item)))
+  (let [raw-header (get-header store item)
+        header     (with-meta  (-> raw-header
+                                   (validate-header)
+                                   (enrich-with-authz store (:auth item)))
+                     (meta raw-header))
         in-file    (io/file (:dir item) (:filename item))]
     (try
       (parse-file-to-db store header in-file)
