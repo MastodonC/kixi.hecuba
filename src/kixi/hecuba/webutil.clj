@@ -172,6 +172,7 @@
   "Returns integer representation of year from java.util.Date"
   [t] (Integer/parseInt (.format (java.text.SimpleDateFormat. "yyyy") t)))
 
+;; FIXME: These should all move to kixi.hecuba.time
 (defn db-timestamp
   "Returns java.util.Date from String timestamp."
   [t] (.parse (java.text.SimpleDateFormat.  "yyyy-MM-dd'T'HH:mm:ss") t))
@@ -208,6 +209,7 @@
         (apply f (map #(if (seq %) (first %) default) colls))
         (apply map-longest f default (map rest colls))))))
 
+;; FIXME: These should move to kixi.hecuba.api
 (defn request-method-from-context [& args]
   (let [ctx (last args)]
     (get-in ctx [:request :request-method])))

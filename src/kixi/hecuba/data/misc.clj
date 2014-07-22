@@ -17,12 +17,14 @@
 (defn metadata-is-spike? [{:keys [reading_metadata] :as m}]
   (truthy? (get reading_metadata "median-spike")))
 
+;; FIXME: This should move to kixi.hecuba.data
 (defn where-from
   "Takes measurement or sensor and returns where clause"
   [m]
   [[= :device_id (:device_id m)] [= :type (:type m)]])
 
 ;;;;; Time conversion functions ;;;;;
+;; FIXME: These should all be moved to kixi.hecuba.time
 
 (defn hourly-timestamp [t]
   (tc/to-date (tf/unparse (tf/formatters :date-hour) (tc/from-date t))))
@@ -237,20 +239,19 @@
 
 (defn update-sensor-metadata
   "Updates start and end dates when new measurement is received."
-  [store sensor min-date max-date]
-  (db/with-session [session (:hecuba-session store)]
-    (let [start      (tc/to-date min-date)
-          end        (tc/to-date max-date)
-          where      (where-from sensor)
-          s          (first (db/execute session
-                                        (hayt/select :sensor_metadata
-                                                     (hayt/where where))))
-          new-bounds (update-bounds start end s)]
-      (when-let [columns (columns-to-update? s start end new-bounds)]
-        (db/execute session
-                    (hayt/update :sensor_metadata
-                                 (hayt/set-columns columns)
-                                 (hayt/where where)))))))
+  [session sensor min-date max-date]
+  (let [start      (tc/to-date min-date)
+        end        (tc/to-date max-date)
+        where      (where-from sensor)
+        s          (first (db/execute session
+                                      (hayt/select :sensor_metadata
+                                                   (hayt/where where))))
+        new-bounds (update-bounds start end s)]
+    (when-let [columns (columns-to-update? s start end new-bounds)]
+      (db/execute session
+                  (hayt/update :sensor_metadata
+                               (hayt/set-columns columns)
+                               (hayt/where where))))))
 
 
 (defn prepare-batch
@@ -273,4 +274,4 @@
     (doseq [batch (partition-all page measurements)]
       (let [{:keys [min-date max-date]} (min-max-dates batch)]
         (insert-batch session batch)
-        (update-sensor-metadata store sensor min-date max-date)))))
+        (update-sensor-metadata session sensor min-date max-date)))))

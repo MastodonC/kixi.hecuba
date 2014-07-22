@@ -70,16 +70,18 @@
                                         (hayt/where [[= :id entity_id]]))))))
 
 (defn delete [session entity_id id]
-  (let [response1 (db/execute session (hayt/delete :devices
-                                         (hayt/where [[= :id id]])))
-        response2 (db/execute session (hayt/delete :sensors
-                                         (hayt/where [[= :device_id id]])))
-        response3 (db/execute session (hayt/delete :sensor_metadata
-                                         (hayt/where [[= :device_id id]])))
-        response4 (db/execute session (hayt/delete :entities
-                                         (hayt/columns {:devices id})
-                                         (hayt/where [[= :id entity_id]])))]
-    [response1 response2 response3 response4]))
+  (let [device-response (db/execute session (hayt/delete :devices
+                                                         (hayt/where [[= :id id]])))
+        [sensors-response sensor_metadata-response] (sensors/delete session id)
+        entity-response (db/execute session (hayt/delete :entities
+                                                          (hayt/columns {:devices id})
+                                                          (hayt/where [[= :id entity_id]])))]
+    [device-response sensors-response sensor_metadata-response entity-response]))
+
+(defn delete-measurements [session device_id]
+  (doall (->> (sensors/get-sensors device_id session)
+              (map :type)
+              (map #(sensors/delete-measurements session device_id %)))))
 
 (defn get-devices [session entity_id]
   (db/execute session (hayt/select :devices (hayt/where [[= :entity_id entity_id]]))))
