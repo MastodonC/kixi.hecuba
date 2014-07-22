@@ -30,8 +30,7 @@
         actual-annual-q         (new-queue {:name "actual-annual-q" :queue-size 50})
         store-upload-s3-q       (new-queue {:name "store-upload-s3-q" :queue-size 50})
         upload-measurements-q   (new-queue {:name "data-upload-q" :queue-size 10})
-        download-measurements-q (new-queue {:name "data-download-q" :queue-size 10})
-        ]
+        download-measurements-q (new-queue {:name "data-download-q" :queue-size 50 :number-of-consumer-threads 4})]
 
     (defnconsumer fanout-q [{:keys [dest type] :as item}]
       (let [item (dissoc item :dest)]
