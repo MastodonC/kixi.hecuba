@@ -67,7 +67,7 @@
 (defn split-device-and-sensor [m]
    [(select-keys m [:device_id :description :parent_id :entity_id :name
                     :location :metadata :privacy :metering_point_id])
-    (select-keys m [:device_id :type :accuracy :actual_annual :corrected_unit
+    (select-keys m [:device_id :type :alias :accuracy :actual_annual :corrected_unit
                     :correction :correction_factor :correction_factor_breakdown
                     :errors :events :frequency :max :median :min :period
                     :resolution :status :synthetic :unit :user_id])])
@@ -149,7 +149,8 @@
                                        :onClick (fn [_ _] (om/update! data [:sensor-edit :editing] false))} "Cancel"]]]
            (static-text row :device_id "Device ID")
            (static-text row :type "Type")
-           (text-input-control owner (:parent-device row) :name "Name")
+           (text-input-control owner (:parent-device row) :name "Parent Device Name")
+           (text-input-control owner (:alias row) :name "Alias")
            (text-input-control owner row :unit "Unit")
            (text-input-control owner row :period "Period")
            (text-input-control owner row :resolution "Resolution")
