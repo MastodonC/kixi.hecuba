@@ -3,7 +3,7 @@
             [liberator.core :refer (defresource)]
             [kixi.hecuba.webutil :refer (authorized?)]
             [kixipipe.storage.s3 :as s3]
-            [kixi.hecuba.security :as sec]
+            [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
             [kixi.hecuba.data.projects :as projects]
             [kixi.hecuba.data.entities :as entities]
             [kixi.hecuba.data.measurements.core :as mc]
@@ -13,29 +13,25 @@
             [clj-time.coerce :as tc]
             [kixi.hecuba.webutil :as util]
             [cheshire.core :as json]
-            [kixipipe.storage.s3 :as s3] ;; TODO move to k.h.d.uploads.clj
+            [kixipipe.storage.s3 :as s3]
             [liberator.representation :refer (ring-response)])) 
 
 ;; List of files is retrieved for a username (read from the current session) so only users who can upload files can also GET those files. Other users will get an empty list.
 (defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
   (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
              programme-id project-id allowed-programmes allowed-projects roles request-method)
-  (match [(some #(isa? % :kixi.hecuba.security/admin) roles)
-          (some #(isa? % :kixi.hecuba.security/programme-manager) roles)
+  (match [(has-admin? roles)
+          (has-programme-manager? roles)
           (some #(= % programme-id) allowed-programmes)
-          (some #(isa? % :kixi.hecuba.security/project-manager) roles)
+          (has-project-manager? roles)
           (some #(= % project-id) allowed-projects)
-          (some #(isa? % :kixi.hecuba.security/user) roles)
+          (has-user? roles)
           request-method]
-         ;; super-admin - do everything
+
          [true _ _ _ _ _ _] true
-         ;; programme-manager for this programme - do everything
          [_ true true _ _ _ _] true
-         ;; project-manager for this project - do everything
          [_ _ _ true true _ _] true
-         ;; user with this programme - get allowed
          [_ _ true _ _ true :get] true
-         ;; user with this project - get allowed
          [_ _ _ _ true true :get] true
          :else false))
 
@@ -52,8 +48,8 @@
         true))))
 
 (defn status-from-object [store s3-key]
-  (get (json/parse-string (slurp (s3/get-object-by-metadata (:s3 store) {:key s3-key})))
-       "status"))
+  (with-open [in (s3/get-object-by-metadata (:s3 store) (:key s3-key))]
+    (get (json/parse-string (slurp in) keyword) :status)))
 
 (defn merge-downloads-status-with-metadata [store s3-key entity_id]
   (let [{:keys [auth file-bucket]} (:s3 store)
@@ -64,10 +60,11 @@
               :link (str "/4/download/" entity_id "/data")
               :status (status-from-object store s3-key))))
 
+;; TOFIX We currently store one file per entity only.
 (defn downloads-for-entity-status-handle-ok [store ctx]
   (let [{:keys [params session]} (:request ctx)
         {:keys [entity_id]} params
-        files    (s3/list-objects-seq (:s3 store) {:max-keys 100 :prefix (str "downloads/" entity_id)})
+        files    (take 1 (s3/list-objects-seq (:s3 store) {:prefix (str "downloads/" entity_id)}))
         statuses (map #(merge-downloads-status-with-metadata store (:key %) entity_id)
                       (filter #(re-find #"status" (:key %)) files))]
     (util/render-items ctx statuses)))
