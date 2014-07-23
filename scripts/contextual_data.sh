@@ -1,11 +1,12 @@
 #!/bin/bash
- 
+
 # Script to export all contextual data tables from Cassandra using the COPY command.
 
 remote_host=kixi-dse00 # change to ssh config you use to log into a remote box
 local_host=vagrant-box  # change to ssh config for your local box
 
-echo exporting data
+echo exporting data from $remote_host.
+echo This requires /etc/hosts on $remote_host to have a suitable entry
 
 ssh $remote_host << EOF
 
@@ -17,7 +18,8 @@ fi
 
 cd tmp_data
 
-cqlsh << EOD
+cqlsh $(hostname -i) << EOD
+<< EOD
 use hecuba;
 COPY profiles TO 'profiles.csv';
 COPY programmes TO 'programmes.csv';
@@ -40,7 +42,7 @@ if [ -d "tmp_data" ]; then
 else
     mkdir tmp_data
 fi
-    
+
 scp $remote_host:tmp_data/* tmp_data/
 
 echo importing data to virtual machine
