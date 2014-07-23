@@ -68,7 +68,7 @@
   "NOT IMPLEMENTED")
 
 (defn status-from-object [store s3-key]
-  (with-open [in (s3/get-object-by-metadata (:s3 store) (:key s3-key))]
+  (with-open [in (s3/get-object-by-metadata (:s3 store) {:key s3-key})]
     (get (json/parse-string (slurp in) keyword) :status)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
