@@ -69,20 +69,21 @@
      :month            (util/get-month-partition-key t)
      :reading_metadata {}}))
 
-(defn template-upload->item [{:keys [size tempfile content-type filename]} username]
+(defn template-upload->item [{:keys [size tempfile content-type filename]} entity_id username]
   (assert (= content-type "text/csv") "Must be text/csv")
   (let [timestamp (t/now)]
-    {:dest :upload
-     :type :measurements
+    {:dest      :upload
+     :type      :measurements
+     :entity_id entity_id
      :src-name  "uploads"
      :feed-name "measurements"
      :dir       (.getParent tempfile)
      :date      timestamp
      :filename  (.getName tempfile)
-     :metadata  {:timestamp timestamp
+     :metadata  {:timestamp    timestamp
                  :content-type "text/csv"
-                 :user      username
-                 :filename filename}}))
+                 :user         username
+                 :filename     filename}}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; index-malformed?
@@ -167,11 +168,11 @@
         route-params (:route-params (:request ctx))
         entity_id    (:entity_id route-params)
         auth      (sec/current-authentication session)
-        item      (template-upload->item file-data username)
+        item      (template-upload->item file-data entity_id username)
         uuid      (uuid)
         location  (format uploads-status-resource-path (:user_id auth) uuid)]
     (pipe/submit-item pipe (assoc item
-                             :uuid (str entity_id "/" uuid)
+                             :uuid (str username "/" uuid)
                              :auth auth))
     {:response {:status 202
                 :headers {"Location" location}
