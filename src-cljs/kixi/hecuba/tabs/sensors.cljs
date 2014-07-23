@@ -30,7 +30,7 @@
    (let [message (:message cursor)]
      (html
       [:div
-       [:div {:id "chart-feedback" :class "alert alert-danger " :style {:display (if (empty? message) "none" "block")}}
+       [:div {:id "chart-feedback" :class "alert alert-danger" :style {:display (if (empty? message) "none" "block")}}
         [:button.close {:type "button" :onClick (fn [e]
                                                   (om/update! cursor :message "")
                                                   (set! (.-display (.-style (.getElementById js/document "chart-feedback")))

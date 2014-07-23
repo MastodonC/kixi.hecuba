@@ -15,7 +15,8 @@
             [liberator.representation :refer (ring-response)]
             [qbits.hayt :as hayt]
             [kixi.hecuba.data.measurements.core :refer (get-status write-status)]
-            [kixi.hecuba.data.measurements.download :as measurements-download]))
+            [kixi.hecuba.data.measurements.download :as measurements-download]
+            [clj-time.core :as t]))
 
 (def ^:private templates-resource (p/resource-path-string :templates-resource))
 (def ^:private entity-templates-resource (p/resource-path-string :entity-templates-resource))
@@ -147,19 +148,23 @@
 (defn queue-data-generation [store pipe username item]
   (let [entity_id (:entity_id item)
         location (format downloads-status-resource-path username entity_id)
-        item     (assoc item :uuid (str username "/" entity_id))
+        item     (assoc item :uuid (str entity_id))
         status   (get-status store item)]
     (if (= status "PENDING")
       {:response {:status 303
                   :headers {"Location" location}
                   :body "In Progress"}}
       (do
-        (write-status store (assoc item :status "PENDING"))
+        (write-status store (assoc (-> item
+                                       (assoc :metadata  {:timestamp (t/now)
+                                                          :content-type "text/csv"
+                                                          :filename "measurements.csv"})
+                                       (update-in [:uuid] str "/status")) :status "PENDING"))
         (pipe/submit-item pipe item)
         {:response {:status 202
                     :headers {"Location" location}
-                    :body "Accepted"}})))
-  )
+                    :body "Accepted"}}))))
+
 (defn entity-resource-handle-ok [store pipe ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [entity_id (-> ctx :kixi.hecuba.api.entities/item :id)
@@ -202,7 +207,7 @@
 
 (defresource entity-resource [store pipeline]
   :allowed-methods #{:get}
-  :available-media-types #{"text/csv"}
+  :available-media-types #{"text/csv" "application/edn"}
   :known-content-type? #{"text/csv"}
   :authorized? (authorized? store)
   :exists? (partial entities/resource-exists? store)
