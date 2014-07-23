@@ -40,7 +40,7 @@
   (let [s3-key (s3/s3-key-from item )]
     (when (s3/item-exists? s3 s3-key)
       (with-open [in (s3/get-object-by-metadata s3 {:key s3-key})]
-        (:status (json/parse-string (slurp in)))))))
+        (:status (json/parse-string (slurp in) keyword))))))
 
 (defn write-status [store item]
   (let [status-file (ioplus/mk-temp-file! "hecuba" ".tmp")]
