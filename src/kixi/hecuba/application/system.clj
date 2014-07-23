@@ -58,8 +58,7 @@
        ['cljs.core] ;; module mains, a main usually contains exported functions or code that just runs
        #{}) ;; module dependencies
       (cljs/step-configure-module :hecuba ['kixi.hecuba.main] #{:cljs})
-      (cljs/step-configure-module :charts ['kixi.hecuba.charts] #{:cljs})
-      ))
+      (cljs/step-configure-module :multiple-properties-comparison ['kixi.hecuba.multiple-properties-comparison] #{:cljs})))
 
 (defn message [state message]
   (println message)

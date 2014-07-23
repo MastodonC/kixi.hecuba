@@ -8,6 +8,7 @@
    :app "app"
    :admin "admin"
    :profile "profile" ;; user profile settings
+   :multiple-properties-comparison "properties_comparison"
 
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
    ;; API
@@ -26,6 +27,9 @@
    ;; enitites
    :entities-index "entities"
    :entity-resource "entities/%s"
+
+   ;; all properties
+   :properties "properties"
 
    ;; datasets
    :entity-datasets-index "entities/%s/datasets"

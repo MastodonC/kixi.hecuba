@@ -44,6 +44,10 @@
   (log/infof "App Session: %s" (:session req))
   {:status 200 :body (slurp (io/resource "site/app.html"))})
 
+(defn multiple-properties-comparison [req]
+  (log/infof "App Session: %s" (:session req))
+  {:status 200 :body (slurp (io/resource "site/charts.html"))})
+
 (defn index-routes
   ([route handler]
      (routes
@@ -94,6 +98,9 @@
    ;; Entities
    (index-routes :entities-index (entities/index store))
    (resource-route :entity-resource [:entity_id] (entities/resource store))
+
+   ;; All properties
+   (index-routes :properties (properties/index-all store))
 
    ;; Datasets
    (index-routes :entity-datasets-index [:entity_id] (datasets/index store))
@@ -158,6 +165,12 @@
    (GET (compojure-route :app) []
         (friend/wrap-authorize
          app-page
+         #{:kixi.hecuba.security/user}))
+
+   ;; Multiple properties comparison
+   (GET (compojure-route :multiple-properties-comparison) []
+        (friend/wrap-authorize
+         multiple-properties-comparison
          #{:kixi.hecuba.security/user}))
 
    ;; AMON API Routes

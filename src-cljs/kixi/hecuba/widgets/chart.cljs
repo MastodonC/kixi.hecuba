@@ -11,13 +11,9 @@
 (defn- draw-chart [cursor measurements]
   (let [Chart            (.-chart js/dimple)
         svg              (.newSvg js/dimple "#chart" "100%" 600)
-        [type device_id] (-> (get-in cursor [:sensor])
-                             str
-                             (str/split #"-"))
         data             (into [] (->> measurements
                                        (filter #(or (number? (:value %))
                                                     (re-matches #"[^A-DF-Za-z]+" (:value %))))
-                                       (map #(assoc % :id device_id))
                                        (map #(assoc % :timestamp (tf/parse amon-date (:timestamp %))))))
         unit             (get-in cursor [:unit])
         dimple-chart     (.setBounds (Chart. svg) "5%" "15%" "80%" "50%")
@@ -27,7 +23,7 @@
     (aset s "data" (clj->js data))
     (set! (.-tickFormat x) "%a %-d %b %Y %H:%M")
     (set! (.-title x) "Time")
-    (.addLegend dimple-chart "20%" "5%" "25%" "10%" "right")
+    (.addLegend dimple-chart "5%,10px" "2%" "20%" "20%" "left")
     (.draw dimple-chart)
     (.text (.-titleShape y) unit)))
 

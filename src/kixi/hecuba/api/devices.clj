@@ -121,7 +121,7 @@
   "Creates default sensors whenever new device is added: *_differenceSeries for CUMULATIVE,
    and *_co2 for kwh PULSE, etc."
   [body]
-  (let [sensors        (:readings body) 
+  (let [sensors        (:readings body)
         new-sensors    (map #(case (:period %)
                                "CUMULATIVE" (ext-type % "differenceSeries")
                                "PULSE"      (calculated-sensor %)

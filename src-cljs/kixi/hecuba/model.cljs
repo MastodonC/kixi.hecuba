@@ -42,7 +42,7 @@
     :uploads []
     :downloads {:files []}
     :chart    {:property ""
-               :sensor #{}
+               :sensors #{}
                :unit ""
                :range {}
                :measurements []
