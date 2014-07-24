@@ -71,11 +71,11 @@
   (let [{:keys [dir filename entity_id]} item
         blank-row? (fn [cells] (every? #(re-matches #"\s*" %) cells))
         header-rows   (with-open [in (io/reader (io/file dir filename))]
-                                     (->> in
-                                          (csv/read-csv)
-                                          (take-while (complement (comp tf/parse first)))
-                                          (remove blank-row?)
-                                          (doall)))]
+                        (->> in
+                             (csv/read-csv)
+                             (take-while (complement (comp tf/parse first)))
+                             (remove blank-row?)
+                             (doall)))]
     (db/with-session [session (:hecuba-session store)]
       (let [entity                   (entities/get-by-id session entity_id)
             devices                  (devices/get-devices session entity_id)
