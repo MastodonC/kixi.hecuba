@@ -80,7 +80,7 @@
       (let [entity                   (entities/get-by-id session entity_id)
             devices                  (devices/get-devices session entity_id)
             sensors                  (sensors/get-sensors-by-device_ids (map :id devices) session)
-            aliases                  (doall  (map (partial str/join \|) (rest (transpose header-rows))))
+            aliases                  (map (partial str/join \|) (rest (transpose header-rows)))
             sensors-in-alias-order   (for [a aliases s sensors :when (= a (:alias s))] s)
             ds-and-ss-in-alias-order (for [s sensors-in-alias-order
                                            d devices
