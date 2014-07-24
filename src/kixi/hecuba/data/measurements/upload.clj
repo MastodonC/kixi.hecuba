@@ -6,6 +6,7 @@
             [clojure.data.csv          :as csv]
             [clojure.java.io           :as io]
             [clojure.set               :as set]
+            [clojure.string            :as str]
             [clojure.tools.logging     :as log]
             [kixi.hecuba.api.templates :as templates]
             [kixi.hecuba.data.devices  :as devices]
@@ -41,10 +42,8 @@
                        (csv/read-csv)
                        (take 2)
                        (doall)))
-        r0c0 (get r0 0 ::dummy-value)
-        r1c0 (get r1 0 ::dummy-value)]
-    (if (and (not= (first headers-in-order) r0c0)
-             (tf/parse r1c0))
+        r0c0 (get r0 0 ::dummy-value)]
+    (if-not (= (first headers-in-order) r0c0)
       :with-aliases
       :full)))
 
@@ -69,16 +68,19 @@
        ::update-devices-and-sensors? true})))
 
 (defmethod get-header :with-aliases [store item]
-  (let [{:keys [dir filename]} item
-        [[entity-id & aliases]]   (with-open [in (io/reader (io/file dir filename))]
-                                     (->> in
-                                          (csv/read-csv)
-                                          (take 1)
-                                          (doall)))]
+  (let [{:keys [dir filename entity_id]} item
+        blank-row? (fn [cells] (every? #(re-matches #"\s*" %) cells))
+        header-rows   (with-open [in (io/reader (io/file dir filename))]
+                        (->> in
+                             (csv/read-csv)
+                             (take-while (complement (comp tf/parse first)))
+                             (remove blank-row?)
+                             (doall)))]
     (db/with-session [session (:hecuba-session store)]
-      (let [entity                   (entities/get-by-id session entity-id)
-            devices                  (devices/get-devices session entity-id)
+      (let [entity                   (entities/get-by-id session entity_id)
+            devices                  (devices/get-devices session entity_id)
             sensors                  (sensors/get-sensors-by-device_ids (map :id devices) session)
+            aliases                  (map (partial str/join \|) (rest (transpose header-rows)))
             sensors-in-alias-order   (for [a aliases s sensors :when (= a (:alias s))] s)
             ds-and-ss-in-alias-order (for [s sensors-in-alias-order
                                            d devices
@@ -87,7 +89,7 @@
             header (map relocate-user-id item ds-and-ss-in-alias-order)]
         (with-meta
           header
-          {::row-count 1
+          {::row-count (count header-rows)
            ::update-devices-and-sensors? false})))))
 
 (defn seq-of-seq-of-seqs->seq-of-seq-of-maps [header xs]
