@@ -69,7 +69,7 @@
     (let [[entity_id device_id type] (str/split sensor #"-" )
           measurements-type (interval start-date end-date)
           url (url-str start-date end-date entity_id device_id type measurements-type)]
-      (om/update! data [:chart :measurements] []) ;; TODO should remove from exising when sensor is deselected
+      (om/update! data [:chart :measurements] []) ;; TODO speed up deselection of sensors by not clearing measurements but by doing remove/concat
       (om/update! data [:fetching :measurements] true)
       (GET url {:handler (fn [response]
                            (om/update! data [:chart :measurements]

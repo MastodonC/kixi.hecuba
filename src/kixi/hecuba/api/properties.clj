@@ -11,9 +11,10 @@
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.data.profiles :as profiles]
    [kixi.hecuba.data.devices :as devices]
+   [kixi.hecuba.data.projects :as projects]
+   [kixi.hecuba.data.entities :as entities]
    [kixi.hecuba.web-paths :as p]
-   [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-   [kixi.hecuba.data.projects :as projects]))
+   [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Properties for entity
@@ -77,6 +78,7 @@
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
           editable (:editable ctx)
+          ;; TOFIX use k.h.d.entities
           coll    (->> (db/execute session
                                    (if-let [project_id (project_id-from ctx)]
                                      (hayt/select :entities (hayt/where [[= :project_id project_id]]))
@@ -99,31 +101,45 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; All properties
 
-(defn allowed-all?* [roles request-method]
-  (log/infof "roles: %s request-method: %s" roles request-method)
-  (if (has-admin? roles) true false))
+(defn allowed-all?* [allowed-programmes allowed-projects roles request-method session]
+  (log/infof "allowed-all?* allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s" allowed-programmes allowed-projects roles request-method)
+  (match [(has-admin? roles)
+          (has-programme-manager? roles)
+          (has-project-manager? roles)
+          (has-user? roles)
+          request-method]
+
+         [true _ _ _ _] [true {:projects
+                               (into #{} (map :id (projects/get-all session)))}]
+         [_ true _ _ _] [true {:projects
+                               (into #{} (map :id (mapcat #(projects/get-all session %)
+                                                          allowed-programmes)))}]
+         [_ _ true _ _] [true {:projects allowed-projects}]
+         [_ _ _ true :get] [true {:projects allowed-projects}]
+         :else false))
 
 (defn index-all-allowed? [store ctx]
   (let [{:keys [body request-method session params]} (:request ctx)
-        {:keys [roles]} (sec/current-authentication session)]
-    (allowed-all?* roles request-method)))
+        {:keys [programmes projects roles]} (sec/current-authentication session)]
+    (allowed-all?* programmes projects roles request-method (:hecuba-session store))))
 
 (defn index-all-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request (:request ctx)
-          coll    (->> (db/execute session (hayt/select :entities))
-                       (map #(-> %
-                                 (assoc
-                                     :property_data (if-let [property_data (:property_data %)]
-                                                      (-> property_data
-                                                          parse-property-data
-                                                          tech-icons)
-                                                      {})
-                                     :photos (if-let [photos (:photos %)] (mapv (fn [p] (json/parse-string p keyword)) photos) [])
-                                     :documents (if-let [docs (:documents %)] (mapv (fn [d] (json/parse-string d keyword)) docs) [])
-                                     :devices (devices/->clojure (:id %) session)
-                                     :profiles (profiles/->clojure (:id %) session)
-                                     :href (format entity-resource (:id %))))))]
+    (let [request  (:request ctx)
+          projects (:projects ctx)
+          coll     (->> (mapcat #(entities/get-all session %) projects)
+                        (map #(-> %
+                                  (assoc
+                                      :property_data (if-let [property_data (:property_data %)]
+                                                       (-> property_data
+                                                           parse-property-data
+                                                           tech-icons)
+                                                       {})
+                                      :photos (if-let [photos (:photos %)] (mapv (fn [p] (json/parse-string p keyword)) photos) [])
+                                      :documents (if-let [docs (:documents %)] (mapv (fn [d] (json/parse-string d keyword)) docs) [])
+                                      :devices (devices/->clojure (:id %) session)
+                                      :profiles (profiles/->clojure (:id %) session)
+                                      :href (format entity-resource (:id %))))))]
       coll)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
