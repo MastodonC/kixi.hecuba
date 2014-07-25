@@ -4,26 +4,15 @@
    [om.core :as om :include-macros true]
    [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map< filter< mult tap map>]]
    [ajax.core :refer (GET POST)]
-   [goog.userAgent :as agent]
    [clojure.string :as str]
    [cljs.reader :as reader]
    [kixi.hecuba.bootstrap :as bootstrap]
    [kixi.hecuba.widgets.chart :as chart]
    [kixi.hecuba.widgets.datetimepicker :as dtpicker]
-   [kixi.hecuba.common :refer (interval) :as common]
+   [kixi.hecuba.common :refer (interval log) :as common]
    [kixi.hecuba.history :as history]
    [sablono.core :as html :refer-macros [html]]
    [kixi.hecuba.tabs.slugs :as slugs]))
-
-(when (not agent/IE)
-  (enable-console-print!))
-
-(defn log [& msgs]
-  (when (or (and agent/GECKO
-                 (agent/isVersionOrHigher 30))
-            (and agent/WEBKIT
-                 (agent/isVersionOrHigher 537)))
-    (apply println msgs)))
 
 (def data-model
   (atom

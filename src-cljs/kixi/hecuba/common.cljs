@@ -2,7 +2,11 @@
   (:require [clojure.string   :as str]
             [cljs-time.core   :as t]
             [cljs-time.format :as tf]
-            [cljs-time.coerce :as tc]))
+            [cljs-time.coerce :as tc]
+            [goog.userAgent :as agent]))
+
+(when (not agent/IE)
+  (enable-console-print!))
 
 (defn find-first [pred coll]
   (first (filter pred coll)))
@@ -53,3 +57,10 @@
     (let [parsed (tf/parse (tf/formatter "yyyy-MM-dd'T'HH:mm:ss.SSSZ") timestamp)
           date   (tc/to-date parsed)]
       (unparse-date date f))))
+
+(defn log [& msgs]
+  (when (or (and agent/GECKO
+                 (agent/isVersionOrHigher 30))
+            (and agent/WEBKIT
+                 (agent/isVersionOrHigher 537)))
+    (apply println msgs)))
