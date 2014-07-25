@@ -125,8 +125,7 @@
 
 (defn index-all-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request  (:request ctx)
-          projects (:projects ctx)
+    (let [projects (:projects ctx)
           coll     (->> (mapcat #(entities/get-all session %) projects)
                         (map #(-> %
                                   (assoc
@@ -135,11 +134,7 @@
                                                            parse-property-data
                                                            tech-icons)
                                                        {})
-                                      :photos (if-let [photos (:photos %)] (mapv (fn [p] (json/parse-string p keyword)) photos) [])
-                                      :documents (if-let [docs (:documents %)] (mapv (fn [d] (json/parse-string d keyword)) docs) [])
-                                      :devices (devices/->clojure (:id %) session)
-                                      :profiles (profiles/->clojure (:id %) session)
-                                      :href (format entity-resource (:id %))))))]
+                                      :devices (devices/->clojure (:id %) session)))))]
       coll)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

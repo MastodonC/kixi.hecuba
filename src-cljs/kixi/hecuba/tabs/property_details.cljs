@@ -13,18 +13,8 @@
             [kixi.hecuba.tabs.programmes :as programmes]
             [kixi.hecuba.tabs.status :as status]
             [ajax.core :refer [GET PUT]]
-            [kixi.hecuba.widgets.fileupload :as file]))
-
-
-(when (not agent/IE)
-  (enable-console-print!))
-
-(defn log [& msgs]
-  (when (or (and agent/GECKO
-                 (agent/isVersionOrHigher 30))
-            (and agent/WEBKIT
-                 (agent/isVersionOrHigher 537)))
-    (apply println msgs)))
+            [kixi.hecuba.widgets.fileupload :as file]
+            [kixi.hecuba.common :refer (common)]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Property Details Helpers

@@ -6,8 +6,6 @@
    [kixi.hecuba.model :refer (app-model)]
    [ankha.core :as ankha]))
 
-;; (enable-console-print!)
-
 (om/root programmes/programmes-tab
          app-model
          {:target (.getElementById js/document "hecuba-tabs")
