@@ -11,31 +11,31 @@
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.data.profiles :as profiles]
    [kixi.hecuba.data.devices :as devices]
+   [kixi.hecuba.data.projects :as projects]
+   [kixi.hecuba.data.entities :as entities]
    [kixi.hecuba.web-paths :as p]
-   [kixi.hecuba.security :as sec]
-   [kixi.hecuba.data.projects :as projects]))
+   [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Properties for entity
 
 (def ^:private entity-resource (p/resource-path-string :entity-resource))
 
 (defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
   (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
              programme-id project-id allowed-programmes allowed-projects roles request-method)
-  (match [(some #(isa? % :kixi.hecuba.security/admin) roles)
-          (some #(isa? % :kixi.hecuba.security/programme-manager) roles)
+  (match [(has-admin? roles)
+          (has-programme-manager? roles)
           (some #(= % programme-id) allowed-programmes)
-          (some #(isa? % :kixi.hecuba.security/project-manager) roles)
+          (has-project-manager? roles)
           (some #(= % project-id) allowed-projects)
-          (some #(isa? % :kixi.hecuba.security/user) roles)
+          (has-user? roles)
           request-method]
-         ;; super-admin - do everything
+
          [true _ _ _ _ _ _] true
-         ;; programme-manager for this programme - do everything
          [_ true true _ _ _ _] true
-         ;; project-manager for this project - do everything
          [_ _ _ true true _ _] true
-         ;; user with this programme - get allowed
          [_ _ true _ _ true :get] true
-         ;; user with this project - get allowed
          [_ _ _ _ true true :get] true
          :else false))
 
@@ -78,6 +78,7 @@
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
           editable (:editable ctx)
+          ;; TOFIX use k.h.d.entities
           coll    (->> (db/execute session
                                    (if-let [project_id (project_id-from ctx)]
                                      (hayt/select :entities (hayt/where [[= :project_id project_id]]))
@@ -97,9 +98,58 @@
                                  (cond-> editable (assoc :editable editable)))))]
       coll)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; All properties
+
+(defn allowed-all?* [allowed-programmes allowed-projects roles request-method session]
+  (log/infof "allowed-all?* allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s" allowed-programmes allowed-projects roles request-method)
+  (match [(has-admin? roles)
+          (has-programme-manager? roles)
+          (has-project-manager? roles)
+          (has-user? roles)
+          request-method]
+
+         [true _ _ _ _] [true {:projects
+                               (into #{} (map :id (projects/get-all session)))}]
+         [_ true _ _ _] [true {:projects
+                               (into #{} (map :id (mapcat #(projects/get-all session %)
+                                                          allowed-programmes)))}]
+         [_ _ true _ _] [true {:projects allowed-projects}]
+         [_ _ _ true :get] [true {:projects allowed-projects}]
+         :else false))
+
+(defn index-all-allowed? [store ctx]
+  (let [{:keys [body request-method session params]} (:request ctx)
+        {:keys [programmes projects roles]} (sec/current-authentication session)]
+    (allowed-all?* programmes projects roles request-method (:hecuba-session store))))
+
+(defn index-all-handle-ok [store ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (let [projects (:projects ctx)
+          coll     (->> (mapcat #(entities/get-all session %) projects)
+                        (map #(-> %
+                                  (assoc
+                                      :property_data (if-let [property_data (:property_data %)]
+                                                       (-> property_data
+                                                           parse-property-data
+                                                           tech-icons)
+                                                       {})
+                                      :devices (devices/->clojure (:id %) session)))))]
+      coll)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Resources
+
 (defresource index [store]
   :allowed-methods #{:get}
   :available-media-types #{"application/json" "application/edn"}
   :authorized? (authorized? store)
   :allowed? (partial index-allowed? store)
   :handle-ok (partial index-handle-ok store))
+
+(defresource index-all [store]
+  :allowed-methods #{:get}
+  :available-media-types #{"application/json" "application/edn"}
+  :authorized? (authorized? store)
+  :allowed? (partial index-all-allowed? store)
+  :handle-ok (partial index-all-handle-ok store))

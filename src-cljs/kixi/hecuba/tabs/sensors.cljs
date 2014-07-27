@@ -13,17 +13,7 @@
             [ajax.core :refer [GET POST PUT]]
             [kixi.hecuba.tabs.programmes :as programmes]
             [clojure.string :as string]
-            [kixi.hecuba.common :as common]))
-
-(when (not agent/IE)
-  (enable-console-print!))
-
-(defn log [& msgs]
-  (when (or (and agent/GECKO
-                 (agent/isVersionOrHigher 30))
-            (and agent/WEBKIT
-                 (agent/isVersionOrHigher 537)))
-    (apply println msgs)))
+            [kixi.hecuba.common :refer (log) :as common]))
 
 (defn chart-feedback-box [cursor owner]
   (om/component

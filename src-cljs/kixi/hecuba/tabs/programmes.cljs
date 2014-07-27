@@ -12,22 +12,12 @@
    [cljs-time.format :as tf]
    [kixi.hecuba.navigation :as nav]
    [kixi.hecuba.bootstrap :as bs]
-   [kixi.hecuba.common :refer (index-of map-replace find-first interval)]
+   [kixi.hecuba.common :refer (index-of map-replace find-first interval log)]
    [kixi.hecuba.history :as history]
    [kixi.hecuba.model :refer (app-model)]
    [kixi.hecuba.tabs.slugs :as slugs]
    [kixi.hecuba.tabs.property-details :as property-details]
    [sablono.core :as html :refer-macros [html]]))
-
-(when (not agent/IE)
-  (enable-console-print!))
-
-(defn log [& msgs]
-  (when (or (and agent/GECKO
-                 (agent/isVersionOrHigher 30))
-            (and agent/WEBKIT
-                 (agent/isVersionOrHigher 537)))
-    (apply println msgs)))
 
 ;; our banner is 50px so we need to tweak the scrolling
 (defn fixed-scroll-to-element [element]
