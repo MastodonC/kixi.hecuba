@@ -2,7 +2,20 @@
   (:require [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
             [cheshire.core :as json]
+            [kixi.hecuba.data.devices :as devices]
             [kixi.hecuba.webutil :refer (update-stringified-lists)]))
+
+(defn delete [entity_id session]
+  (let [devices              (devices/get-devices session entity_id)
+        device_ids           (map :id devices)
+        delete-measurements? true
+        deleted-devices      (doall (map #(devices/delete % delete-measurements? session) device_ids))
+        deleted-entity       (db/execute
+                              session
+                              (hayt/delete :entities
+                                           (hayt/where [[= :id entity_id]])))]
+    {:devices deleted-devices
+     :entities deleted-entity}))
 
 (defn encode [entity]
   (-> entity
@@ -32,5 +45,3 @@
      (db/execute session (hayt/select :entities)))
   ([session project_id]
      (db/execute session (hayt/select :entities (hayt/where [[= :project_id project_id]])))))
-
-

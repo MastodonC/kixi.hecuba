@@ -165,6 +165,41 @@
   [store device-ids]
   (get-ids->parent store :devices :entity_id device-ids))
 
+(def Device {(s/required-key :device_id) s/Str
+             (s/optional-key :description)                (s/maybe s/Str)
+             (s/optional-key :parent_id)                  (s/maybe s/Str)
+             (s/optional-key :entity_id)                  (s/maybe s/Str)
+             (s/optional-key :location)                   (s/maybe s/Str) ;; TODO - is really a nested map
+             (s/optional-key :metadata)                   (s/maybe s/Str)
+             (s/optional-key :privacy)                    (s/maybe s/Str)
+             (s/optional-key :metering_point_id)          (s/maybe s/Str)})
+
+(def Sensor {(s/required-key :device_id)                   s/Str
+             (s/required-key :type)                        s/Str
+             (s/optional-key :alias)                       (s/maybe s/Str)
+             (s/optional-key :accuracy)                    (s/maybe s/Str)
+             (s/optional-key :actual_annual)               (s/maybe s/Bool)
+             (s/optional-key :corrected_unit)              (s/maybe s/Str)
+             (s/optional-key :correction)                  (s/maybe s/Str)
+             (s/optional-key :correction_factor)           (s/maybe s/Str)
+             (s/optional-key :correction_factor_breakdown) (s/maybe s/Str)
+             (s/optional-key :frequency)                   (s/maybe s/Str)
+             (s/optional-key :max)                         (s/maybe s/Str)
+             (s/optional-key :median)                      double
+             (s/optional-key :min)                         (s/maybe s/Str)
+             (s/optional-key :period)                      (s/enum "INSTANT" "PULSE" "CUMULATIVE")
+             (s/optional-key :resolution)                  (s/maybe s/Str)
+             (s/optional-key :status)                      (s/maybe s/Str)
+             (s/optional-key :synthetic)                   s/Bool
+             (s/optional-key :unit)                        (s/maybe s/Str)
+             ;; (s/enum "%RH" "Amps" "C" "Hz" "L" "Litres/5min" "Ls^-1"
+             ;;         "V" "VA" "VAr" "W/m^2" "W/m^2.K" "degrees" "g/Kg"
+             ;;         "kVArh" "kW" "kWh" "kWhth" "mA" "mV" "m^3" "ft^3"
+             ;;         "m^3" "ft^3" "kWh" "m^3/h" "mbar" "millisecs"
+             ;;         "ms^-1" "ppm" "wm-2" "" ;; allow blank for now.
+             ;;         )
+             (s/required-key :user_id)                     s/Str})
+
 (defn validate-header
   "Takes a header and returns a vector of [device sensor] after splitting.
    meta data will be attached to the vector indicating
@@ -172,8 +207,8 @@
 
    (map (fn [device-and-sensor]
           (let [[device sensor] (split-device-and-sensor device-and-sensor)
-                invalid-device? (devices/invalid? device)
-                invalid-sensor? (sensors/invalid? sensor)]
+                invalid-device? (s/check Device device)
+                invalid-sensor? (s/check Sensor sensor)]
             (-> device-and-sensor
                 (cond-> invalid-device? (merge-meta {:device-error invalid-device?}))
                 (cond-> invalid-sensor? (merge-meta {:sensor-error invalid-sensor?}))))) header))
