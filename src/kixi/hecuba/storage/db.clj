@@ -55,6 +55,17 @@
       (alia/execute (:session this) (->raw-with-logging query) opts)
       (catch Throwable t (log/errorf t "Query execution failed: %s opts: %s" (hayt/->raw query) opts)
              (throw t))))
+  (hecuba/-prepare-statement [this statement]
+    (try
+      (alia/prepare (:session this) statement)
+      (catch Throwable t
+        (log/errorf t "Could not prepare statement: %s" statement)
+        (throw t))))
+  (hecuba/-execute-prepared [this query opts]
+    (try
+      (alia/execute (:session this) query opts)
+      (catch Throwable t (log/errorf t "Query execution failed: %s opts: %s" query opts)
+             (throw t))))
   (hecuba/-execute-async [this query opts]
     (try
       (alia/execute-async (:session this) (->raw-with-logging query) opts)
@@ -74,6 +85,10 @@
 
 (defn execute [session query & [opts]]
   (hecuba/-execute session query opts))
+(defn prepare-statement [session statement]
+  (hecuba/-prepare-statement session statement))
+(defn execute-prepared [session query & [opts]]
+  (hecuba/-execute-prepared session query opts))
 (defn execute-async [session query & [opts]]
   (hecuba/-execute-async session query opts))
 (defn execute-chan [session query & [opts]]

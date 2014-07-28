@@ -38,21 +38,22 @@
 ;; (kixi.hecuba.security/add-user! (:store system) "support@example.com" "<password>" #{:kixi.hecuba.security/super-admin})
 
 (defn get-user [store]
-  (fn [username]
-    (log/debugf "Getting user: %s" username)
-    (db/with-session [session (:hecuba-session store)]
-      (let [user (first
-                  (db/execute
-                   session
-                   (hayt/select :users
-                                (hayt/where [[= :username username]]))))]
-        (log/debugf "Got user: %s" user)
-        (if user
-          (merge {:username (:username user)
-                  :id       (:id user)
-                  :password (:password user)}
-                 (edn/read-string (:data user)))
-          nil)))))
+  (let [user-cql (db/prepare-statement (:hecuba-session store) "select * from users where id = ?;")]
+    (fn [username]
+      (log/debugf "Getting user: %s" username)
+      (db/with-session [session (:hecuba-session store)]
+        (let [user (first
+                    (db/execute-prepared
+                     session
+                     user-cql
+                     {:values [username]}))]
+          (log/debugf "Got user: %s" user)
+          (if user
+            (merge {:username (:username user)
+                    :id       (:id user)
+                    :password (:password user)}
+                   (edn/read-string (:data user)))
+            nil))))))
 
 (defn update-user-data! [store username user-data]
   (db/with-session [session (:hecuba-session store)]
