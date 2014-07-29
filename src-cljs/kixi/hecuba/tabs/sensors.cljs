@@ -180,7 +180,7 @@
         (html
          (let [{:keys [device_id type unit period resolution status
                        parent-device lower_ts upper_ts actual_annual editable]} cursor
-                       {:keys [name privacy location]} parent-device
+                       {:keys [description privacy location]} parent-device
                        id (str type "-" device_id)
                        sensors (:sensors data)
                        selected? (contains? (:selected sensors) id)]
@@ -195,7 +195,7 @@
             (when editable
               [:td [:div {:class "fa fa-pencil-square-o" :id "edit"
                           :onClick #(when selected? (put! editing-chan cursor))}]])
-            [:td name]
+            [:td description]
             [:td type]
             [:td unit]
             [:td period]
@@ -243,7 +243,7 @@
              [:thead
               [:tr
                [:th ""]
-               (sorting-th owner "Name" :name)
+               (sorting-th owner "Description" :description)
                (sorting-th owner "Type" :type)
                (sorting-th owner "Unit" :unit)
                (sorting-th owner "Period" :period)
