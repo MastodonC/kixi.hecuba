@@ -12,7 +12,7 @@
 
                  ;; Testing POST and GET data
                  [kixi/schema_gen "0.1.3"]
-                 [kixi/amon-schema "0.1.1-SNAPSHOT"]
+                 [kixi/amon-schema "0.1.2"]
                  [clj-http "0.9.2"]
 
                  ;; logging
