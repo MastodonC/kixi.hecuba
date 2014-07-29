@@ -146,7 +146,7 @@
 
 (defn index-handle-ok [ctx]
   (let [items    (::items ctx)]
-    (util/render-items ctx 
+    (util/render-items ctx
                        (->> items
                                 (map #(dissoc % :user_id))
                                 (map #(update-in % [:location] json/decode))
@@ -180,7 +180,7 @@
           device_id (:device_id item)
           entity_id (:entity_id item)
           response  (devices/delete session entity_id device_id)]
-      (empty? response))))
+      "Delete Accepted")))
 
 (defn resource-put! [store ctx]
   (db/with-session [session (:hecuba-session store)]

@@ -8,6 +8,27 @@
             [clojure.walk :as walk]
             [schema.core :as s]))
 
+(def Sensor {(s/required-key :device_id)                   s/Str
+             (s/required-key :type)                        s/Str
+             (s/optional-key :alias)                       (s/maybe s/Str)
+             (s/optional-key :accuracy)                    (s/maybe s/Str)
+             (s/optional-key :actual_annual)               (s/maybe s/Bool)
+             (s/optional-key :corrected_unit)              (s/maybe s/Str)
+             (s/optional-key :correction)                  (s/maybe s/Str)
+             (s/optional-key :correction_factor)           (s/maybe s/Str)
+             (s/optional-key :correction_factor_breakdown) (s/maybe s/Str)
+             (s/optional-key :frequency)                   (s/maybe s/Str)
+             (s/optional-key :max)                         (s/maybe s/Str)
+             (s/optional-key :median)                      (s/maybe double)
+             (s/optional-key :min)                         (s/maybe s/Str)
+             (s/optional-key :period)                      (s/maybe (s/enum "INSTANT" "PULSE" "CUMULATIVE"))
+             (s/optional-key :resolution)                  (s/maybe s/Str)
+             (s/optional-key :status)                      (s/maybe s/Str)
+             (s/optional-key :synthetic)                   (s/maybe s/Bool)
+             (s/optional-key :unit)                        (s/maybe s/Str)
+             (s/optional-key :user_id)                     (s/maybe s/Str)
+             s/Any                                         s/Any})
+
 (def user-editable-keys [:device_id :type :accuracy :alias
                         :corrected_unit :correction
                         :correction_factor :correction_factor_breakdown
@@ -31,46 +52,20 @@
          (user-metadata (:synthetic sensor))
          (cond-> remove-pk? (dissoc :device_id :type)))))
 
-(def Sensor {(s/required-key :device_id)                   s/Str
-             (s/required-key :type)                        s/Str
-             (s/optional-key :alias)                       (s/maybe s/Str)
-             (s/optional-key :accuracy)                    (s/maybe s/Str)
-             (s/optional-key :actual_annual)               (s/maybe s/Bool)
-             (s/optional-key :corrected_unit)              (s/maybe s/Str)
-             (s/optional-key :correction)                  (s/maybe s/Str)
-             (s/optional-key :correction_factor)           (s/maybe s/Str)
-             (s/optional-key :correction_factor_breakdown) (s/maybe s/Str)
-             (s/optional-key :frequency)                   (s/maybe s/Str)
-             (s/optional-key :max)                         (s/maybe s/Str)
-             (s/optional-key :median)                      double
-             (s/optional-key :min)                         (s/maybe s/Str)
-             (s/optional-key :period)                      (s/enum "INSTANT" "PULSE" "CUMULATIVE")
-             (s/optional-key :resolution)                  (s/maybe s/Str)
-             (s/optional-key :status)                      (s/maybe s/Str)
-             (s/optional-key :synthetic)                   s/Bool
-             (s/optional-key :unit)                        (s/maybe s/Str)
-             ;; (s/enum "%RH" "Amps" "C" "Hz" "L" "Litres/5min" "Ls^-1"
-             ;;         "V" "VA" "VAr" "W/m^2" "W/m^2.K" "degrees" "g/Kg"
-             ;;         "kVArh" "kW" "kWh" "kWhth" "mA" "mV" "m^3" "ft^3"
-             ;;         "m^3" "ft^3" "kWh" "m^3/h" "mbar" "millisecs"
-             ;;         "ms^-1" "ppm" "wm-2" "" ;; allow blank for now.
-             ;;         )
-             (s/required-key :user_id)                     s/Str})
-
-(defn invalid? [sensor]
-  (s/check Sensor sensor))
-
-(defn sensor-time-range [device_id type session]
-  (first
-   (db/execute session
-               (hayt/select :sensor_metadata
-                            (hayt/columns :lower_ts :upper_ts)
-                            (hayt/where [[= :device_id device_id]
-                                         [= :type type]])))))
+(defn sensor-time-range [sensor session]
+  (s/validate Sensor sensor)
+  (let [{:keys [device_id type]} sensor]
+    (first
+     (db/execute session
+                 (hayt/select :sensor_metadata
+                              (hayt/columns :lower_ts :upper_ts)
+                              (hayt/where [[= :device_id device_id]
+                                           [= :type type]]))))))
 
 (defn add-metadata [sensor session]
+  (s/validate Sensor sensor)
   (let [{:keys [device_id type]}    sensor
-        {:keys [lower_ts upper_ts]} (sensor-time-range device_id type session)]
+        {:keys [lower_ts upper_ts]} (sensor-time-range sensor session)]
     (-> sensor
         (assoc :lower_ts lower_ts)
         (assoc :upper_ts upper_ts))))
@@ -97,14 +92,17 @@
                                    (hayt/values {:device_id (:device_id sensor) :type (:type sensor)}))))
 
 (defn update-user-metadata [sensor]
+  (s/validate Sensor sensor)
   (if-not (empty? (:user_metadata sensor))
     (update-in sensor [:user_metadata] (fn [metadata] [+ metadata]))
     sensor))
 
 (defn update
   ([session sensor]
+     (s/validate Sensor sensor)
      (update session (:device_id sensor) sensor))
   ([session device_id sensor]
+     (s/validate Sensor sensor)
      (db/execute session (hayt/update :sensors
                                       (hayt/set-columns (-> sensor
                                                             (encode :remove-pk)
@@ -118,17 +116,20 @@
   (let [sensors (get-sensors device_id session)]
     (mapv #(enrich-sensor % session) sensors)))
 
+(defn delete-measurements [sensor session]
+  (s/validate Sensor sensor)
+  (let [{:keys [lower_ts upper_ts]} (sensor-time-range sensor session)]
+    (when (and lower_ts upper_ts)
+      (let [measurements-result (measurements/delete sensor lower_ts upper_ts session)
+            sensor_metadata-result (misc/update-sensor-metadata session sensor lower_ts upper_ts)]
+        {assoc measurements-result
+         :sensor_metadata sensor_metadata-result}))))
+
 (defn delete
-  ([session device_id]
-     (let [sensor-response
-           (db/execute session (hayt/delete :sensors
-                                            (hayt/where [[= :device_id device_id]])))
-           sensor_metadata-response
-           (db/execute session (hayt/delete :sensor_metadata
-                                            (hayt/where [[= :device_id device_id]])))]
-       [sensor-response sensor_metadata-response]))
-  ([session device_id type]
-     (let [sensor-response
+  ([sensor session]
+     (s/validate Sensor sensor)
+     (let [{:keys [device_id type]} sensor
+           sensor-response
            (db/execute session (hayt/delete :sensors
                                             (hayt/where [[= :device_id device_id]
                                                          [= :type type]])))
@@ -136,10 +137,11 @@
            (db/execute session (hayt/delete :sensor_metadata
                                             (hayt/where [[= :device_id device_id]
                                                          [= :type type]])))]
-       [sensor-response sensor_metadata-response])))
-
-(defn delete-measurements [session device_id type]
-  (let [{:keys [lower_ts upper_ts]} (sensor-time-range device_id type session)]
-    (when (and lower_ts upper_ts)
-      (measurements/delete session device_id type lower_ts upper_ts)
-      (misc/update-sensor-metadata session {:device_id device_id :type type} lower_ts upper_ts))))
+       {:sensors sensor-response
+        :sensor_metadata sensor_metadata-response}))
+  ([sensor measurements? session]
+     (s/validate Sensor sensor)
+     (if measurements?
+       (merge (delete sensor session)
+              (delete-measurements sensor session))
+       (delete sensor session))))

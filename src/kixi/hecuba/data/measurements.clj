@@ -1,6 +1,7 @@
 (ns kixi.hecuba.data.measurements
   (:require [clj-time.core          :as t]
             [clj-time.coerce        :as tc]
+            [schema.core            :as s]
             [kixi.hecuba.time       :as time]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.data.misc  :as misc]
@@ -8,7 +9,12 @@
             [kixi.hecuba.webutil    :as util]
             [clojure.tools.logging  :as log]))
 
+(def SensorId {(s/required-key :device_id) s/Str
+               (s/required-key :type)      s/Str
+               s/Any s/Any})
+
 (defn sensor_metadata-for [store sensor_id]
+  (s/validate SensorId sensor_id)
   (let [{:keys [type device_id]} sensor_id]
     (db/with-session [session (:hecuba-session store)]
       (first (db/execute session
@@ -29,16 +35,19 @@
 (defn delete
   "WARNING: This will delete data in 1 month chunks based on the dates
   passed in."
-  [session device_id type start-date end-date]
-  (log/infof "Deleting Measurements for %s:%s from %s to %s" device_id type start-date end-date)
+  [sensor_id start-date end-date session]
+  (log/infof "Deleting Measurements for % from %s to %s" sensor_id type start-date end-date)
+  (s/validate SensorId sensor_id)
   (let [months (time/range->months start-date end-date)
-        years  (time/range->years start-date end-date)]
-    (concat
+        years  (time/range->years start-date end-date)
+        {:keys [device_id type]} sensor_id]
+    {:measurements
      (db/execute session
                  (hayt/delete :partitioned_measurements
                               (hayt/where [[= :device_id device_id]
                                            [= :type type]
                                            [:in :month months]])))
+     :hourly_rollups
      (db/execute session
                  (hayt/delete :hourly_rollups
                               (hayt/where [[= :device_id device_id]
@@ -46,10 +55,11 @@
                                            ;; FIXME: This should be partitioned by years, but isn't
                                            ;; [:in :year years]
                                            ])))
+     :daily_rollups
      (db/execute session
                  (hayt/delete :daily_rollups
                               (hayt/where [[= :device_id device_id]
-                                           [= :type type]]))))))
+                                           [= :type type]])))}))
 
 (defn all-measurements
   "Returns a sequence of all the measurements for a sensor
@@ -57,6 +67,7 @@
    background. The page size is a clj-time Period representing a range
    in the timestamp column. page size defaults to (clj-time/hours 1)"
   ([store sensor_id & [opts]]
+     (s/validate SensorId sensor_id)
      (let [{:keys [type device_id]} sensor_id
            {:keys [page start end] :or {page (t/hours 1)}} opts
            [start end] (resolve-start-end store type device_id start end)]
@@ -79,6 +90,7 @@
   "Returns a lazy sequence of measurements for a sensor matching type and device_id for a specified
   datetime range."
   [store sensor {:keys [start-date end-date]} page]
+  (s/validate SensorId sensor)
   (let [device_id  (:device_id sensor)
         type       (:type sensor)
         next-start (t/plus start-date page)]

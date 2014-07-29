@@ -69,19 +69,28 @@
                                         (hayt/set-columns {:devices [+ {id (str encoded-device)}]})
                                         (hayt/where [[= :id entity_id]]))))))
 
-(defn delete [session entity_id id]
-  (let [device-response (db/execute session (hayt/delete :devices
-                                                         (hayt/where [[= :id id]])))
-        [sensors-response sensor_metadata-response] (sensors/delete session id)
-        entity-response (db/execute session (hayt/delete :entities
-                                                          (hayt/columns {:devices id})
-                                                          (hayt/where [[= :id entity_id]])))]
-    [device-response sensors-response sensor_metadata-response entity-response]))
-
 (defn delete-measurements [session device_id]
   (doall (->> (sensors/get-sensors device_id session)
               (map :type)
               (map #(sensors/delete-measurements session device_id %)))))
+
+(defn delete-sensors [device_id measurements? session]
+  (let [sensors         (sensors/get-sensors device_id session)
+        sensor-types    (map :type sensors)
+        deleted-sensors (doall (map #(sensors/delete {:device_id device_id :type %} measurements? session) sensor-types))]
+    {:sensors deleted-sensors}))
+
+(defn delete
+  ([device_id measurements? session]
+     (let [device          (get-by-id session device_id)
+           deleted-sensors (delete-sensors device_id measurements? session)
+           deleted-device  (db/execute session (hayt/delete :devices
+                                                            (hayt/where [[= :id device_id]])))
+           entity-response (db/execute session (hayt/delete :entities
+                                                            (hayt/columns {:devices device_id})
+                                                            (hayt/where [[= :id (:entity_id device)]])))]
+       (merge deleted-sensors
+              {:devices deleted-device :entities entity-response}))))
 
 (defn get-devices [session entity_id]
   (db/execute session (hayt/select :devices (hayt/where [[= :entity_id entity_id]]))))
