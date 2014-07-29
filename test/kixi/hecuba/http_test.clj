@@ -118,29 +118,29 @@
 
 (defn- get-programme []
   (log/info "\nProgramme data:\n")
-  (let [output (json/read-str (:body (client/get (apply str "http://127.0.0.1:8010/4" @programme-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
-        prog-name (get-in output ["name"])]
+  (let [output (json/read-json (:body (client/get (apply str "http://127.0.0.1:8010/4" @programme-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
+        prog-name (:name output)]
     (reset! getter-map (assoc-in @getter-map [:programme-name] prog-name))
      (log/info output)))
 
 (defn- get-project []
   (log/info "\nProject data:\n")
-  (let [output (json/read-str (:body (client/get (apply str "http://127.0.0.1:8010/4" @programme-loc @project-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
-        proj-name (get-in output ["name"])]
+  (let [output (json/read-json (:body (client/get (apply str "http://127.0.0.1:8010/4" @programme-loc @project-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
+        proj-name (:name output)]
     (reset! getter-map (assoc-in @getter-map [:project-name] proj-name))
      (log/info output)))
 
 (defn- get-entity []
   (log/info "\nEntity data:\n")
-  (let [output (json/read-str (:body (client/get (apply str "http://127.0.0.1:8010/4" @entity-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
-        prop-code (get-in output ["property_code"])]
+  (let [output (json/read-json (:body (client/get (apply str "http://127.0.0.1:8010/4" @entity-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
+        prop-code (:property_code output)]
     (reset! getter-map (assoc-in @getter-map [:entity-property-code] prop-code))
      (log/info output)))
 
 (defn- get-device []
   (log/info "\nDevice data:\n")
-  (let [output (json/read-str (:body (client/get (apply str "http://127.0.0.1:8010/4" @device-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
-        device-desc (get-in output ["description"])]
+  (let [output (json/read-json (:body (client/get (apply str "http://127.0.0.1:8010/4" @device-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
+        device-desc (:description output)]
      (reset! getter-map (assoc-in @getter-map [:device-description] device-desc))
     (log/info output)))
 
