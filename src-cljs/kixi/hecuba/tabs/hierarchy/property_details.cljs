@@ -11,6 +11,7 @@
             [kixi.hecuba.tabs.hierarchy.profiles :as profiles]
             [kixi.hecuba.tabs.hierarchy.programmes :as programmes]
             [kixi.hecuba.tabs.hierarchy.status :as status]
+            [kixi.hecuba.common :refer (log)]
             [ajax.core :refer [GET PUT]]
             [kixi.hecuba.widgets.fileupload :as file]))
 

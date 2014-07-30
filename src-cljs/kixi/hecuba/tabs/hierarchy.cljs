@@ -27,8 +27,6 @@
     (history/update-token-ids! history :programmes nil)
     (common/fixed-scroll-to-element "programmes-div")))
 
-
-
 (defn back-to-properties [history]
   (fn [_ _]
     (history/update-token-ids! history :sensors nil)
@@ -113,7 +111,7 @@
         (om/update! data [:properties :selected] properties)
         (om/update! data [:sensors :selected] #{}))
 
-      (when (seq sensors)
+      (when sensors
         (log "Setting selected sensors to: " sensors)
         (om/update! data [:sensors :selected] (into #{} (str/split sensors #";"))))
 

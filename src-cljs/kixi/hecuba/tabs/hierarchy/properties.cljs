@@ -37,7 +37,8 @@
     [:div.col-md-12
      [:table {:className "table table-hover"}
       [:thead
-       [:tr [:th "ID"] [:th "Type"] [:th "Address"] [:th "Region"] [:th "Ownership"] [:th "Technologies"] [:th "Monitoring Hierarchy"]]]
+       [:tr [:th "Property Code"] [:th "Type"] [:th "Address"] 
+        [:th "Region"] [:th "Ownership"] [:th "Technologies"] [:th "Monitoring Hierarchy"]]]
       (for [property-details (sort-by #(-> % :property_code) (:data properties))]
         (let [property_data (:property_data property-details)
               id            (:id property-details)]
