@@ -10,6 +10,11 @@
                  [org.clojure/data.csv "0.1.2"]
                  [org.clojure/core.match "0.2.1"]
 
+                 ;; Testing POST and GET data
+                 [kixi/schema_gen "0.1.3"]
+                 [kixi/amon-schema "0.1.2"]
+                 [clj-http "0.9.2"]
+
                  ;; logging
                  [org.clojure/tools.logging "0.3.0"]
                  [org.slf4j/slf4j-api "1.7.7"]
@@ -101,11 +106,18 @@
                [org.clojure/tools.logging]]
 
   :cljsbuild {
-    :builds [{:id "dev"
-              :source-paths ["src-cljs"]
-              :compiler {:output-to "out/main.js"
-                         :output-dir "out"
-                         :optimizations :none
-                         :source-map true}}]}
+              :builds [{:id "dev"
+                        :source-paths ["src-cljs"]
+                        :compiler {:output-to "out/main.js"
+                                   :output-dir "out"
+                                   :optimizations :none
+                                   :source-map true}}]}
+
+  ;; lein test - runs default
+  ;; lein test :http-tests  - runs just http-tests
+  ;; lein test :all - runs all tests
+  :test-selectors {:default (complement :http-tests)
+                   :http-tests :http-tests
+                   :all (constantly true)}
 
   )
