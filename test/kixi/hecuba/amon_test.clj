@@ -1,4 +1,4 @@
-(ns kixi.hecuba.http_test
+(ns kixi.hecuba.amon_test
   (:require [clojure.test :refer :all]
             [kixi.amon-schema :as amon]
             [schema_gen.core :as sg]
