@@ -8,7 +8,7 @@
                  :data     []
                  :selected nil
                  :editing false
-                 :eidted-row nil}
+                 :edited-row nil}
     :projects {:name     "Projects"
                :data     []
                :selected nil}
