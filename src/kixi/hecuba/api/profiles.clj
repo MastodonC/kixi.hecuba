@@ -761,6 +761,18 @@
       (log/error t "Got malformed profiles CSV.")
       nil)))
 
+(defn rows->columns [rows]
+  (apply map vector rows))
+
+(defn rows->profiles [rows]
+  (let [[k & data]     (->> rows
+                            rows->columns
+                            (filter #(-> % first (.startsWith "profile"))))
+        dirty-profiles (map #(zipmap k %) data)
+        profiles       (map #(parse-by-schema % profile-schema) dirty-profiles)]
+    ;; TODO Add validation from Max's schema
+    profiles))
+
 (defmulti index-malformed? content-type-from-context)
 
 (defmethod index-malformed? "multipart/form-data" [ctx]
@@ -776,10 +788,10 @@
       (try
         (let [data (->> in
                         (csv/read-csv)
-                        (into {}))
-              parsed (parse-by-schema data profile-schema)]
-          (if (and parsed (= (:entity_id parsed) entity_id) (:timestamp parsed))
-            [false {:profile parsed}]
+                        (rows->profiles))]
+          (if (and data
+                   (every? identity (map (fn [d] (let [e (:entity_id d)] (= e entity_id))) data)))
+            [false {:profiles data}]
             true))
         (catch Throwable t
           (log/error t "Unparsable CSV.")
@@ -790,14 +802,13 @@
         {:keys [route-params request-method]} request
         entity_id (:entity_id route-params)]
     (case request-method
-      :post (let [decoded-body  (decode-body request)
-                  body     (if (= "text/csv" (:content-type request))
-                             (let [body-map (into {} decoded-body)]
-                               (parse-by-schema body-map profile-schema))
-                             decoded-body)]
+      :post (let [decoded-body (decode-body request)
+                  body         (if (= "text/csv" (:content-type request))
+                                 (rows->profiles decoded-body)
+                                 [decoded-body])]
               (if (not= (:entity_id body) entity_id)
                 true
-                [false {:profile body}]))
+                [false {:profiles body}]))
       false)))
 
 (defn index-handle-ok [ctx]
@@ -817,15 +828,16 @@
 
 (defn index-handle-created [ctx]
   (let [entity_id  (-> ctx :request :route-params :entity_id)
-        profile_id (:profile_id ctx)]
-    (if-not (empty? profile_id)
-      (let [location (format entity-profiles-resource entity_id profile_id)]
-        (when-not location
+        profiles (:profiles ctx)
+        profile_ids (map #(:profile_id %) profiles)]
+    (if (seq profile_ids)
+      (let [locations (map #(format entity-profiles-resource entity_id %) profile_ids)]
+        (when-not (seq locations)
           (throw (ex-info "No path resolved for Location header"
                           {:entity_id entity_id
-                           :profile_id profile_id})))
-        (ring-response {:headers {"Location" location}
-                        :body (json/encode {:location location
+                           :profile_ids (vec profile_ids)})))
+        (ring-response {:headers {"Location" (first locations)}
+                        :body (json/encode {:location (vec locations)
                                             :status "OK"
                                             :version "4"})}))
       (ring-response {:status 422
@@ -868,7 +880,7 @@
                                                                       (assoc :id profile_id)
                                                                       (assoc :user_id username)
                                                                       (update-stringified-lists
-                                                                        [:airflow_measurements :chps
+                                                                        [:airflow_measurements :biomasses :chps
                                                                          :conservatories :door_sets
                                                                          :extensions :floors :heat_pumps
                                                                          :heating_systems :hot_water_systems
@@ -899,11 +911,9 @@
      (= method :delete) false
       :else true)))
 
-(defn index-post! [store ctx]
+(defn store-profile [profile username store]
   (db/with-session [session (:hecuba-session store)]
-    (let [{:keys [request profile]} ctx
-          {:keys [entity_id timestamp]} profile
-          username   (sec/session-username (-> ctx :request :session))
+    (let [{:keys [entity_id timestamp]} profile
           profile_id (str (:entity_id profile) "-" (get-in profile [:profile_data :event_type]))]
       (when (and entity_id timestamp)
         (when (entities/get-by-id session entity_id)
@@ -911,7 +921,7 @@
                                  (assoc :user_id username)
                                  (assoc :id profile_id)
                                  (update-stringified-lists
-                                  [:airflow_measurements :chps
+                                  [:airflow_measurements :biomasses :chps
                                    :conservatories :door_sets
                                    :extensions :floors :heat_pumps
                                    :heating_systems :hot_water_systems
@@ -924,6 +934,10 @@
           (db/execute session (hayt/insert :profiles (hayt/values query-profile)))
           {:profile_id profile_id}))))))
 
+(defn index-post! [store ctx]
+  (let [{:keys [request profiles]} ctx
+        username (sec/session-username (:session request))]
+    (doall (map #(store-profile % username store) profiles))))
 
 (defresource index [store]
   :allowed-methods #{:get :post}
