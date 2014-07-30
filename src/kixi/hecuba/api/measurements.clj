@@ -172,7 +172,7 @@
         uuid      (uuid)
         location  (format uploads-status-resource-path (:user_id auth) uuid)]
     (pipe/submit-item pipe (assoc item
-                             :uuid (str username "/" uuid)
+                             :uuid (str entity_id "/" uuid)
                              :auth auth))
     {:response {:status 202
                 :headers {"Location" location}
