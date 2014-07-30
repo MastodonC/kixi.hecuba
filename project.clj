@@ -87,7 +87,7 @@
   :source-paths ["src" "src-cljs"]
   :resource-paths ["resources" "target"]
 
-  :jvm-opts ["-Duser.timezone=UTC"]
+  :jvm-opts ["-Duser.timezone=UTC -XX:MaxPermSize=256m"]
 
   :profiles {:dev {:source-paths ["dev"]
                    :dependencies [
@@ -105,8 +105,8 @@
                [org.clojure/tools.trace]
                [org.clojure/tools.logging]]
 
-  :cljsbuild {
-              :builds [{:id "dev"
+
+  :cljsbuild {:builds [{:id "dev"
                         :source-paths ["src-cljs"]
                         :compiler {:output-to "out/main.js"
                                    :output-dir "out"
@@ -118,6 +118,4 @@
   ;; lein test :all - runs all tests
   :test-selectors {:default (complement :http-tests)
                    :http-tests :http-tests
-                   :all (constantly true)}
-
-  )
+                   :all (constantly true)})
