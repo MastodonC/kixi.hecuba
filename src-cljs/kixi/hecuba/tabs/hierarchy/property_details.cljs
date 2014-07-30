@@ -1,20 +1,18 @@
-(ns kixi.hecuba.tabs.property-details
+(ns kixi.hecuba.tabs.hierarchy.property-details
   (:import goog.net.XhrIo)
-  (:require [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map< filter< mult tap map>]]
+  (:require [cljs.core.async :refer [<! >! chan put!]]
             [cljs.reader :as reader]
             [om.core :as om :include-macros true]
-            [om.dom :as dom :include-macros true]
             [goog.userAgent :as agent]
             [sablono.core :as html :refer-macros [html]]
             [kixi.hecuba.bootstrap :as bs]
             [kixi.hecuba.tabs.slugs :as slugs]
-            [kixi.hecuba.tabs.sensors :as sensors]
-            [kixi.hecuba.tabs.profiles :as profiles]
-            [kixi.hecuba.tabs.programmes :as programmes]
-            [kixi.hecuba.tabs.status :as status]
+            [kixi.hecuba.tabs.hierarchy.sensors :as sensors]
+            [kixi.hecuba.tabs.hierarchy.profiles :as profiles]
+            [kixi.hecuba.tabs.hierarchy.programmes :as programmes]
+            [kixi.hecuba.tabs.hierarchy.status :as status]
             [ajax.core :refer [GET PUT]]
-            [kixi.hecuba.widgets.fileupload :as file]
-            [kixi.hecuba.common :refer (common)]))
+            [kixi.hecuba.widgets.fileupload :as file]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Property Details Helpers

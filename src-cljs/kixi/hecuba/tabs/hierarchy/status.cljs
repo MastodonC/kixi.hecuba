@@ -1,4 +1,4 @@
-(ns kixi.hecuba.tabs.status
+(ns kixi.hecuba.tabs.hierarchy.status
   (:require [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]
             [ajax.core :refer (GET)]

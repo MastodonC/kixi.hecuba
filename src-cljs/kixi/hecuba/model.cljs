@@ -6,7 +6,9 @@
     :title    "Programmes"
     :programmes {:name     "Programmes"
                  :data     []
-                 :selected nil}
+                 :selected nil
+                 :editing false
+                 :edited-row nil}
     :projects {:name     "Projects"
                :data     []
                :selected nil}

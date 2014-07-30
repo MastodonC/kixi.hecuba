@@ -2,7 +2,12 @@
   (:require [clojure.tools.logging :as log]
             [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
-            [kixi.hecuba.data.projects :as projects]))
+            [kixi.hecuba.data.projects :as projects]
+            [kixi.hecuba.webutil :as webutil]))
+
+(defn encode [programme]
+  (-> programme
+      webutil/stringify-values))
 
 (defn delete [programme_id session]
   (let [projects          (projects/get-all session programme_id)
@@ -24,3 +29,8 @@
 (defn get-all
   ([session]
      (->> (db/execute session (hayt/select :programmes)))))
+
+(defn update [session id programme]
+  (db/execute session (hayt/update :programmes
+                                   (hayt/set-columns (encode (dissoc programme :id)))
+                                   (hayt/where [[= :id id]]))))

@@ -1,4 +1,4 @@
-(ns kixi.hecuba.tabs.profiles
+(ns kixi.hecuba.tabs.hierarchy.profiles
   (:require [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]
             [cljs-time.coerce :as tc]
