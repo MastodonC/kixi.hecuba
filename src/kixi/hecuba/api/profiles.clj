@@ -343,7 +343,7 @@
    :commissioning_date
    :capacity
    :hub_height
-   :height_above_canpoy
+   :height_above_canopy
    :wind_speed
    :wind_speed_info_source
    :wind_speed_info_source_other
@@ -746,18 +746,19 @@
   nested item    | profile_data, bedroom_count | profile_data_bedroom_count |
   association    | storeys, first storey_type  | storeys_0_storey_type      |"
   (try
-    (reduce
-     (fn [item attr]
-       (let [t (attribute-type attr)
-             imploded-attribute (case t
-                                  :attribute               (extract-attribute attr input)
-                                  :nested-item             (extract-nested-item attr input)
-                                  :associated-items        (extract-associated-items attr input))]
-         (conj item imploded-attribute)))
-     {}
-     schema)
+    (let [parsed-data (reduce
+                       (fn [item attr]
+                         (let [t (attribute-type attr)
+                               imploded-attribute (case t
+                                                    :attribute               (extract-attribute attr input)
+                                                    :nested-item             (extract-nested-item attr input)
+                                                    :associated-items        (extract-associated-items attr input))]
+                           (conj item imploded-attribute)))
+                       {}
+                       schema)]
+      parsed-data)
     (catch Throwable t
-      (log/error "Got malformed profiles CSV.")
+      (log/error t "Got malformed profiles CSV.")
       nil)))
 
 (defmulti index-malformed? content-type-from-context)
@@ -781,7 +782,7 @@
             [false {:profile parsed}]
             true))
         (catch Throwable t
-          (log/error "Unparsable CSV.")
+          (log/error t "Unparsable CSV.")
           true)))))
 
 (defmethod index-malformed? :default [ctx]
@@ -903,11 +904,12 @@
     (let [{:keys [request profile]} ctx
           {:keys [entity_id timestamp]} profile
           username   (sec/session-username (-> ctx :request :session))
-          profile_id (sha1/gen-key :profile profile)]
+          profile_id (str (:entity_id profile) "-" (get-in profile [:profile_data :event_type]))]
       (when (and entity_id timestamp)
         (when (entities/get-by-id session entity_id)
           (let [query-profile (-> profile
                                  (assoc :user_id username)
+                                 (assoc :id profile_id)
                                  (update-stringified-lists
                                   [:airflow_measurements :chps
                                    :conservatories :door_sets

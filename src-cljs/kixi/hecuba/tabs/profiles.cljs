@@ -67,7 +67,7 @@
       (html
        [:div
         (for [profile profiles]
-          (let [category (get-in profile [:profile_data :category] "Intervention")
+          (let [category (get-in profile [:profile_data :event_type] "Intervention")
                 timestamp (format-time-inst  (:timestamp profile) "yyyy-MM-dd")]
             [:div {:class (profile-column-width)}
              [:h3.text-center category [:br ] [:small timestamp]]]))]))))
