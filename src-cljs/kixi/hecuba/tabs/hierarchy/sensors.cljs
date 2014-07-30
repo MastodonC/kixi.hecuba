@@ -1,9 +1,8 @@
-(ns kixi.hecuba.tabs.sensors
+(ns kixi.hecuba.tabs.hierarchy.sensors
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
-  (:require [cljs.core.async :refer [<! >! chan put! sliding-buffer close! pipe map< filter< mult tap map>]]
+  (:require [cljs.core.async :refer [<! >! chan put!]]
             [cljs.reader :as reader]
             [om.core :as om :include-macros true]
-            [om.dom :as dom :include-macros true]
             [goog.userAgent :as agent]
             [sablono.core :as html :refer-macros [html]]
             [kixi.hecuba.bootstrap :as bs]
@@ -11,9 +10,9 @@
             [kixi.hecuba.widgets.chart :as chart]
             [kixi.hecuba.widgets.datetimepicker :as dtpicker]
             [ajax.core :refer [GET POST PUT]]
-            [kixi.hecuba.tabs.programmes :as programmes]
+            [kixi.hecuba.tabs.hierarchy.data :refer (fetch-properties)]
             [clojure.string :as string]
-            [kixi.hecuba.common :refer (log) :as common]))
+            [kixi.hecuba.common :refer (log static-text text-input-control) :as common]))
 
 (defn chart-feedback-box [cursor owner]
   (om/component
@@ -64,7 +63,7 @@
 
 (defn refresh-contents [data project_id property_id device_id]
   (GET (str "/4/entities/property_id" property_id "/devices/" device_id)
-       {:handler #(programmes/fetch-properties project_id data)}))
+       {:handler #(fetch-properties project_id data)}))
 
 (defn post-resource [data project_id property_id device_id sensor-data]
   (PUT  (str "/4/entities/" property_id "/devices/" device_id)
@@ -78,12 +77,9 @@
     (post-resource data project_id property_id device_id (assoc device :readings [(assoc readings :type type)]))
     (om/update! data [:sensor-edit :editing] false)))
 
-(defn handle-change [owner key e]
-  (let [value (.-value (.-target e))]
-    (om/set-state! owner [:sensor key] value)))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; sensors
+
 (defn status-label [status privacy calculated-field]
   [:div
    [:div
@@ -102,20 +98,6 @@
        (if sort-asc
          [:i.fa.fa-sort-asc]
          [:i.fa.fa-sort-desc]))]))
-
-(defn text-input-control [owner data key label]
-  [:div.form-group
-   [:label.control-label.col-md-2 {:for (name key)} label]
-   [:div.col-md-10
-    [:input {:defaultValue (get data key "")
-             :on-change #(handle-change owner key %1)
-             :class "form-control"
-             :type "text"}]]])
-
-(defn static-text [data key label]
-  [:div.form-group
-   [:label.control-label.col-md-2 {:for (name key)} label]
-   [:p {:class "form-control-static col-md-10"} (get data key "")]])
 
 (defn sensor-edit-form [data]
   (fn [cursor owner]
@@ -139,13 +121,13 @@
                                        :onClick (fn [_ _] (om/update! data [:sensor-edit :editing] false))} "Cancel"]]]
            (static-text row :device_id "Device ID")
            (static-text row :type "Type")
-           (text-input-control owner (:parent-device row) :name "Parent Device Name")
-           (text-input-control owner (:alias row) :name "Alias")
-           (text-input-control owner row :unit "Unit")
-           (text-input-control owner row :period "Period")
-           (text-input-control owner row :resolution "Resolution")
-           (text-input-control owner (:parent-device row) :location "Location")
-           (text-input-control owner (:parent-device row) :privacy "Privacy")
+           (text-input-control owner (:parent-device row) :sensor :name "Parent Device Name")
+           (text-input-control owner (:alias row) :sensor  :name "Alias")
+           (text-input-control owner row :sensor :unit "Unit")
+           (text-input-control owner row :sensor :period "Period")
+           (text-input-control owner row :sensor :resolution "Resolution")
+           (text-input-control owner (:parent-device row) :sensor  :location "Location")
+           (text-input-control owner (:parent-device row) :sensor  :privacy "Privacy")
            [:div.form-group
             [:label.control-label.col-md-2 {:for "calculated_field"} "Calculated Field"]
             [:input {:type "checkbox"
@@ -298,7 +280,7 @@
               edited-row             (<! editing-chan)]
           (om/update! data [:sensor-edit :editing] true)
           (om/update! data [:sensor-edit :row] edited-row)
-          (programmes/fixed-scroll-to-element "sensor-edit-div"))
+          (common/fixed-scroll-to-element "sensor-edit-div"))
         (recur)))
     om/IRenderState
     (render-state [_ {:keys [editing-chan]}]

@@ -3,7 +3,8 @@
             [cljs-time.core   :as t]
             [cljs-time.format :as tf]
             [cljs-time.coerce :as tc]
-            [goog.userAgent :as agent]))
+            [goog.userAgent :as agent]
+            [om.core :as om :include-macros true]))
 
 (when (not agent/IE)
   (enable-console-print!))
@@ -64,3 +65,54 @@
             (and agent/WEBKIT
                  (agent/isVersionOrHigher 537)))
     (apply println msgs)))
+
+;; our banner is 50px so we need to tweak the scrolling
+(defn fixed-scroll-to-element [element]
+  (let [rect (-> (.getElementById js/document element)
+                 .getBoundingClientRect)
+        top (.-top rect)]
+    (.scrollBy js/window 0 (- top 50))))
+
+(defn scroll-to-element [element]
+  (-> (.getElementById js/document element)
+      .scrollIntoView))
+
+
+(defn row-for [{:keys [selected data]}]
+  (find-first #(= (:id %) selected) data))
+
+(defn title-for [cursor & {:keys [title-key] :or {title-key :slug}}]
+  (let [row (row-for cursor)]
+    (get-in row (if (vector? title-key) title-key (vector title-key)))))
+
+(defn error-row [data]
+  [:div.row
+   [:div.col-md-12.text-center
+    [:p.lead {:style {:padding-top 30}}
+     "There has been an error. Please contact " [:a {:href "mailto:support@mastodonc.com"} "support@mastodonc.com"]]
+    [:p "Error Code: " (:error-status data) " Message: " (:error-text data)]]])
+
+(defn no-data-row [data]
+  [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data available for this selection."]]])
+
+(defn fetching-row [data]
+  [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching data for selection." ]]])
+
+(defn handle-change [owner table key e]
+  (let [value (.-value (.-target e))]
+    (om/set-state! owner [table key] value)))
+
+;; TOFIX probably should move to bootstrap ns
+(defn text-input-control [owner data table key label]
+  [:div.form-group
+   [:label.control-label.col-md-2 {:for (name key)} label]
+   [:div.col-md-10
+    [:input {:defaultValue (get data key "")
+             :on-change #(handle-change owner table key %1)
+             :class "form-control"
+             :type "text"}]]])
+
+(defn static-text [data key label]
+  [:div.form-group
+   [:label.control-label.col-md-2 {:for (name key)} label]
+   [:p {:class "form-control-static col-md-10"} (get data key "")]])
