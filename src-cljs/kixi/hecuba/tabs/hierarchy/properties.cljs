@@ -37,7 +37,7 @@
     [:div.col-md-12
      [:table {:className "table table-hover"}
       [:thead
-       [:tr [:th "Property Code"] [:th "Type"] [:th "Address"] 
+       [:tr [:th "Photo"] [:th "Property Code"] [:th "Type"] [:th "Address"]
         [:th "Region"] [:th "Ownership"] [:th "Technologies"] [:th "Monitoring Hierarchy"]]]
       (for [property-details (sort-by #(-> % :property_code) (:data properties))]
         (let [property_data (:property_data property-details)
@@ -48,6 +48,9 @@
                        (history/update-token-ids! history :properties id))
             :className (if (= id (:selected properties)) "success")
             :id (str table-id "-selected")}
+           [:td (when-let [pic (:path (first (:photos property-details)))]
+                  [:img.img-thumbnail.tmg-responsive
+                   {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" pic)}])]
            [:td (:property_code property-details)]
            [:td (:property_type property_data)]
            [:td (slugs/postal-address property_data)]
