@@ -26,7 +26,7 @@
 (def ^:private entity-loc (atom ""))
 (def ^:private device-loc (atom ""))
 (def ^:private measurement-loc (atom ""))
-(def ^:private type (atom ""))
+(def ^:private reading-type (atom ""))
 
 (def ^:private gen-date-time
   (gen/fmap (partial apply t/date-time)
@@ -49,7 +49,7 @@
 ;; -------------------
 
 (defn- post-programme []
-  (reset! programme-loc 
+  (reset! programme-loc
           (get-in (:headers
                    (let [sample (last (sg/generate-examples amon/BaseProgramme))]
                      (reset! poster-map (assoc-in @poster-map [:programme-name] (:name sample)))
@@ -58,8 +58,8 @@
   (log/info "Programmes: " @programme-loc))
 
 (defn- post-project []
-  (reset! project-loc 
-          (get-in (:headers 
+  (reset! project-loc
+          (get-in (:headers
                    (let [sample (last (sg/generate-examples amon/BaseProject))]
                      (reset! poster-map (assoc-in @poster-map [:project-name] (:name sample)))
                      (client/post (apply str "http://127.0.0.1:8010" @programme-loc "/projects/") {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str (assoc-in sample [:programme_id]  (clojure.string/replace @programme-loc  #"/4/programmes/(.*?)" "$1")))})))
@@ -67,7 +67,7 @@
   (log/info "Project: " @project-loc))
 
 (defn- post-entity []
-  (reset! entity-loc 
+  (reset! entity-loc
           (get-in (:headers
                    (let [sample (last (sg/generate-examples amon/BaseEntity))]
                       (reset! poster-map (assoc-in @poster-map [:entity-property-code] (:property_code sample)))
@@ -76,18 +76,17 @@
   (log/info "Entity: " @entity-loc))
 
 (defn- post-device []
-  (reset! device-loc 
-          (get-in (:headers 
-                   (let [sample (last (sg/generate-examples amon/BaseDevice))
-                         reading-type (:type (first (:readings sample)))]
-                     (reset! type reading-type)
+  (reset! device-loc
+          (get-in (:headers
+                   (let [sample (last (sg/generate-examples amon/BaseDevice))]
+                     (reset! reading-type (:type (first (:readings sample))))
                      (reset! poster-map (assoc-in @poster-map [:device-description] (:description sample)))
                      (client/post (apply str "http://127.0.0.1:8010" @entity-loc "/devices/") {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str (assoc-in sample [:entity_id]  (clojure.string/replace @entity-loc  #"/4/entities/(.*?)" "$1")))})))
                   ["Location"]))
   (log/info "Devices: " @device-loc))
 
 (defn- post-measurement []
-  (client/post (apply str "http://127.0.0.1:8010" @device-loc "/measurements/") {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str (assoc-in (sample-Measurement) [:measurements 0 :type] @type))})
+  (client/post (apply str "http://127.0.0.1:8010" @device-loc "/measurements/") {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str (assoc-in (sample-Measurement) [:measurements 0 :type] @reading-type))})
   (log/info "Posting Measurements"))
 
                                         ;using a specific example -- schema for this may be too hard
