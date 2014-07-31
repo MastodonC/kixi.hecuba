@@ -991,7 +991,7 @@
           [:div {:class (profile-column-width)}
            (bs/panel
             "Biomass Boilers"
-            (if-let [biomass-boilers (seq (:biomass_boilers profile))]
+            (if-let [biomass-boilers (seq (:biomasses profile))]
               [:div
                (for [item biomass-boilers]
                  (bs/panel
