@@ -40,20 +40,22 @@
 (defn get-user [store]
   (let [user-cql (db/prepare-statement (:hecuba-session store) "select * from users where id = ?;")]
     (fn [username]
-      (log/debugf "Getting user: %s" username)
-      (db/with-session [session (:hecuba-session store)]
-        (let [user (first
-                    (db/execute-prepared
-                     session
-                     user-cql
-                     {:values [username]}))]
-          (log/debugf "Got user: %s" user)
-          (if user
-            (merge {:username (:username user)
-                    :id       (:id user)
-                    :password (:password user)}
-                   (edn/read-string (:data user)))
-            nil))))))
+      (if (seq username)
+        (db/with-session [session (:hecuba-session store)]
+          (log/debugf "Getting user: [%s]" username)
+          (let [user (first
+                      (db/execute-prepared
+                       session
+                       user-cql
+                       {:values [username]}))]
+            (log/debugf "Got user: [%s]" user)
+            (if user
+              (merge {:username (:username user)
+                      :id       (:id user)
+                      :password (:password user)}
+                     (edn/read-string (:data user)))
+              nil)))
+        (log/warn "Get user called empty username.")))))
 
 (defn update-user-data! [store username user-data]
   (db/with-session [session (:hecuba-session store)]
