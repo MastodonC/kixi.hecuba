@@ -43,7 +43,7 @@
   (let [{:keys [roles programmes]} (sec/current-authentication session)]
     (log/debugf "Roles: %s Programmes: %s" roles programmes)
     (if (some #(isa? % ::sec/admin) roles)
-      (map #(assoc % :editable true) items)
+      (map #(assoc % :editable true :admin true) items)
       (editable-programmes (filter #(programmes (:id %)) items) programmes roles))))
 
 (defn index-handle-ok [store ctx]

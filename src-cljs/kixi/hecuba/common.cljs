@@ -116,3 +116,13 @@
   [:div.form-group
    [:label.control-label.col-md-2 {:for (name key)} label]
    [:p {:class "form-control-static col-md-10"} (get data key "")]])
+
+(defn checkbox [owner data table key label]
+  [:div.form-group
+   [:label.control-label.col-md-2 {:for (str key)} label]
+   [:input {:type "checkbox"
+            :defaultChecked (get data key "")
+            :on-change #(om/set-state! owner [table key] (.-checked (.-target %)))}]])
+
+(defn now->str []
+  (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss") (t/now)))

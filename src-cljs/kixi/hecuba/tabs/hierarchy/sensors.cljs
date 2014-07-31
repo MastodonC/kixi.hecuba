@@ -12,7 +12,7 @@
             [ajax.core :refer [GET POST PUT]]
             [kixi.hecuba.tabs.hierarchy.data :refer (fetch-properties)]
             [clojure.string :as string]
-            [kixi.hecuba.common :refer (log static-text text-input-control) :as common]))
+            [kixi.hecuba.common :refer (log static-text text-input-control checkbox) :as common]))
 
 (defn chart-feedback-box [cursor owner]
   (om/component
@@ -128,11 +128,7 @@
            (text-input-control owner row :sensor :resolution "Resolution")
            (text-input-control owner (:parent-device row) :sensor  :location "Location")
            (text-input-control owner (:parent-device row) :sensor  :privacy "Privacy")
-           [:div.form-group
-            [:label.control-label.col-md-2 {:for "calculated_field"} "Calculated Field"]
-            [:input {:type "checkbox"
-                     :defaultChecked (get row :actual_annual "")
-                     :on-change #(om/set-state! owner [:sensor :actual_annual] (.-checked (.-target %)))}]]]]])))))
+           (checkbox owner row :sensor :actual_annual "Calculated Field")]]])))))
 
 (defn update-sensor-selection [selected-sensors unit chart sensors history]
   (om/update! sensors :selected selected-sensors)

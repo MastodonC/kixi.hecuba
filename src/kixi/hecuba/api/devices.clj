@@ -197,8 +197,8 @@
           ;; TODO when new sensors are created they do not necessarilly overwrite old sensors (unless their type is the same)
           ;; We should probably allow to delete sensors through the API/UI
           (doseq [reading (:readings new-body)]
-            (when-not (empty? (dissoc reading :type :device_id))
-              (sensors/update session device_id reading))))
+            (when-not (empty? (dissoc reading :type :device_id)) ;; don't update when no data is changed 
+              (sensors/update session device_id (assoc reading :device_id device_id)))))
         (ring-response {:status 404 :body "Please provide valid entity_id and device_id"})))))
 
 (defn resource-handle-ok [store ctx]
