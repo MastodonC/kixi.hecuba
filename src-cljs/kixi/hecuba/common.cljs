@@ -4,7 +4,8 @@
             [cljs-time.format :as tf]
             [cljs-time.coerce :as tc]
             [goog.userAgent :as agent]
-            [om.core :as om :include-macros true]))
+            [om.core :as om :include-macros true]
+            [ajax.core :refer (POST PUT)]))
 
 (when (not agent/IE)
   (enable-console-print!))
@@ -85,44 +86,19 @@
   (let [row (row-for cursor)]
     (get-in row (if (vector? title-key) title-key (vector title-key)))))
 
-(defn error-row [data]
-  [:div.row
-   [:div.col-md-12.text-center
-    [:p.lead {:style {:padding-top 30}}
-     "There has been an error. Please contact " [:a {:href "mailto:support@mastodonc.com"} "support@mastodonc.com"]]
-    [:p "Error Code: " (:error-status data) " Message: " (:error-text data)]]])
-
-(defn no-data-row [data]
-  [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data available for this selection."]]])
-
-(defn fetching-row [data]
-  [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching data for selection." ]]])
-
-(defn handle-change [owner table key e]
-  (let [value (.-value (.-target e))]
-    (om/set-state! owner [table key] value)))
-
-;; TOFIX probably should move to bootstrap ns
-(defn text-input-control [owner data table key label]
-  [:div.form-group
-   [:label.control-label.col-md-2 {:for (name key)} label]
-   [:div.col-md-10
-    [:input {:defaultValue (get data key "")
-             :on-change #(handle-change owner table key %1)
-             :class "form-control"
-             :type "text"}]]])
-
-(defn static-text [data key label]
-  [:div.form-group
-   [:label.control-label.col-md-2 {:for (name key)} label]
-   [:p {:class "form-control-static col-md-10"} (get data key "")]])
-
-(defn checkbox [owner data table key label]
-  [:div.form-group
-   [:label.control-label.col-md-2 {:for (str key)} label]
-   [:input {:type "checkbox"
-            :defaultChecked (get data key "")
-            :on-change #(om/set-state! owner [table key] (.-checked (.-target %)))}]])
-
 (defn now->str []
   (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss") (t/now)))
+
+(defn post-resource [data url resource handler]
+  (when resource
+    (POST url {:content-type "application/json"
+               :handler handler
+               :error-handler (fn [{:keys [status status-text]}] (log "status: " status "status-text: " status-text))
+               :params resource})))
+
+(defn put-resource [data url resource handler]
+  (when resource
+    (PUT url {:content-type "application/json"
+              :handler handler
+              :error-handler (fn [{:keys [status status-text]}] (log "status: " status "status-text: " status-text))
+              :params resource})))

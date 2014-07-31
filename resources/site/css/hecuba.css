@@ -66,3 +66,14 @@ p#footer {
 #summary-stats {
     min-height: 100px;
 }
+
+.required:after {
+    content: "*";
+    padding-left:1%;
+    color: red;
+}
+
+.form-control{
+    width:97%;
+    float:left;
+}

@@ -20,8 +20,7 @@
 (def ^:private programme-projects-index (p/index-path-string :programme-projects-index))
 
 (defn allowed?* [programme-id allowed-programmes roles request-method]
-  (log/infof "allowed?* programme-id: %s allowed-programmes: %s roles: %s request-method: %s"
-             programme-id allowed-programmes roles request-method)
+  (log/infof "allowed?* programme-id: %s allowed-programmes: %s roles: %s request-method: %s" programme-id allowed-programmes roles request-method)
   (match [(has-admin? roles)
           (has-programme-manager? roles)
           (some #(= % programme-id) allowed-programmes)
@@ -129,7 +128,7 @@
 (defresource index [store]
   :allowed-methods #{:get :post}
   :available-media-types ["application/json" "application/edn"]
-  :known-content-type? #{"application/edn"}
+  :known-content-type? #{"application/json" "application/edn"}
   :authorized? (authorized? store)
   :allowed? (allowed? store)
   :handle-ok (partial index-handle-ok store)
@@ -139,7 +138,7 @@
 (defresource resource [store]
   :allowed-methods #{:get :put}
   :available-media-types ["application/json" "application/edn"]
-  :known-content-type? #{"application/edn"}
+  :known-content-type? #{"application/json" "application/edn"}
   :authorized? (authorized? store)
   :allowed? (partial resource-allowed? store)  
   :exists? (partial resource-exists? store)

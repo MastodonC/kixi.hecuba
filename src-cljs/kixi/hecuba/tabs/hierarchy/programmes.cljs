@@ -3,22 +3,23 @@
   (:require
    [om.core :as om :include-macros true]
    [cljs.core.async :refer [<! >! chan put!]]
-   [ajax.core :refer (POST PUT)]
    [clojure.string :as str]
    [kixi.hecuba.history :as history]
    [kixi.hecuba.tabs.slugs :as slugs]
-   [kixi.hecuba.common :refer (text-input-control static-text log checkbox) :as common]
+   [kixi.hecuba.bootstrap :refer (text-input-control static-text checkbox alert) :as bs]
+   [kixi.hecuba.common :refer (log) :as common]
    [kixi.hecuba.tabs.hierarchy.data :refer (fetch-programmes)]
    [sablono.core :as html :refer-macros [html]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; programmes
 
-(defn post-resource [data method url programme-data]
-  (when programme-data
-    (method url {:content-type "application/json"
-                 :handler #(fetch-programmes data)
-                 :params programme-data})))
+(defn post-new-programme [data programme]
+  (common/post-resource data (str "/4/programmes/")
+                        (-> programme
+                            (assoc :created_at (common/now->str)))
+                        (fn [_] (fetch-programmes data)))
+  (om/update! data [:programmes :adding-programme] false))
 
 (defn programme-add-form [data]
   (fn [cursor owner]
@@ -31,16 +32,19 @@
          [:div.form-group
           [:div.btn-toolbar
            [:button.btn.btn-success {:type "button"
-                                     :onClick (fn [_] (let [programme-data (om/get-state owner [:programme])
-                                                            url            (str "/4/programmes/")]
-                                                        (post-resource data POST url (-> programme-data
-                                                                                         (assoc :created_at (common/now->str))))
-                                                        (om/update! data [:programmes :adding-programme] false)))}
+                                     :onClick (fn [_] (let [programme (om/get-state owner [:programme])]
+                                                        (if (:name programme)
+                                                          (post-new-programme data programme)
+                                                          (om/set-state! owner [:invalid] true))))}
             "Save"]
            [:button.btn.btn-danger {:type "button"
                                     :onClick (fn [_] (om/update! data [:programmes :adding-programme] false))}
             "Cancel"]]]
-         (text-input-control owner cursor :programme :name "Programme Name")
+         (alert "alert alert-danger "
+                [:div [:div {:class "fa fa-exclamation-triangle"} " Please enter name of the programme."]]
+                (om/get-state owner :invalid)
+                (str "new-programme-form-failure"))
+         (text-input-control owner cursor :programme :name "Programme Name" true)
          (text-input-control owner cursor :programme :description "Description")
          (text-input-control owner cursor :programme :home_page_text "Home Page Text")
          (text-input-control owner cursor :programme :lead_organisations "Lead Organisations")
@@ -62,8 +66,10 @@
              [:button.btn.btn-success {:type "button"
                                        :onClick (fn [_] (let [programme-data (om/get-state owner [:programme])
                                                               url            (str "/4/programmes/" programme-id)]
-                                                          (post-resource data PUT url (-> programme-data
-                                                                                          (assoc :updated_at (common/now->str))))
+                                                          (common/put-resource data url 
+                                                                               (-> programme-data
+                                                                                   (assoc :updated_at (common/now->str)))
+                                                                               (fn [_] (fetch-programmes data)))
                                                           (om/update! data [:programmes :editing] false)))} "Save"]
              [:button.btn.btn-danger {:type "button"
                                        :onClick (fn [_] (om/update! data [:programmes :editing] false))} "Cancel"]]]
