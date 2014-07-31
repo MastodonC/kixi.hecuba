@@ -159,9 +159,9 @@
             (text-area-control property_data state owner :monitoring_policy "Monitoring Policy")
             (text-area-control property_data state owner :other_notes "Other Notes")]
            [:div.col-md-2
-            (when-let [pic (:path (first (:photos property-details)))]
-              [:img.img-thumbnail.tmg-responsive
-               {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" pic)}])]
+            (for [pic (:photos property-details)]
+              [:p [:img.img-thumbnail.tmg-responsive
+                   {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" (:path pic))}]])]
            [:div.col-md-4
             (for [ti (:technology_icons property_data)]
               [:img.tmg-responsive {:src ti :width 80 :height 80}])]]])))))
@@ -208,10 +208,10 @@
          (let [id "download-status-alert"
                pending-file? (some #{"PENDING"} (map :status (:files cursor)))]
            [:div {:id "measurements-template-with-data"}
-            [:div 
+            [:div
              ;; Status alert
              (alert id "alert alert-info" status owner)]
-            
+
             ;; Allow to trigger download when there are no pending files
             (when-not pending-file?
               [:button {:type "button"
