@@ -14,7 +14,8 @@
    [kixi.hecuba.data.projects :as projects]
    [kixi.hecuba.data.entities :as entities]
    [kixi.hecuba.web-paths :as p]
-   [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]))
+   [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
+   [kixipipe.storage.s3 :as s3]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Properties for entity
@@ -74,6 +75,9 @@
       (log/errorf "Got edn property data when we expected json: %s" property_data)
       (edn/read-string property_data))))
 
+(defn upload->uri [store s3-key]
+  (s3/generate-presigned-url (:s3 store) s3-key))
+
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
@@ -90,8 +94,8 @@
                                                           parse-property-data
                                                           tech-icons)
                                                       {})
-                                     :photos (if-let [photos (:photos %)] (mapv (fn [p] (json/parse-string p keyword)) photos) [])
-                                     :documents (if-let [docs (:documents %)] (mapv (fn [d] (json/parse-string d keyword)) docs) [])
+                                     :photos (map (partial upload->uri store) (:photos %))
+                                     :documents (map (partial upload->uri store) (:documents %))
                                      :devices (devices/->clojure (:id %) session)
                                      :profiles (profiles/->clojure (:id %) session)
                                      :href (format entity-resource (:id %)))

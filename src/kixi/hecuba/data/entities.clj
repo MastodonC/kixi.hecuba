@@ -45,3 +45,13 @@
      (db/execute session (hayt/select :entities)))
   ([session project_id]
      (db/execute session (hayt/select :entities (hayt/where [[= :project_id project_id]])))))
+
+(defn add-image [session id key]
+    (db/execute session (hayt/update :entities
+                                     (hayt/set-columns {:photos [+ [key]]})
+                                     (hayt/where [[= :id id]]))))
+
+(defn add-document [session id key]
+    (db/execute session (hayt/update :entities
+                                     (hayt/set-columns {:documents [+ [key]]})
+                                     (hayt/where [[= :id id]]))))

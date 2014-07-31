@@ -27,7 +27,8 @@
    [kixi.hecuba.api.datasets :as datasets]
    [kixi.hecuba.api.templates :as templates]
    [kixi.hecuba.api.downloads :as downloads]
-   [kixi.hecuba.api.uploads :as uploads]))
+   [kixi.hecuba.api.uploads :as uploads]
+   [kixi.hecuba.api.entity.upload :as entity-uploads]))
 
 (defn index-page [req]
   {:status 200
@@ -142,10 +143,16 @@
    (resource-route :uploads-status-resource [:user_id :upload_id] (uploads/uploads-status-resource store))
    (resource-route :uploads-data-resource [:user_id :upload_id] (uploads/uploads-data-resource store))
    (resource-route :upload-status-for-username [:programme_id :project_id :entity_id] (uploads/uploads-for-username store))
-   
+
    ;; Downloads
    (resource-route :download-data-resource [:entity_id] (downloads/downloads-data-resource store))
-   (resource-route :download-status [:programme_id :project_id :entity_id] (downloads/downloads-for-entity store))))
+   (resource-route :download-status [:programme_id :project_id :entity_id] (downloads/downloads-for-entity store))
+
+   ;; Entity image/document upload (same code, different upload based on uri.
+   (index-routes :entity-images-index [:entity_id] (entity-uploads/index store s3 pipeline-head))
+   (index-routes :entity-documents-index [:entity_id] (entity-uploads/index store s3 pipeline-head))
+
+   ))
 
 (defn all-routes [store s3 pipeline-head]
   (routes

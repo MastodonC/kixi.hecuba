@@ -29,7 +29,7 @@
                         (error-handler owner)))
 
 (defn put-edited-programme [data owner url programme]
-  (common/put-resource data url
+  (common/put-resource data url 
                        (assoc programme :updated_at (common/now->str))
                        (fn [_]
                          (fetch-programmes data)

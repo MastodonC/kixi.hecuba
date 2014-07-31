@@ -123,14 +123,14 @@
     (om/set-state! owner [table key] value)))
 
 (defn alert [class body status id]
-  [:div
+  [:div 
    [:div {:id id :class class :style {:display (if status "block" "none")}}
     [:button.close {:type "button" :onClick (fn [e] (set! (.-display (.-style (.getElementById js/document id))) "none"))}
      [:span {:class "fa fa-times"}]]
     body]])
 
 (defn text-input-control [data owner table key label & required]
-  [:div.form-group
+  [:div.form-group 
    [:label.control-label.col-md-2 {:for (name key)} label]
    [:div {:class (str (if required "required " "") "col-md-10")}
     [:input {:defaultValue (get data key "")

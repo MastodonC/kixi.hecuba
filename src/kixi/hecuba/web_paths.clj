@@ -24,7 +24,7 @@
    :project-resource "projects/%s"
    :project-properties-index "projects/%s/properties"
 
-   ;; enitites
+   ;; entities
    :entities-index "entities"
    :entity-resource "entities/%s"
 
@@ -42,6 +42,15 @@
    ;; profiles
    :entity-profiles-index "entities/%s/profiles"
    :entity-profiles-resource "entities/%s/profiles/%s"
+
+   ;; images
+   :entity-images-index "entities/%s/images"
+   :entity-images-resource "entities/%s/images/%s"
+
+   ;; documents
+   :entity-documents-index "entities/%s/documents"
+   :entity-documents-resource "entities/%s/documents/%s"
+
 
    ;; measurements
    :entity-device-measurement-index "entities/%s/devices/%s/measurements"
