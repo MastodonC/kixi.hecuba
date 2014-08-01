@@ -126,10 +126,6 @@
               (not= selected new-selected))
       (vector new-selected ids search))))
 
-(defn chart-feedback-box [cursor owner]
-  (om/component
-   (dom/div nil cursor)))
-
 (defmulti url-str (fn [start end entity_id device_id type measurements-type] measurements-type))
 (defmethod url-str :raw [start end entity_id device_id type _]
   (str "/4/entities/" entity_id "/devices/" device_id "/measurements/"
@@ -153,7 +149,7 @@
               sensor_ids (get ids :sensors)]
 
           (om/update! data :range {:start-date start-date :end-date end-date})
-          (om/update! data :sensors sensor_ids) 
+          (om/update! data :sensors sensor_ids)
           (om/update! data :measurements []) ;; TOFIX why are we resetting it?
 
           (when (and (not (empty? start-date))

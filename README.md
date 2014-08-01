@@ -8,7 +8,7 @@ A data platform built with [Clojure][CLJ], [ClojureScript][CLJS], [core.async][C
 
 ## Usage
 
-Clone the repo, and then lein repl or cider-jack-in as you prefer
+To start the server, clone the repo, and then lein repl or cider-jack-in as you prefer
 
 ```
 (go)
@@ -19,6 +19,16 @@ When you make changes just reset.
 ```
 (reset)
 ```
+
+Then you'll need to compile the clojurescipt. That can be done with
+cljsbuild like this
+
+```
+lein cljsbuild auto
+```
+
+This will recompile your clojurescript each time you save. The server
+app needs to be bounced by doing ```reset``` as above.
 
 If you pull from github, you'll still probably want to restart your
 nrepl session though.

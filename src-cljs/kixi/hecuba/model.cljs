@@ -53,4 +53,9 @@
                :unit ""
                :range {}
                :measurements []
-               :message ""}}))
+               :message ""}
+    :raw-data {:name "Raw Data"
+               :data []
+               :selected nil
+               :message ""
+               :range {:start-date nil :end-end nil}}}))

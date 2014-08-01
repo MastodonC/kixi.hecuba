@@ -12,7 +12,7 @@
     -ms-animation-duration: 4000ms;
     -ms-animation-iteration-count: infinite;
     -ms-animation-timing-function: linear;
-    
+
     animation-name: spin;
     animation-duration: 4000ms;
     animation-iteration-count: infinite;
@@ -73,7 +73,11 @@ p#footer {
     color: red;
 }
 
-.form-control{
+.form-control {
     width:97%;
     float:left;
+}
+
+#property-details {
+    min-height:1200px;
 }

@@ -6,11 +6,11 @@
    [kixi.hecuba.model :refer (app-model)]
    [ankha.core :as ankha]))
 
-(om/root hierarchy/main-tab
-         app-model
-         {:target (.getElementById js/document "hecuba-tabs")
-          :shared {:history (history/new-history [:programmes :projects :properties :sensors :measurements])}})
+(when-let [hecuba-tabs (.getElementById js/document "hecuba-tabs")]
+  (om/root hierarchy/main-tab
+           app-model
+           {:target hecuba-tabs
+            :shared {:history (history/new-history [:programmes :projects :properties :sensors :measurements])}}))
 
 ;; Useful for debugging in dev
 ;; (om/root ankha/inspector app-model {:target (.getElementById js/document "ankha")})
-
