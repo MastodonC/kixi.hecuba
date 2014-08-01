@@ -25,7 +25,7 @@
 (defn post-new-property [data owner property project_id]
   (common/post-resource data  "/4/entities/"
                         property
-                        (fn [_] 
+                        (fn [_]
                           (fetch-properties project_id data)
                           (om/update! data [:properties :adding-property] false))
                         (error-handler owner)))
@@ -66,7 +66,11 @@
                   error
                   (str "add-property-form-failure"))
            (bs/text-input-control cursor owner :property :property_code "Property Code" true)
-           (bs/address-control cursor owner :property_data) 
+<<<<<<< HEAD
+           (bs/address-control cursor owner :property_data)
+=======
+           (bs/address-control cursor owner :property_data)
+>>>>>>> UI for creating new properties.
            (bs/text-input-control cursor owner :property_data :property_type "Property Type")
            (bs/text-input-control cursor owner :property_data :built_form "Built Form")
            (bs/text-input-control cursor owner :property_data :age "Age")
@@ -111,7 +115,11 @@
     [:div.col-md-12
      [:table {:className "table table-hover"}
       [:thead
+<<<<<<< HEAD
        [:tr [:th "Photo"] [:th "Property Code"] [:th "Type"] [:th "Address"]
+=======
+       [:tr [:th "Property Code"] [:th "Type"] [:th "Address"]
+>>>>>>> UI for creating new properties.
         [:th "Region"] [:th "Ownership"] [:th "Technologies"] [:th "Monitoring Hierarchy"]]]
       (for [property-details (sort-by #(-> % :property_code) (:data properties))]
         (let [property_data (:property_data property-details)

@@ -27,16 +27,16 @@
     (common/post-resource data url
                           (assoc project :created_at (common/now->str)
                                  :programme_id programme_id)
-                          (fn [_] 
+                          (fn [_]
                             (fetch-projects programme_id data)
                             (om/update! data [:projects :adding-project] false))
                           (error-handler owner))))
 
 (defn put-edited-project [data owner project programme_id project_id]
   (let [url (str "/4/programmes/" programme_id  "/projects/" project_id)]
-    (common/put-resource data url 
+    (common/put-resource data url
                           (assoc project :updated_at (common/now->str))
-                          (fn [_] 
+                          (fn [_]
                             (fetch-projects programme_id data)
                             (om/update! data [:projects :editing] false))
                           (error-handler owner))))
@@ -97,7 +97,7 @@
                        :class "btn btn-success"
                        :onClick (fn [_]
                                   (let [project (om/get-state owner [:project])]
-                                    (put-edited-project data owner project 
+                                    (put-edited-project data owner project
                                                         programme_id id)))}
               "Save"]
              [:button {:type "button"
