@@ -104,3 +104,48 @@
       [:div {:class "panel-body"} data]])
   ([title data]
      (panel "panel-info" title data)))
+
+(defn error-row [data]
+  [:div.row
+   [:div.col-md-12.text-center
+    [:p.lead {:style {:padding-top 30}}
+     "There has been an error. Please contact " [:a {:href "mailto:support@mastodonc.com"} "support@mastodonc.com"]]
+    [:p "Error Code: " (:error-status data) " Message: " (:error-text data)]]])
+
+(defn no-data-row [data]
+  [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data available for this selection."]]])
+
+(defn fetching-row [data]
+  [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching data for selection." ]]])
+
+(defn handle-change [owner table key e]
+  (let [value (.-value (.-target e))]
+    (om/set-state! owner [table key] value)))
+
+(defn alert [class body status id]
+  [:div 
+   [:div {:id id :class class :style {:display (if status "block" "none")}}
+    [:button.close {:type "button" :onClick (fn [e] (set! (.-display (.-style (.getElementById js/document id))) "none"))}
+     [:span {:class "fa fa-times"}]]
+    body]])
+
+(defn text-input-control [owner data table key label & required]
+  [:div.form-group 
+   [:label.control-label.col-md-2 {:for (name key)} label]
+   [:div {:class (str (if required "required " "") "col-md-10")}
+    [:input {:defaultValue (get data key "")
+             :on-change #(handle-change owner table key %1)
+             :class "form-control"
+             :type "text"}]]])
+
+(defn static-text [data key label]
+  [:div.form-group
+   [:label.control-label.col-md-2 {:for (name key)} label]
+   [:p {:class "form-control-static col-md-10"} (get data key "")]])
+
+(defn checkbox [owner data table key label]
+  [:div.form-group
+   [:label.control-label.col-md-2 {:for (str key)} label]
+   [:input {:type "checkbox"
+            :defaultChecked (get data key "")
+            :on-change #(om/set-state! owner [table key] (.-checked (.-target %)))}]])

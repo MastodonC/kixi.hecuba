@@ -3,71 +3,227 @@
   (:require
    [om.core :as om :include-macros true]
    [cljs.core.async :refer [<! >! chan put!]]
-   [ajax.core :refer (PUT)]
    [clojure.string :as str]
    [kixi.hecuba.history :as history]
    [kixi.hecuba.tabs.slugs :as slugs]
-   [kixi.hecuba.common :refer (text-input-control static-text log) :as common]
+   [kixi.hecuba.bootstrap :refer (text-input-control static-text checkbox alert) :as bs]
+   [kixi.hecuba.common :refer (log) :as common]
+   [kixi.hecuba.tabs.hierarchy.data :refer (fetch-projects)]
    [sablono.core :as html :refer-macros [html]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; projects
 
-(defmulti projects-table-html (fn [projects owner] (:fetching projects)))
-(defmethod projects-table-html :fetching [projects owner]
-  (common/fetching-row projects))
+(defn error-handler [owner]
+  (fn [{:keys [status status-text]}]
+    (om/set-state! owner :error true)
+    (om/set-state! owner :http-error-response {:status status
+                                               :status-text status-text})))
+(defn valid-project? [project]
+  (not (nil? (:name project))))
 
-(defmethod projects-table-html :no-data [projects owner]
-  (common/no-data-row projects))
+(defn post-new-project [data owner project programme_id]
+  (let [url  (str "/4/programmes/" programme_id "/projects/")]
+    (common/post-resource data url
+                          (assoc project :created_at (common/now->str)
+                                 :programme_id programme_id)
+                          (fn [_] 
+                            (fetch-projects programme_id data)
+                            (om/update! data [:projects :adding-project] false))
+                          (error-handler owner))))
 
-(defmethod projects-table-html :error [projects owner]
-  (common/error-row projects))
+(defn put-edited-project [data owner project programme_id project_id]
+  (let [url (str "/4/programmes/" programme_id  "/projects/" project_id)]
+    (common/put-resource data url 
+                          (assoc project :updated_at (common/now->str))
+                          (fn [_] 
+                            (fetch-projects programme_id data)
+                            (om/update! data [:projects :editing] false))
+                          (error-handler owner))))
 
-(defmethod projects-table-html :has-data [projects owner]
+(defn project-add-form [data programme_id]
+  (fn [cursor owner]
+    (om/component
+     (let [{:keys [status-text]} (om/get-state owner :http-error-response)
+            error      (om/get-state owner :error)
+            alert-body (if status-text
+                         (str " Server returned status: " status-text)
+                         " Please enter name of the project.")]
+       (html
+        [:div
+         [:h3 "Add new project"]
+         [:form.form-horizontal {:role "form"}
+          [:div.col-md-6
+           [:div.form-group
+            [:div.btn-toolbar
+             [:button {:class "btn btn-success"
+                       :type "button"
+                       :onClick (fn [_] (let [project (om/get-state owner [:project])]
+                                          (if (valid-project? project)
+                                            (post-new-project data owner project programme_id)
+                                            (om/set-state! owner [:error] true))))}
+              "Save"]
+             [:button {:type "button"
+                       :class "btn btn-danger"
+                       :onClick (fn [_]
+                                  (om/update! data [:projects :adding-project] false))}
+              "Cancel"]]]
+           (alert "alert alert-danger "
+                  [:div [:div {:class "fa fa-exclamation-triangle"} alert-body]]
+                  error
+                  (str "edit-project-form-failure"))
+           (text-input-control owner cursor :project :name "Project Name" true)
+           (text-input-control owner cursor :project :description "Description")
+           (text-input-control owner cursor :project :organisation "Organisation")
+           (text-input-control owner cursor :project :project_code "Project Code")
+           (text-input-control owner cursor :project :project_type "Project Type")
+           (text-input-control owner cursor :project :type_of "Type Of")]]])))))
+
+(defn project-edit-form [data]
+  (fn [cursor owner]
+    (om/component
+     (let [{:keys [id programme_id]} cursor
+           {:keys [status-text]} (om/get-state owner :http-error-response)
+            error      (om/get-state owner :error)
+            alert-body (str " Server returned status: " status-text)]
+       (html
+        [:div
+         [:h3 "Editing Project"]
+         [:form.form-horizontal {:role "form"}
+          [:div.col-md-6
+           [:div.form-group
+            [:div.btn-toolbar
+             [:button {:type "button"
+                       :class "btn btn-success"
+                       :onClick (fn [_]
+                                  (let [project (om/get-state owner [:project])]
+                                    (put-edited-project data owner project 
+                                                        programme_id id)))}
+              "Save"]
+             [:button {:type "button"
+                       :class "btn btn-danger"
+                       :onClick (fn [_] (om/update! data [:projects :editing] false))} "Cancel"]]]
+           (alert "alert alert-danger "
+                  [:div [:div {:class "fa fa-exclamation-triangle"} alert-body]]
+                  error
+                  (str "edit-project-form-failure"))
+           (static-text cursor :id "Project ID")
+           (static-text cursor :programme_id "Programme ID")
+           (static-text cursor :created_at "Created At")
+           (text-input-control owner cursor :project :description "Description")
+           (text-input-control owner cursor :project :organisation "Organisation")
+           (text-input-control owner cursor :project :project_code "Project Code")
+           (text-input-control owner cursor :project :project_type "Project Type")
+           (text-input-control owner cursor :project :type_of "Type Of")]]])))))
+
+(defn project-row [data history projects table-id editing-chan]
+  (fn [cursor owner]
+    (reify
+      om/IRender
+      (render [_]
+        (html
+         (let [{:keys [id name type_of description
+                       created_at organisation project_code editable]} cursor
+               selected? (= (:selected projects) id)]
+           [:tr {:onClick (fn [e]
+                            (let [div-id (.-id (.-target e))]
+                              (when-not (= div-id (str id "-edit"))
+                                (om/update! projects :selected id)
+                                (history/update-token-ids! history :projects id)
+                                (common/fixed-scroll-to-element "properties-div"))))
+                 :class (when selected? "success")
+                 :id (str table-id "-selected")}
+            [:td [:div (when editable {:class "fa fa-pencil-square-o"
+                                       :id (str id "-edit")
+                                       :onClick (fn [_]
+                                                  (when selected?
+                                                    (put! editing-chan cursor)))})]]
+            [:td name]
+            [:td type_of]
+            [:td description]
+            [:td created_at]
+            [:td organisation]
+            [:td project_code]]))))))
+
+
+(defmulti projects-table-html
+  (fn [data projects owner editing-chan]
+    (:fetching projects)))
+
+(defmethod projects-table-html :fetching [projects _ _]
+  (bs/fetching-row projects))
+
+(defmethod projects-table-html :no-data [projects _ _]
+  (bs/no-data-row projects))
+
+(defmethod projects-table-html :error [projects _ _]
+  (bs/error-row projects))
+
+(defmethod projects-table-html :has-data [data projects owner editing-chan]
   (let [table-id   "projects-table"
         history    (om/get-shared owner :history)]
     [:div.row
      [:div.col-md-12
       [:table {:className "table table-hover"}
        [:thead
-        [:tr [:th "Name"] [:th "Type"] [:th "Description"] [:th "Created At"] [:th "Organisation"] [:th "Project Code"]]]
+        [:tr [:th ""] [:th "Name"] [:th "Type"] [:th "Description"] [:th "Created At"] [:th "Organisation"] [:th "Project Code"]]]
        [:tbody
         (for [row (sort-by :id (:data projects))]
-          (let [{:keys [id name type_of description created_at organisation project_code]} row]
-            [:tr {:onClick (fn [_ _]
-                             (om/update! projects :selected id)
-                             (history/update-token-ids! history :projects id)
-                             (common/fixed-scroll-to-element "properties-div"))
-                  :className (if (= id (:selected projects)) "success")
-                  :id (str table-id "-selected")}
-             [:td name]
-             [:td type_of]
-             [:td description]
-             [:td created_at]
-             [:td organisation]
-             [:td project_code]]))]]]]))
+          (om/build (project-row data history projects table-id editing-chan) row))]]]]))
 
-(defmethod projects-table-html :default [projects owner]
+(defmethod projects-table-html :default [_ _ _]
   [:div.row [:div.col-md-12]])
 
-(defn projects-table [projects owner]
-  (reify
-    om/IRender
-    (render [_]
-      (html (projects-table-html projects owner)))))
+(defn projects-table [data editing-chan]
+  (fn [projects owner]
+    (reify
+      om/IRender
+      (render [_]
+        (html (projects-table-html data projects owner editing-chan))))))
 
 (defn projects-div [data owner]
   (reify
-    om/IRender
-    (render [_]
-      (let [{:keys [programmes projects active-components]} data
-            history (om/get-shared owner :history)]
+    om/IInitState
+    (init-state [_]
+      {:editing-chan (chan)})
+    om/IWillMount
+    (will-mount [_]
+      (go-loop []
+        (let [{:keys [editing-chan]} (om/get-state owner)
+              edited-row             (<! editing-chan)]
+          (om/update! data [:projects :editing] true)
+          (om/update! data [:projects :edited-row] edited-row)
+          (common/fixed-scroll-to-element "projects-edit-div"))
+        (recur)))
+    om/IRenderState
+    (render-state [_ {:keys [editing-chan]}]
+      (let [{:keys [programmes projects]} data
+            editing        (-> data :projects :editing)
+            adding-project (-> data :projects :adding-project)
+            programme_id   (-> data :active-components :programmes)
+            programme      (-> (filter #(= (:id %) programme_id) (-> programmes :data)) first)]
         (html
          [:div.row#projects-div
-          [:div {:class (str "col-md-12 " (if (:programme_id projects) "" "hidden"))}
+          [:div {:class (str "col-md-12 " (if programme_id "" "hidden"))}
            [:h2 "Projects"]
            [:ul {:class "breadcrumb"}
             [:li [:a
                   {:href "/app"}
                   (common/title-for programmes)]]]
-           (om/build projects-table projects {:opts {:histkey :projects}})]])))))
+           (when (and
+                  (not editing)
+                  (not adding-project)
+                  (:editable programme)) ;; programme is editable so allow to add new projects
+             [:div.form-group
+              [:div.btn-toolbar
+               [:button {:type "button"
+                         :class "btn btn-primary"
+                         :onClick (fn [_]
+                                    (om/update! data [:projects :adding-project] true))}
+                "Add new"]]])
+           [:div {:id "projects-add-div" :class (if adding-project "" "hidden")}
+            (om/build (project-add-form data programme_id) nil)]
+           [:div {:id "projects-edit-div" :class (if editing "" "hidden")}
+            (om/build (project-edit-form data) (-> projects :edited-row))]
+           [:div {:id "projects-div" :class (if (or editing adding-project) "hidden" "")}
+            (om/build (projects-table data editing-chan) projects)]]])))))

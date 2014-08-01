@@ -12,7 +12,10 @@
                  :adding-programme false}
     :projects {:name     "Projects"
                :data     []
-               :selected nil}
+               :selected nil
+               :editing false
+               :edited-row nil
+               :adding-project false}
     :properties {:name     "Properties"
                  :data     []
                  :selected nil}

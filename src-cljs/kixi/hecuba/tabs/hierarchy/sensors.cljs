@@ -5,14 +5,14 @@
             [om.core :as om :include-macros true]
             [goog.userAgent :as agent]
             [sablono.core :as html :refer-macros [html]]
-            [kixi.hecuba.bootstrap :as bs]
+            [kixi.hecuba.bootstrap :refer (static-text text-input-control checkbox) :as bs]
             [kixi.hecuba.history :as history]
             [kixi.hecuba.widgets.chart :as chart]
             [kixi.hecuba.widgets.datetimepicker :as dtpicker]
             [ajax.core :refer [GET POST PUT]]
             [kixi.hecuba.tabs.hierarchy.data :refer (fetch-properties)]
             [clojure.string :as string]
-            [kixi.hecuba.common :refer (log static-text text-input-control checkbox) :as common]))
+            [kixi.hecuba.common :refer (log) :as common]))
 
 (defn chart-feedback-box [cursor owner]
   (om/component

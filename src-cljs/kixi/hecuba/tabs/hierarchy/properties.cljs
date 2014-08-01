@@ -7,7 +7,8 @@
    [clojure.string :as str]
    [kixi.hecuba.history :as history]
    [kixi.hecuba.tabs.slugs :as slugs]
-   [kixi.hecuba.common :refer (text-input-control static-text log) :as common]
+   [kixi.hecuba.bootstrap :refer (text-input-control static-text) :as bs]
+   [kixi.hecuba.common :refer (log) :as common]
    [sablono.core :as html :refer-macros [html]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -23,13 +24,13 @@
 
 (defmulti properties-table-html (fn [properties owner] (:fetching properties)))
 (defmethod properties-table-html :fetching [properties owner]
-  (common/fetching-row properties))
+  (bs/fetching-row properties))
 
 (defmethod properties-table-html :no-data [properties owner]
-  (common/no-data-row properties))
+  (bs/no-data-row properties))
 
 (defmethod properties-table-html :error [properties owner]
-  (common/error-row properties))
+  (bs/error-row properties))
 
 (defmethod properties-table-html :has-data [properties owner]
   (let [table-id "properties-table"
