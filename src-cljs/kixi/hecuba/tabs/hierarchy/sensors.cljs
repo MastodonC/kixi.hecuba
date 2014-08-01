@@ -121,14 +121,14 @@
                                        :onClick (fn [_ _] (om/update! data [:sensor-edit :editing] false))} "Cancel"]]]
            (static-text row :device_id "Device ID")
            (static-text row :type "Type")
-           (text-input-control owner (:parent-device row) :sensor :name "Parent Device Name")
-           (text-input-control owner (:alias row) :sensor  :name "Alias")
-           (text-input-control owner row :sensor :unit "Unit")
-           (text-input-control owner row :sensor :period "Period")
-           (text-input-control owner row :sensor :resolution "Resolution")
-           (text-input-control owner (:parent-device row) :sensor  :location "Location")
-           (text-input-control owner (:parent-device row) :sensor  :privacy "Privacy")
-           (checkbox owner row :sensor :actual_annual "Calculated Field")]]])))))
+           (text-input-control (:parent-device row) owner :sensor :name "Parent Device Name")
+           (text-input-control (:alias row) owner :sensor  :name "Alias")
+           (text-input-control row owner :sensor :unit "Unit")
+           (text-input-control row owner :sensor :period "Period")
+           (text-input-control row owner :sensor :resolution "Resolution")
+           (text-input-control (:parent-device row) owner :sensor :location "Location")
+           (text-input-control (:parent-device row) owner :sensor :privacy "Privacy")
+           (checkbox row owner :sensor :actual_annual "Calculated Field")]]])))))
 
 (defn update-sensor-selection [selected-sensors unit chart sensors history]
   (om/update! sensors :selected selected-sensors)
