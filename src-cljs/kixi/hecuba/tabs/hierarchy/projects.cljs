@@ -14,65 +14,78 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; projects
 
+(defn error-handler [owner]
+  (fn [{:keys [status status-text]}]
+    (om/set-state! owner :error true)
+    (om/set-state! owner :http-error-response {:status status
+                                               :status-text status-text})))
 (defn valid-project? [project]
   (not (nil? (:name project))))
 
-(defn post-new-project [data project programme_id]
+(defn post-new-project [data owner project programme_id]
   (let [url  (str "/4/programmes/" programme_id "/projects/")]
     (common/post-resource data url
-                          (-> project
-                              (assoc :created_at (common/now->str)
-                                     :programme_id programme_id))
+                          (assoc project :created_at (common/now->str)
+                                 :programme_id programme_id)
                           (fn [_] 
-                            (fetch-projects programme_id data)))
-    (om/update! data [:projects :adding-project] false)))
+                            (fetch-projects programme_id data)
+                            (om/update! data [:projects :adding-project] false))
+                          (error-handler owner))))
 
-(defn post-edited-project [data project programme_id project_id]
+(defn put-edited-project [data owner project programme_id project_id]
   (let [url (str "/4/programmes/" programme_id  "/projects/" project_id)]
     (common/put-resource data url 
-                          (-> project
-                              (assoc :updated_at (common/now->str)))
+                          (assoc project :updated_at (common/now->str))
                           (fn [_] 
-                            (fetch-projects programme_id data)))
-    (om/update! data [:projects :editing] false)))
+                            (fetch-projects programme_id data)
+                            (om/update! data [:projects :editing] false))
+                          (error-handler owner))))
 
 (defn project-add-form [data programme_id]
   (fn [cursor owner]
     (om/component
-     (html
-      [:div
-       [:h3 "Add new project"]
-       [:form.form-horizontal {:role "form"}
-        [:div.col-md-6
-         [:div.form-group
-          [:div.btn-toolbar
-           [:button {:class "btn btn-success"
-                     :type "button"
-                     :onClick (fn [_] (let [project (om/get-state owner [:project])]
-                                        (if (valid-project? project)
-                                          (post-new-project data project programme_id)
-                                          (om/set-state! owner [:invalid] true))))}
-            "Save"]
-           [:button {:type "button"
-                     :class "btn btn-danger"
-                     :onClick (fn [_]
-                                (om/update! data [:projects :adding-project] false))}
-            "Cancel"]]]
-         (alert "alert alert-danger "
-                [:div [:div {:class "fa fa-exclamation-triangle"} " Please enter name of the project."]]
-                (om/get-state owner :invalid)
-                (str "new-project-form-failure"))
-         (text-input-control owner cursor :project :name "Project Name" true)
-         (text-input-control owner cursor :project :description "Description")
-         (text-input-control owner cursor :project :organisation "Organisation")
-         (text-input-control owner cursor :project :project_code "Project Code")
-         (text-input-control owner cursor :project :project_type "Project Type")
-         (text-input-control owner cursor :project :type_of "Type Of")]]]))))
+     (let [{:keys [status-text]} (om/get-state owner :http-error-response)
+            error      (om/get-state owner :error)
+            alert-body (if status-text
+                         (str " Server returned status: " status-text)
+                         " Please enter name of the project.")]
+       (html
+        [:div
+         [:h3 "Add new project"]
+         [:form.form-horizontal {:role "form"}
+          [:div.col-md-6
+           [:div.form-group
+            [:div.btn-toolbar
+             [:button {:class "btn btn-success"
+                       :type "button"
+                       :onClick (fn [_] (let [project (om/get-state owner [:project])]
+                                          (if (valid-project? project)
+                                            (post-new-project data owner project programme_id)
+                                            (om/set-state! owner [:error] true))))}
+              "Save"]
+             [:button {:type "button"
+                       :class "btn btn-danger"
+                       :onClick (fn [_]
+                                  (om/update! data [:projects :adding-project] false))}
+              "Cancel"]]]
+           (alert "alert alert-danger "
+                  [:div [:div {:class "fa fa-exclamation-triangle"} alert-body]]
+                  error
+                  (str "edit-project-form-failure"))
+           (text-input-control owner cursor :project :name "Project Name" true)
+           (text-input-control owner cursor :project :description "Description")
+           (text-input-control owner cursor :project :organisation "Organisation")
+           (text-input-control owner cursor :project :project_code "Project Code")
+           (text-input-control owner cursor :project :project_type "Project Type")
+           (text-input-control owner cursor :project :type_of "Type Of")]]])))))
 
 (defn project-edit-form [data]
   (fn [cursor owner]
     (om/component
-     (let [{:keys [id programme_id]} cursor]
+     (let [{:keys [id programme_id]} cursor
+           {:keys [status-text]} (om/get-state owner :http-error-response)
+            error      (om/get-state owner :error)
+            alert-body (str " Server returned status: " status-text)]
        (html
         [:div
          [:h3 "Editing Project"]
@@ -84,12 +97,16 @@
                        :class "btn btn-success"
                        :onClick (fn [_]
                                   (let [project (om/get-state owner [:project])]
-                                    (post-edited-project data project 
-                                                         programme_id id)))}
+                                    (put-edited-project data owner project 
+                                                        programme_id id)))}
               "Save"]
              [:button {:type "button"
                        :class "btn btn-danger"
                        :onClick (fn [_] (om/update! data [:projects :editing] false))} "Cancel"]]]
+           (alert "alert alert-danger "
+                  [:div [:div {:class "fa fa-exclamation-triangle"} alert-body]]
+                  error
+                  (str "edit-project-form-failure"))
            (static-text cursor :id "Project ID")
            (static-text cursor :programme_id "Programme ID")
            (static-text cursor :created_at "Created At")
@@ -208,5 +225,5 @@
             (om/build (project-add-form data programme_id) nil)]
            [:div {:id "projects-edit-div" :class (if editing "" "hidden")}
             (om/build (project-edit-form data) (-> projects :edited-row))]
-           [:div {:id "projects-div" :class (if editing "hidden" "")}
+           [:div {:id "projects-div" :class (if (or editing adding-project) "hidden" "")}
             (om/build (projects-table data editing-chan) projects)]]])))))

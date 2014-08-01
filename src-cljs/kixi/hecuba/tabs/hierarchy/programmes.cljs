@@ -14,48 +14,71 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; programmes
 
-(defn post-new-programme [data programme]
+(defn error-handler [owner]
+  (fn [{:keys [status status-text]}]
+    (om/set-state! owner :error true)
+    (om/set-state! owner :http-error-response {:status status
+                                               :status-text status-text})))
+
+(defn post-new-programme [data owner programme]
   (common/post-resource data (str "/4/programmes/")
-                        (-> programme
-                            (assoc :created_at (common/now->str)))
-                        (fn [_] (fetch-programmes data)))
-  (om/update! data [:programmes :adding-programme] false))
+                        (assoc programme :created_at (common/now->str))
+                        (fn [_]
+                          (fetch-programmes data)
+                          (om/update! data [:programmes :adding-programme] false))
+                        (error-handler owner)))
+
+(defn put-edited-programme [data owner url programme]
+  (common/put-resource data url 
+                       (assoc programme :updated_at (common/now->str))
+                       (fn [_]
+                         (fetch-programmes data)
+                         (om/update! data [:programmes :editing] false))
+                       (error-handler owner)))
 
 (defn programme-add-form [data]
   (fn [cursor owner]
     (om/component
      (html
-      [:div
-       [:h3 "Add new programme"]
-       [:form.form-horizontal {:role "form"}
-        [:div.col-md-6
-         [:div.form-group
-          [:div.btn-toolbar
-           [:button.btn.btn-success {:type "button"
-                                     :onClick (fn [_] (let [programme (om/get-state owner [:programme])]
-                                                        (if (:name programme)
-                                                          (post-new-programme data programme)
-                                                          (om/set-state! owner [:invalid] true))))}
-            "Save"]
-           [:button.btn.btn-danger {:type "button"
-                                    :onClick (fn [_] (om/update! data [:programmes :adding-programme] false))}
-            "Cancel"]]]
-         (alert "alert alert-danger "
-                [:div [:div {:class "fa fa-exclamation-triangle"} " Please enter name of the programme."]]
-                (om/get-state owner :invalid)
-                (str "new-programme-form-failure"))
-         (text-input-control owner cursor :programme :name "Programme Name" true)
-         (text-input-control owner cursor :programme :description "Description")
-         (text-input-control owner cursor :programme :home_page_text "Home Page Text")
-         (text-input-control owner cursor :programme :lead_organisations "Lead Organisations")
-         (text-input-control owner cursor :programme :lead_page_text "Lead Page Text")
-         (text-input-control owner cursor :programme :leaders "Leaders")
-         (text-input-control owner cursor :programme :public_access "Public Access")]]]))))
+      (let [{:keys [status-text]} (om/get-state owner :http-error-response)
+            error      (om/get-state owner :error)
+            alert-body (if status-text
+                         (str " Server returned status: " status-text)
+                         " Please enter name of the programme.")]
+        [:div
+         [:h3 "Add new programme"]
+         [:form.form-horizontal {:role "form"}
+          [:div.col-md-6
+           [:div.form-group
+            [:div.btn-toolbar
+             [:button.btn.btn-success {:type "button"
+                                       :onClick (fn [_] (let [programme (om/get-state owner [:programme])]
+                                                          (if (:name programme)
+                                                            (post-new-programme data owner programme)
+                                                            (om/set-state! owner [:error] true))))}
+              "Save"]
+             [:button.btn.btn-danger {:type "button"
+                                      :onClick (fn [_] (om/update! data [:programmes :adding-programme] false))}
+              "Cancel"]]]
+           (alert "alert alert-danger "
+                  [:div [:div {:class "fa fa-exclamation-triangle"} alert-body]]
+                  error
+                  (str "new-programme-form-failure"))
+           (text-input-control owner cursor :programme :name "Programme Name" true)
+           (text-input-control owner cursor :programme :description "Description")
+           (text-input-control owner cursor :programme :home_page_text "Home Page Text")
+           (text-input-control owner cursor :programme :lead_organisations "Lead Organisations")
+           (text-input-control owner cursor :programme :lead_page_text "Lead Page Text")
+           (text-input-control owner cursor :programme :leaders "Leaders")
+           (text-input-control owner cursor :programme :public_access "Public Access")]]])))))
 
 (defn programme-edit-form [data]
   (fn [cursor owner]
     (om/component
-     (let [programme-id (-> data :active-components :programmes)]
+     (let [programme-id (-> data :active-components :programmes)
+           {:keys [status-text]} (om/get-state owner :http-error-response)
+            error      (om/get-state owner :error)
+            alert-body (str " Server returned status: " status-text)]
        (html
         [:div
          [:h3 "Editing Programme"]
@@ -64,16 +87,16 @@
            [:div.form-group
             [:div.btn-toolbar
              [:button.btn.btn-success {:type "button"
-                                       :onClick (fn [_] (let [programme-data (om/get-state owner [:programme])
-                                                              url            (str "/4/programmes/" programme-id)]
-                                                          (common/put-resource data url 
-                                                                               (-> programme-data
-                                                                                   (assoc :updated_at (common/now->str)))
-                                                                               (fn [_] (fetch-programmes data)))
-                                                          (om/update! data [:programmes :editing] false)))} "Save"]
+                                       :onClick (fn [_] (let [programme (om/get-state owner [:programme])
+                                                              url       (str "/4/programmes/" programme-id)]
+                                                          (put-edited-programme data owner url programme)))} "Save"]
              [:button.btn.btn-danger {:type "button"
                                        :onClick (fn [_] (om/update! data [:programmes :editing] false))} "Cancel"]]]
            (static-text cursor :id "Programme ID")
+           (alert "alert alert-danger "
+                  [:div [:div {:class "fa fa-exclamation-triangle"} alert-body]]
+                  error
+                  (str "edit-programme-form-failure"))
            (text-input-control owner cursor :programme :created_at "Created At")
            (text-input-control owner cursor :programme :description "Description")
            (text-input-control owner cursor :programme :home_page_text "Home Page Text")
@@ -148,7 +171,9 @@
          [:div.row#programmes-div
           [:div {:class "col-md-12"}
            [:h1 "Programmes"]
-           (when (-> data :programmes :data first :admin)
+           (when (and
+                  (not adding-programme)
+                  (-> data :programmes :data first :admin))
              [:div.form-group
               [:div.btn-toolbar
                [:button.btn.btn-default {:type "button"
@@ -159,5 +184,5 @@
             (om/build (programme-add-form data) nil)]
            [:div {:id "programmes-edit-div" :class (if editing "" "hidden")}
             (om/build (programme-edit-form data) (-> data :programmes :edited-row))]
-           [:div {:id "programmes-div" :class (if editing "hidden" "")}
+           [:div {:id "programmes-div" :class (if (or editing adding-programme) "hidden" "")}
             (om/build (programmes-table editing-chan) data)]]])))))

@@ -89,16 +89,26 @@
 (defn now->str []
   (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss") (t/now)))
 
-(defn post-resource [data url resource handler]
-  (when resource
-    (POST url {:content-type "application/json"
-               :handler handler
-               :error-handler (fn [{:keys [status status-text]}] (log "status: " status "status-text: " status-text))
-               :params resource})))
+(defn post-resource
+  ([data url resource handler]
+    (post-resource data url resource handler
+                   (fn [{:keys [status status-text]}]
+                     (log "status: " status "status-text: " status-text))))
+  ([data url resource handler error-handler]
+    (when resource
+      (POST url {:content-type "application/json"
+                 :handler handler
+                 :error-handler error-handler
+                 :params resource}))))
 
-(defn put-resource [data url resource handler]
-  (when resource
-    (PUT url {:content-type "application/json"
-              :handler handler
-              :error-handler (fn [{:keys [status status-text]}] (log "status: " status "status-text: " status-text))
-              :params resource})))
+(defn put-resource 
+  ([data url resource handler]
+    (put-resource data url resource handler
+                  (fn [{:keys [status status-text]}]
+                    (log "status: " status "status-text: " status-text))))
+  ([data url resource handler error-handler]
+    (when resource
+      (PUT url {:content-type "application/json"
+                :handler handler
+                :error-handler error-handler
+                :params resource}))))
