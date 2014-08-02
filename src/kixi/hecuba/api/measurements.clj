@@ -75,6 +75,7 @@
     {:dest      :upload
      :type      :measurements
      :entity_id entity_id
+     :uuid      (str entity_id "/" (uuid))
      :src-name  "uploads"
      :feed-name "measurements"
      :dir       (.getParent tempfile)
@@ -87,13 +88,16 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; index-malformed?
+
+(defn ensure-vector [data]
+  (if (vector? data) data [data]))
+
 (defmulti index-malformed? content-type-from-context)
 
 (defmethod index-malformed? "multipart/form-data" [ctx]
-    (let [file-data (-> ctx :request :multipart-params (get "data"))]
-      (if file-data
-        [false  {::file-data file-data}]
-        true)))
+    (if-let [file-data (some-> ctx :request :multipart-params (get "data") ensure-vector)]
+      [false  {::file-data file-data}]
+      true))
 
 (defmethod index-malformed? :default [ctx]
   (let [request (:request ctx)
@@ -162,20 +166,19 @@
 (defmulti index-post! content-type-from-context)
 
 (defmethod index-post! "multipart/form-data" [store pipe ctx]
-  (let [file-data (::file-data ctx)
-        session   (-> ctx :request :session)
-        username  (sec/session-username session)
+  (let [file-data    (::file-data ctx)
+        session      (-> ctx :request :session)
+        username     (sec/session-username session)
         route-params (:route-params (:request ctx))
         entity_id    (:entity_id route-params)
-        auth      (sec/current-authentication session)
-        item      (template-upload->item file-data entity_id username)
-        uuid      (uuid)
-        location  (format uploads-status-resource-path (:user_id auth) uuid)]
-    (pipe/submit-item pipe (assoc item
-                             :uuid (str entity_id "/" uuid)
-                             :auth auth))
+        auth         (sec/current-authentication session)
+        items        (template-upload->item file-data entity_id username)
+        ;; location     (format uploads-status-resource-path (:user_id auth) uuid)
+        ]
+    (doseq [item items]
+      (pipe/submit-item pipe (assoc item :auth auth)))
     {:response {:status 202
-                :headers {"Location" location}
+                :headers {"Location" "TBD"} ;; TODO what do we put for location if multiple uploads?
                 :body "Accepted"}}))
 
 (defmethod index-post! :default [store pipe ctx]
