@@ -1,18 +1,19 @@
 (ns kixi.hecuba.controller.pipeline
   "Pipeline for scheduled jobs."
-  (:require [kixipipe.pipeline             :refer [defnconsumer produce-item produce-items submit-item] :as p]
-            [pipejine.core                 :as pipejine :refer [new-queue producer-of]]
-            [clojure.tools.logging         :as log]
-            [kixipipe.storage.s3           :as s3]
-            [kixi.hecuba.data.batch-checks :as checks]
-            [kixi.hecuba.data.misc         :as misc]
-            [kixi.hecuba.data.calculate    :as calculate]
-            [kixi.hecuba.data.calculated-fields :as fields]
-            [kixi.hecuba.data.measurements.download :as download]
-            [kixi.hecuba.data.measurements.upload :as upload]
-            [clj-time.core :as t]
-            [com.stuartsierra.component    :as component]
-            [kixi.hecuba.api.datasets      :as datasets]))
+  (:require [kixipipe.pipeline                      :refer [defnconsumer produce-item produce-items submit-item] :as p]
+            [pipejine.core                          :as pipejine :refer [new-queue producer-of]]
+            [clojure.tools.logging                  :as log]
+            [kixipipe.storage.s3                    :as s3]
+            [kixi.hecuba.data.batch-checks          :as checks]
+            [kixi.hecuba.data.misc                  :as misc]
+            [kixi.hecuba.data.calculate             :as calculate]
+            [kixi.hecuba.data.calculated-fields     :as fields]
+            [kixi.hecuba.data.measurements.download :as measurements-download]
+            [kixi.hecuba.data.measurements.upload   :as measurements-upload]
+            [kixi.hecuba.data.entities.upload       :as entities-upload]
+            [clj-time.core                          :as t]
+            [com.stuartsierra.component             :as component]
+            [kixi.hecuba.api.datasets               :as datasets]))
 
 (defn build-pipeline [store]
   (let [fanout-q                (new-queue {:name "fanout-q" :queue-size 50})
@@ -29,8 +30,10 @@
         sensor-status-q         (new-queue {:name "sensor-status" :queue-size 50})
         actual-annual-q         (new-queue {:name "actual-annual-q" :queue-size 50})
         store-upload-s3-q       (new-queue {:name "store-upload-s3-q" :queue-size 50})
-        upload-measurements-q   (new-queue {:name "data-upload-q" :queue-size 10})
-        download-measurements-q (new-queue {:name "data-download-q" :queue-size 50 :number-of-consumer-threads 4})]
+        upload-measurements-q   (new-queue {:name "upload-measurements-q" :queue-size 10})
+        upload-images-q         (new-queue {:name "image-upload-q" :queue-size 10})
+        upload-documents-q      (new-queue {:name "document-upload-q" :queue-size 10})
+        download-measurements-q (new-queue {:name "download-measurements-q" :queue-size 50 :number-of-consumer-threads 4})]
 
     (defnconsumer fanout-q [{:keys [dest type] :as item}]
       (let [item (dissoc item :dest)]
@@ -50,7 +53,9 @@
           :calculated-fields (condp = type
                                :actual-annual (produce-item item actual-annual-q))
           :upload (condp = type
-                    :measurements (produce-item item upload-measurements-q))
+                    :measurements (produce-item item upload-measurements-q)
+                    :images (produce-item item upload-images-q)
+                    :documents (produce-item item upload-documents-q))
           :download (condp = type
                       :measurements (produce-item item download-measurements-q)))))
 
@@ -242,10 +247,16 @@
       (produce-item item upload-measurements-q))
 
     (defnconsumer upload-measurements-q [item]
-      (upload/upload-item store item))
+      (measurements-upload/upload-item store item))
 
     (defnconsumer download-measurements-q [item]
-      (download/download-item store item))
+      (measurements-download/download-item store item))
+
+    (defnconsumer upload-images-q [item]
+      (entities-upload/image-upload store item))
+
+    (defnconsumer upload-documents-q [item]
+      (entities-upload/document-upload store item))
 
     (producer-of fanout-q median-calculation-q mislabelled-sensors-q spike-check-q rollups-q synthetic-readings-q
                  resolution-q difference-series-q convert-to-co2-q convert-to-kwh-q sensor-status-q actual-annual-q

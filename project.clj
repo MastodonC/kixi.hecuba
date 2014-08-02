@@ -79,7 +79,7 @@
                  [clj-time "0.6.0"]
                  [org.clojure/data.json "0.2.4"]
 
-                 [kixi/pipe "0.17.8"]
+                 [kixi/pipe "0.17.9"]
 
                  [thheller/shadow-build "0.5.0" :exclusions [org.clojure/clojurescript]]
                  ]

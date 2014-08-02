@@ -3,7 +3,7 @@
    [clojure.core.match :refer (match)]
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
-   [kixi.hecuba.security :as sec]
+   [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
    [kixi.hecuba.webutil :as util]
    [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values sha1-regex update-stringified-lists content-type-from-context)]
    [liberator.core :refer (defresource)]
@@ -25,12 +25,12 @@
 (defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
   (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
              programme-id project-id allowed-programmes allowed-projects roles request-method)
-  (match [(some #(isa? % :kixi.hecuba.security/admin) roles)
-          (some #(isa? % :kixi.hecuba.security/programme-manager) roles)
+  (match [(has-admin? roles)
+          (has-programme-manager? roles)
           (some #(= % programme-id) allowed-programmes)
-          (some #(isa? % :kixi.hecuba.security/project-manager) roles)
+          (has-project-manager? roles)
           (some #(= % project-id) allowed-projects)
-          (some #(isa? % :kixi.hecuba.security/user) roles)
+          (has-user? roles)
           request-method]
          ;; super-admin - do everything
          [true _ _ _ _ _ _] true
