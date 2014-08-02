@@ -129,7 +129,7 @@
      [:span {:class "fa fa-times"}]]
     body]])
 
-(defn text-input-control [owner data table key label & required]
+(defn text-input-control [data owner table key label & required]
   [:div.form-group 
    [:label.control-label.col-md-2 {:for (name key)} label]
    [:div {:class (str (if required "required " "") "col-md-10")}
@@ -138,14 +138,59 @@
              :class "form-control"
              :type "text"}]]])
 
+(defn text-area-control [data owner table key label]
+  [:div.form-group
+   [:label.control-label.col-md-2 {:for (name key)} label]
+   [:div.col-md-10
+    [:textarea.form-control {:id (name key)
+                             :name (name key)
+                             :defaultValue (get data key "")
+                             :on-change #(handle-change owner table key %1)
+                             :rows 2}]]])
+
 (defn static-text [data key label]
   [:div.form-group
    [:label.control-label.col-md-2 {:for (name key)} label]
    [:p {:class "form-control-static col-md-10"} (get data key "")]])
 
-(defn checkbox [owner data table key label]
+(defn checkbox [data owner table key label]
   [:div.form-group
    [:label.control-label.col-md-2 {:for (str key)} label]
    [:input {:type "checkbox"
             :defaultChecked (get data key "")
             :on-change #(om/set-state! owner [table key] (.-checked (.-target %)))}]])
+
+(defn address-control [data owner table]
+  [:div
+   [:div.form-group
+    [:label.control-label.col-md-2 {:for "address_street_two"} "Street Address"]
+    [:div.col-md-10
+     [:input {:defaultValue (get data :address_street_two "")
+              :on-change #(handle-change owner table :address_street_two %1)
+              :class "form-control"
+              :type "text"
+              :id "address_street_two"}]]]
+   [:div.form-group
+    [:label.control-label.col-md-2 {:for "address_city"} "City"]
+    [:div.col-md-10
+     [:input {:defaultValue (get data :address_city "")
+              :on-change #(handle-change owner table :address_city  %1)
+              :class "form-control"
+              :type "text"
+              :id "address_city"}]]]
+   [:div.form-group
+    [:label.control-label.col-md-2 {:for "address_code"} "Postal Code"]
+    [:div.col-md-10
+     [:input {:defaultValue (get data :address_code "")
+              :on-change #(handle-change owner table :address_code %1)
+              :class "form-control"
+              :type "text"
+              :id "address_code"}]]]
+   [:div.form-group
+    [:label.control-label.col-md-2 {:for "address_country"} "Country"]
+    [:div.col-md-10
+     [:input {:defaultValue (get data :address_country "")
+              :on-change #(handle-change owner table :address_country %1)
+              :class "form-control"
+              :type "text"
+              :id "address_country"}]]]])

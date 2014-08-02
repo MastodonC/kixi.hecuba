@@ -64,13 +64,13 @@
                   [:div [:div {:class "fa fa-exclamation-triangle"} alert-body]]
                   error
                   (str "new-programme-form-failure"))
-           (text-input-control owner cursor :programme :name "Programme Name" true)
-           (text-input-control owner cursor :programme :description "Description")
-           (text-input-control owner cursor :programme :home_page_text "Home Page Text")
-           (text-input-control owner cursor :programme :lead_organisations "Lead Organisations")
-           (text-input-control owner cursor :programme :lead_page_text "Lead Page Text")
-           (text-input-control owner cursor :programme :leaders "Leaders")
-           (text-input-control owner cursor :programme :public_access "Public Access")]]])))))
+           (text-input-control cursor owner :programme :name "Programme Name" true)
+           (text-input-control cursor owner :programme :description "Description")
+           (text-input-control cursor owner :programme :home_page_text "Home Page Text")
+           (text-input-control cursor owner :programme :lead_organisations "Lead Organisations")
+           (text-input-control cursor owner :programme :lead_page_text "Lead Page Text")
+           (text-input-control cursor owner :programme :leaders "Leaders")
+           (text-input-control cursor owner :programme :public_access "Public Access")]]])))))
 
 (defn programme-edit-form [data]
   (fn [cursor owner]
@@ -97,13 +97,13 @@
                   [:div [:div {:class "fa fa-exclamation-triangle"} alert-body]]
                   error
                   (str "edit-programme-form-failure"))
-           (text-input-control owner cursor :programme :created_at "Created At")
-           (text-input-control owner cursor :programme :description "Description")
-           (text-input-control owner cursor :programme :home_page_text "Home Page Text")
-           (text-input-control owner cursor :programme :lead_organisations "Lead Organisations")
-           (text-input-control owner cursor :programme :lead_page_text "Lead Page Text")
-           (text-input-control owner cursor :programme :leaders "Leaders")
-           (checkbox owner cursor :programme :public_access "Public Access")]]])))))
+           (text-input-control cursor owner :programme :created_at "Created At")
+           (text-input-control cursor owner :programme :description "Description")
+           (text-input-control cursor owner :programme :home_page_text "Home Page Text")
+           (text-input-control cursor owner :programme :lead_organisations "Lead Organisations")
+           (text-input-control cursor owner :programme :lead_page_text "Lead Page Text")
+           (text-input-control cursor owner :programme :leaders "Leaders")
+           (checkbox cursor owner :programme :public_access "Public Access")]]])))))
 
 (defn programmes-row [data history programmes table-id editing-chan]
   (fn [cursor owner]

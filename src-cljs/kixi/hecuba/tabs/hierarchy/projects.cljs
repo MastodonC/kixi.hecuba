@@ -6,7 +6,7 @@
    [clojure.string :as str]
    [kixi.hecuba.history :as history]
    [kixi.hecuba.tabs.slugs :as slugs]
-   [kixi.hecuba.bootstrap :refer (text-input-control static-text checkbox alert) :as bs]
+   [kixi.hecuba.bootstrap :as bs]
    [kixi.hecuba.common :refer (log) :as common]
    [kixi.hecuba.tabs.hierarchy.data :refer (fetch-projects)]
    [sablono.core :as html :refer-macros [html]]))
@@ -68,16 +68,16 @@
                        :onClick (fn [_]
                                   (om/update! data [:projects :adding-project] false))}
               "Cancel"]]]
-           (alert "alert alert-danger "
+           (bs/alert "alert alert-danger "
                   [:div [:div {:class "fa fa-exclamation-triangle"} alert-body]]
                   error
-                  (str "edit-project-form-failure"))
-           (text-input-control owner cursor :project :name "Project Name" true)
-           (text-input-control owner cursor :project :description "Description")
-           (text-input-control owner cursor :project :organisation "Organisation")
-           (text-input-control owner cursor :project :project_code "Project Code")
-           (text-input-control owner cursor :project :project_type "Project Type")
-           (text-input-control owner cursor :project :type_of "Type Of")]]])))))
+                  (str "add-project-form-failure"))
+           (bs/text-input-control cursor owner :project :name "Project Name" true)
+           (bs/text-input-control cursor owner :project :description "Description")
+           (bs/text-input-control cursor owner :project :organisation "Organisation")
+           (bs/text-input-control cursor owner :project :project_code "Project Code")
+           (bs/text-input-control cursor owner :project :project_type "Project Type")
+           (bs/text-input-control cursor owner :project :type_of "Type Of")]]])))))
 
 (defn project-edit-form [data]
   (fn [cursor owner]
@@ -103,18 +103,18 @@
              [:button {:type "button"
                        :class "btn btn-danger"
                        :onClick (fn [_] (om/update! data [:projects :editing] false))} "Cancel"]]]
-           (alert "alert alert-danger "
+           (bs/alert "alert alert-danger "
                   [:div [:div {:class "fa fa-exclamation-triangle"} alert-body]]
                   error
                   (str "edit-project-form-failure"))
-           (static-text cursor :id "Project ID")
-           (static-text cursor :programme_id "Programme ID")
-           (static-text cursor :created_at "Created At")
-           (text-input-control owner cursor :project :description "Description")
-           (text-input-control owner cursor :project :organisation "Organisation")
-           (text-input-control owner cursor :project :project_code "Project Code")
-           (text-input-control owner cursor :project :project_type "Project Type")
-           (text-input-control owner cursor :project :type_of "Type Of")]]])))))
+           (bs/static-text cursor :id "Project ID")
+           (bs/static-text cursor :programme_id "Programme ID")
+           (bs/static-text cursor :created_at "Created At")
+           (bs/text-input-control cursor owner :project :description "Description")
+           (bs/text-input-control cursor owner :project :organisation "Organisation")
+           (bs/text-input-control cursor owner :project :project_code "Project Code")
+           (bs/text-input-control cursor owner :project :project_type "Project Type")
+           (bs/text-input-control cursor owner :project :type_of "Type Of")]]])))))
 
 (defn project-row [data history projects table-id editing-chan]
   (fn [cursor owner]

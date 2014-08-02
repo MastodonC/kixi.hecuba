@@ -9,9 +9,9 @@
             [kixi.hecuba.tabs.slugs :as slugs]
             [kixi.hecuba.tabs.hierarchy.sensors :as sensors]
             [kixi.hecuba.tabs.hierarchy.profiles :as profiles]
-            [kixi.hecuba.tabs.hierarchy.programmes :as programmes]
             [kixi.hecuba.tabs.hierarchy.status :as status]
             [kixi.hecuba.common :refer (log)]
+            [kixi.hecuba.tabs.hierarchy.data :refer (fetch-properties)]
             [ajax.core :refer [GET PUT]]
             [kixi.hecuba.widgets.fileupload :as file]))
 
@@ -29,7 +29,7 @@
 (defn post-resource [data property_id property-data project_id]
   (PUT  (str "/4/entities/" property_id)
         {:headers {"Content-Type" "application/edn"}
-         :handler #(programmes/fetch-properties project_id data)
+         :handler #(fetch-properties project_id data)
          :params property-data}))
 
 (defn save-form [data property-details owner property_id project_id]
@@ -37,72 +37,33 @@
     (post-resource data property_id {:property_data property-data} project_id)
     (om/set-state! owner :editing false)))
 
-(defn handle-change [owner key e]
-  (let [value (.-value (.-target e))]
-    (om/set-state! owner [:property_data key] value)))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; property-details-form
-(defn text-control [data state owner key label]
-  [:div.form-group
-   [:label.control-label.col-md-2 {:for (name key)} label]
-   (if (:editing state)
-     [:div.col-md-10
-      [:input {:defaultValue (get data key "")
-               :class "form-control"
-               :on-change #(handle-change owner key %1)
-               :type "text"
-               :id (name key)}]]
-     [:p {:class "form-control-static col-md-10"} (get data key "")])])
 
-(defn text-area-control [data state owner key title]
-  (let [text (get data key)]
+(defn text-control [data state owner key label]
+  (if (:editing state)
+    (bs/text-input-control data owner :property_data key label)
+    [:div.form-group
+     [:label.control-label.col-md-2 {:for (name key)} label]
+     [:p {:class "form-control-static col-md-10"} (get data key "")]]))
+
+(defn text-area-control [data state owner key label]
+  (let [text (get data key "")]
     (if (:editing state)
-      [:div
-       [:div.form-group
-        [:label.control-label.col-md-2  title]
-        [:form.col-md-10 {:role "form"}
-         [:textarea.form-control {:on-change #(handle-change owner key %1) :rows 2} text]]]]
+      (bs/text-area-control data owner :property_data key label)
       (if (and text (re-find #"\w" text))
-        [:div [:h3 title]
+        [:div [:h3 label]
          [:p text]]
         [:div {:class "hidden"} [:p {:class "form-control-static col-md-10"} text]]))))
 
+(defn address-static-text [property_data]
+  [:div.form-group
+     [:label.control-label.col-md-2 {:for "address"} "Address"]
+     [:p {:class "form-control-static col-md-10"} (slugs/postal-address-html property_data)]])
+
 (defn address-control [property_data owner state]
   (if (:editing state)
-    [:div
-     [:div.form-group
-      [:label.control-label.col-md-2 {:for "address_street_two"} "Street Address"]
-      [:div.col-md-10
-       [:input {:defaultValue (get property_data :address_street_two "")
-                :on-change #(handle-change owner :address_street_two %1)
-                :class "form-control"
-                :type "text"
-                :id "address_street_two"}]]]
-     [:div.form-group
-      [:label.control-label.col-md-2 {:for "address_city"} "City"]
-      [:div.col-md-10
-       [:input {:defaultValue (get property_data :address_city "")
-                :on-change #(handle-change owner :address_city  %1)
-                :class "form-control"
-                :type "text"
-                :id "address_city"}]]]
-     [:div.form-group
-      [:label.control-label.col-md-2 {:for "address_code"} "Postal Code"]
-      [:div.col-md-10
-       [:input {:defaultValue (get property_data :address_code "")
-                :on-change #(handle-change owner :address_code %1)
-                :class "form-control"
-                :type "text"
-                :id "address_code"}]]]
-     [:div.form-group
-      [:label.control-label.col-md-2 {:for "address_country"} "Country"]
-      [:div.col-md-10
-       [:input {:defaultValue (get property_data :address_country "")
-                :on-change #(handle-change owner :address_country %1)
-                :class "form-control"
-                :type "text"
-                :id "address_country"}]]]]
+    (bs/address-control property_data owner :property_data)
     [:div.form-group
      [:label.control-label.col-md-2 {:for "address"} "Address"]
      [:p {:class "form-control-static col-md-10"} (slugs/postal-address-html property_data)]]))
@@ -137,7 +98,7 @@
                 [:button.btn.btn-default {:type "button"
                                           :class (str "btn btn-danger " (if (om/get-state owner :editing) "" "hidden"))
                                           :onClick (fn [_ _] (om/set-state! owner {:editing false}))} "Cancel"]]])
-            (text-control property-details state owner :property_code "Property Code")
+            (bs/static-text property-details :property_code "Property Code")
             (address-control property_data owner state)
             (text-control property_data state owner :property_type "Property Type")
             (text-control property_data state owner :built_form "Built Form")

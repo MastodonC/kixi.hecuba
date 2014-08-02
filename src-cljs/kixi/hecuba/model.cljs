@@ -18,7 +18,8 @@
                :adding-project false}
     :properties {:name     "Properties"
                  :data     []
-                 :selected nil}
+                 :selected nil
+                 :adding-property false}
     :property-details {:data {}}
     :devices {:name     "Devices"
               :data     []
