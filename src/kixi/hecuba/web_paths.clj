@@ -9,6 +9,7 @@
    :admin "admin"
    :profile "profile" ;; user profile settings
    :multiple-properties-comparison "properties_comparison"
+   :property_map "property_map"
 
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
    ;; API

@@ -53,6 +53,10 @@
   (log/infof "App Session: %s" (:session req))
   {:status 200 :body (slurp (io/resource "site/charts.html"))})
 
+(defn property_map [req]
+  (log/infof "App Session: %s" (:session req))
+  {:status 200 :body (slurp (io/resource "site/property_map.html"))})
+
 (defn index-routes
   ([route handler]
      (routes
@@ -186,6 +190,12 @@
    (GET (compojure-route :multiple-properties-comparison) []
         (friend/wrap-authorize
          multiple-properties-comparison
+         #{:kixi.hecuba.security/user}))
+
+   ;; Property map
+   (GET (compojure-route :property_map) []
+        (friend/wrap-authorize
+         property_map
          #{:kixi.hecuba.security/user}))
 
    ;; AMON API Routes
