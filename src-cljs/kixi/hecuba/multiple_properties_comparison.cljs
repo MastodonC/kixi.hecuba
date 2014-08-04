@@ -116,9 +116,9 @@
         (om/update! data [:properties :selected-sensors] #{})
         (om/update! data [:chart :sensors] #{})
         (om/update! data [:chart :measurements] []))
-      
+
       ;; Fetch data
-      
+
       (when (empty? (-> @data :properties :data))
         (log "Fetching all properties")
         (om/update! data [:fetching :properties] true)
@@ -129,24 +129,24 @@
         (log "Setting selected properties to: " properties)
         (let [properties-seq (str/split properties #";")]
           (om/update! data [:properties :selected-properties] (into #{} properties-seq))))
-      
+
       (when (and (not= sensors old-sensors)
                  sensors)
         (log "Setting selected sensors to: " sensors)
         (om/update! data [:properties :selected-sensors] (into #{} (str/split sensors #";")))
         (om/update! data [:chart :sensors] (into #{} (str/split sensors #";")))
-        
+
         (when (and sensors start-date end-date) (fetch-measurements data sensors
                                                                     start-date
                                                                     end-date)))
-      
+
       (when (and (or (not= start-date old-start-date)
                      (not= end-date old-end-date))
                  (not (every? empty? [start-date end-date])))
         (log "Setting date range to: " start-date end-date)
         (om/update! data [:chart :range] {:start-date start-date :end-date end-date})
         (fetch-measurements data sensors start-date end-date))
-      
+
       ;; Update the new active components
       (om/update! data :active-components history-status))
     (recur)))
@@ -187,7 +187,7 @@
         [:tr {:class (when selected? "success")
               :onClick (fn [_] (process-sensor-row-click data history
                                                          id selected?
-                                                         entity_id))} 
+                                                         entity_id))}
          [:td type]
          [:td device_id]
          [:td entity_id]
@@ -204,7 +204,7 @@
         (if (:properties (:fetching cursor))
           (fetching-row)
           [:table.table.table-hover.table-condensed {:style {:font-size "85%"}}
-           [:thead [:tr 
+           [:thead [:tr
                     [:th "Type"]
                     [:th "Device Id"]
                     [:th "Entity Id"]
@@ -240,7 +240,7 @@
         [:tr {:onClick (fn [_] (process-property-row-click data history
                                                            id selected?))
               :style {:display (if (:hidden the-item) "none" "")}
-              :class (when selected? "success")} 
+              :class (when selected? "success")}
          [:td [:p {:class "form-control-static col-md-10"} (slugs/postal-address-html property_data)]]
          [:td code]
          [:td id]
@@ -261,7 +261,7 @@
             [:div
              [:h4 "Search for a property:"]
              [:form {:role "form"}
-              [:div.form-group                     
+              [:div.form-group
                [:input.form-control {:type "text"
                                      :ref "text-field"
                                      :value text
@@ -270,7 +270,7 @@
              [:div.col-md-12 {:style {:overflow "auto"}}
               [:table {:class "table table-hover table-condensed" :style {:font-size "85%"}}
                [:thead
-                [:tr 
+                [:tr
                  [:th "Property Address"]
                  [:th "Property Code"]
                  [:th "Property Id"]
@@ -300,12 +300,12 @@
         (history-loop (tap-history) data)))
     om/IRender
     (render [_]
-      (html 
+      (html
        [:div
         [:div.panel-group {:id "accordion"}
          (bootstrap/accordion-panel  "#collapseOne" "collapseOne" "Properties"
                                      (om/build properties-select-table data))
-         
+
          (bootstrap/accordion-panel  "#collapseThree" "collapseThree" "Sensors"
                                      (om/build sensors-select-table data))]
         [:br]
@@ -322,6 +322,8 @@
             [:div#chart {:style {:width "100%" :height 600}}
              (om/build chart/chart-figure (:chart data))]]]]]]))))
 
-
-(om/root multiple-properties-chart data-model {:target (.getElementById js/document "charting")
-                                               :shared {:history (history/new-history [:properties :sensors :range])}})
+(when-let [charting (.getElementById js/document "charting")]
+  (om/root multiple-properties-chart
+           data-model
+           {:target charting
+            :shared {:history (history/new-history [:properties :sensors :range])}}))

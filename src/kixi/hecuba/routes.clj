@@ -161,8 +161,7 @@
    (GET "/" [] index-page)
 
    ;; clojurescript
-   (route/resources "/cljs/src/public/js/out" {:root "cljs/src/public/js/out/"})
-   (route/resources "/cljs" {:root "cljs/"})
+   (route/resources "/cljs" {:root "cljs"})
 
    ;; Log In and Log Out
    (GET (compojure-route :login) [] login-form)

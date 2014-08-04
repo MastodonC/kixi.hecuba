@@ -27,7 +27,7 @@
                  ;; tools.trace for liberator
                  [org.clojure/tools.trace "0.7.8"]
 
-                 [org.clojure/clojurescript "0.0-2202"]
+                 [org.clojure/clojurescript "0.0-2280"]
                  [org.clojure/core.async "0.1.267.0-0d7780-alpha" :scope "provided"]
 
                  [compojure "1.1.8"]
@@ -79,13 +79,10 @@
                  [clj-time "0.6.0"]
                  [org.clojure/data.json "0.2.4"]
 
-                 [kixi/pipe "0.17.9"]
-
-                 [thheller/shadow-build "0.5.0" :exclusions [org.clojure/clojurescript]]
-                 ]
+                 [kixi/pipe "0.17.9"]]
 
   :source-paths ["src" "src-cljs"]
-  :resource-paths ["resources" "target"]
+  :resource-paths ["resources" "out"]
 
   :jvm-opts ["-Duser.timezone=UTC -XX:MaxPermSize=256m"]
 
@@ -105,13 +102,17 @@
                [org.clojure/tools.trace]
                [org.clojure/tools.logging]]
 
-
+  ;; FIXME: We need to define a cljsbuild test key for the hooks to work
+  ;; :hooks [leiningen.cljsbuild]
   :cljsbuild {:builds [{:id "dev"
                         :source-paths ["src-cljs"]
-                        :compiler {:output-to "out/main.js"
-                                   :output-dir "out"
-                                   :optimizations :none
-                                   :source-map true}}]}
+                        :jar true
+                        :compiler {:output-to "out/cljs/hecuba.js"
+                                   :source-map "out/cljs/hecuba.map.js"
+                                   :output-dir "out/cljs"
+                                   :optimizations :whitespace
+                                   :preamble ["react/react.min.js"]
+                                   :externs ["react/externs/react.js"]}}]}
 
   ;; lein test - runs default
   ;; lein test :http-tests  - runs just http-tests
