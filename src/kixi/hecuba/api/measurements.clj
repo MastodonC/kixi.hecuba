@@ -69,8 +69,8 @@
      :month            (util/get-month-partition-key t)
      :reading_metadata {}}))
 
-(defn template-upload->item [{:keys [size tempfile content-type filename]} entity_id username]
-  (assert (= content-type "text/csv") "Must be text/csv")
+(defn template-upload->item [entity_id username {:keys [size tempfile content-type filename]}]
+  (assert (= content-type "text/csv") (str  "Must be text/csv, not " content-type))
   (let [timestamp (t/now)]
     {:dest      :upload
      :type      :measurements
@@ -172,7 +172,7 @@
         route-params (:route-params (:request ctx))
         entity_id    (:entity_id route-params)
         auth         (sec/current-authentication session)
-        items        (template-upload->item file-data entity_id username)]
+        items        (map (partial template-upload->item entity_id username) file-data)]
     (doseq [item items]
       (pipe/submit-item pipe (assoc item :auth auth)))
     ;; We don't have emough info to return a Location header here. So
