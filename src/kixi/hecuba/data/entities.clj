@@ -91,3 +91,13 @@
     (db/execute session (hayt/update :entities
                                      (hayt/set-columns {:documents [+ [key]]})
                                      (hayt/where [[= :id id]]))))
+
+(defn has-location? [{:keys [property_data]}]
+  (when (and (contains? property_data :latitude)
+             (contains? property_data :longitude))
+    property_data))
+
+(defn get-entities-having-location [session]
+  (->> (get-all session)
+       (map (fn [e] (update-in e [:property_data] #(json/decode % keyword))))
+       (keep has-location?)))
