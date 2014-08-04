@@ -7,3 +7,7 @@
   (-execute-prepared [session query opts])
   (-execute-async [session query opts])
   (-execute-chan [session query opts]))
+
+(defprotocol Elasticsearch
+  (-upsert [this index mapping-type id doc])
+  (-search [this index mapping-type args]))

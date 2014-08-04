@@ -1,5 +1,6 @@
 (ns kixi.hecuba.data.entities
-  (:require [qbits.hayt :as hayt]
+  (:require [clojure.edn :as edn]
+            [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
             [cheshire.core :as json]
             [kixi.hecuba.data.devices :as devices]
@@ -24,6 +25,39 @@
           (get-in entity [:metering_point_ids]) (update-in [:metering_point_ids] str)
           (get-in entity [:property_data]) (update-in [:property_data] json/encode)))
 
+(defn decode-list [entity key]
+  (->> (get entity key [])
+       (mapv #(json/parse-string % keyword))
+       (assoc entity key)))
+
+(defn decode-map [entity key]
+  (->> (get entity key {})
+       (map (fn [[k v]] (vector k (json/parse-string v keyword))))
+       (into {})
+       (assoc entity key)))
+
+(defn decode-edn-map [entity key]
+  (->> (get entity key {})
+       (map (fn [[k v]] (vector k (edn/read-string v))))
+       (into {})
+       (assoc entity key)))
+
+(defn decode-entry [entity key]
+  (try
+    (assoc entity key (json/parse-string (get entity key) keyword))
+    (catch Throwable t
+      (log/errorf t "Died trying to parse key %s on %s" key entity)
+      (throw t))))
+
+(defn decode [entity]
+  (cond-> entity
+          (:notes entity) (decode-list :notes)
+          (:documents entity) (decode-list :documents)
+          (:photos entity) (decode-list :photos)
+          (:devices entity) (decode-edn-map :devices)
+          (:metering_point_ids entity) (decode-entry :metering_point_ids)
+          (:property_data entity) (decode-entry :property_data)))
+
 (defn insert [session entity]
   (db/execute session (hayt/insert :entities (hayt/values (encode entity)))))
 
@@ -34,15 +68,19 @@
 
 (defn get-by-id
   ([session entity_id]
-     (first (db/execute session
-                        (hayt/select :entities
-                                     (hayt/where [[= :id entity_id]]))))))
+     (-> (db/execute session
+                     (hayt/select :entities
+                                  (hayt/where [[= :id entity_id]])))
+         first
+         decode)))
 
 (defn get-all
   ([session]
-     (db/execute session (hayt/select :entities)))
+     (->> (db/execute session (hayt/select :entities))
+          (map decode)))
   ([session project_id]
-     (db/execute session (hayt/select :entities (hayt/where [[= :project_id project_id]])))))
+     (->> (db/execute session (hayt/select :entities (hayt/where [[= :project_id project_id]])))
+          (map decode))))
 
 (defn add-image [session id key]
     (db/execute session (hayt/update :entities

@@ -1,23 +1,25 @@
 (ns kixi.hecuba.api.entities
   (:require
+   [clojure.java.io :as io]
+   [clojure.data.csv :as csv]
    [clojure.core.match :refer (match)]
-   [cheshire.core :as json]
    [clojure.tools.logging :as log]
-   [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-   [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values sha1-regex update-stringified-lists content-type-from-context)]
+   [cheshire.core :as json]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
+   [clojurewerkz.elastisch.native.response :as esr]
+   [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
+   [kixi.hecuba.webutil :as util]
+   [kixi.hecuba.webutil :refer (decode-body authorized? content-type-from-context)]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.data.programmes :as programmes]
    [kixi.hecuba.data.projects :as projects]
    [kixi.hecuba.data.entities :as entities]
    [kixi.hecuba.data.users :as users]
+   [kixi.hecuba.data.search :as search]
    [kixi.hecuba.storage.sha1 :as sha1]
-   [kixi.hecuba.web-paths :as p]
-   [clojure.java.io :as io]
-   [clojure.data.csv :as csv]))
+   [kixi.hecuba.web-paths :as p]))
 
 (def ^:private entities-index-path (p/index-path-string :entities-index))
 (def ^:private entity-resource-path (p/resource-path-string :entity-resource))
@@ -268,7 +270,7 @@
   standard       | timestamp                   | timestamp                  |
   nested item    | profile_data, bedroom_count | profile_data_bedroom_count |
   association    | storeys, first storey_type  | storeys_0_storey_type      |"
-  (try 
+  (try
     (reduce
      (fn [item attr]
        (let [t (attribute-type attr)
@@ -296,7 +298,7 @@
                         (into {}))]
           (parse-by-schema data entity-schema))
         (catch Throwable t
-          (log/error "Unparsable CSV." t)
+          (log/error t "Unparsable CSV.")
           nil)))))
 
 (defmulti malformed? content-type-from-context)
@@ -337,7 +339,7 @@
                                  (let [body-map (into {} decoded-body)]
                                    (parse-by-schema body-map entity-schema))
                                  decoded-body)]
-             (if entity 
+             (if entity
                [false {:entity (assoc entity :id entity_id)}]
                true))
        false)))
@@ -411,15 +413,35 @@
      (= method :delete) false
       :else true)))
 
+;; curl -v -H "Content-Type: application/json" -H 'Accept: application/edn' -X GET -u support-test@mastodonc.com:password 127.0.0.1:8010/4/entities/?q=TSB119
+
+(defn index-response [query page-number page-size allowed-programmes allowed-projects search-session]
+  (let [from (* page-number page-size)
+        search-results (search/search-entities query from page-size search-session)
+        total_hits (esr/total-hits search-results)
+        hits (->> search-results esr/hits-from (map #(-> % :_source :full_entity)))]
+    {:total_hits total_hits
+     :page page-number
+     :entities hits}))
+
+(defn index-handle-ok [store ctx]
+  (let [request (:request ctx)
+        params (:params request)
+        query-string (or (:q params) "*")
+        page-number (or (:page params) 0)
+        page-size (or (:size params) 20)]
+    (index-response query-string page-number page-size nil nil (:search-session store))))
+
 (defresource index [store]
-  :allowed-methods #{:post}
+  :allowed-methods #{:post :get}
   :available-media-types #{"text/csv" "application/json" "application/edn"}
   :known-content-type? #{"text/csv" "application/json"}
   :authorized? (authorized? store)
   :allowed? (index-allowed? store)
   :malformed? #(malformed? %)
   :post! (partial index-post! store)
-  :handle-created index-handle-created)
+  :handle-created index-handle-created
+  :handle-ok (partial index-handle-ok store))
 
 (defresource resource [store]
   :allowed-methods #{:get :delete :put}
