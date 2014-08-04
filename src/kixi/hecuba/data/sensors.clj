@@ -29,15 +29,11 @@
              (s/optional-key :user_id)                     (s/maybe s/Str)
              s/Any                                         s/Any})
 
-(def user-editable-keys [:device_id :type :accuracy :actual_annual :alias
-                        :corrected_unit :correction
-                        :correction_factor :correction_factor_breakdown
-                        :frequency :max :min :period
-                        :resolution :unit :user_metadata])
+
 
 (defn user-metadata [sensor synthetic]
   (-> sensor
-      (merge (stringify-values (dissoc sensor :user_metadata :actual_annual))) ;; actual_annual is a boolean
+      (merge (stringify-values (dissoc sensor :user_metadata :actual_annual :synthetic))) ;; actual_annual is a boolean
       (update-in [:user_metadata] (fn [user_metadata]
                                     (when-not synthetic
                                       (-> user_metadata
@@ -48,7 +44,7 @@
   ([sensor]
      (encode sensor false))
   ([sensor remove-pk?]
-     (-> (select-keys sensor user-editable-keys)
+     (-> sensor
          (user-metadata (:synthetic sensor))
          (cond-> remove-pk? (dissoc :device_id :type)))))
 

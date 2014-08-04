@@ -48,3 +48,39 @@
                          (om/update! data [:properties :error-text] status-text))
         :headers {"Accept" "application/edn"}
         :response-format :text}))
+
+;; Extract and flatten sensors from properties data
+(defn flatten-device [device]
+  (let [device-keys   (->> device keys (remove #(= % :readings)))
+        parent-device (select-keys device device-keys)
+        readings      (:readings device)]
+    (map #(assoc % :parent-device parent-device
+                 :id (str (:type %) "-" (:device_id %))) readings)))
+
+(defn extract-sensors [devices]
+  (vec (mapcat flatten-device devices)))
+
+(defn get-property-details [selected-property-id data]
+  (->>  data
+        :properties
+        :data
+        (filter #(= (:id %) selected-property-id))
+        first))
+
+(defn fetch-sensors [selected-property-id data]
+  (if selected-property-id
+    (if-let [property-details (get-property-details selected-property-id data)]
+      (let [editable (:editable property-details)
+            sensors  (extract-sensors (:devices property-details))]
+        (map #(assoc % :editable editable) sensors))
+      [])
+    []))
+
+(defn fetch-devices [selected-property-id data]
+   (if selected-property-id
+    (if-let [property-details (get-property-details selected-property-id data)]
+      (let [editable (:editable property-details)
+            devices  (:devices property-details)]
+        (map #(assoc % :editable editable) devices))
+      [])
+    []))

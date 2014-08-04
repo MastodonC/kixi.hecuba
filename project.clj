@@ -110,7 +110,7 @@
                         :compiler {:output-to "out/cljs/hecuba.js"
                                    :source-map "out/cljs/hecuba.map.js"
                                    :output-dir "out/cljs"
-                                   :optimizations :whitespace
+                                   :optimizations :none
                                    :preamble ["react/react.min.js"]
                                    :externs ["react/externs/react.js"]}}]}
 

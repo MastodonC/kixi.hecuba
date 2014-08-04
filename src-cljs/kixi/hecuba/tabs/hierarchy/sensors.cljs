@@ -1,7 +1,6 @@
 (ns kixi.hecuba.tabs.hierarchy.sensors
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [cljs.core.async :refer [<! >! chan put!]]
-            [cljs.reader :as reader]
             [om.core :as om :include-macros true]
             [goog.userAgent :as agent]
             [sablono.core :as html :refer-macros [html]]
@@ -10,7 +9,7 @@
             [kixi.hecuba.widgets.chart :as chart]
             [kixi.hecuba.widgets.datetimepicker :as dtpicker]
             [ajax.core :refer [GET POST PUT]]
-            [kixi.hecuba.tabs.hierarchy.data :refer (fetch-properties)]
+            [kixi.hecuba.tabs.hierarchy.data :refer (fetch-properties fetch-sensors)]
             [clojure.string :as string]
             [kixi.hecuba.common :refer (log) :as common]))
 
@@ -27,31 +26,11 @@
          [:span {:class "fa fa-times"}]]
         [:div message]]]))))
 
-(defn flatten-device [device]
-  (let [device-keys   (->> device keys (remove #(= % :readings)))
-        parent-device (select-keys device device-keys)
-        readings      (:readings device)]
-    (map #(assoc % :parent-device parent-device) readings)))
-
-(defn extract-sensors [devices]
-  (vec (mapcat flatten-device devices)))
-
-;; FIXME: This is a dupe from property-details
-(defn get-property-details [selected-property-id data]
-  (->>  data
-        :properties
-        :data
-        (filter #(= (:id %) selected-property-id))
-        first))
-
-(defn get-sensors [selected-property-id data]
-  (if selected-property-id
-    (if-let [property-details (get-property-details selected-property-id data)]
-      (let [editable (:editable property-details)
-            sensors  (extract-sensors (:devices property-details))]
-        (map #(assoc % :editable editable) sensors))
-      [])
-    []))
+(defn error-handler [owner]
+  (fn [{:keys [status status-text]}]
+    (om/set-state! owner :error true)
+    (om/set-state! owner :http-error-response {:status status
+                                               :status-text status-text})))
 
 (defn split-device-and-sensor [m]
    [(select-keys m [:device_id :description :parent_id :entity_id :name
@@ -75,7 +54,7 @@
   (let [sensor-data (om/get-state owner [:sensor])
         [device readings] (split-device-and-sensor sensor-data)]
     (post-resource data project_id property_id device_id (assoc device :readings [(assoc readings :type type)]))
-    (om/update! data [:sensor-edit :editing] false)))
+    (om/update! data [:sensors :editing] false)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; sensors
@@ -118,7 +97,7 @@
                                        :onClick (fn [_ _] (save-form data owner project-id property-id device_id type))} "Save"]
              [:button.btn.btn-default {:type "button"
                                        :class (str "btn btn-danger")
-                                       :onClick (fn [_ _] (om/update! data [:sensor-edit :editing] false))} "Cancel"]]]
+                                       :onClick (fn [_ _] (om/update! data [:sensors :editing] false))} "Cancel"]]]
            (static-text row :device_id "Device ID")
            (static-text row :type "Type")
            (text-input-control (:parent-device row) owner :sensor :name "Parent Device Name")
@@ -126,9 +105,8 @@
            (text-input-control row owner :sensor :unit "Unit")
            (text-input-control row owner :sensor :period "Period")
            (text-input-control row owner :sensor :resolution "Resolution")
-           (text-input-control (:parent-device row) owner :sensor :location "Location")
-           (text-input-control (:parent-device row) owner :sensor :privacy "Privacy")
            (checkbox row owner :sensor :actual_annual "Calculated Field")]]])))))
+
 
 (defn update-sensor-selection [selected-sensors unit chart sensors history]
   (om/update! sensors :selected selected-sensors)
@@ -156,7 +134,7 @@
       om/IRender
       (render [_]
         (html
-         (let [{:keys [device_id type unit period resolution status
+         (let [{:keys [device_id type unit period resolution status synthetic
                        parent-device lower_ts upper_ts actual_annual editable]} cursor
                        {:keys [description privacy location]} parent-device
                        id (str type "-" device_id)
@@ -170,9 +148,9 @@
                                                                   :end-date (common/unparse-date upper_ts "yyyy-MM-dd HH:MM:SS")})))))
                  :class (when selected? "success")
                  :id (str table-id "-selected")}
-            (when editable
-              [:td [:div {:class "fa fa-pencil-square-o" :id "edit"
-                          :onClick #(when selected? (put! editing-chan cursor))}]])
+            [:td (when (and editable (not synthetic))
+                   [:div {:class "fa fa-pencil-square-o" :id "edit"
+                          :onClick #(when selected? (put! editing-chan cursor))}])]
             [:td description]
             [:td type]
             [:td unit]
@@ -185,7 +163,7 @@
             [:td (status-label status privacy actual_annual)]]))))))
 
 (defn sensors-table [editing-chan data]
-  (fn [cursor owner {:keys [histkey path]}]
+  (fn [cursor owner]
     (reify
       om/IInitState
       (init-state [_]
@@ -209,10 +187,8 @@
       om/IRenderState
       (render-state [_ state]
         (let [{:keys [sort-key sort-asc]} (:sort-spec state)
-              selected-property-id        (-> data :active-components :properties)
-              selected-project-id         (-> data :active-components :projects)
-              flattened-sensors           (get-sensors selected-property-id data)
               chart                       (:chart data)
+              sensors-data                (fetch-sensors (-> data :active-components :properties) data)
               history                     (om/get-shared owner :history)
               table-id                    "sensors-table"]
           (html
@@ -233,8 +209,8 @@
                (sorting-th owner "Status" :status)]]
              [:tbody
               (for [row (if sort-asc
-                          (sort-by sort-key flattened-sensors)
-                          (reverse (sort-by sort-key flattened-sensors)))]
+                          (sort-by sort-key sensors-data)
+                          (reverse (sort-by sort-key sensors-data)))]
                 (om/build (form-row data chart history table-id editing-chan) row))]]]))))))
 
 (defn chart-summary
@@ -244,7 +220,6 @@
     om/IRender
     (render [_]
       (let [{:keys [unit measurements]} chart
-            ;; FIXME why are measurements nested? (in prep for multi-series?)
             values (map :value measurements)
             measurements-min (apply min values)
             measurements-max (apply max values)
@@ -274,23 +249,25 @@
       (go-loop []
         (let [{:keys [editing-chan]} (om/get-state owner)
               edited-row             (<! editing-chan)]
-          (om/update! data [:sensor-edit :editing] true)
-          (om/update! data [:sensor-edit :row] edited-row)
+          (om/update! data [:sensors :editing] true)
+          (om/update! data [:sensors :row] edited-row)
           (common/fixed-scroll-to-element "sensor-edit-div"))
         (recur)))
     om/IRenderState
     (render-state [_ {:keys [editing-chan]}]
-      (let [editing (:editing (:sensor-edit data))]
+      (let [{:keys [properties sensors]} data
+            editing        (-> sensors :editing)
+            project_id     (-> data :active-components :projects)
+            property_id    (-> data :active-components :properties)
+            property       (-> (filter #(= (:id %) property_id) (-> properties :data)) first)]
         (html
          [:div.col-md-12
           [:h3 "Sensors"]
-          [:div {:id "sensors-table"}
-           (om/build (sensors-table editing-chan data)
-                     (:sensors data)
-                     {:opts {:histkey :sensors
-                             :path    :readings}})]
+          [:div {:id "sensors-table" :class (if editing "hidden" "")}
+           (om/build (sensors-table editing-chan data) sensors)]
           [:div {:id "sensor-edit-div" :class (if editing "" "hidden")}
-           (om/build (sensor-edit-form data) (:sensor-edit data))]
+           (om/build (sensor-edit-form data) sensors)]
+
           ;; FIXME: We should have better handling for IE8 here.
           (if (or (not agent/IE)
                   (agent/isVersionOrHigher 9))
