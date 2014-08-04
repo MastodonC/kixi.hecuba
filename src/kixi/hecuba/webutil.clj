@@ -51,11 +51,16 @@
 (defn stringify-values [m]
   (into {} (for [[k v] m] [k (str v)])))
 
+;; FIXME these update-stringified-list don't work in the expected way all the time.
+;; in particular if the selector points to a non existant (nested) attribute.
 (defn update-stringified-list [body selector]
-  (update-in body [selector] #(when % (map encode %))))
+  (update-in body
+             [selector]
+             #(when % (map encode %))))
 
 (defn update-stringified-lists [body selectors]
-  (reduce update-stringified-list body selectors))
+  (let [extant-selectors (keep (partial get-in body) [selectors])]
+    (reduce update-stringified-list body extant-selectors)))
 
 (defn authorized? [store]
   (fn [ctx]

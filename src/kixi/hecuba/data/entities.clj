@@ -3,7 +3,8 @@
             [kixi.hecuba.storage.db :as db]
             [cheshire.core :as json]
             [kixi.hecuba.data.devices :as devices]
-            [kixi.hecuba.webutil :refer (update-stringified-lists)]))
+            [kixi.hecuba.webutil :refer (update-stringified-list)]
+            [clojure.tools.logging :as log]))
 
 (defn delete [entity_id session]
   (let [devices              (devices/get-devices session entity_id)
@@ -18,13 +19,10 @@
      :entities deleted-entity}))
 
 (defn encode [entity]
-  (-> entity
-      (dissoc :device_ids)
-      (update-stringified-lists [:documents
-                                 :photos
-                                 :notes])
-      (update-in [:metering_point_ids] str)
-      (update-in [:property_data] json/encode)))
+  (cond-> (dissoc entity :device_ids)
+          (get-in entity [:notes]) (update-stringified-list :notes)
+          (get-in entity [:metering_point_ids]) (update-in [:metering_point_ids] str)
+          (get-in entity [:property_data]) (update-in [:property_data] json/encode)))
 
 (defn insert [session entity]
   (db/execute session (hayt/insert :entities (hayt/values (encode entity)))))

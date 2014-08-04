@@ -39,10 +39,10 @@
   (db/with-session [session (:hecuba-session store)]
     (doseq [{:keys [id photos]} (entities/get-all session)]
       (log/info "migrating photos for " id)
-      (entities/update session id {:photos []})
-      (doseq [item (keep get-item-from-old-embed-bucket (map path-from photos))]
-        (log/info "migrating path for " item)
-        (upload/image-upload store  (assoc item :entity_id id))))))
+      (if-let [paths (not-empty (map path-from photos))]
+        (doseq [item (keep get-item-from-old-embed-bucket paths)]
+          (log/info "migrating path for " item)
+          (upload/image-upload store  (assoc item :entity_id id)))))))
 
 (comment
   ;; from 'user ns after (go)
