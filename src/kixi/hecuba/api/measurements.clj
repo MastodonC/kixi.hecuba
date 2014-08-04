@@ -172,13 +172,12 @@
         route-params (:route-params (:request ctx))
         entity_id    (:entity_id route-params)
         auth         (sec/current-authentication session)
-        items        (template-upload->item file-data entity_id username)
-        ;; location     (format uploads-status-resource-path (:user_id auth) uuid)
-        ]
+        items        (template-upload->item file-data entity_id username)]
     (doseq [item items]
       (pipe/submit-item pipe (assoc item :auth auth)))
+    ;; We don't have emough info to return a Location header here. So
+    ;; we return nothing. This seems to be in line with the HTTP spec.
     {:response {:status 202
-                :headers {"Location" "TBD"} ;; TODO what do we put for location if multiple uploads?
                 :body "Accepted"}}))
 
 (defmethod index-post! :default [store pipe ctx]
