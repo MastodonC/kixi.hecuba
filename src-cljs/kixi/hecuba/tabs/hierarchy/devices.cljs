@@ -40,14 +40,15 @@
             :on-change #(om/set-state! owner (conj path key) (.-checked (.-target %1)))}]])
 
 (defn alert [cursor owner]
-  (let [{:keys [status text class]} cursor]
-    (html
-     [:div {:style {:display (if status "block" "none")}}
-      [:div {:class class}
-       [:button.close {:type "button"
-                       :onClick (fn [_] (om/update! cursor :status false))}
-        [:span {:class "fa fa-times"}]]
-       text]])))
+  (om/component
+   (let [{:keys [status text class]} cursor]
+     (html
+      [:div {:style {:display (if status "block" "none")}}
+       [:div {:class class}
+        [:button.close {:type "button"
+                        :onClick (fn [_] (om/update! cursor :status false))}
+         [:span {:class "fa fa-times"}]]
+        text]]))))
 
 (defn location-input [cursor owner]
   [:div
@@ -79,10 +80,6 @@
                 :type "text"
                 :id "location_longitude"}]]]]]])
 
-(defn refresh-contents [data project_id property_id device_id]
-  (GET (str "/4/entities/property_id" property_id "/devices/" device_id)
-       {:handler #(fetch-properties project_id data)}))
-
 (defn error-handler [data]
   (fn [{:keys [status status-text]}]
     (om/update! data [:devices :alert] {:status true
@@ -96,12 +93,12 @@
   (common/put-resource data (str "/4/entities/" property_id "/devices/" device_id) 
                        {:readings [sensor]}
                        (fn [_] 
-                         (refresh-contents data project_id property_id device_id)
+                         (fetch-properties project_id data (error-handler data))
                          (om/update! data [:devices :adding-sensor] false)
                          (om/update! data [:devices :alert] {:status true
                                                              :class "alert alert-success"
                                                              :text "Sensor was added successfully."}))
-                       (error-handler owner)))
+                       (error-handler data)))
 
 (defn valid-sensor? [sensor]
   (and sensor
@@ -154,12 +151,12 @@
   (common/put-resource data (str "/4/entities/" property_id "/devices/" device_id) 
                        device
                        (fn [_] 
-                         (refresh-contents data project_id property_id device_id)
+                         (fetch-properties project_id data (error-handler data))
                          (om/update! data [:devices :editing] false)
                          (om/update! data [:devices :alert] {:status true
                                                              :class "alert alert-success"
                                                              :text "Device was edited successfully."}))
-                       (error-handler owner)))
+                       (error-handler data)))
 
 (defn save-edited-device [data owner project_id property_id device_id]
   (let [{:keys [device sensors]} (om/get-state owner)
@@ -219,12 +216,12 @@
   (common/post-resource data (str "/4/entities/" property_id "/devices/") 
                         device
                         (fn [_] 
-                          (fetch-properties project_id data)
+                          (fetch-properties project_id data (error-handler data))
                           (om/update! data [:devices :adding-device] false)
                           (om/update! data [:devices :alert] {:status true
                                                               :class "alert alert-success"
                                                               :text "Device was created successfully."}))
-                        (error-handler owner)))
+                        (error-handler data)))
 
 (defn valid-device? [device]
   (not (nil? (:description device)))) ;; entity_id comes from the selection above
