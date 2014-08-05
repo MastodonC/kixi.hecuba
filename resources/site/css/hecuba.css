@@ -87,3 +87,34 @@ p#footer {
     height: 800px;
     margin: 0px 20px;
 }
+
+.leaflet-container {
+    height: 100%;
+    width: 100%;
+}
+
+.leaflet-popup .row {
+    min-height: 0px;
+}
+
+.leaflet-popup .tech-icon {
+    width: 20px;
+    height: 20px;
+}
+
+.leaflet-popup .tech-icon-container {
+    padding: 0px;
+}
+
+.leaflet-popup .tech-icon-wrapper {
+}
+
+.tech-icon-container img {
+    margin: 0px;
+    padding: 0px;
+}
+
+.property-map-popup-image {
+    width: 80px;
+    height: auto;
+}

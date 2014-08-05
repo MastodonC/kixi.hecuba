@@ -28,7 +28,8 @@
    [kixi.hecuba.api.templates :as templates]
    [kixi.hecuba.api.downloads :as downloads]
    [kixi.hecuba.api.uploads :as uploads]
-   [kixi.hecuba.api.entity.upload :as entity-uploads]))
+   [kixi.hecuba.api.entity.upload :as entity-uploads]
+   [kixi.hecuba.api.entity.property-map :as map]))
 
 (defn index-page [req]
   {:status 200
@@ -160,7 +161,7 @@
    (index-routes :entity-images-index [:entity_id] (entity-uploads/index store s3 pipeline-head))
    (index-routes :entity-documents-index [:entity_id] (entity-uploads/index store s3 pipeline-head))
 
-   ))
+   (index-routes :entity-property-having-locations (map/index store))))
 
 (defn all-routes [store s3 pipeline-head]
   (routes

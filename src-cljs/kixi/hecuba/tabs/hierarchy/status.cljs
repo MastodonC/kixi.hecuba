@@ -19,7 +19,7 @@
          [:div
           [:table.table.table-hover.table-condensed
            [:thead
-            [:tr 
+            [:tr
              [:th "File"]
              [:th "ID"]
              [:th "Timestamp"]

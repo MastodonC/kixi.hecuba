@@ -58,6 +58,9 @@
    :entity-device-measurement-readingtype-index "entities/%s/devices/%s/measurements/%s"
    :entity-device-measurement-readingtype-resource "entities/%s/devices/%s/measurements/%s/%s"
 
+   ;; properties having locations
+   :entity-property-having-locations "entities/having-locations"
+
    ;; hourly readings
    ;; FIXME: This should be a query parameter and not a separate resource (or rather the raw should force not choosing the hourly/daily)
    :entity-device-measurement-readingtype-hourly-rollups "entities/%s/devices/%s/hourly_rollups/%s"

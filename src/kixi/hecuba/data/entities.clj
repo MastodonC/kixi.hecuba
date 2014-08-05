@@ -5,6 +5,8 @@
             [cheshire.core :as json]
             [kixi.hecuba.data.devices :as devices]
             [kixi.hecuba.webutil :refer (update-stringified-list)]
+            [clojure.tools.logging :as log]
+            [hickory.core :as hickory]
             [clojure.tools.logging :as log]))
 
 (defn delete [entity_id session]
@@ -19,11 +21,24 @@
     {:devices deleted-devices
      :entities deleted-entity}))
 
+(defn- tech-icons [property_data]
+  (if-let [icons (:technology_icons property_data)]
+    (assoc
+        property_data
+      :technology_icons (->> (hickory/parse-fragment icons)
+                             (keep (fn [ti] (-> ti hickory/as-hickory :attrs :src)))
+                             (map #(clojure.string/replace % ".jpg" ".png"))))
+    property_data))
+
+(defn encode-property-data [property_data]
+  (-> property_data
+   tech-icons))
+
 (defn encode [entity]
   (cond-> (dissoc entity :device_ids)
           (get-in entity [:notes]) (update-stringified-list :notes)
           (get-in entity [:metering_point_ids]) (update-in [:metering_point_ids] str)
-          (get-in entity [:property_data]) (update-in [:property_data] json/encode)))
+          (get-in entity [:property_data]) (update-in [:property_data] encode-property-data)))
 
 (defn decode-list [entity key]
   (->> (get entity key [])
@@ -92,12 +107,16 @@
                                      (hayt/set-columns {:documents [+ [key]]})
                                      (hayt/where [[= :id id]]))))
 
-(defn has-location? [{:keys [property_data]}]
-  (when (and (contains? property_data :latitude)
+(defn has-location? [{:keys [property_data] :as e}]
+  (when (and property_data
+             (contains? property_data :latitude)
              (contains? property_data :longitude))
-    property_data))
+    e))
 
 (defn get-entities-having-location [session]
-  (->> (get-all session)
-       (map (fn [e] (update-in e [:property_data] #(json/decode % keyword))))
-       (keep has-location?)))
+  (let [data
+        (->> (db/execute session (hayt/select :entities) (hayt/columns [:id :name :property_data]))
+             (map (fn [e] (update-in e [:property_data] #(json/decode % keyword))))
+             (map encode)
+             (keep has-location?))]
+    data))
