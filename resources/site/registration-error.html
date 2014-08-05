@@ -8,7 +8,7 @@
     <meta name="author" content="Carlos Alvarez & Bruce Durling">
     <link rel="shortcut icon" href="ico/favicon.png">
 
-    <title>Get Embed</title>
+    <title>Registration Error</title>
     <!-- Shims and Shivs for old, broken IE8 -->
     <!--[if lt IE 9]>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7/html5shiv.js"></script>
@@ -41,7 +41,7 @@
 
     <div class="container">
       <div class="jumbotron centered tooltip-demo w">
-        <h1>getembed.com</h1>
+        <h1>Registration Error</h1>
 
         <p>
 	  <a data-toggle="tooltip" title="Twitter" href="http://twitter.com/EnergySvgTrust"><i class="fa fa-twitter"></i></a>
@@ -49,40 +49,17 @@
 	  <a data-toggle="tooltip" title="Email Us!" href="mailto:theteam@mastodonc.com"><i class="fa fa-envelope"></i></a>
         </p>
 
-        <p class="lead">
-          You can still access all the Retrofit for the Future data on
-    	  the <a href="http://est.amee.com">old embed site</a> while
-    	  we work on the new one or you can register and use our new beta site!
-        </p>
+        <div class="alert alert-danger" role="alert">
+          <p class="lead">
+            Hi! Unfortunately there was a problem registering you with the system.
+          </p>
+          <p>
+            Please contact <a class="alert-link" href="mailto:support@mastodonc.com">support@mastodonc.com</a> for assistance.
+          </p>
+        </div>
 
       </div>
-      <div class="col-md-6 col-md-offset-3">
-        <div class="panel  panel-success">
-          <div class="panel-heading">Register</div>
-          <div class="panel-body">
-            <form role="form" method="POST" action="/register">
-              <div class="form-group">
-                <label for="name">Full Name</label>
-                <input type="text" required="true" name="name" class="form-control" placeholder="Your Full Name">
-              </div>
-              <div class="form-group">
-                <label for="email">Email Address</label>
-                <input type="email" required="true" name="email" class="form-control" placeholder="Your Email Address">
-              </div>
-              <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" required="true" name="password" class="form-control" placeholder="Your Password">
-              </div>
-              <div class="form-group">
-                <label for="confirm_password">Confirm Password</label>
-                <input type="password" required="true" name="confirm_password" class="form-control" placeholder="Confirm Your Password">
-              </div>
-              <button type="submit" class="btn btn-lg btn-success">Register</button>
-              or <a href="/login">Log In</a>
-            </form>
-          </div>
-        </div>
-      </div>
+
     </div>
 
 

@@ -1,6 +1,7 @@
  (ns kixi.hecuba.security
   (:require
    [clojure.tools.logging :as log]
+   [ring.util.response :refer (redirect-after-post)]
    [qbits.hayt :as hayt]
    [kixi.hecuba.storage.db :as db]
    [cemerick.friend :as friend]
@@ -21,7 +22,7 @@
 (defn has-user? [roles] (some #(isa? % ::user) roles))
 
 (defn add-user!
-  ([store username password roles programmes projects]
+  ([store name username password roles programmes projects]
      (db/with-session [session (:hecuba-session store)]
        (db/execute
         session
@@ -29,12 +30,13 @@
                      (hayt/set-columns
                       {:username username
                        :password (creds/hash-bcrypt password)
-                       :data     (pr-str {:roles      (set roles)
+                       :data     (pr-str {:name       name
+                                          :roles      (set roles)
                                           :programmes (set programmes)
                                           :projects   (set projects)})})
                      (hayt/where [[= :id username]])))))
-  ([store username password roles]
-     (add-user! store username password roles #{} #{})))
+  ([store name username password roles]
+     (add-user! store name username password roles #{} #{})))
 ;; (kixi.hecuba.security/add-user! (:store system) "support@example.com" "<password>" #{:kixi.hecuba.security/super-admin})
 
 (defn get-user [store]
@@ -114,3 +116,30 @@
         :authentications
         (get (:current identity-map)))
     {:projects #{} :programmes #{} :roles #{}}))
+
+(defn not-registered? [username store]
+  (db/with-session [session (:hecuba-session store)]
+    (empty? (db/execute
+             session
+             (hayt/select :users (hayt/where [[= :id username]]))))))
+
+(defn register-user [request store]
+  (let [params (:params request)
+        {:keys [name email password confirm_password]} params]
+    (log/infof "Attempting to register name: %s email: %s passwords equal? %s" name email (= password confirm_password))
+    (if (and (= password confirm_password)
+             (every? identity [name email password confirm_password])
+             (not-registered? email store))
+      (do (add-user! store name email password #{::user} #{} #{})
+          (assoc-in (redirect-after-post "/app")
+                    [:session ::friend/identity]
+                    {:current email
+                     :authentications {email
+                                       {:identity email
+                                        :name name
+                                        :projects #{}
+                                        :programmes #{}
+                                        :roles #{::user}
+                                        :username email
+                                        :id email}}}))
+      (redirect-after-post "/registration-error"))))

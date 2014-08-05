@@ -34,6 +34,10 @@
   {:status 200
    :body (slurp (io/resource "site/index.html"))})
 
+(defn registration-error-page [req]
+  {:status 200
+   :body (slurp (io/resource "site/registration-error.html"))})
+
 (defn not-found-page [req]
   (log/infof "404 Request: %s" (:uri req))
   {:status 404 :body (slurp (io/resource "site/not-found.html"))})
@@ -166,6 +170,11 @@
    ;; Log In and Log Out
    (GET (compojure-route :login) [] login-form)
    (friend/logout (ANY (compojure-route :logout) request (redirect "/")))
+
+   ;; Register User
+   (GET "/register" [] (redirect "/app"))
+   (POST "/register" request (security/register-user request store))
+   (GET "/registration-error" [] registration-error-page)
 
    ;; Main Application
    (GET (compojure-route :app) []
