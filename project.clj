@@ -35,6 +35,9 @@
                  ;; to deal with some legacy html data
                  [hickory "0.5.3"]
 
+                 ;; elasticsearch integration
+                 [clojurewerkz/elastisch "2.1.0-beta4"]
+
                  ;; authn and authz
                  [com.cemerick/friend "0.2.1" :exclusions [org.clojure/core.cache
                                                            commons-codec

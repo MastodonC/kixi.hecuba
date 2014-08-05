@@ -130,15 +130,8 @@
 (defn index-all-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [projects (:projects ctx)
-          coll     (->> (mapcat #(entities/get-all session %) projects)
-                        (map #(-> %
-                                  (assoc
-                                      :property_data (if-let [property_data (:property_data %)]
-                                                       (-> property_data
-                                                           parse-property-data
-                                                           tech-icons)
-                                                       {})
-                                      :devices (devices/->clojure (:id %) session)))))]
+          coll     (->> (entities/get-all session)
+                        (map #(assoc :devices (devices/->clojure (:id %) session))))]
       coll)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

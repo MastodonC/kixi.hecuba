@@ -14,6 +14,7 @@
    [kixipipe.storage.s3 :as s3]
    [kixi.hecuba.routes :refer (new-web-app)]
    [kixi.hecuba.storage.db :as db]
+   [kixi.hecuba.storage.search :as search]
 
    ;; Misc
    clojure.tools.reader
@@ -62,6 +63,7 @@
     (-> (component/system-map
          :cluster (db/new-cluster (:cassandra-cluster cfg))
          :hecuba-session (db/new-session (:hecuba-session cfg))
+         :search-session (search/new-search-session (:search-session cfg))
          :s3 (s3/mk-session (:s3 cfg))
          :store (db/new-store)
          :pipeline (new-pipeline)
@@ -69,7 +71,7 @@
          :web-app (new-web-app cfg))
         (mod/system-using
          {:web-app [:store :s3 :pipeline]
-          :store [:hecuba-session :s3]
+          :store [:hecuba-session :s3 :search-session]
           :pipeline [:store]
           :scheduler [:pipeline]
           :hecuba-session [:cluster]}))))
