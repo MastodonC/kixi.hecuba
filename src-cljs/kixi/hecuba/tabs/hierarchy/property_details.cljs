@@ -8,6 +8,7 @@
             [kixi.hecuba.bootstrap :as bs]
             [kixi.hecuba.tabs.slugs :as slugs]
             [kixi.hecuba.tabs.hierarchy.sensors :as sensors]
+            [kixi.hecuba.tabs.hierarchy.devices :as devices]
             [kixi.hecuba.tabs.hierarchy.raw-data :as raw]
             [kixi.hecuba.tabs.hierarchy.profiles :as profiles]
             [kixi.hecuba.tabs.hierarchy.status :as status]
@@ -224,6 +225,9 @@
                  [:li {:class (if (= active-tab :profiles) "active" nil)}
                   [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :profiles))}
                    "Profiles"]]
+                 [:li {:class (if (= active-tab :devices) "active" nil)}
+                  [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :devices))}
+                   "Devices"]]
                  [:li {:class (if (= active-tab :sensors) "active" nil)}
                   [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :sensors))}
                    "Sensor Charts"]]
@@ -237,6 +241,9 @@
                 ;; Overview
                 [:div {:class (if (not= active-tab :overview) "hidden" "col-md-12")}
                  (om/build property-details-form data)]
+                ;; Devices
+                [:div {:class (if (not= active-tab :devices) "hidden" nil)}
+                 (om/build devices/devices-div data)]
                 ;; Sensors
                 [:div {:class (if (not= active-tab :sensors) "hidden" nil)}
                  (om/build sensors/sensors-div data)]

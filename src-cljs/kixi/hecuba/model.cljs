@@ -21,12 +21,6 @@
                  :selected nil
                  :adding-property false}
     :property-details {:data {}}
-    :devices {:name     "Devices"
-              :data     []
-              :selected nil}
-    :sensors {:name     "Sensors"
-              :data     []
-              :selected #{}}
     :measurements {:name     "Measurements"
                    :header   {:cols {:timestamp {:label "Timestamp"}
                                      :type      {:label "Type"}
@@ -35,17 +29,26 @@
                               :sort [:timestamp]}
                    :data     []
                    :selected nil}
-    :sensor-select {:name     "Sensors"
-                    :header   {:cols {[:location :name] {:label "Name"}
-                                      :type     {:label "Type"}
-                                      :unit     {:label "Unit"}
-                                      :select   {:label "Select" :checkbox true}}
-                               :sort [:name]}
-                    :data     []
-                    :sensor-group {:members #{}
-                                   :name nil}}
-    :sensor-edit {:editing false
-                  :row nil}
+    :devices {:name "Devices"
+              :header   {:cols {[:location :name] {:label "Name"}
+                                :type     {:label "Type"}
+                                :unit     {:label "Unit"}
+                                :select   {:label "Select" :checkbox true}}
+                         :sort [:name]}
+              :alert {}
+              :selected nil
+              :adding false
+              :editing false
+              :edited-device nil}
+    :sensors {:name     "Sensors"
+              :header   {:cols {[:location :name] {:label "Name"}
+                                :type     {:label "Type"}
+                                :unit     {:label "Unit"}
+                                :select   {:label "Select" :checkbox true}}
+                         :sort [:name]}
+              :selected nil
+              :editing false
+              :row nil}
     :uploads []
     :downloads {:files []}
     :chart    {:property ""

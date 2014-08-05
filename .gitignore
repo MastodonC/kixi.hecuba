@@ -2,6 +2,7 @@
 /logs
 /classes
 /checkouts
+/out
 tmp_data/
 pom.xml
 pom.xml.asc

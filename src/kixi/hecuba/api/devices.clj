@@ -79,12 +79,20 @@
                    (or (= (:actual_annual_calculation %) true)
                        (= (:normalised_annual_calculation %) true))) sensors)))
 
+(def user-editable-keys [:device_id :type :accuracy :alias :actual_annual
+                         :corrected_unit :correction
+                         :correction_factor :correction_factor_breakdown
+                         :frequency :max :min :period
+                         :resolution :unit :user_metadata])
+
 (defn index-malformed? [ctx]
   (let [request (:request ctx)
         {:keys [route-params request-method]} request
         entity_id (:entity_id route-params)]
     (case request-method
-      :post (let [body (decode-body request)]
+      :post (let [body (update-in (decode-body request) [:readings]
+                                  (fn [readings] (map #(select-keys % user-editable-keys)
+                                                       readings)))]
               (if (or (not= (:entity_id body) entity_id)
                       (not (should-calculate-fields? (:readings body))))
                 true
@@ -125,7 +133,8 @@
         new-sensors    (map #(case (:period %)
                                "CUMULATIVE" (ext-type % "differenceSeries")
                                "PULSE"      (calculated-sensor %)
-                               "INSTANT"    nil) sensors)]
+                               "INSTANT"    nil
+                               nil) sensors)]
     (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten (concat readings new-sensors))))))))
 
 (defn index-post! [store ctx]
@@ -138,9 +147,9 @@
       (when-not (empty? (first (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]])))))
         (let [device_id    (sha1/gen-key :device body)
               new-body     (create-default-sensors body)]
-          (devices/insert session entity_id (assoc new-body :id device_id))
+          (devices/insert session entity_id (assoc new-body :id device_id :user_id user_id))
           (doseq [reading (:readings new-body)]
-            (sensors/insert session (assoc reading :device_id device_id)))
+            (sensors/insert session (assoc reading :device_id device_id :user_id user_id)))
 
           {:device_id device_id :entity_id entity_id})))))
 
@@ -179,7 +188,7 @@
     (let [{item ::item} ctx
           device_id (:device_id item)
           entity_id (:entity_id item)
-          response  (devices/delete session entity_id device_id)]
+          response  (devices/delete device_id false session)]
       "Delete Accepted")))
 
 (defn resource-put! [store ctx]
@@ -191,24 +200,21 @@
               username      (sec/session-username (-> ctx :request :session))
               user_id       (:id (users/get-by-username session username))
               device_id     (-> item :device_id)
-              new-sensors   (map #(when (= "CUMULATIVE" (:period %)) (ext-type % "differenceSeries")) (:readings body))
-              new-body      (update-in body [:readings] (fn [readings] (into [] (remove nil? (concat readings new-sensors)))))]
+              new-body      (create-default-sensors body)]
           (devices/update session entity_id device_id (assoc new-body :user_id user_id))
           ;; TODO when new sensors are created they do not necessarilly overwrite old sensors (unless their type is the same)
           ;; We should probably allow to delete sensors through the API/UI
           (doseq [reading (:readings new-body)]
-            (when-not (empty? (dissoc reading :type :device_id)) ;; don't update when no data is changed 
-              (sensors/update session device_id (assoc reading :device_id device_id)))))
-        (ring-response {:status 404 :body "Please provide valid entity_id and device_id"})))))
+            ;; cassandra's insert only updates specified keys so no need to use update
+            (sensors/insert session (assoc reading :device_id device_id
+                                           :user_id user_id)))
+          (ring-response {:status 404 :body "Please provide valid entity_id and device_id"}))))))
 
 (defn resource-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [{item ::item} ctx]
       (-> item
-          (assoc :readings (map #(dissoc % :user_id) (db/execute session
-                                                                 (hayt/select :sensors
-                                                                              (hayt/where [[= :device_id (:device_id item)]])))))
-          ;; (assoc :measurements (hecuba/items querier :measurement {:device_id (:id item)}))
+          (assoc :readings (map #(dissoc % :user_id) (sensors/get-sensors (:device_id item) session)))
           (update-in [:location] json/decode)
           (update-in [:metadata] json/decode)
           (dissoc :user_id)))))
