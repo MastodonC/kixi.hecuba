@@ -72,9 +72,10 @@
       (add-metadata session)))
 
 (defn get-sensors [device_id session]
-  (db/execute session
-              (hayt/select :sensors
-                           (hayt/where [[= :device_id device_id]]))))
+  (->> (db/execute session
+                   (hayt/select :sensors
+                                (hayt/where [[= :device_id device_id]])))
+       (mapv #(enrich-sensor % session))))
 
 (defn get-sensors-by-device_ids [device_ids session]
   (db/execute session
@@ -109,8 +110,7 @@
 (defn ->clojure
   "Sensors are called readings in the API."
   [device_id session]
-  (let [sensors (get-sensors device_id session)]
-    (mapv #(enrich-sensor % session) sensors)))
+  (get-sensors device_id session))
 
 (defn delete-measurements [sensor session]
   (s/validate Sensor sensor)

@@ -43,6 +43,13 @@
                     (cond-> remove-pk? (dissoc :id))
                     stringify-values)))
 
+(defn decode [device session]
+  (-> device
+      (assoc :readings (map #(dissoc % :user_id) (sensors/get-sensors (:id device) session)))
+      (update-in [:location] json/decode)
+      (update-in [:metadata] json/decode)
+      (dissoc :user_id)))
+
 (defn insert [session entity_id device]
   (let [id             (:id device)
         encoded-device (encode device)]
@@ -53,8 +60,10 @@
                                      (hayt/where [[= :id entity_id]])))))
 
 (defn get-by-id [session id]
-  (first (db/execute session (hayt/select :devices
-                                          (hayt/where [[= :id id]])))))
+  (log/info "id: " id)
+  (when-let [device (first (db/execute session (hayt/select :devices
+                                                            (hayt/where [[= :id id]]))))]
+      (decode device session)))
 
 (defn update
   ([session device]
@@ -93,9 +102,8 @@
               {:devices deleted-device :entities entity-response}))))
 
 (defn get-devices [session entity_id]
-  (db/execute session (hayt/select :devices (hayt/where [[= :entity_id entity_id]]))))
-
-
+  (->> (db/execute session (hayt/select :devices (hayt/where [[= :entity_id entity_id]])))
+       (map #(decode % session))))
 
 (defn ->clojure [entity_id session]
   (let [devices (get-devices session entity_id)]

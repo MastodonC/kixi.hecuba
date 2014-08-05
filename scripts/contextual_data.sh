@@ -19,7 +19,6 @@ fi
 cd tmp_data
 
 cqlsh $(hostname -i) << EOD
-<< EOD
 use hecuba;
 COPY profiles TO 'profiles.csv';
 COPY programmes TO 'programmes.csv';

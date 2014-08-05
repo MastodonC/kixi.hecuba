@@ -68,7 +68,7 @@
           method       (:request-method request)
           route-params (:route-params request)
           entity_id    (:entity_id route-params)
-          entity       (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first)]
+          entity       (entities/get-by-id session entity_id)]
       (case method
         :post (not (nil? entity))
         :get (let [items (devices/get-devices session entity_id)]
@@ -92,7 +92,7 @@
     (case request-method
       :post (let [body (update-in (decode-body request) [:readings]
                                   (fn [readings] (map #(select-keys % user-editable-keys)
-                                                       readings)))]
+                                                      readings)))]
               (if (or (not= (:entity_id body) entity_id)
                       (not (should-calculate-fields? (:readings body))))
                 true
@@ -144,7 +144,7 @@
           username               (sec/session-username (-> ctx :request :session))
           user_id                (:id (users/get-by-username session username))]
 
-      (when-not (empty? (first (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]])))))
+      (when (entities/get-by-id session entity_id)
         (let [device_id    (sha1/gen-key :device body)
               new-body     (create-default-sensors body)]
           (devices/insert session entity_id (assoc new-body :id device_id :user_id user_id))
@@ -154,12 +154,7 @@
           {:device_id device_id :entity_id entity_id})))))
 
 (defn index-handle-ok [ctx]
-  (let [items    (::items ctx)]
-    (util/render-items ctx
-                       (->> items
-                                (map #(dissoc % :user_id))
-                                (map #(update-in % [:location] json/decode))
-                                (map #(update-in % [:metadata] json/decode))))))
+  (util/render-items ctx (::items ctx)))
 
 (defn index-handle-created [ctx]
   (let [entity_id (-> ctx :entity_id)
@@ -172,13 +167,10 @@
 
 (defn resource-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [entity_id (-> ctx :request :route-params :entity_id)
-          device_id (-> ctx :request :route-params :device_id)
+    (let [device_id (-> ctx :request :route-params :device_id)
           item      (devices/get-by-id session device_id)]
       (if-not (empty? item)
-        {::item (-> item
-                    (assoc :device_id device_id)
-                    (dissoc :id))}
+        {::item item}
         false))))
 
 ;; Should be device-response etc and it should do the delete in delete!,
@@ -186,7 +178,7 @@
 (defn resource-delete-enacted? [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [{item ::item} ctx
-          device_id (:device_id item)
+          device_id (:id item)
           entity_id (:entity_id item)
           response  (devices/delete device_id false session)]
       "Delete Accepted")))
@@ -199,7 +191,7 @@
               entity_id     (-> item :entity_id)
               username      (sec/session-username (-> ctx :request :session))
               user_id       (:id (users/get-by-username session username))
-              device_id     (-> item :device_id)
+              device_id     (-> item :id)
               new-body      (create-default-sensors body)]
           (devices/update session entity_id device_id (assoc new-body :user_id user_id))
           ;; TODO when new sensors are created they do not necessarilly overwrite old sensors (unless their type is the same)
@@ -210,14 +202,8 @@
                                            :user_id user_id)))
           (ring-response {:status 404 :body "Please provide valid entity_id and device_id"}))))))
 
-(defn resource-handle-ok [store ctx]
-  (db/with-session [session (:hecuba-session store)]
-    (let [{item ::item} ctx]
-      (-> item
-          (assoc :readings (map #(dissoc % :user_id) (sensors/get-sensors (:device_id item) session)))
-          (update-in [:location] json/decode)
-          (update-in [:metadata] json/decode)
-          (dissoc :user_id)))))
+(defn resource-handle-ok [ctx]
+  (::item ctx))
 
 (defn resource-respond-with-entity [ctx]
   (let [request (:request ctx)
@@ -234,6 +220,7 @@
   :allowed? (index-allowed? store)
   :exists? (partial index-exists? store)
   :malformed? index-malformed?
+  :can-post-to-missing? (constantly false)
   :post! (partial index-post! store)
   :handle-ok index-handle-ok
   :handle-created index-handle-created)
@@ -249,4 +236,4 @@
   :new? (constantly false)
   :can-put-to-missing? (constantly false)
   :put! (partial resource-put! store)
-  :handle-ok (partial resource-handle-ok store))
+  :handle-ok resource-handle-ok)

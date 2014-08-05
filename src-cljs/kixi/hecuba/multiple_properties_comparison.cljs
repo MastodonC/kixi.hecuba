@@ -16,16 +16,18 @@
 
 (def data-model
   (atom
-   {:properties {:data []
-                 :selected-properties #{}
-                 :selected-sensors #{}}
-    :fetching {:properties false
+   {:entities {:searched-data []
+               :selected-data []
+               :selected-entities #{}
+               :selected-sensors #{}}
+    :fetching {:entities false
                :measurements false}
     :chart {:unit ""
             :range {}
             :sensors #{}
             :measurements []
-            :message ""}}))
+            :message ""}
+    :stats {}}))
 
 (defn fetching-row []
   [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching data." ]]])
@@ -33,11 +35,24 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Data fetchers
 
-(defn fetch-properties [data]
-  (GET "/4/properties/"
+(defn fetch-entities [data query]
+  (log "Fetching entities for query: " query)
+  (GET (str "/4/entities/?q=" query)
        {:handler (fn [response]
-                   (om/update! data [:properties :data] response)
-                   (om/update! data [:fetching :properties] false))
+                   (om/update! data [:entities :searched-data] (take 20 (:entities response)))
+                   (om/update! data [:stats] {:total_hits (:total_hits response)
+                                              :page (:page response)})
+                   (om/update! data [:fetching :entities] false))
+        :headers {"Accept" "application/edn"}
+        :response-format :text}))
+
+
+(defn fetch-entity [data id]
+  (log "Fetching entity for id: " id)
+  (GET (str "/4/entities/" id)
+       {:handler (fn [response]
+                   (om/transact! data [:entities :selected-data] #(conj % response))
+                   (om/update! data [:fetching :entities] false))
         :headers {"Accept" "application/edn"}
         :response-format :text}))
 
@@ -79,18 +94,19 @@
   (let [device-keys   (->> device keys (remove #(= % :readings)))
         parent-device (select-keys device device-keys)
         readings      (:readings device)]
-    (map #(assoc % :parent-device parent-device) readings)))
+    (map #(assoc % :parent-device parent-device
+                 :id (str (:type %) "-" (:device_id %))) readings)))
 
 (defn extract-sensors [devices]
   (vec (mapcat flatten-device devices)))
 
 (defn sensors-for-property [data id]
-  (let [property (first (filter #(= (:id %) id) (get-in data [:properties :data])))
+  (let [property (first (filter #(= (:id %) id) (get-in data [:entities :selected-data])))
         sensors  (extract-sensors (:devices property))]
     sensors))
 
 (defn get-sensors [data]
-  (let [properties (-> data :properties :selected-properties)]
+  (let [properties (-> data :entities :selected-entities)]
     (log "Getting sensors for properties: " properties)
     (vec (mapcat #(sensors-for-property data %) properties))))
 
@@ -102,39 +118,37 @@
     (let [nav-event                     (<! history-channel)
           history-status                (-> nav-event :args)
           [start-date end-date]         (:search history-status)
-          {:keys [properties sensors]}  (:ids history-status)
+          {:keys [entities sensors]}    (:ids history-status)
           old-nav                       (:active-components @data)
-          old-properties                (:properties (:ids old-nav))
+          old-entities                  (:entities (:ids old-nav))
           old-sensors                   (:sensors (:ids old-nav))
           [old-start-date old-end-date] (:range (:ids old-nav))]
 
       ;; Clear down
-      (when-not properties
+      (when-not entities
         (om/update! data [:chart :measurements] []))
 
       (when-not sensors
-        (om/update! data [:properties :selected-sensors] #{})
+        (om/update! data [:entities :selected-sensors] #{})
         (om/update! data [:chart :sensors] #{})
         (om/update! data [:chart :measurements] []))
 
       ;; Fetch data
-
-      (when (empty? (-> @data :properties :data))
-        (log "Fetching all properties")
-        (om/update! data [:fetching :properties] true)
-        (fetch-properties data))
-
-      (when (and (not= properties old-properties)
-                 properties)
-        (log "Setting selected properties to: " properties)
-        (let [properties-seq (str/split properties #";")]
-          (om/update! data [:properties :selected-properties] (into #{} properties-seq))))
+      (when (and (not= entities old-entities)
+                 entities)
+        (log "Setting selected entities to: " entities)
+        (let [entities-seq  (str/split entities #";")]
+          (om/update! data [:entities :selected-entities] (into #{} entities-seq))
+          (doseq [entity entities-seq]
+            (fetch-entity data entity))
+          (om/update! data [:sensors :data] (get-sensors @data))))
 
       (when (and (not= sensors old-sensors)
                  sensors)
         (log "Setting selected sensors to: " sensors)
-        (om/update! data [:properties :selected-sensors] (into #{} (str/split sensors #";")))
-        (om/update! data [:chart :sensors] (into #{} (str/split sensors #";")))
+        (let [selected-sensors (into #{} (str/split sensors #";"))]
+          (om/update! data [:entities :selected-sensors] selected-sensors)
+          (om/update! data [:chart :sensors] selected-sensors))
 
         (when (and sensors start-date end-date) (fetch-measurements data sensors
                                                                     start-date
@@ -164,12 +178,12 @@
 ;; Sensors table
 
 (defn process-sensor-row-click [data history id selected? entity_id]
-  (let [selected-sensors ((if selected? disj conj) (-> @data :properties :selected-sensors) id)
+  (let [selected-sensors ((if selected? disj conj) (-> @data :entities :selected-sensors) id)
         device-entity-mapping (if selected?
-                                (dissoc (-> @data :properties :device-entity) id)
-                                (assoc (-> @data :properties :device-entity) id entity_id))]
-    (om/update! data [:properties :device-entity] device-entity-mapping)
-    (om/update! data [:properties :selected-sensors] selected-sensors)
+                                (dissoc (-> @data :entities :device-entity) id)
+                                (assoc (-> @data :entities :device-entity) id entity_id))]
+    (om/update! data [:entities :device-entity] device-entity-mapping)
+    (om/update! data [:entities :selected-sensors] selected-sensors)
     (history/update-token-ids! history
                                :sensors (if (seq selected-sensors)
                                           (str/join ";" selected-sensors)
@@ -182,7 +196,7 @@
            history   (om/get-shared owner :history)
            entity_id (:entity_id parent-device)
            id        (str entity_id "-" device_id "-" type)
-           selected? (contains? (-> data :properties :selected-sensors) id)]
+           selected? (contains? (-> data :entities :selected-sensors) id)]
        (html
         [:tr {:class (when selected? "success")
               :onClick (fn [_] (process-sensor-row-click data history
@@ -192,8 +206,8 @@
          [:td device_id]
          [:td entity_id]
          [:td unit]
-         [:td (if-let [t (common/unparse-date lower_ts "yyyy-MM-dd")] t "")]
-         [:td (if-let [t (common/unparse-date upper_ts "yyyy-MM-dd")] t "")]])))))
+         [:td (if-let [t (common/unparse-date-str lower_ts "yyyy-MM-dd")] t "")]
+         [:td (if-let [t (common/unparse-date-str upper_ts "yyyy-MM-dd")] t "")]])))))
 
 (defn sensors-select-table [cursor owner]
   (reify
@@ -201,7 +215,7 @@
     (render [_]
       (html
        [:div.col-md-12
-        (if (:properties (:fetching cursor))
+        (if (:entities (:fetching cursor))
           (fetching-row)
           [:table.table.table-hover.table-condensed {:style {:font-size "85%"}}
            [:thead [:tr
@@ -212,18 +226,20 @@
                     [:th "Earliest Event"]
                     [:th "Last Event"]]]
            [:tbody
-            (if (-> cursor :fetching :properties)
+            (if (-> cursor :fetching :entities)
               (fetching-row)
-              (om/build-all (sensor-row cursor) (get-sensors cursor)))]])]))))
+              (when (and (-> cursor :entities :selected-data seq)
+                         (-> cursor :entities :selected-entities seq))
+                (om/build-all (sensor-row cursor) (get-sensors cursor) {:key :id})))]])]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Properties table
 
 (defn process-property-row-click [data history id selected?]
-  (let [selected-properties ((if selected? disj conj) (-> @data :properties :selected-properties) id)]
-    (om/update! data [:properties :selected-properties] selected-properties)
+  (let [selected-properties ((if selected? disj conj) (-> @data :entities :selected-entities) id)]
+    (om/update! data [:entities :selected-entities] selected-properties)
     (history/update-token-ids! history
-                               :properties (if (seq selected-properties)
+                               :entities (if (seq selected-properties)
                                              (str/join ";" selected-properties)
                                              nil))))
 
@@ -233,8 +249,8 @@
      (let [code                (get the-item :property_code)
            property_data       (get the-item :property_data)
            id                  (get the-item :id)
-           selected-properties (-> data :properties :selected-properties)
-           selected?           (contains? selected-properties id)
+           selected-entities   (-> data :entities :selected-entities)
+           selected?           (contains? selected-entities id)
            history             (om/get-shared owner :history)]
        (html
         [:tr {:onClick (fn [_] (process-property-row-click data history
@@ -246,27 +262,58 @@
          [:td id]
          [:td (:project_id the-item)]])))))
 
-(defn properties-select-table [data owner]
+(defn search-stats [cursor owner]
+  (om/component
+   (let [hits (:total_hits cursor)]
+     (html
+      [:div {:class (if hits "" "hidden")}
+       (str "About " hits " results. Displaying 20.")]))))
+
+(defn input-box [cursor owner]
+  (reify
+    om/IRenderState
+    (render-state [_ {:keys [event-chan]}]
+      (html
+       [:div
+        [:div.input-group.input-group-md
+         [:input {:type "text"
+                  :class "form-control input-md"
+                  :on-change (fn [e] (om/set-state! owner :value (.-value (.-target e))))
+                  :on-key-press (fn [e] (when (= (.-keyCode e) 13)
+                                          (let [value (om/get-state owner :value)]
+                                            (when value
+                                              (put! event-chan value)))))}]
+         [:span.input-group-btn
+          [:button {:type "button" :class "btn btn-primary"
+                    :on-click (fn [e]
+                                (let [value (om/get-state owner :value)]
+                                  (when value
+                                    (put! event-chan value))))} "Go"]]]]))))
+
+(defn properties-select-table [cursor owner]
   (reify
     om/IInitState
-    (init-state [_] {:text ""})
+    (init-state [_]
+      {:event-chan (chan)})
+    om/IWillMount
+    (will-mount [_]
+      (let [event-chan (om/get-state owner :event-chan)]
+        (go (while true
+              (let [v (<! event-chan)]
+                (fetch-entities cursor v))))))
     om/IRenderState
-    (render-state [_ {:keys [text selection]}]
-      (let [properties (:data (:properties data))
+    (render-state [_ state]
+      (let [searched-data (-> cursor :entities :searched-data)
+            selected-data (-> cursor :entities :selected-data)
             history    (om/get-shared owner :history)]
         (html
          [:div.col-md-12
-          (if (:properties (:fetching data))
+          (if (:properties (:fetching cursor))
             (fetching-row)
             [:div
              [:h4 "Search for a property:"]
-             [:form {:role "form"}
-              [:div.form-group
-               [:input.form-control {:type "text"
-                                     :ref "text-field"
-                                     :value text
-                                     :onChange #(change % owner)}]]]
-             [:p [:i "Property code"]]
+             (om/build input-box nil {:init-state state})
+             (om/build search-stats (:stats cursor))
              [:div.col-md-12 {:style {:overflow "auto"}}
               [:table {:class "table table-hover table-condensed" :style {:font-size "85%"}}
                [:thead
@@ -276,15 +323,8 @@
                  [:th "Property Id"]
                  [:th "Project"]]]
                [:tbody
-                (for [property properties]
-                  (om/build (property-row data) property
-                            {:fn (fn [x]
-                                   (if-not (< (count text) 3)
-                                     (cond-> x
-                                             (or (nil? (:property_code x))
-                                                 (not (zero? (.indexOf (:property_code x) text))))
-                                             (assoc :hidden true))
-                                     x))}))]]]])])))))
+                (om/build-all (property-row cursor) (distinct (concat searched-data selected-data))
+                              {:key :entity_id})]]]])])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Entire view
@@ -301,7 +341,7 @@
     om/IRender
     (render [_]
       (html
-       [:div
+       [:div.col-md-12 {:style {:padding-top "10px"}}
         [:div.panel-group {:id "accordion"}
          (bootstrap/accordion-panel  "#collapseOne" "collapseOne" "Properties"
                                      (om/build properties-select-table data))
@@ -326,4 +366,4 @@
   (om/root multiple-properties-chart
            data-model
            {:target charting
-            :shared {:history (history/new-history [:properties :sensors :range])}}))
+            :shared {:history (history/new-history [:entities :sensors :range])}}))

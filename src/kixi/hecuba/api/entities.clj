@@ -374,10 +374,10 @@
                       :body "Provide valid projectId and propertyCode."}))))
 
 (defn resource-exists? [store ctx]
-  (db/with-session [session (:hecuba-session store)]
-    (let [id (get-in ctx [:request :route-params :entity_id])]
-      (when-let [item (entities/get-by-id session id)]
-        {::item item}))))
+  (let [id (get-in ctx [:request :route-params :entity_id])
+        search-results (search/search-entities id 0 1 (:search-session store))]
+    (when-let [item (->> search-results esr/hits-from (map #(-> % :_source :full_entity)) first)]
+      {::item item})))
 
 (defn resource-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -388,7 +388,7 @@
           ids          (map :id (db/execute session (hayt/select :devices (hayt/where [[= :entity_id (:entity_id route-params)]]))))
           clean-item   (-> item
                            (assoc :device_ids ids)
-                           (dissoc :user_id :devices))
+                           (dissoc :user_id))
           formatted-item (if (= "text/csv" mime)
                            (let [exploded-item (explode-and-sort-by-schema clean-item entity-schema)]
                              exploded-item)

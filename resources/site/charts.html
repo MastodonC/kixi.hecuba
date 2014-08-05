@@ -53,8 +53,9 @@
     <!-- JavaScript, bootstrap needs jquery-->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.10.2/jquery.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+      <!-- react.js from -->
+   <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/react/0.9.0/react.js"></script>
 
-    <!-- Hecuba -->
 
     <!-- Charting -->
     <script type="text/javascript" src="/js/ArrayLikeIsArray.js"></script>
@@ -73,10 +74,12 @@
         });
       </script>
 
-    <!-- No optimizations? Then we need goog base -->
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/react/0.9.0/react.min.js"></script>
-
-    <script src="/cljs/hecuba.js" type="text/javascript"></script>
+    <!-- Hecuba -->
+    <script type="text/javascript" src="/cljs/goog/base.js"></script>
+    <script type="text/javascript" src="/cljs/hecuba.js"></script>
+    <script type="text/javascript">
+      goog.require('kixi.hecuba.multiple_properties_comparison');
+    </script>
 
   </body>
 </html>
