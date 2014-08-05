@@ -8,11 +8,6 @@
 ;; Data Fetchers
 
 (defn fetch-programmes
-  ([data]
-     (fetch-programmes data (fn [{:keys [status status-text]}]
-                              (om/update! data [:programmes :fetching] :error)
-                              (om/update! data [:programmes :error-status] status)
-                              (om/update! data [:programmes :error-text] status-text))))
   ([data error-handler]
      (om/update! data [:programmes :fetching] :fetching)
      (GET (str "/4/programmes/")
@@ -22,14 +17,14 @@
                        (om/update! data [:programmes :fetching] (if (empty? x) :no-data :has-data)))
            :error-handler error-handler
            :headers {"Accept" "application/edn"}
-           :response-format :text})))
+           :response-format :text}))
+  ([data]
+     (fetch-programmes data (fn [{:keys [status status-text]}]
+                              (om/update! data [:programmes :fetching] :error)
+                              (om/update! data [:programmes :error-status] status)
+                              (om/update! data [:programmes :error-text] status-text)))))
 
 (defn fetch-projects
-  ([programme-id data]
-     (fetch-projects programme-id data (fn [{:keys [status status-text]}]
-                                         (om/update! data [:projects :fetching] :error)
-                                         (om/update! data [:projects :error-status] status)
-                                         (om/update! data [:projects :error-text] status-text))))
   ([programme-id data error-handler]
      (om/update! data [:projects :fetching] :fetching)
      (GET (str "/4/programmes/" programme-id "/projects/")
@@ -39,15 +34,14 @@
                        (om/update! data [:projects :fetching] (if (empty? x) :no-data :has-data)))
            :error-handler error-handler
            :headers {"Accept" "application/edn"}
-           :response-format :text})))
+           :response-format :text}))
+  ([programme-id data]
+     (fetch-projects programme-id data (fn [{:keys [status status-text]}]
+                                         (om/update! data [:projects :fetching] :error)
+                                         (om/update! data [:projects :error-status] status)
+                                         (om/update! data [:projects :error-text] status-text)))))
 
 (defn fetch-properties
-  ([project-id data]
-     (fetch-properties project-id data
-                       (fn [{:keys [status status-text]}]
-                         (om/update! data [:properties :fetching] :error)
-                         (om/update! data [:properties :error-status] status)
-                         (om/update! data [:properties :error-text] status-text))))
   ([project-id data error-handler]
      (om/update! data [:properties :fetching] :fetching)
      (GET (str "/4/projects/" project-id "/properties/")
@@ -57,7 +51,13 @@
                        (om/update! data [:properties :fetching] (if (empty? x) :no-data :has-data)))
            :error-handler error-handler
            :headers {"Accept" "application/edn"}
-           :response-format :text})))
+           :response-format :text}))
+  ([project-id data]
+     (fetch-properties project-id data
+                       (fn [{:keys [status status-text]}]
+                         (om/update! data [:properties :fetching] :error)
+                         (om/update! data [:properties :error-status] status)
+                         (om/update! data [:properties :error-text] status-text)))))
 
 ;; Extract and flatten sensors from properties data
 (defn flatten-device [device]

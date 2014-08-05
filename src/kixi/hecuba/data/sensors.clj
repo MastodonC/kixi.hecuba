@@ -21,7 +21,7 @@
              (s/optional-key :max)                         (s/maybe s/Str)
              (s/optional-key :median)                      (s/maybe double)
              (s/optional-key :min)                         (s/maybe s/Str)
-             (s/optional-key :period)                      (s/maybe (s/enum "INSTANT" "PULSE" "CUMULATIVE"))
+             (s/optional-key :period)                      (s/maybe (s/enum "INSTANT" "PULSE" "CUMULATIVE" ""))
              (s/optional-key :resolution)                  (s/maybe s/Str)
              (s/optional-key :status)                      (s/maybe s/Str)
              (s/optional-key :synthetic)                   (s/maybe s/Bool)

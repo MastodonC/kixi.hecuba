@@ -326,7 +326,7 @@
               (for [row (if sort-asc
                           (sort-by sort-key devices)
                           (reverse (sort-by sort-key devices)))]
-                (om/build (form-row data table-id editing-chan) row))]]]))))))
+                (om/build (form-row data table-id editing-chan) row) {:key :device_id})]]]))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Entire devices tab view

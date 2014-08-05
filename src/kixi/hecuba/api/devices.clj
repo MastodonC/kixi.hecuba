@@ -133,7 +133,8 @@
         new-sensors    (map #(case (:period %)
                                "CUMULATIVE" (ext-type % "differenceSeries")
                                "PULSE"      (calculated-sensor %)
-                               "INSTANT"    nil) sensors)]
+                               "INSTANT"    nil
+                               nil) sensors)]
     (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten (concat readings new-sensors))))))))
 
 (defn index-post! [store ctx]
