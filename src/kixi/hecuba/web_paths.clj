@@ -10,6 +10,7 @@
    :profile "profile" ;; user profile settings
    :multiple-properties-comparison "properties_comparison"
    :property_map "property_map"
+   :property-search "search"
 
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
    ;; API

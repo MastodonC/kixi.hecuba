@@ -24,14 +24,6 @@
                         :location :metadata :metering_point_id
                         :name :parent_id :privacy])
 
-(defn parse-device [device session]
-  (let [device_id (:id device)
-        sensors   (sensors/->clojure device_id session)]
-    (-> device
-        (parse-item :metadata)
-        (assoc :device_id device_id :readings sensors)
-        (dissoc :id))))
-
 (defn encode
   ([device]
      (encode device false))
@@ -48,7 +40,7 @@
       (assoc :readings (map #(dissoc % :user_id) (sensors/get-sensors (:id device) session)))
       (update-in [:location] json/decode)
       (update-in [:metadata] json/decode)
-      (dissoc :user_id)))
+      (dissoc :user_id :id)))
 
 (defn insert [session entity_id device]
   (let [id             (:id device)
@@ -60,7 +52,6 @@
                                      (hayt/where [[= :id entity_id]])))))
 
 (defn get-by-id [session id]
-  (log/info "id: " id)
   (when-let [device (first (db/execute session (hayt/select :devices
                                                             (hayt/where [[= :id id]]))))]
       (decode device session)))
@@ -106,5 +97,4 @@
        (map #(decode % session))))
 
 (defn ->clojure [entity_id session]
-  (let [devices (get-devices session entity_id)]
-    (mapv #(parse-device % session) devices)))
+  (get-devices session entity_id))

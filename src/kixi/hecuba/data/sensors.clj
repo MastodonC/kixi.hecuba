@@ -72,6 +72,7 @@
       (add-metadata session)))
 
 (defn get-sensors [device_id session]
+  (log/info "got id: " device_id)
   (->> (db/execute session
                    (hayt/select :sensors
                                 (hayt/where [[= :device_id device_id]])))

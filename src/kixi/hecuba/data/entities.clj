@@ -1,5 +1,7 @@
 (ns kixi.hecuba.data.entities
   (:require [clojure.edn :as edn]
+            [clojure.string :as string]
+            [hickory.core :as hickory]
             [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
             [cheshire.core :as json]
@@ -64,14 +66,39 @@
       (log/errorf t "Died trying to parse key %s on %s" key entity)
       (throw t))))
 
+(defn split-icon-string [icon-string]
+  (let [icon-str
+        (if (re-find #"<img" icon-string)
+          (->> (hickory/parse-fragment icon-string)
+               (map (fn [ti] (-> ti hickory/as-hickory :attrs :src)))
+               (keep identity)
+               (map #(string/replace % ".jpg" ".png")))
+          (->> (string/split icon-string #" ")
+               (map #(string/replace % ".jpg" ".png"))))]
+    icon-str))
+
+(defn scrub-icon-list [entity ks]
+  (let [dirty-icons (get-in entity ks)]
+    (assoc-in entity ks (split-icon-string dirty-icons))))
+
+(defn tech-icons [entity]
+  (if (get-in entity [:property_data :technology_icons])
+    (scrub-icon-list entity [:property_data :technology_icons])
+    entity))
+
+(defn decode-property-data [entity]
+  (-> entity
+      (assoc :property_data (json/parse-string (:property_data entity) keyword))
+      (tech-icons)))
+
 (defn decode [entity]
   (cond-> entity
+          (:property_data entity) (decode-property-data)
           (:notes entity) (decode-list :notes)
           (:documents entity) (decode-list :documents)
           (:photos entity) (decode-list :photos)
           (:devices entity) (decode-edn-map :devices)
-          (:metering_point_ids entity) (decode-entry :metering_point_ids)
-          (:property_data entity) (decode-entry :property_data)))
+          (:metering_point_ids entity) (decode-entry :metering_point_ids)))
 
 (defn insert [session entity]
   (db/execute session (hayt/insert :entities (hayt/values (encode entity)))))

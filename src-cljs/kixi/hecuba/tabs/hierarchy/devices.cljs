@@ -24,7 +24,7 @@
    (when (= "true" privacy) [:div {:class "fa fa-key"}])])
 
 (defn text-input-control [cursor owner path key label & required]
-  [:div.form-group 
+  [:div.form-group
    [:label.control-label.col-md-2 {:for (name key)} label]
    [:div {:class (str (if required "required " "") "col-md-10")}
     [:input {:defaultValue (get cursor key "")
@@ -90,9 +90,9 @@
 ;; Adding new sensor
 
 (defn put-new-sensor [data owner sensor project_id property_id device_id]
-  (common/put-resource data (str "/4/entities/" property_id "/devices/" device_id) 
+  (common/put-resource data (str "/4/entities/" property_id "/devices/" device_id)
                        {:readings [sensor]}
-                       (fn [_] 
+                       (fn [_]
                          (fetch-properties project_id data (error-handler data))
                          (om/update! data [:devices :adding-sensor] false)
                          (om/update! data [:devices :alert] {:status true
@@ -148,9 +148,9 @@
 ;; Editing device
 
 (defn put-edited-device [data owner device project_id property_id device_id]
-  (common/put-resource data (str "/4/entities/" property_id "/devices/" device_id) 
+  (common/put-resource data (str "/4/entities/" property_id "/devices/" device_id)
                        device
-                       (fn [_] 
+                       (fn [_]
                          (fetch-properties project_id data (error-handler data))
                          (om/update! data [:devices :editing] false)
                          (om/update! data [:devices :alert] {:status true
@@ -213,9 +213,9 @@
 ;; Adding new device
 
 (defn post-new-device [data owner device project_id property_id]
-  (common/post-resource data (str "/4/entities/" property_id "/devices/") 
+  (common/post-resource data (str "/4/entities/" property_id "/devices/")
                         device
-                        (fn [_] 
+                        (fn [_]
                           (fetch-properties project_id data (error-handler data))
                           (om/update! data [:devices :adding-device] false)
                           (om/update! data [:devices :alert] {:status true
@@ -387,7 +387,7 @@
               [:div {:class  "fa fa-plus"} " Add sensor"]]])
           [:div {:id "alert-div" :style {:padding-top "10px"}}
            (om/build alert (:alert devices))]
-          [:div {:id "devices-div" 
+          [:div {:id "devices-div"
                  :class (if (or editing adding-sensor adding-device) "hidden" "")
                  :style {:padding-top "10px"}}
            (om/build (devices-table editing-chan data) devices)]

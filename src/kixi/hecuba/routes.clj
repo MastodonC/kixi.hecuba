@@ -58,6 +58,11 @@
   (log/infof "App Session: %s" (:session req))
   {:status 200 :body (slurp (io/resource "site/property_map.html"))})
 
+(defn property-search [req]
+  (log/infof "App Session: %s" (:session req))
+  (log/info "Slurping property-search")
+  {:status 200 :body (slurp (io/resource "site/property-search.html"))})
+
 (defn index-routes
   ([route handler]
      (routes
@@ -197,6 +202,12 @@
    (GET (compojure-route :property_map) []
         (friend/wrap-authorize
          property_map
+         #{:kixi.hecuba.security/user}))
+
+   ;; Property search
+   (GET (compojure-route :property-search) []
+        (friend/wrap-authorize
+         property-search
          #{:kixi.hecuba.security/user}))
 
    ;; AMON API Routes
