@@ -36,7 +36,6 @@
 ;; Data fetchers
 
 (defn fetch-entities [data query]
-  (log "Fetching entities for query: " query)
   (GET (str "/4/entities/?q=" query)
        {:handler (fn [response]
                    (om/update! data [:entities :searched-data] (take 20 (:entities response)))
@@ -48,7 +47,6 @@
 
 
 (defn fetch-entity [data id]
-  (log "Fetching entity for id: " id)
   (GET (str "/4/entities/" id)
        {:handler (fn [response]
                    (om/transact! data [:entities :selected-data] #(conj % response))
@@ -267,7 +265,7 @@
    (let [hits (:total_hits cursor)]
      (html
       [:div {:class (if hits "" "hidden")}
-       (str "About " hits " results. Displaying 20.")]))))
+       (str "About " hits " result(s).")]))))
 
 (defn input-box [cursor owner]
   (reify
@@ -303,8 +301,9 @@
                 (fetch-entities cursor v))))))
     om/IRenderState
     (render-state [_ state]
-      (let [searched-data (-> cursor :entities :searched-data)
+      (let [searched-data (into [] (-> cursor :entities :searched-data))
             selected-data (-> cursor :entities :selected-data)
+            merged-data   (concat searched-data selected-data)
             history    (om/get-shared owner :history)]
         (html
          [:div.col-md-12
@@ -323,7 +322,7 @@
                  [:th "Property Id"]
                  [:th "Project"]]]
                [:tbody
-                (om/build-all (property-row cursor) (distinct (concat searched-data selected-data))
+                (om/build-all (property-row cursor) (distinct merged-data)
                               {:key :entity_id})]]]])])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
