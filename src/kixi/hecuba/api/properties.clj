@@ -127,6 +127,7 @@
         {:keys [programmes projects roles]} (sec/current-authentication session)]
     (allowed-all?* programmes projects roles request-method (:hecuba-session store))))
 
+;; TODO Delete this once we get comparison done with elastic search
 (defn index-all-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [projects (:projects ctx)

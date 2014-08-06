@@ -374,10 +374,16 @@
                       :body "Provide valid projectId and propertyCode."}))))
 
 (defn resource-exists? [store ctx]
-  (db/with-session [session (:hecuba-session store)]
-    (let [id (get-in ctx [:request :route-params :entity_id])]
-      (when-let [item (entities/get-by-id session id)]
-        {::item item}))))
+  (let [id (get-in ctx [:request :route-params :entity_id])
+        search-results (search/search-entities id 0 1 (:search-session store))]
+    (when-let [item (->> search-results esr/hits-from (map #(-> % :_source :full_entity)) first)]
+      {::item item})))
+
+(defn clean-entity
+  "Get rid of the keys that we don't want the user to see."
+  [entity]
+  (-> entity
+      (dissoc :user_id)))
 
 (defn resource-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -385,10 +391,7 @@
           {mime :media-type} :representation} ctx
           request      (:request ctx)
           route-params (:route-params request)
-          ids          (map :id (db/execute session (hayt/select :devices (hayt/where [[= :entity_id (:entity_id route-params)]]))))
-          clean-item   (-> item
-                           (assoc :device_ids ids)
-                           (dissoc :user_id :devices))
+          clean-item   (clean-entity item)
           formatted-item (if (= "text/csv" mime)
                            (let [exploded-item (explode-and-sort-by-schema clean-item entity-schema)]
                              exploded-item)
@@ -419,7 +422,7 @@
   (let [from (* page-number page-size)
         search-results (search/search-entities query from page-size search-session)
         total_hits (esr/total-hits search-results)
-        hits (->> search-results esr/hits-from (map #(-> % :_source :full_entity)))]
+        hits (->> search-results esr/hits-from (map #(-> % :_source :full_entity)) (map #(clean-entity %)))]
     {:total_hits total_hits
      :page page-number
      :entities hits}))
