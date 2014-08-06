@@ -47,8 +47,7 @@
         s3-key    (s3/s3-key-from {:src-name "uploads"
                                    :uuid (format uploads-status-path user_id upload_id)})]
     (when (s3/item-exists? session s3-key)
-      {::item (slurp
-               (s3/get-object-by-metadata session {:key s3-key}))})))
+      {::item (with-open [in (s3/get-object-by-metadata session {:key s3-key})] (slurp in))})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; status-resource-exists?

@@ -14,7 +14,7 @@
             [kixi.hecuba.webutil :as util]
             [cheshire.core :as json]
             [kixipipe.storage.s3 :as s3]
-            [liberator.representation :refer (ring-response)])) 
+            [liberator.representation :refer (ring-response)]))
 
 ;; List of files is retrieved for a username (read from the current session) so only users who can upload files can also GET those files. Other users will get an empty list.
 (defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
@@ -74,7 +74,7 @@
         {:keys [entity_id]} params
         {:keys [auth file-bucket]} (:s3 store)
         data-files (filter #(re-find #"data" (:key %)) (s3/list-objects-seq (:s3 store) {:max-keys 100 :prefix (str "downloads/" entity_id)}))
-        file (s3/get-object-by-metadata (:s3 store) {:key (:key (first data-files))})]
+        file (with-open [in (s3/get-object-by-metadata (:s3 store) {:key (:key (first data-files))})] (slurp in))]
     (ring-response {:headers  {"Content-Disposition" (str "attachment; filename=" entity_id "_measurements.csv")}
                     :body (util/render-item ctx file)})))
 
