@@ -1,5 +1,6 @@
 (ns kixi.hecuba.widgets.map
   (:require
+   [kixi.hecuba.tabs.slugs :as slugs]
    [om.core :as om :include-macros true]
    [om.dom :as dom :include-macros true]
    [clojure.string :as str]
@@ -26,10 +27,10 @@
 
 ;; TODO I want to build the html using sablono, but it doesn't seem to play nice with leaflet.addMarker().
 ;;      solutions from YOU! dear reader are most welcome.
-(defn build-popup [owner {:keys [id,property_data name photos] :as e}]
+(defn build-popup [owner {:keys [property_data name photos] :as e}]
   (let [{:keys [address_street address_street_two address_region address_country description tech-icons]} property_data
-        full-address (str/join ", " (remove str/blank? [address_street address_street_two address_region address_country]))
-        title address_street ;; TODO what should go here?
+        full-address (slugs/postal-address property_data)
+        title (:property_code property_data) ;; TODO what should go here?
         img-url (first photos)
         entity-url "/app"
         tech-icons (apply str (for [i (:technology_icons property_data) :when i]
