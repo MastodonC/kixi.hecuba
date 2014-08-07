@@ -26,11 +26,12 @@
 
 ;; TODO I want to build the html using sablono, but it doesn't seem to play nice with leaflet.addMarker().
 ;;      solutions from YOU! dear reader are most welcome.
-(defn build-popup [owner {:keys [property_data name photos] :as e}]
+(defn build-popup [owner {:keys [id,property_data name photos] :as e}]
   (let [{:keys [address_street address_street_two address_region address_country description tech-icons]} property_data
         full-address (str/join ", " [address_street address_street_two address_region address_country])
         title address_street ;; TODO what should go here?
         img-url (first photos)
+        entity-url "/app"
         tech-icons (apply str (for [i (:technology_icons property_data) :when i]
                                 (str "<div class=\"col-xs-1 tech-icon-container\"><img alt=\" \" class=\"img-responsive tech-icon\" src=\"" i "\"></div>")))]
     (str "<div class=\"container-fluid container-xs-height\">
@@ -44,6 +45,7 @@
                     <div class=\"row row-xs-height\">
                       <div class=\"col-xs-4 col-xs-height\">
                         <img class=\"img-responsive\" alt=\" \" src=\"" img-url "\" ></img>
+                        <a href=\"" entity-url "\">view</a>
                       </div>
                       <div class=\"col-xs-8 col-xs-height\">
                       " full-address "
