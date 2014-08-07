@@ -6,7 +6,7 @@
     <meta name="description" content="">
     <meta name="author" content="">
 
-    <title>getembed - Main</title>
+    <title>getembed - Property Search</title>
 
     <!-- Shims and Shivs for old, broken IE8 -->
     <!--[if lt IE 9]>
@@ -39,10 +39,9 @@
 
       <div class="collapse navbar-collapse">
         <ul class="nav navbar-nav">
-          <li class="active"><a href="#">Main</a></li>
-          <li><a href="/search">Search</a></li>
+          <li><a href="/app">Main</a></li>
+          <li class="active"><a href="#">Search</a></li>
           <li><a href="/properties_comparison">Compare</a></li>
-          <li><a href="/property_map">Property Map</a></li>
           <li><a href="/logout">Logout</a></li>
           <li><a href="https://github.com/MastodonC/AMON">Documentation</a></li>
 
@@ -53,7 +52,7 @@
     <div class="container-fluid">
       <div class="row">
         <div class="col-md-12">
-          <div id="hecuba-tabs"></div>
+          <div id="search"></div>
         </div>
       </div>
     </div>
@@ -96,7 +95,7 @@
   <script type="text/javascript" src="/cljs/goog/base.js"></script>
   <script type="text/javascript" src="/cljs/hecuba.js"></script>
   <script type="text/javascript">
-    goog.require('kixi.hecuba.main');
+    goog.require('kixi.hecuba.property_search');
   </script>
 
 

@@ -49,13 +49,24 @@
      (and (> interval 1440) (< interval 20160)) :hourly_rollups
      (>= interval 20160) :daily_rollups)))
 
-(defn unparse-date [timestamp f]
+(defmulti unparse-date (fn [timestamp f] (type timestamp)))
+
+(defmethod unparse-date js/Date [timestamp f]
   (when-not (nil? timestamp)
     (let [date (tc/from-date timestamp)]
       (tf/unparse (tf/formatter f) date))))
 
+(defmethod unparse-date js/String [timestamp f]
+  (when-not (nil? timestamp)
+    (let [parsed (tf/parse (tf/formatter "yyyy-MM-dd'T'HH:mm:ss.SSSZ") timestamp)
+          date   (tc/to-date parsed)]
+      (unparse-date date f))))
+
+(defmethod unparse-date :default [timestamp f]
+  "")
+
 (defn unparse-date-str [timestamp f]
-  (when-not (nil? timestamp)   
+  (when-not (nil? timestamp)
     (let [parsed (tf/parse (tf/formatter "yyyy-MM-dd'T'HH:mm:ss.SSSZ") timestamp)
           date   (tc/to-date parsed)]
       (unparse-date date f))))
@@ -101,7 +112,7 @@
                  :error-handler error-handler
                  :params resource}))))
 
-(defn put-resource 
+(defn put-resource
   ([data url resource handler]
     (put-resource data url resource handler
                   (fn [{:keys [status status-text]}]

@@ -25,7 +25,7 @@
 (defn post-new-property [data owner property project_id]
   (common/post-resource data  "/4/entities/"
                         property
-                        (fn [_] 
+                        (fn [_]
                           (fetch-properties project_id data)
                           (om/update! data [:properties :adding-property] false))
                         (error-handler owner)))
@@ -66,7 +66,7 @@
                   error
                   (str "add-property-form-failure"))
            (bs/text-input-control cursor owner :property :property_code "Property Code" true)
-           (bs/address-control cursor owner :property_data) 
+           (bs/address-control cursor owner :property_data)
            (bs/text-input-control cursor owner :property_data :property_type "Property Type")
            (bs/text-input-control cursor owner :property_data :built_form "Built Form")
            (bs/text-input-control cursor owner :property_data :age "Age")
@@ -113,26 +113,27 @@
       [:thead
        [:tr [:th "Photo"] [:th "Property Code"] [:th "Type"] [:th "Address"]
         [:th "Region"] [:th "Ownership"] [:th "Technologies"] [:th "Monitoring Hierarchy"]]]
-      (for [property-details (sort-by #(-> % :property_code) (:data properties))]
-        (let [property_data (:property_data property-details)
-              id            (:id property-details)]
-          [:tr
-           {:onClick (fn [_ _]
-                       (om/update! properties :selected id)
-                       (history/update-token-ids! history :properties id))
-            :className (if (= id (:selected properties)) "success")
-            :id (str table-id "-selected")}
-           [:td (when-let [pic (:path (first (:photos property-details)))]
-                  [:img.img-thumbnail.tmg-responsive
-                   {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" pic)}])]
-           [:td (:property_code property-details)]
-           [:td (:property_type property_data)]
-           [:td (slugs/postal-address property_data)]
-           [:td (:address_region property_data)]
-           [:td (:ownership property_data)]
-           [:td (for [ti (:technology_icons property_data)]
-                  [:img.tmg-responsive {:src ti :width 40 :height 40}])]
-           [:td (:monitoring_hierarchy property_data)]]))]]))
+      [:tbody
+       (for [property-details (sort-by #(-> % :property_code) (:data properties))]
+         (let [property_data (:property_data property-details)
+               id            (:id property-details)]
+           [:tr
+            {:onClick (fn [_ _]
+                        (om/update! properties :selected id)
+                        (history/update-token-ids! history :properties id))
+             :className (if (= id (:selected properties)) "success")
+             :id (str table-id "-selected")}
+            [:td (when-let [pic (:path (first (:photos property-details)))]
+                   [:img.img-thumbnail.tmg-responsive
+                    {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" pic)}])]
+            [:td (:property_code property-details)]
+            [:td (:property_type property_data)]
+            [:td (slugs/postal-address property_data)]
+            [:td (:address_region property_data)]
+            [:td (:ownership property_data)]
+            [:td (for [ti (:technology_icons property_data)]
+                   [:img.tmg-responsive {:src ti :width 40 :height 40}])]
+            [:td (:monitoring_hierarchy property_data)]]))]]]))
 
 (defmethod properties-table-html :default [properties owner]
   [:div.row [:div.col-md-12]])

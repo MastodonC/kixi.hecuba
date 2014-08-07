@@ -3,7 +3,8 @@
             [sablono.core :as html :refer-macros [html]]
             [cljs-time.coerce :as tc]
             [cljs-time.format :as tf]
-            [kixi.hecuba.bootstrap :as bs]))
+            [kixi.hecuba.bootstrap :as bs]
+            [kixi.hecuba.common :as common]))
 
 (defn get-profiles [selected-property-id data]
   (->>  data
@@ -68,7 +69,7 @@
        [:div
         (for [profile profiles]
           (let [category (get-in profile [:profile_data :event_type] "Intervention")
-                timestamp (format-time-inst  (:timestamp profile) "yyyy-MM-dd")]
+                timestamp (common/unparse-date  (:timestamp profile) "yyyy-MM-dd")]
             [:div {:class (profile-column-width)}
              [:h3.text-center category [:br ] [:small timestamp]]]))]))))
 
