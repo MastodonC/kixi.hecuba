@@ -28,7 +28,7 @@
 ;;      solutions from YOU! dear reader are most welcome.
 (defn build-popup [owner {:keys [id,property_data name photos] :as e}]
   (let [{:keys [address_street address_street_two address_region address_country description tech-icons]} property_data
-        full-address (str/join ", " [address_street address_street_two address_region address_country])
+        full-address (str/join ", " (remove str/blank? [address_street address_street_two address_region address_country]))
         title address_street ;; TODO what should go here?
         img-url (first photos)
         entity-url "/app"
