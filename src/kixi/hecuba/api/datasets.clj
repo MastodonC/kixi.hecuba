@@ -85,7 +85,7 @@
     (let [synthetic (synthetic-sensor operation type device_id unit)]
       (db/execute session (hayt/insert :sensors (hayt/values synthetic)))
       (db/execute session (hayt/insert :sensor_metadata (hayt/values (synthetic-sensor-metadata type device_id range))))
-      
+
       (when-let [default  (d/calculated-sensor synthetic)]
         (db/execute session (hayt/insert :sensors (hayt/values default)))
         (db/execute session (hayt/insert :sensor_metadata (hayt/values (synthetic-sensor-metadata (:type default) device_id))))))))
@@ -105,8 +105,8 @@
         method  (:request-method request)]
     (case method
       :post (let [body (decode-body request)
-                  {:keys [operation]} body] 
-              (if (some #{operation} ["divide" "sum" "subtract"]) 
+                  {:keys [operation]} body]
+              (if (some #{operation} ["divide" "sum" "subtract"])
                 [false {:body body}]
                 true))
       false)))
@@ -148,7 +148,7 @@
                                                                 :name      name
                                                                 :members   members
                                                                 :operation operation-str
-                                                                :device_id device_id})))           
+                                                                :device_id device_id})))
        (hash-map ::name name
                  ::entity_id entity_id))))
 
@@ -201,7 +201,7 @@
 
 (defn resource-handle-ok [ctx]
   (let [item (::item ctx)]
-    (util/render-item (:request ctx) item)))
+    (util/render-item ctx item)))
 
 (defresource resource [store]
   :allowed-methods       #{:get :post}

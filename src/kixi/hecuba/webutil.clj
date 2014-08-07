@@ -124,7 +124,7 @@
       (with-out-str
               (csv/write-csv *out* items :newline :cr+lf :separator \,)))))
 
-(defmulti render-item :content-type :default :unknown)
+(defmulti render-item (comp :media-type :representation) :default :unknown)
 (defmethod render-item :unknown [ctx item]
    ;; If content type is unknown return it to liberator unchanged and
   ;; liberator may render it

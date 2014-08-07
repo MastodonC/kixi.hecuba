@@ -34,7 +34,7 @@
 
 (defn editable-programmes [programmes allowed-programmes roles]
   (map #(let [editable (allowed?* (:programme_id %) allowed-programmes roles :put)]
-          (if editable 
+          (if editable
             (assoc % :editable editable)
             %)) programmes))
 
@@ -110,11 +110,10 @@
       {::item item})))
 
 (defn resource-handle-ok [ctx]
-  (let [request (:request ctx)]
-    (util/render-item request
-                      (as-> (::item ctx) item
-                            (dissoc item :user_id)
-                            (assoc item :projects (format programme-projects-index (:id item)))))))
+  (util/render-item ctx
+                    (as-> (::item ctx) item
+                          (dissoc item :user_id)
+                          (assoc item :projects (format programme-projects-index (:id item))))))
 
 
 
@@ -140,7 +139,7 @@
   :available-media-types ["application/json" "application/edn"]
   :known-content-type? #{"application/json" "application/edn"}
   :authorized? (authorized? store)
-  :allowed? (partial resource-allowed? store)  
+  :allowed? (partial resource-allowed? store)
   :exists? (partial resource-exists? store)
   :malformed? resource-malformed?
   :put! (partial resource-put! store)

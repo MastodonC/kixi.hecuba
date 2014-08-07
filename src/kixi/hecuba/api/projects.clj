@@ -60,7 +60,7 @@
   (map #(let [editable (allowed?* (:programme_id %) (:project_id %)
                                   allowed-programmes allowed-projects roles
                                   :put)]
-          (if editable 
+          (if editable
             (assoc % :editable editable)
             %)) projects))
 
@@ -69,7 +69,7 @@
     (log/debugf "Roles: %s Programmes: %s Projects: %s" roles programmes projects)
     (if (some #(isa? % ::sec/admin) roles)
       (map #(assoc % :editable true) items)
-      (editable-projects (filter #(or (programmes (:programme_id %)) 
+      (editable-projects (filter #(or (programmes (:programme_id %))
                                       (projects (:id %)))
                                  items) programmes projects roles))))
 
@@ -147,12 +147,11 @@
       {::item item})))
 
 (defn resource-handle-ok [ctx]
-  (let [request (:request ctx)]
-    (util/render-item request
-                      (as-> (::item ctx) item
-                            (assoc item
-                              :properties (format project-properties-index :project_id (:id item)))
-                            (dissoc item :user_id)))))
+  (util/render-item ctx
+                    (as-> (::item ctx) item
+                          (assoc item
+                            :properties (format project-properties-index :project_id (:id item)))
+                          (dissoc item :user_id))))
 
 (defresource index [store]
   :allowed-methods #{:get :post}
