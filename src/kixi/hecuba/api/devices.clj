@@ -203,7 +203,8 @@
           (ring-response {:status 404 :body "Please provide valid entity_id and device_id"}))))))
 
 (defn resource-handle-ok [ctx]
-  (::item ctx))
+  (let [req (:request ctx)]
+    (util/render-item req (::item ctx))))
 
 (defn resource-respond-with-entity [ctx]
   (let [request (:request ctx)
