@@ -1,16 +1,10 @@
 (ns kixi.hecuba.property-map
-  (:require-macros [cljs.core.async.macros :refer [go-loop go]])
   (:require
    [om.core :as om :include-macros true]
-   [ajax.core :refer (GET POST)]
-   [clojure.string :as str]
-   [cljs.reader :as reader]
-   [kixi.hecuba.bootstrap :as bootstrap]
+   [ajax.core :refer (GET)]
    [kixi.hecuba.widgets.map :as map]
-   [kixi.hecuba.common :refer (interval log) :as common]
-   [kixi.hecuba.history :as history]
-   [sablono.core :as html :refer-macros [html]]
-   [om.dom :as dom :include-macros true]))
+   [kixi.hecuba.common :refer (log)]
+   [kixi.hecuba.history :as history]))
 
 (def data-model
   (atom

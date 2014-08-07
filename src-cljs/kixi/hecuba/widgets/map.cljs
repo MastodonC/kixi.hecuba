@@ -1,9 +1,6 @@
 (ns kixi.hecuba.widgets.map
   (:require
-   [cljs-time.core :as t]
-   [cljs-time.format :as tf]
    [om.core :as om :include-macros true]
-   [sablono.core :as html :refer-macros [html]]
    [om.dom :as dom :include-macros true]
    [clojure.string :as str]
    [kixi.hecuba.common :refer (log)]))
@@ -20,8 +17,8 @@
 
 (defn draw-map
   [cursor node]
-  (let [map   (->  (.map js/L node)
-                   (.setView (.latLng js/L 53.0 -1.5) 6))
+  (let [map   (-> (.map js/L node)
+                  (.setView (.latLng js/L 53.0 -1.5) 6))
         tiles (.tileLayer js/L "http://a.tile.openstreetmap.org/{z}/{x}/{y}.png"
                           {:attribution "Map data &copy; 2011 OpenStreetMap contributors, Imagery."})]
     (.addTo tiles map)
@@ -64,8 +61,6 @@
 (defn map-item
   [cursor owner]
   (reify
-    om/IWillMount
-    (will-mount [_])
     om/IRender
     (render [_]
       (dom/div nil))
