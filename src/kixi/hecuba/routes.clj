@@ -60,7 +60,6 @@
 
 (defn property-search [req]
   (log/infof "App Session: %s" (:session req))
-  (log/info "Slurping property-search")
   {:status 200 :body (slurp (io/resource "site/property-search.html"))})
 
 (defn index-routes

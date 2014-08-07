@@ -23,7 +23,7 @@
     {:devices deleted-devices
      :entities deleted-entity}))
 
-(defn- tech-icons [property_data]
+(defn- encode-tech-icons [property_data]
   (if-let [icons (:technology_icons property_data)]
     (assoc
         property_data
@@ -34,7 +34,7 @@
 
 (defn encode-property-data [property_data]
   (-> property_data
-   tech-icons))
+   encode-tech-icons))
 
 (defn encode [entity]
   (cond-> (dissoc entity :device_ids)
@@ -67,29 +67,24 @@
       (throw t))))
 
 (defn split-icon-string [icon-string]
-  (let [icon-str
-        (if (re-find #"<img" icon-string)
-          (->> (hickory/parse-fragment icon-string)
-               (map (fn [ti] (-> ti hickory/as-hickory :attrs :src)))
-               (keep identity)
-               (map #(string/replace % ".jpg" ".png")))
-          (->> (string/split icon-string #" ")
-               (map #(string/replace % ".jpg" ".png"))))]
-    icon-str))
+  (if (re-find #"<img" icon-string)
+    (->> (hickory/parse-fragment icon-string)
+         (map (fn [ti] (-> ti hickory/as-hickory :attrs :src)))
+         (keep identity)
+         (map #(string/replace % ".jpg" ".png")))
+    (->> (string/split icon-string #" ")
+         (map #(string/replace % ".jpg" ".png")))))
 
-(defn scrub-icon-list [entity ks]
-  (let [dirty-icons (get-in entity ks)]
-    (assoc-in entity ks (split-icon-string dirty-icons))))
-
-(defn tech-icons [entity]
-  (if (get-in entity [:property_data :technology_icons])
-    (scrub-icon-list entity [:property_data :technology_icons])
-    entity))
+(defn decode-tech-icons [entity]
+  (let [ks [:property_data :technology_icons]]
+    (if-let [dirty-icons (get-in entity ks)]
+      (assoc-in entity ks (split-icon-string dirty-icons))
+      entity)))
 
 (defn decode-property-data [entity]
   (-> entity
       (assoc :property_data (json/parse-string (:property_data entity) keyword))
-      (tech-icons)))
+      (decode-tech-icons)))
 
 (defn decode [entity]
   (cond-> entity
