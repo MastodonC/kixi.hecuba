@@ -193,3 +193,23 @@
   (is (true? (get (tc/quick-check 5 postable-entity?) :result)))
   )
 ;;-----------------------------
+;; edn/json equality tests
+;;-----------------------------
+(deftest ^:http-tests test-edn-json-programmes
+  (is (=  
+       (:body (client/get (apply str "http://127.0.0.1:8010/4" @programme-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]}))
+       (:body (client/get (apply str "http://127.0.0.1:8010/4" @programme-loc) {:accept :edn :content-type :json :basic-auth ["support@mastodonc.com" "password"]}))))
+  (log/info "Passed JSON EDN equality check for Programmes"))
+
+(deftest ^:http-tests test-edn-json-projects
+  (is (=
+       (:body (client/get (apply str "http://127.0.0.1:8010/4" @programme-loc @project-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})) 
+       (:body (client/get (apply str "http://127.0.0.1:8010/4" @programme-loc @project-loc) {:accept :edn :content-type :json :basic-auth ["support@mastodonc.com" "password"]}))))
+  (log/info "Passed JSON EDN equality check for Projects"))
+;;-----------------------------
+;; test get device with edn (json not currently working):
+;; "Don't know how to write JSON of class java.util.Date"
+;;-----------------------------
+(deftest ^:http-tests test-edn-get-device
+  (is (:body (client/get (apply str "http://127.0.0.1:8010/4" @device-loc) {:accept :edn :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
+  (log/info "Passed EDN GET test for devices"))
