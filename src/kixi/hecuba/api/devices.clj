@@ -204,7 +204,7 @@
 
 (defn resource-handle-ok [ctx]
   (let [req (:request ctx)]
-    (util/render-item req (::item ctx))))
+    (util/render-item ctx (::item ctx))))
 
 (defn resource-respond-with-entity [ctx]
   (let [request (:request ctx)

@@ -902,7 +902,7 @@
                          (let [exploded-item (explode-and-sort-by-schema userless-item profile-schema)]
                            exploded-item)
                          userless-item)]
-    (util/render-item (:request ctx) formatted-item)))
+    (util/render-item ctx formatted-item)))
 
 (defn resource-respond-with-entity [ctx]
   (let [request (:request ctx)

@@ -396,7 +396,7 @@
                            (let [exploded-item (explode-and-sort-by-schema clean-item entity-schema)]
                              exploded-item)
                            clean-item)]
-      (util/render-item request formatted-item))))
+      (util/render-item ctx formatted-item))))
 
 (defn resource-put! [store ctx]
   (db/with-session [session (:hecuba-session store)]
