@@ -87,7 +87,8 @@
   :source-paths ["src" "src-cljs"]
   :resource-paths ["resources" "out"]
 
-  :jvm-opts ["-Duser.timezone=UTC -XX:MaxPermSize=256m"]
+  :jvm-opts ["-Duser.timezone=UTC" "-XX:MaxPermSize=128m" "-Xmx2G" "-XX:+UseCompressedOops" "-XX:+HeapDumpOnOutOfMemoryError"]
+  ;; "-XX:+PrintGC"  "-XX:+PrintGCDetails" "-XX:+PrintGCTimeStamps"
 
   :profiles {:dev {:source-paths ["dev"]
                    :dependencies [
@@ -95,7 +96,7 @@
                                   [org.clojure/tools.namespace "0.2.4"]
                                   [javax.servlet/servlet-api "2.5"]
                                   [org.clojure/test.check "0.5.8"]]
-                   :plugins [[com.cemerick/austin "0.1.4"]] }
+                   :plugins [[com.cemerick/austin "0.1.4"]]}
 
              :uberjar {:main kixi.hecuba.controller.main :aot [kixi.hecuba.controller.main]}}
 
