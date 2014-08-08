@@ -1,4 +1,4 @@
-(ns kixi.hecuba.data.search
+(ns kixi.hecuba.data.entities.search
   "This transforms the entities in Cassandra to ones that can be
   searched in Elasticsearch and retrieves them from Elasticsearch"
   (:require [clojure.string :as str]
@@ -10,7 +10,9 @@
             [kixi.hecuba.data.entities :as entities]
             [kixi.hecuba.data.profiles :as profiles]
             [kixi.hecuba.data.projects :as projects]
-            [kixi.hecuba.data.devices :as devices]))
+            [kixi.hecuba.data.programmes :as programmes]
+            [kixi.hecuba.data.devices :as devices]
+            [cheshire.core :as json]))
 
 (defn postal-address [property_data]
   (let [{:keys [address_street_two address_city address_code address_country]} property_data]
@@ -21,13 +23,13 @@
          (str/trim))))
 
 (defn property-search-fields [entity]
-  (let [{:keys [property_data property_code project_id id]} entity
+  (let [{:keys [property_data property_code project_id entity_id]} entity
         {:keys [property_type built_form age address_region project_team]} property_data]
     (-> {}
         (assoc :full_entity entity)
         (assoc :address (postal-address property_data))
         (assoc :property_code property_code)
-        (assoc :entity_id id)
+        (assoc :entity_id entity_id)
         (assoc :project_team project_team)
         (assoc :project_id project_id)
 
@@ -42,9 +44,18 @@
         {:keys [name organisation type_of programme_id]} (projects/get-by-id session project_id)]
     (-> entity
         (assoc :programme_id programme_id)
+        (assoc-in [:full_entity :programme_id] programme_id)
         (assoc :type_of type_of)
         (assoc :project_name name)
         (assoc :project_organisation organisation))))
+
+;; TOFIX Some projects didn't have programme_id. Not sure if it's just a local issue.
+(defn programme-search-fields [entity session]
+  (let [programme_id (:programme_id entity)
+        public_access  (when programme_id (:public_access (programmes/get-by-id session programme_id)))]
+    (-> entity
+        (assoc :public_access public_access)
+        (assoc-in [:full_entity :public_access] public_access))))
 
 (defn has-technology? [profile technology]
   (-> profile (get technology) seq nil? not))
@@ -75,8 +86,13 @@
   (-> entity
       property-search-fields
       (project-search-fields session)
+      (programme-search-fields session)
       (profile-search-fields session)
       (entity-devices session)))
+
+(defn searchable-entity-by-id [entity_id session]
+  (let [entity (entities/get-by-id session entity_id)]
+    (searchable-entity entity session)))
 
 (defn searchable-entities [session]
   (->> (entities/get-all session)
@@ -96,7 +112,16 @@
 
 ;; See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
 (defn search-entities
+  ([query-string filter-map from size search-session]
+     (let [query  {:query {:filtered {:query {:query_string {:query query-string}}
+                                      :filter filter-map}}}]
+       (search/search search-session "entities" "entity" query :size size :from from)))
   ([query-string from size search-session]
      (search/search search-session "entities" "entity" :query {:query_string {:query query-string}} :size size :from from))
+  ([query-string filter-map search-session]
+     (search-entities query-string filter-map 0 20 search-session))
   ([query-string search-session]
      (search-entities query-string 0 20 search-session)))
+
+(defn delete-by-id [entity_id search-session]
+  (search/delete search-session "entities" "entity" entity_id))

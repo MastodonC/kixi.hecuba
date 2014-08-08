@@ -7,7 +7,14 @@
 
 (defn encode [programme]
   (-> programme
+      (assoc :id (:programme_id programme))
+      (dissoc :programme_id)
       webutil/stringify-values))
+
+(defn decode [programme]
+  (-> programme
+      (assoc :programme_id (:id programme))
+      (dissoc :id :user_id)))
 
 (defn delete [programme_id session]
   (let [projects          (projects/get-all session programme_id)
@@ -22,15 +29,23 @@
 
 (defn get-by-id
   ([session id]
-     (first (db/execute session
-                        (hayt/select :programmes
-                                     (hayt/where [[= :id id]]))))))
+     (-> (db/execute session
+                     (hayt/select :programmes
+                                  (hayt/where [[= :id id]])))
+         first
+         decode)))
 
 (defn get-all
   ([session]
-     (->> (db/execute session (hayt/select :programmes)))))
+     (->> (db/execute session (hayt/select :programmes))
+          (map decode))))
 
 (defn update [session id programme]
   (db/execute session (hayt/update :programmes
-                                   (hayt/set-columns (encode (dissoc programme :id)))
+                                   (hayt/set-columns (dissoc (encode programme) :id))
                                    (hayt/where [[= :id id]]))))
+
+(defn insert
+  ([session programme]
+     (db/execute session (hayt/insert :programmes
+                                      (hayt/values (encode programme))))))

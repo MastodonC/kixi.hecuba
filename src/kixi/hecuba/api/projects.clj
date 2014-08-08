@@ -11,7 +11,9 @@
    [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.web-paths :as p]
    [kixi.hecuba.data.users :as users]
-   [kixi.hecuba.data.projects :as projects]))
+   [kixi.hecuba.data.projects :as projects]
+   [schema.core :as s]
+   [kixi.amon-schema :as schema]))
 
 (def ^:private programme-projects-index (p/index-path-string :programme-projects-index))
 (def ^:private programme-projects-resource (p/resource-path-string :programme-projects-resource))
@@ -73,6 +75,16 @@
                                       (projects (:id %)))
                                  items) programmes projects roles))))
 
+(defn index-malformed? [ctx]
+  (let [request (:request ctx)
+        {:keys [route-params request-method]} request]
+    (case request-method
+      :post (let [project (decode-body request)]
+              (if (s/check schema/BaseProject project)
+                true
+                [false {:project project}]))
+      false)))
+
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request      (:request ctx)
@@ -82,18 +94,17 @@
       (->> items
            (items->authz-items web-session)
            (map #(-> %
-                     (assoc :href (format programme-projects-resource (:programme_id %) (:id %))
-                            :properties (format project-properties-index (:id %)))))
+                     (assoc :href (format programme-projects-resource (:programme_id %) (:project_id %))
+                            :properties (format project-properties-index (:project_id %)))))
            (util/render-items request)))))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request (:request ctx)
-          username  (sec/session-username (-> ctx :request :session))
+    (let [username  (sec/session-username (-> ctx :request :session))
           user_id       (:id (users/get-by-username session username))
-          project       (-> request decode-body stringify-values)
-          project_id    (if-let [id (:id project)] id (sha1/gen-key :project project))]
-      (projects/insert session (assoc project :user_id user_id :id project_id))
+          project       (:project ctx)
+          project_id    (sha1/gen-key :project project)]
+      (projects/insert session (assoc project :user_id user_id :project_id project_id))
       {::project_id project_id})))
 
 ;; FIXME: Should return programmes/%s/projects/%s
@@ -150,7 +161,7 @@
   (util/render-item ctx
                     (as-> (::item ctx) item
                           (assoc item
-                            :properties (format project-properties-index :project_id (:id item)))
+                            :properties (format project-properties-index (:project_id item)))
                           (dissoc item :user_id))))
 
 (defresource index [store]
@@ -159,6 +170,7 @@
   :known-content-type? #{"application/edn" "application/json"}
   :authorized? (authorized? store)
   :allowed? (index-allowed? store)
+  :malformed? index-malformed?
   :handle-ok (partial index-handle-ok store)
   :post! (partial index-post! store)
   :handle-created (partial index-handle-created))

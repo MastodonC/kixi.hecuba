@@ -17,7 +17,11 @@
    [kixi.hecuba.data.projects :as projects]
    [kixi.hecuba.data.entities :as entities]
    [kixi.hecuba.data.devices :as devices]
-   [kixi.hecuba.data.sensors :as sensors]))
+   [kixi.hecuba.data.sensors :as sensors]
+   [kixi.hecuba.data.entities.search :as search]
+   [clojurewerkz.elastisch.native.response :as esr]
+   [schema.core :as s]
+   [kixi.amon-schema :as schema]))
 
 (def ^:private device-resource (p/resource-path-string :entity-device-resource))
 
@@ -55,8 +59,10 @@
   (fn [ctx]
     (let [{:keys [request-method session params]} (:request ctx)
           {:keys [projects programmes roles]}     (sec/current-authentication session)
-          entity_id (:entity_id params)
-          project_id (when entity_id (:project_id (entities/get-by-id (:hecuba-session store) entity_id)))
+          entity_id (:entity_id params)       
+          project_id (when entity_id 
+                       (let [search-results (search/search-entities entity_id 0 1 (:search-session store))]
+                         (:project_id (->> search-results esr/hits-from (map #(-> % :_source :full_entity)) first))))
           programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
       (if (and project_id programme_id)
         (allowed?* programme_id project_id programmes projects roles request-method)
@@ -64,11 +70,12 @@
 
 (defn index-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request      (:request ctx)
-          method       (:request-method request)
-          route-params (:route-params request)
-          entity_id    (:entity_id route-params)
-          entity       (entities/get-by-id session entity_id)]
+    (let [request        (:request ctx)
+          method         (:request-method request)
+          route-params   (:route-params request)
+          entity_id      (:entity_id route-params)
+          search-results (search/search-entities entity_id 0 1 (:search-session store))
+          entity         (->> search-results esr/hits-from (map #(-> % :_source :full_entity)) first)]
       (case method
         :post (not (nil? entity))
         :get (let [items (devices/get-devices session entity_id)]
@@ -93,12 +100,13 @@
       :post (let [body (update-in (decode-body request) [:readings]
                                   (fn [readings] (map #(select-keys % user-editable-keys)
                                                       readings)))]
-              (if (or (not= (:entity_id body) entity_id)
-                      (not (should-calculate-fields? (:readings body))))
+              (if (or
+                   (s/check schema/BaseDevice body)
+                   (not= (:entity_id body) entity_id)
+                   (not (should-calculate-fields? (:readings body))))
                 true
                 [false {:body body}]))
       false)))
-
 (defn- ext-type [sensor type-ext]
   (-> sensor
       (update-in [:type] #(str % "_" type-ext))
@@ -144,14 +152,14 @@
           username               (sec/session-username (-> ctx :request :session))
           user_id                (:id (users/get-by-username session username))]
 
-      (when (entities/get-by-id session entity_id)
-        (let [device_id    (sha1/gen-key :device body)
-              new-body     (create-default-sensors body)]
-          (devices/insert session entity_id (assoc new-body :id device_id :user_id user_id))
-          (doseq [reading (:readings new-body)]
-            (sensors/insert session (assoc reading :device_id device_id :user_id user_id)))
-
-          {:device_id device_id :entity_id entity_id})))))
+      (let [device_id    (sha1/gen-key :device body)
+            new-body     (create-default-sensors body)]
+        (devices/insert session entity_id (assoc new-body :device_id device_id :user_id user_id))
+        (doseq [reading (:readings new-body)]
+          (sensors/insert session (assoc reading :device_id device_id :user_id user_id)))
+        (-> (search/searchable-entity-by-id entity_id session)
+            (search/->elasticsearch (:search-session store)))
+        {:device_id device_id :entity_id entity_id}))))
 
 (defn index-handle-ok [ctx]
   (util/render-items ctx (::items ctx)))
@@ -178,7 +186,7 @@
 (defn resource-delete-enacted? [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [{item ::item} ctx
-          device_id (:id item)
+          device_id (:device_id item)
           entity_id (:entity_id item)
           response  (devices/delete device_id false session)]
       "Delete Accepted")))
@@ -191,7 +199,7 @@
               entity_id     (-> item :entity_id)
               username      (sec/session-username (-> ctx :request :session))
               user_id       (:id (users/get-by-username session username))
-              device_id     (-> item :id)
+              device_id     (-> item :device_id)
               new-body      (create-default-sensors body)]
           (devices/update session entity_id device_id (assoc new-body :user_id user_id))
           ;; TODO when new sensors are created they do not necessarilly overwrite old sensors (unless their type is the same)
@@ -200,6 +208,8 @@
             ;; cassandra's insert only updates specified keys so no need to use update
             (sensors/insert session (assoc reading :device_id device_id
                                            :user_id user_id)))
+          (-> (search/searchable-entity-by-id entity_id session)
+              (search/->elasticsearch (:search-session store)))
           (ring-response {:status 404 :body "Please provide valid entity_id and device_id"}))))))
 
 (defn resource-handle-ok [ctx]
