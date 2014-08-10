@@ -27,8 +27,8 @@
    [kixi.hecuba.api.templates :as templates]
    [kixi.hecuba.api.downloads :as downloads]
    [kixi.hecuba.api.uploads :as uploads]
-   [kixi.hecuba.api.entity.upload :as entity-uploads]
-   [kixi.hecuba.api.entity.property-map :as map]
+   [kixi.hecuba.api.entities.upload :as entity-uploads]
+   [kixi.hecuba.api.entities.property-map :as map]
    [kixi.hecuba.api.users :as users]))
 
 (defn index-page [req]

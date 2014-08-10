@@ -11,8 +11,9 @@
                  [org.clojure/core.match "0.2.1"]
 
                  ;; Testing POST and GET data
-                 [kixi/schema_gen "0.1.3"]
-                 [kixi/amon-schema "0.1.6"]
+                 [kixi/schema_gen "0.1.3" :exclusions [schema-contrib]]
+                 [schema-contrib "0.1.3"]
+                 [kixi/amon-schema "0.1.10"]
                  [clj-http "0.9.2"]
 
                  ;; logging

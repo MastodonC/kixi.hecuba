@@ -1,11 +1,17 @@
-(ns kixi.hecuba.api.profiles-test
-  (:require [kixi.hecuba.api.profiles :refer :all]
-           [clojure.test :refer :all]
-           [ring.mock.request :refer (body header request content-type)]))
+(ns kixi.hecuba.api.profiles.schema-test
+  (:require [kixi.hecuba.api.profiles.schema :refer :all]
+            [kixi.hecuba.api.parser :as parser]
+            [clojure.data.csv :as csv]
+            [schema.core :as s]
+            [kixi.amon-schema :as schema]
+            [clojure.test :refer :all]))
 
-(def csv-profile "id,51b8feea8e4b32fd05171ccc851476d41446274b
+(def csv-profile "keys,values
+profile_id,51b8feea8e4b32fd05171ccc851476d41446274b
 entity_id,1245
-profile_data_id,22
+property_code,TSB1337
+profile_data_profile_id,22
+profile_data_event_type,Building Things
 profile_data_occupancy_under_18,
 profile_data_onsite_days_new_build,
 profile_data_flat_floor_heat_loss_type,
@@ -132,14 +138,14 @@ window_sets_0_percentage_glazing,
 window_sets_0_area,
 window_sets_0_location,
 window_sets_0_uvalue,1.7
-window_sets_0_created_at,2011/11/15 14:53:04 +0000
-window_sets_0_updated_at,2011/11/15 14:53:04 +0000
+window_sets_0_created_at,2011-11-15 14:53:04 +0000
+window_sets_0_updated_at,2011-11-15 14:53:04 +0000
 storeys_0_storey_type,Main dwelling
 storeys_0_storey,3
 storeys_0_heat_loss_w_per_k,
 storeys_0_heat_requirement_kwth_per_year,
-storeys_0_created_at,2011/11/15 14:51:58 +0000
-storeys_0_updated_at,2011/11/15 14:51:58 +0000
+storeys_0_created_at,2011-11-15 14:51:58 +0000
+storeys_0_updated_at,2011-11-15 14:51:58 +0000
 walls_0_wall_type,Main dwelling
 walls_0_construction,Solid Gold
 walls_0_construction_other,
@@ -151,8 +157,8 @@ walls_0_insulation_product,
 walls_0_uvalue,1.05
 walls_0_location,
 walls_0_area,
-walls_0_created_at,2011/11/15 14:52:23 +0000
-walls_0_updated_at,2011/11/15 14:52:23 +0000
+walls_0_created_at,2011-11-15 14:52:23 +0000
+walls_0_updated_at,2011-11-15 14:52:23 +0000
 heating_systems_0_heating_type,Boiler to radiators or trench heaters
 heating_systems_0_heat_source,Gas
 heating_systems_0_heat_transport,Water
@@ -163,7 +169,7 @@ heating_systems_0_boiler_type,Combi
 heating_systems_0_boiler_type_other,
 heating_systems_0_fan_flue,
 heating_systems_0_open_flue,
-heating_systems_0_fuel,Mains gas 
+heating_systems_0_fuel,Mains gas
 heating_systems_0_heating_system,Gas boilers: 1998 or later
 heating_systems_0_heating_system_other,
 heating_systems_0_heating_system_type,Combi with automatic ignition
@@ -186,8 +192,8 @@ heating_systems_0_inspector,
 heating_systems_0_inspector_engineers_name,
 heating_systems_0_inspector_registration_number,
 heating_systems_0_inspection_date,
-heating_systems_0_created_at,2011/11/15 14:49:38 +0000
-heating_systems_0_updated_at,2011/11/15 14:49:38 +0000
+heating_systems_0_created_at,2011-11-15 14:49:38 +0000
+heating_systems_0_updated_at,2011-11-15 14:49:38 +0000
 heating_systems_0_efficiency,78.9
 hot_water_systems_0_dhw_type,From main
 hot_water_systems_0_fuel,Mains gas
@@ -201,41 +207,17 @@ hot_water_systems_0_cylinder_insulation_thickness,
 hot_water_systems_0_cylinder_insulation_thickness_other,
 hot_water_systems_0_cylinder_thermostat,No cylinder
 hot_water_systems_0_controls_same_for_all_zones,true
-hot_water_systems_0_created_at,2011/11/15 14:51:35 +0000
-hot_water_systems_0_updated_at,2011/11/15 14:51:35 +0000
+hot_water_systems_0_created_at,2011-11-15 14:51:35 +0000
+hot_water_systems_0_updated_at,2011-11-15 14:51:35 +0000
 low_energy_lights_0_light_type,Other (please specify)
 low_energy_lights_0_light_type_other,10 L.E.L
 low_energy_lights_0_bed_index,
-low_energy_lights_0_created_at,2011/11/15 14:54:04 +0000
-low_energy_lights_0_updated_at,2011/11/15 14:54:04 +0000
+low_energy_lights_0_created_at,2011-11-15 14:54:04 +0000
+low_energy_lights_0_updated_at,2011-11-15 14:54:04 +0000
 low_energy_lights_0_proportion,34.0
 timestamp,2011-11-17 09:40:48+0000")
 
-(def bad-profile {"bad" "data"})
-(def simple-schema [:id
-                    {:name :nested_item
-                     :type :nested-item
-                     :schema [:nested_id]}
-                    {:name :association
-                     :type :associated-items
-                     :schema [:associated_id]}])
 
-(deftest parse-by-schema-test
-  (testing "bad input, return an empty schema"
-    (is (= {:id nil, :nested_item {:nested_id nil}, :association ()}
-           (parse-by-schema bad-profile simple-schema))))
-  (testing "input with valid simple attribute"
-    (is (= {:id "test", :nested_item {:nested_id nil}, :association ()}
-           (parse-by-schema {"id" "test"} simple-schema))))
-  (testing "input with valid nested item"
-    (is (= {:id nil, :nested_item {:nested_id "test"}, :association ()}
-           (parse-by-schema { "nested_item_nested_id" "test" } simple-schema))))
-  (testing "input with valid associated items"
-    (is (= {:id nil
-            :nested_item {:nested_id nil}
-            :association [{:associated_id "test"} {:associated_id "test2"}]})
-           (parse-by-schema {"association_0_associated_id" "test"
-                             "association_1_associated_id" "test2" }
-                            simple-schema))))
-
-
+(deftest parse-profile-test
+  (testing "Check that parse profile matches profile schema."
+    (is (s/validate schema/Profile (first (parser/csv->maps (csv/read-csv csv-profile) profile-schema))))))

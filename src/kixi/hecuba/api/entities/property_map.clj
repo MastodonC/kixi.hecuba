@@ -1,4 +1,4 @@
-(ns kixi.hecuba.api.entity.property-map
+(ns kixi.hecuba.api.entities.property-map
     (:require
    [clojure.core.match :refer (match)]
    [cheshire.core :as json]
