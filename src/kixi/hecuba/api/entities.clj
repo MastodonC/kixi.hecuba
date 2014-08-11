@@ -366,7 +366,7 @@
     (allowed-all?* programmes projects roles request-method params store)))
 
 (defn index-handle-ok [store ctx]
-  (:entities ctx))
+  (util/render-items (:entities ctx)))
 
 (defmulti malformed? content-type-from-context)
 
