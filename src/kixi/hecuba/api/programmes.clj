@@ -3,7 +3,6 @@
    [clojure.tools.logging :as log]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
-   [qbits.hayt :as hayt]
    [cheshire.core :as json]
    [cemerick.friend :as friend]
    [kixi.hecuba.webutil :refer (decode-body authorized? allowed? uuid stringify-values sha1-regex) :as util]
@@ -45,18 +44,18 @@
     (log/debugf "Roles: %s Programmes: %s" roles programmes)
     (if (some #(isa? % ::sec/admin) roles)
       (map #(assoc % :editable true :admin true) items)
-      (editable-programmes (filter #(programmes (:id %)) items) programmes roles))))
+      (editable-programmes (filter #(programmes (:programme_id %)) items) programmes roles))))
 
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [web-session (-> ctx :request :session)
-          items       (db/execute session (hayt/select :programmes))]
+          items       (programmes/get-all session)]
       (->> items
            (items->authz-items web-session)
            (map #(-> %
                      (dissoc :user_id)
-                     (assoc :href (format programme-resource (:id %))
-                            :projects (format programme-projects-index (:id %)))))))))
+                     (assoc :href (format programme-resource (:programme_id %))
+                            :projects (format programme-projects-index (:programme_id %)))))))))
 
 (defn index-malformed? [ctx]
   (let [request (:request ctx)

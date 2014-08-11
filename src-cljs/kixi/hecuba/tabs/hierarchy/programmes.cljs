@@ -111,21 +111,21 @@
       om/IRender
       (render [_]
         (html
-         (let [{:keys [id lead_organisations name description created_at editable]} cursor
-               selected? (= (:selected programmes) id)]
+         (let [{:keys [programme_id lead_organisations name description created_at editable]} cursor
+               selected? (= (:selected programmes) programme_id)]
            [:tr {:onClick (fn [e]
                             (let [div-id (.-id (.-target e))]
-                              (when-not (= div-id (str id "-edit"))
-                                (om/update! programmes :selected id)
-                                (history/update-token-ids! history :programmes id)
+                              (when-not (= div-id (str programme_id "-edit"))
+                                (om/update! programmes :selected programme_id)
+                                (history/update-token-ids! history :programmes programme_id)
                                 (common/fixed-scroll-to-element "projects-div"))))
                  :class (when selected? "success")
                  :id (str table-id "-selected")}
-            [:td [:div (when editable {:class "fa fa-pencil-square-o" :id (str id "-edit")
+            [:td [:div (when editable {:class "fa fa-pencil-square-o" :id (str programme_id "-edit")
                                        :onClick (fn [_] (when selected? (put! editing-chan cursor)))})]]
             [:td name]
             [:td lead_organisations]
-            [:td id]
+            [:td programme_id]
             [:td created_at]]))))))
 
 (defn programmes-table [editing-chan]

@@ -82,7 +82,7 @@
 (defn project-edit-form [data]
   (fn [cursor owner]
     (om/component
-     (let [{:keys [id programme_id]} cursor
+     (let [{:keys [project_id programme_id]} cursor
            {:keys [status-text]} (om/get-state owner :http-error-response)
             error      (om/get-state owner :error)
             alert-body (str " Server returned status: " status-text)]
@@ -98,7 +98,7 @@
                        :onClick (fn [_]
                                   (let [project (om/get-state owner [:project])]
                                     (put-edited-project data owner project 
-                                                        programme_id id)))}
+                                                        programme_id project_id)))}
               "Save"]
              [:button {:type "button"
                        :class "btn btn-danger"

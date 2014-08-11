@@ -156,7 +156,7 @@
             [:td period]
             [:td resolution]
             [:td device_id]
-            [:td location]
+            [:td (common/location-col location)]
             [:td (if-let [t (common/unparse-date lower_ts "yyyy-MM-dd")] t "")]
             [:td (if-let [t (common/unparse-date upper_ts "yyyy-MM-dd")] t "")]
             [:td (status-label status privacy actual_annual)]]))))))

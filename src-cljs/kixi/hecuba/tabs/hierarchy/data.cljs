@@ -1,8 +1,9 @@
 (ns kixi.hecuba.tabs.hierarchy.data
   (:require [ajax.core :refer (GET)]
             [om.core :as om :include-macros true]
-            [kixi.hecuba.common :refer (log) :as common]
-            [kixi.hecuba.tabs.slugs :as slugs]))
+            [kixi.hecuba.common :refer (log interval) :as common]
+            [kixi.hecuba.tabs.slugs :as slugs]
+            [clojure.string :as str]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Data Fetchers
@@ -44,11 +45,12 @@
 (defn fetch-properties
   ([project-id data error-handler]
      (om/update! data [:properties :fetching] :fetching)
-     (GET (str "/4/projects/" project-id "/properties/") ;; TOFIX get from /4/projects/<project_id>/entities
+     (GET (str "/4/projects/" project-id "/entities/")
           {:handler  (fn [x]
-                       (log "Fetching properties for project: " project-id)
-                       (om/update! data [:properties :data] (mapv slugs/slugify-property x))
-                       (om/update! data [:properties :fetching] (if (empty? x) :no-data :has-data)))
+                       (let [entities (:entities x)]
+                         (log "Fetching properties for project: " project-id)
+                         (om/update! data [:properties :data] (mapv slugs/slugify-property entities))
+                         (om/update! data [:properties :fetching] (if (empty? entities) :no-data :has-data))))
            :error-handler error-handler
            :headers {"Accept" "application/edn"}
            :response-format :text}))
@@ -58,6 +60,28 @@
                          (om/update! data [:properties :fetching] :error)
                          (om/update! data [:properties :error-status] status)
                          (om/update! data [:properties :error-text] status-text)))))
+
+(defn update-entity [entity refreshed-entity entity_id]
+  (if (= entity_id (:entity_id entity))
+    (slugs/slugify-property refreshed-entity)
+    entity))
+
+(defn fetch-property
+  ([entity-id data error-handler]
+     (om/update! data [:properties :fetching] :fetching)
+     (GET (str "/4/entities/" entity-id)
+          {:handler (fn [entity]
+                      (om/update! data [:properties :data] (mapv #(update-entity % entity entity-id) (-> @data :properties :data)))
+                      (om/update! data [:properties :fetching] (if (empty? entity) :no-data :has-data)))
+           :error-handler error-handler
+           :headers {"Accept" "application/edn"}
+           :response-format :text}))
+  ([entity-id data]
+     (fetch-property entity-id data
+                     (fn [{:keys [status status-text]}]
+                       (om/update! data [:properties :fetching] :error)
+                       (om/update! data [:properties :error-status] status)
+                       (om/update! data [:properties :error-text] status-text)))))
 
 ;; Extract and flatten sensors from properties data
 (defn flatten-device [device]
@@ -94,3 +118,34 @@
         (map #(assoc % :editable editable) devices))
       [])
     []))
+
+(defmulti url-str (fn [start end entity_id device_id type measurements-type] measurements-type))
+(defmethod url-str :raw [start end entity_id device_id type _]
+  (str "/4/entities/" entity_id "/devices/" device_id "/measurements/"
+       type "?startDate=" start "&endDate=" end))
+(defmethod url-str :hourly_rollups [start end entity_id device_id type _]
+  (str "/4/entities/" entity_id "/devices/" device_id "/hourly_rollups/"
+       type "?startDate=" start "&endDate=" end))
+(defmethod url-str :daily_rollups [start end entity_id device_id type _]
+  (str "/4/entities/" entity_id "/devices/" device_id "/daily_rollups/"
+       type "?startDate=" start "&endDate=" end))
+
+(defn fetch-measurements [data entity_id sensors start-date end-date]
+  (log "Fetching measurements for sensors: " sensors)
+  (doseq [sensor (str/split sensors #";")]
+    (let [[type device_id] (str/split sensor #"-" )
+          measurements-type (interval start-date end-date)
+          url (url-str start-date end-date entity_id device_id type measurements-type)]
+      (om/update! data [:chart :measurements] [])
+      (om/update! data [:fetching :measurements] true)
+      (GET url {:handler (fn [response]
+                           (om/update! data [:chart :measurements]
+                                       (concat (:measurements (:chart @data))
+                                               (into []
+                                                     (map (fn [m]
+                                                            (assoc m "sensor" sensor))
+                                                          (:measurements response)))))
+                           (om/update! data [:fetching :measurements] false))
+                :headers {"Accept" "application/json"}
+                :response-format :json
+                :keywords? true}))))

@@ -297,20 +297,23 @@
        (map #(clean-entity %))
        (map #(assoc % :editable editable?))))
 
+;; TODO shoudl accept either a set of ids or a single id
 (defn search-filter [k ids]
   (let [should (mapv #(hash-map :term {k %}) ids)]
     {:bool {:must {}
             :should should
             :must_not {}}}))
 
-(defmulti filter-entities (fn [programmes projects params store k editable?] k))
+(defmulti filter-entities (fn [programmes projects params store k editable? & project_id] k))
 
-(defmethod filter-entities :programme_id [programmes _ params store k editable?]
+(defmethod filter-entities :programme_id [programmes _ params store k editable? & project_id]
   (let [search-session (:search-session store)
         query-string   (or (:q params) "*")
         page-number    (or (:page params) 0)
         page-size      (or (:size params) 20)
-        filter         (search-filter :programme_id programmes)
+        filter         (if project_id
+                         (search-filter :project_id #{project_id})
+                         (search-filter :programme_id programmes))
         results        (search/search-entities query-string filter page-number page-size search-session)
         total_hits     (esr/total-hits results)
         parsed-results (parse-entities results editable?)]
@@ -319,12 +322,14 @@
                 :page page-number
                 :entities parsed-results}}))
 
-(defmethod filter-entities :project_id [_ projects params store k editable?]
+(defmethod filter-entities :project_id [_ projects params store k editable? & project_id]
   (let [search-session (:search-session store)
         query-string   (or (:q params) "*")
         page-number    (or (:page params) 0)
         page-size      (or (:size params) 20)
-        filter         (search-filter :project_id projects)
+        filter         (if project_id
+                         (search-filter :project_id #{project_id})
+                         (search-filter :project_id projects))
         results        (search/search-entities query-string filter page-number page-size search-session)
         total_hits     (esr/total-hits results)
         parsed-results (parse-entities results editable?)]
@@ -333,12 +338,15 @@
                 :page page-number
                 :entities parsed-results}}))
 
-(defmethod filter-entities :default [_ _ params store k editable?]
+(defmethod filter-entities :default [_ _ params store k editable? & project_id]
   (let [search-session (:search-session store)
         query-string   (or (:q params) "*") ;; need to add route params in as programme_id:<foo> project_id:<foo>
         page-number    (or (:page params) 0)
         page-size      (or (:size params) 20)
-        results        (search/search-entities query-string page-number page-size search-session)
+        results        (if project_id
+                         (let [filter (search-filter :project_id #{project_id})]
+                           (search/search-entities query-string filter page-number page-size search-session))
+                         (search/search-entities query-string page-number page-size search-session))
         total_hits     (esr/total-hits results)
         parsed-results (parse-entities results editable?)]
 
@@ -360,13 +368,57 @@
          [_ _ _ true :get] [true (filter-entities programmes projects params store :project_id false)]
          :else false))
 
+;; TODO Implement a better way of handling different requests
+(defn allowed?*
+  ([programme-id project-id allowed-programmes allowed-projects roles request-method params store]
+     (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
+                programme-id project-id allowed-programmes allowed-projects roles request-method)
+     (match [(has-admin? roles)
+             (has-programme-manager? roles)
+             (some #(= % programme-id) allowed-programmes)
+             (has-project-manager? roles)
+             (some #(= % project-id) allowed-projects)
+             (has-user? roles)
+             request-method]
+
+            [true _ _ _ _ _ _] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
+            [_ true true _ _ _ _] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
+            [_ _ _ true true _ _] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
+            [_ _ true _ _ true :get] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
+            [_ _ _ _ true true :get] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
+            :else false))
+  ([programme-id project-id allowed-programmes allowed-projects roles request-method]
+      (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
+                 programme-id project-id allowed-programmes allowed-projects roles request-method)
+      (match [(has-admin? roles)
+              (has-programme-manager? roles)
+              (some #(= % programme-id) allowed-programmes)
+              (has-project-manager? roles)
+              (some #(= % project-id) allowed-projects)
+              (has-user? roles)
+              request-method]
+
+             [true _ _ _ _ _ _] true
+             [_ true true _ _ _ _] true
+             [_ _ _ true true _ _] true
+             [_ _ true _ _ true :get] true
+             [_ _ _ _ true true :get] true
+             :else false)))
+
+(defn- project_id-from [ctx]
+  (get-in ctx [:request :route-params :project_id]))
+
 (defn index-allowed? [store ctx]
   (let [{:keys [request-method session params]} (:request ctx)
+        project_id (project_id-from ctx)
+        programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))
         {:keys [projects programmes roles]} (sec/current-authentication session)]
-    (allowed-all?* programmes projects roles request-method params store)))
+    (if (and programme_id project_id)
+      (allowed?* programme_id project_id programmes projects roles request-method params store)
+      (allowed-all?* programmes projects roles request-method params store))))
 
 (defn index-handle-ok [store ctx]
-  (util/render-items ctx (:entities ctx)))
+  (util/render-item ctx (:entities ctx)))
 
 (defmulti malformed? content-type-from-context)
 
@@ -451,7 +503,8 @@
           project_id (when entity_id (:project_id (entities/get-by-id (:hecuba-session store) entity_id)))
           programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
       (if (and project_id programme_id)
-        (allowed?* programme_id project_id programmes projects roles request-method)
+        [(allowed?* programme_id project_id programmes projects roles request-method)
+         {:editable (allowed?* programme_id project_id programmes projects roles :put)}]
         true))))
 
 (defn resource-exists? [store ctx]
@@ -463,9 +516,11 @@
   (db/with-session [session (:hecuba-session store)]
     (let [{item ::item
            {mime :media-type} :representation} ctx
-           request      (:request ctx)
+           {:keys [request editable]} ctx
            route-params (:route-params request)
-           clean-item   (clean-entity item)
+           clean-item   (-> item
+                            clean-entity
+                            (cond-> editable (assoc :editable editable)))
            formatted-item (if (= "text/csv" mime)
                             (let [exploded-item (explode-and-sort-by-schema clean-item entity-schema)]
                               exploded-item)

@@ -119,6 +119,7 @@
                id            (:id property-details)]
            [:tr
             {:onClick (fn [_ _]
+                        (log "selected property: " id)
                         (om/update! properties :selected id)
                         (history/update-token-ids! history :properties id))
              :className (if (= id (:selected properties)) "success")

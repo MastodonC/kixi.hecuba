@@ -135,6 +135,7 @@
       (when (and (not= entities old-entities)
                  entities)
         (log "Setting selected entities to: " entities)
+        (om/update! data [:chart :sensors] #{})
         (let [entities-seq  (str/split entities #";")]
           (om/update! data [:entities :selected-entities] (into #{} entities-seq))
           (doseq [entity entities-seq]
