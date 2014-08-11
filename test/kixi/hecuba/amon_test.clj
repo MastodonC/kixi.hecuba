@@ -167,7 +167,7 @@
 ;;-----------------------------
 (defn- test-post-device [coll]
   (let [sample  (assoc-in coll [:entity_id]  (clojure.string/replace @entity-loc  #"/4/entities/(.*?)" "$1"))]
-    (client/post (apply str "http://127.0.0.1:8010" @entity-loc "/devices/") {:content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str sample)}))
+    (client/post (apply str base-addr @entity-loc "/devices/") {:content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str sample)}))
   )
 
 (def ^:private postable-device?
@@ -184,7 +184,7 @@
 (defn- test-post-entity [coll]
   (let [sample  (assoc-in coll [:project_id]  "ba776928f94b3aaa1e444569276ee5b66d6b21f7")]
     (log/info "\n-----------------STARTING EXAMPLE--------------\n" sample)
-    (client/post "http://127.0.0.1:8010/4/entities/" {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str sample)}))
+    (client/post base-addr "/4/entities/" {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str sample)}))
   )
 
 (def ^:private postable-entity?
@@ -199,19 +199,19 @@
 ;;-----------------------------
 (deftest ^:http-tests test-edn-json-programmes
   (is (=  
-       (:body (client/get (apply str "http://127.0.0.1:8010/4" @programme-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]}))
-       (:body (client/get (apply str "http://127.0.0.1:8010/4" @programme-loc) {:accept :edn :content-type :json :basic-auth ["support@mastodonc.com" "password"]}))))
+       (:body (client/get (apply str base-addr "/4" @programme-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]}))
+       (:body (client/get (apply str base-addr "/4" @programme-loc) {:accept :edn :content-type :json :basic-auth ["support@mastodonc.com" "password"]}))))
   (log/info "Passed JSON EDN equality check for Programmes"))
 
 (deftest ^:http-tests test-edn-json-projects
   (is (=
-       (:body (client/get (apply str "http://127.0.0.1:8010/4" @programme-loc @project-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})) 
-       (:body (client/get (apply str "http://127.0.0.1:8010/4" @programme-loc @project-loc) {:accept :edn :content-type :json :basic-auth ["support@mastodonc.com" "password"]}))))
+       (:body (client/get (apply str base-addr "/4" @programme-loc @project-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})) 
+       (:body (client/get (apply str base-addr "/4" @programme-loc @project-loc) {:accept :edn :content-type :json :basic-auth ["support@mastodonc.com" "password"]}))))
   (log/info "Passed JSON EDN equality check for Projects"))
 ;;-----------------------------
 ;; test get device with edn (json not currently working):
 ;; "Don't know how to write JSON of class java.util.Date"
 ;;-----------------------------
 (deftest ^:http-tests test-edn-get-device
-  (is (:body (client/get (apply str "http://127.0.0.1:8010/4" @device-loc) {:accept :edn :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
+  (is (:body (client/get (apply str base-addr "/4" @device-loc) {:accept :edn :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
   (log/info "Passed EDN GET test for devices"))
