@@ -2,7 +2,9 @@
   (:require [clojure.tools.logging :as log]
             [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
-            [kixi.hecuba.data :refer [parse-item parse-list]]))
+            [kixi.hecuba.data :refer [parse-item parse-list]]
+            [kixi.hecuba.webutil :as webutil]
+            [cheshire.core :as json]))
 
 (defn parse-profile [profile]
   (-> profile
@@ -62,3 +64,40 @@
 
 (defn ->clojure [entity_id session]
   (get-profiles entity_id session))
+
+(defn decode [profile]
+  (-> profile
+      (assoc :profile_id (:id profile))
+      (dissoc :id)))
+
+(defn encode [profile]
+  (-> profile
+      (assoc :id (:profile_id profile))
+      (webutil/update-stringified-lists
+       [:airflow_measurements :biomasses :chps
+        :conservatories :door_sets
+        :extensions :floors :heat_pumps
+        :heating_systems :hot_water_systems
+        :low_energy_lights :photovoltaics
+        :roof_rooms :roofs :small_hydros
+        :solar_thermals :storeys :thermal_images
+        :ventilation_systems :walls
+        :wind_turbines :window_sets])
+      (update-in [:profile_data] json/encode)))
+
+(defn get-by-id
+  ([session id]
+     (-> (db/execute session (hayt/select :profiles
+                                          (hayt/where [[= :id id]])))
+         first
+         decode)))
+
+(defn delete [session id]
+  (db/execute session (hayt/delete :profiles (hayt/where [[= :id id]]))))
+
+(defn insert [session profile]
+  (db/execute session (hayt/insert :profiles (hayt/values (encode profile)))))
+
+(defn update [session id profile]
+  (db/execute session (hayt/update :profiles (hayt/set-columns (dissoc (encode profile) :id))
+                                   (hayt/where [[= :id id]]))))

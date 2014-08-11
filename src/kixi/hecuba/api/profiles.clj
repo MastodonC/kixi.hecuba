@@ -15,8 +15,10 @@
    [kixi.hecuba.data.users :as users]
    [kixi.hecuba.data.projects :as projects]
    [kixi.hecuba.data.entities :as entities]
+   [kixi.hecuba.data.profiles :as profiles]
    [clojure.java.io           :as io]
-   [clojure.data.csv          :as csv]))
+   [clojure.data.csv          :as csv]
+   [kixi.hecuba.data.entities.search :as search]))
 
 (def ^:private entity-profiles-resource (p/resource-path-string :entity-profiles-resource))
 
@@ -67,11 +69,11 @@
 
 (defn index-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [request      (:request ctx)
-          method       (:request-method request)
-          route-params (:route-params request)
-          entity_id    (:entity_id route-params)
-          entity       (entities/get-by-id session entity_id)]
+    (let [request        (:request ctx)
+          method         (:request-method request)
+          route-params   (:route-params request)
+          entity_id      (:entity_id route-params)
+          entity         (search/get-by-id entity_id (:search-session store))]
       (case method
         :post (not (nil? entity))
         :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
@@ -806,6 +808,10 @@
                   body         (if (= "text/csv" (:content-type request))
                                  (rows->profiles decoded-body)
                                  [decoded-body])]
+              ;; TODO It's not working as body is a seq and we can post to multiple entities
+              ;; test file is in examples/csv-upload/profiles.csv
+              ;; curl command used:
+              ;; curl -v -H "Content-Type: text/csv; charset=utf-8" -H "Accept: text/csv" -X POST -u "username:password" --data-binary "@profiles.csv" http://localhost:8010/4/entities/821e6367f385d82cc71b2afd9dc2df3b2ec5b81c/profiles/
               (if (not= (:entity_id body) entity_id)
                 true
                 [false {:profiles body}]))
@@ -849,20 +855,16 @@
           _          (log/infof "resource-exists? request: %s" request)
           entity_id  (-> request :params :entity_id)
           profile_id (-> request :params :profile_id)
-          item       (first (db/execute session (hayt/select
-                                                 :profiles
-                                                 (hayt/where [[= :id profile_id]]))))]
+          item       (profiles/get-by-id session profile_id)]
       (if-not (empty? item)
-        {::item (-> item
-                    (assoc :profile_id profile_id)
-                    (dissoc :id))}
+        {::item item}
         false))))
 
 (defn resource-delete-enacted? [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [{item ::item} ctx
           profile_id (:profile_id item)
-          response (db/execute session (hayt/delete :profiles (hayt/where [[= :id profile_id]])))]
+          response (profiles/delete session profile_id)]
       (empty? response))))
 
 (defn resource-put! [store ctx]
@@ -876,20 +878,9 @@
                          decoded-body)
               {:keys [entity_id profile_id]} item
               username   (sec/session-username (-> ctx :request :session))]
-          (db/execute session (hayt/insert :profiles (hayt/values (-> body
-                                                                      (assoc :id profile_id)
-                                                                      (assoc :user_id username)
-                                                                      (update-stringified-lists
-                                                                        [:airflow_measurements :biomasses :chps
-                                                                         :conservatories :door_sets
-                                                                         :extensions :floors :heat_pumps
-                                                                         :heating_systems :hot_water_systems
-                                                                         :low_energy_lights :photovoltaics
-                                                                         :roof_rooms :roofs :small_hydros
-                                                                         :solar_thermals :storeys :thermal_images
-                                                                         :ventilation_systems :walls
-                                                                         :wind_turbines :window_sets])
-                                                                       (update-in [:profile_data] json/encode))))))
+          (profiles/insert session (assoc body :user_id username :profile_id profile_id))
+          (-> (search/searchable-entity-by-id entity_id session)
+              (search/->elasticsearch (:search-session store))))
         (ring-response {:status 404 :body "Please provide valid entity_id and timestamp"})))))
 
 (defn resource-handle-ok [store ctx]
@@ -916,23 +907,13 @@
     (let [{:keys [entity_id timestamp]} profile
           profile_id (str (:entity_id profile) "-" (get-in profile [:profile_data :event_type]))]
       (when (and entity_id timestamp)
-        (when (entities/get-by-id session entity_id)
-          (let [query-profile (-> profile
-                                 (assoc :user_id username)
-                                 (assoc :id profile_id)
-                                 (update-stringified-lists
-                                  [:airflow_measurements :biomasses :chps
-                                   :conservatories :door_sets
-                                   :extensions :floors :heat_pumps
-                                   :heating_systems :hot_water_systems
-                                   :low_energy_lights :photovoltaics
-                                   :roof_rooms :roofs :small_hydros
-                                   :solar_thermals :storeys :thermal_images
-                                   :ventilation_systems :walls
-                                   :wind_turbines :window_sets])
-                                 (update-in [:profile_data] json/encode))]
-          (db/execute session (hayt/insert :profiles (hayt/values query-profile)))
-          {:profile_id profile_id}))))))
+        ;; FIXME This might be doing more reading than it should
+        (let [entity (search/get-by-id entity_id (:search-session store))]
+          (when entity
+            (profiles/update session profile_id (assoc profile :user_id username))
+            (-> (search/searchable-entity-by-id entity_id session)
+                (search/->elasticsearch (:search-session store)))
+            {:profile_id profile_id}))))))
 
 (defn index-post! [store ctx]
   (let [{:keys [request profiles]} ctx

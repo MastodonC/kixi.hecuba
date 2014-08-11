@@ -83,6 +83,7 @@
                            (hayt/where [[:in :device_id device_ids]]))))
 
 (defn insert [session sensor]
+  (s/validate Sensor sensor)
   (db/execute session (hayt/insert :sensors
                                    (hayt/values (encode sensor))))
   (db/execute session (hayt/insert :sensor_metadata

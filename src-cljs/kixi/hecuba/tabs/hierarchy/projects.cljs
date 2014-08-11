@@ -107,7 +107,7 @@
                   [:div [:div {:class "fa fa-exclamation-triangle"} alert-body]]
                   error
                   (str "edit-project-form-failure"))
-           (bs/static-text cursor :id "Project ID")
+           (bs/static-text cursor :project_id "Project ID")
            (bs/static-text cursor :programme_id "Programme ID")
            (bs/static-text cursor :created_at "Created At")
            (bs/text-input-control cursor owner :project :description "Description")
@@ -122,19 +122,19 @@
       om/IRender
       (render [_]
         (html
-         (let [{:keys [id name type_of description
+         (let [{:keys [project_id name type_of description
                        created_at organisation project_code editable]} cursor
-               selected? (= (:selected projects) id)]
+               selected? (= (:selected projects) project_id)]
            [:tr {:onClick (fn [e]
                             (let [div-id (.-id (.-target e))]
-                              (when-not (= div-id (str id "-edit"))
-                                (om/update! projects :selected id)
-                                (history/update-token-ids! history :projects id)
+                              (when-not (= div-id (str project_id "-edit"))
+                                (om/update! projects :selected project_id)
+                                (history/update-token-ids! history :projects project_id)
                                 (common/fixed-scroll-to-element "properties-div"))))
                  :class (when selected? "success")
                  :id (str table-id "-selected")}
             [:td [:div (when editable {:class "fa fa-pencil-square-o"
-                                       :id (str id "-edit")
+                                       :id (str project_id "-edit")
                                        :onClick (fn [_]
                                                   (when selected?
                                                     (put! editing-chan cursor)))})]]
@@ -168,7 +168,7 @@
        [:thead
         [:tr [:th ""] [:th "Name"] [:th "Type"] [:th "Description"] [:th "Created At"] [:th "Organisation"] [:th "Project Code"]]]
        [:tbody
-        (for [row (sort-by :id (:data projects))]
+        (for [row (sort-by :project_id (:data projects))]
           (om/build (project-row data history projects table-id editing-chan) row))]]]]))
 
 (defmethod projects-table-html :default [_ _ _]
@@ -201,7 +201,7 @@
             editing        (-> data :projects :editing)
             adding-project (-> data :projects :adding-project)
             programme_id   (-> data :active-components :programmes)
-            programme      (-> (filter #(= (:id %) programme_id) (-> programmes :data)) first)]
+            programme      (-> (filter #(= (:programme_id %) programme_id) (-> programmes :data)) first)]
         (html
          [:div.row#projects-div
           [:div {:class (str "col-md-12 " (if programme_id "" "hidden"))}

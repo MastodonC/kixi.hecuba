@@ -2,6 +2,7 @@
   (:require
    [clojure.java.io :as io]
    [clojure.data.csv :as csv]
+   [clojure.string :as string]
    [clojure.core.match :refer (match)]
    [clojure.tools.logging :as log]
    [cheshire.core :as json]
@@ -17,55 +18,13 @@
    [kixi.hecuba.data.projects :as projects]
    [kixi.hecuba.data.entities :as entities]
    [kixi.hecuba.data.users :as users]
-   [kixi.hecuba.data.search :as search]
+   [kixi.hecuba.data.entities.search :as search]
    [kixi.hecuba.storage.sha1 :as sha1]
-   [kixi.hecuba.web-paths :as p]))
+   [kixi.hecuba.web-paths :as p]
+   [kixi.hecuba.data.entities.search :as search]))
 
 (def ^:private entities-index-path (p/index-path-string :entities-index))
 (def ^:private entity-resource-path (p/resource-path-string :entity-resource))
-
-(defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
-  (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
-             programme-id project-id allowed-programmes allowed-projects roles request-method)
-  (match [(has-admin? roles)
-          (has-programme-manager? roles)
-          (some #(= % programme-id) allowed-programmes)
-          (has-project-manager? roles)
-          (some #(= % project-id) allowed-projects)
-          (has-user? roles)
-          request-method]
-         ;; super-admin - do everything
-         [true _ _ _ _ _ _] true
-         ;; programme-manager for this programme - do everything
-         [_ true true _ _ _ _] true
-         ;; project-manager for this project - do everything
-         [_ _ _ true true _ _] true
-         ;; user with this programme - get allowed
-         [_ _ true _ _ true :get] true
-         ;; user with this project - get allowed
-         [_ _ _ _ true true :get] true
-         :else false))
-
-(defn index-allowed? [store]
-  (fn [ctx]
-    (let [{:keys [request-method session params]} (:request ctx)
-          {:keys [projects programmes roles]} (sec/current-authentication session)
-          project_id (:project_id (:entity ctx))
-          programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
-      (if (and project_id programme_id)
-        (allowed?* programme_id project_id programmes projects roles request-method)
-        true))))
-
-(defn resource-allowed? [store]
-  (fn [ctx]
-    (let [{:keys [request-method session params]} (:request ctx)
-          {:keys [projects programmes roles]}     (sec/current-authentication session)
-          entity_id (:entity_id params)
-          project_id (when entity_id (:project_id (entities/get-by-id (:hecuba-session store) entity_id)))
-          programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
-      (if (and project_id programme_id)
-        (allowed?* programme_id project_id programmes projects roles request-method)
-        true))))
 
 ;; hang on a minute, do we need the whole schema or shall we aggregate everything
 ;; in the property_data field?!
@@ -131,7 +90,7 @@
   [:path])
 
 (def entity-schema
-  [:id
+  [:entity_id
    :address_country
    :address_county
    :address_region
@@ -301,6 +260,114 @@
           (log/error t "Unparsable CSV.")
           nil)))))
 
+(defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
+  (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
+             programme-id project-id allowed-programmes allowed-projects roles request-method)
+  (match [(has-admin? roles)
+          (has-programme-manager? roles)
+          (some #(= % programme-id) allowed-programmes)
+          (has-project-manager? roles)
+          (some #(= % project-id) allowed-projects)
+          (has-user? roles)
+          request-method]
+         ;; super-admin - do everything
+         [true _ _ _ _ _ _] true
+         ;; programme-manager for this programme - do everything
+         [_ true true _ _ _ _] true
+         ;; project-manager for this project - do everything
+         [_ _ _ true true _ _] true
+         ;; user with this programme - get allowed
+         [_ _ true _ _ true :get] true
+         ;; user with this project - get allowed
+         [_ _ _ _ true true :get] true
+         :else false))
+
+;; curl -v -H "Content-Type: application/json" -H 'Accept: application/edn' -X GET -u support-test@mastodonc.com:password 127.0.0.1:8010/4/entities/?q=TSB119
+
+(defn clean-entity
+  "Get rid of the keys that we don't want the user to see."
+  [entity]
+  (-> entity
+      (dissoc :user_id)))
+
+(defn parse-entities [results editable?]
+  (->> results
+       esr/hits-from
+       (map #(-> % :_source :full_entity))
+       (map #(clean-entity %))
+       (map #(assoc % :editable editable?))))
+
+(defn search-filter [k ids]
+  (let [should (mapv #(hash-map :term {k %}) ids)]
+    {:bool {:must {}
+            :should should
+            :must_not {}}}))
+
+(defmulti filter-entities (fn [programmes projects params store k editable?] k))
+
+(defmethod filter-entities :programme_id [programmes _ params store k editable?]
+  (let [search-session (:search-session store)
+        query-string   (or (:q params) "*")
+        page-number    (or (:page params) 0)
+        page-size      (or (:size params) 20)
+        filter         (search-filter :programme_id programmes)
+        results        (search/search-entities query-string filter page-number page-size search-session)
+        total_hits     (esr/total-hits results)
+        parsed-results (parse-entities results editable?)]
+
+    {:entities {:total_hits total_hits
+                :page page-number
+                :entities parsed-results}}))
+
+(defmethod filter-entities :project_id [_ projects params store k editable?]
+  (let [search-session (:search-session store)
+        query-string   (or (:q params) "*")
+        page-number    (or (:page params) 0)
+        page-size      (or (:size params) 20)
+        filter         (search-filter :project_id projects)
+        results        (search/search-entities query-string filter page-number page-size search-session)
+        total_hits     (esr/total-hits results)
+        parsed-results (parse-entities results editable?)]
+
+    {:entities {:total_hits total_hits
+                :page page-number
+                :entities parsed-results}}))
+
+(defmethod filter-entities :default [_ _ params store k editable?]
+  (let [search-session (:search-session store)
+        query-string   (or (:q params) "*") ;; need to add route params in as programme_id:<foo> project_id:<foo>
+        page-number    (or (:page params) 0)
+        page-size      (or (:size params) 20)
+        results        (search/search-entities query-string page-number page-size search-session)
+        total_hits     (esr/total-hits results)
+        parsed-results (parse-entities results editable?)]
+
+    {:entities {:total_hits total_hits
+                :page page-number
+                :entities parsed-results}}))
+
+(defn allowed-all?* [programmes projects roles request-method params store]
+  (log/infof "allowed-all?* allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s" programmes projects roles request-method)
+  (match [(has-admin? roles)
+          (has-programme-manager? roles)
+          (has-project-manager? roles)
+          (has-user? roles)
+          request-method]
+
+         [true _ _ _ _] [true (filter-entities programmes projects params store nil true)]
+         [_ true _ _ _] [true (filter-entities programmes projects params store :programme_id true)]
+         [_ _ true _ _] [true (filter-entities programmes projects params store :project_id true)]
+         [_ _ _ true :get] [true (filter-entities programmes projects params store :project_id false)]
+         :else false))
+
+(defn index-allowed? [store ctx]
+  (let [{:keys [request-method session params]} (:request ctx)
+        {:keys [projects programmes roles]} (sec/current-authentication session)]
+    (allowed-all?* programmes projects roles request-method params store)))
+
+(defn index-handle-ok [store ctx]
+  (util/render-items (:entities ctx)))
+
 (defmulti malformed? content-type-from-context)
 
 (defmethod malformed? "multipart/form-data" [ctx]
@@ -310,12 +377,12 @@
     (case request-method
       :post (let [parsed-csv    (process-file ctx)
                   property_code (:property_code parsed-csv)]
-              (if (and property_code parsed-csv (= project_id (:project_id parsed-csv)))
-               [false {:entity parsed-csv}]
-               true))
+              (if (and (seq property_code) parsed-csv (= project_id (:project_id parsed-csv)))
+                [false {:entity parsed-csv}]
+                true))
       :put  (let [entity_id  (:entity_id route-params)
                   parsed-csv (process-file ctx)]
-              (if (and parsed-csv (= entity_id (:id parsed-csv)))
+              (if (and parsed-csv (= entity_id (:entity_id parsed-csv)))
                 [false {:entity parsed-csv}]
                 true))
       false)))
@@ -330,7 +397,7 @@
                                     (parse-by-schema body-map entity-schema))
                                   decoded-body)
                   {:keys [property_code project_id]} entity]
-              (if (and property_code project_id)
+              (if (and (seq property_code) (seq project_id))
                 [false {:entity entity}]
                 true))
       :put (let [decoded-body  (decode-body request)
@@ -340,9 +407,9 @@
                                    (parse-by-schema body-map entity-schema))
                                  decoded-body)]
              (if entity
-               [false {:entity (assoc entity :id entity_id)}]
+               [false {:entity (assoc entity :entity_id entity_id)}]
                true))
-       false)))
+      false)))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -354,8 +421,11 @@
         (let [entity_id (sha1/gen-key :entity entity)
               query-entity (assoc entity
                              :user_id user_id
-                             :id entity_id)]
+                             :entity_id entity_id)]
           (entities/insert session query-entity)
+          (-> query-entity
+              (search/searchable-entity session)
+              (search/->elasticsearch (:search-session store)))
           {::entity_id entity_id})))))
 
 (defn index-handle-created [ctx]
@@ -373,29 +443,33 @@
       (ring-response {:status 422
                       :body "Provide valid projectId and propertyCode."}))))
 
-(defn resource-exists? [store ctx]
-  (let [id (get-in ctx [:request :route-params :entity_id])
-        search-results (search/search-entities id 0 1 (:search-session store))]
-    (when-let [item (->> search-results esr/hits-from (map #(-> % :_source :full_entity)) first)]
-      {::item item})))
+(defn resource-allowed? [store]
+  (fn [ctx]
+    (let [{:keys [request-method session params]} (:request ctx)
+          {:keys [projects programmes roles]}     (sec/current-authentication session)
+          entity_id (:entity_id params)
+          project_id (when entity_id (:project_id (entities/get-by-id (:hecuba-session store) entity_id)))
+          programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
+      (if (and project_id programme_id)
+        (allowed?* programme_id project_id programmes projects roles request-method)
+        true))))
 
-(defn clean-entity
-  "Get rid of the keys that we don't want the user to see."
-  [entity]
-  (-> entity
-      (dissoc :user_id)))
+(defn resource-exists? [store ctx]
+  (let [id (get-in ctx [:request :route-params :entity_id])]
+    (when-let [item (search/get-by-id id (:search-session store))]
+      {::item item})))
 
 (defn resource-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [{item ::item
-          {mime :media-type} :representation} ctx
-          request      (:request ctx)
-          route-params (:route-params request)
-          clean-item   (clean-entity item)
-          formatted-item (if (= "text/csv" mime)
-                           (let [exploded-item (explode-and-sort-by-schema clean-item entity-schema)]
-                             exploded-item)
-                           clean-item)]
+           {mime :media-type} :representation} ctx
+           request      (:request ctx)
+           route-params (:route-params request)
+           clean-item   (clean-entity item)
+           formatted-item (if (= "text/csv" mime)
+                            (let [exploded-item (explode-and-sort-by-schema clean-item entity-schema)]
+                              exploded-item)
+                            clean-item)]
       (util/render-item ctx formatted-item))))
 
 (defn resource-put! [store ctx]
@@ -403,11 +477,16 @@
     (let [{:keys [request entity]} ctx
           username  (sec/session-username (-> ctx :request :session))]
       (when entity
-        (entities/update session (:id entity) (assoc entity :user_id username))))))
+        (entities/update session (:entity_id entity) (assoc entity :user_id username))
+        (-> entity
+            (search/searchable-entity session)
+            (search/->elasticsearch (:search-session store)))))))
 
 (defn resource-delete! [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (db/execute session (hayt/delete :entities (hayt/where [[= :id (get-in ctx [::item :id])]])))))
+    (let [entity_id  (get-in ctx [::item :entity_id])]
+      (entities/delete entity_id session)
+      (search/delete-by-id entity_id (:search-session store)))))
 
 (defn resource-respond-with-entity [ctx]
   (let [request (:request ctx)
@@ -416,31 +495,12 @@
      (= method :delete) false
       :else true)))
 
-;; curl -v -H "Content-Type: application/json" -H 'Accept: application/edn' -X GET -u support-test@mastodonc.com:password 127.0.0.1:8010/4/entities/?q=TSB119
-
-(defn index-response [query page-number page-size allowed-programmes allowed-projects search-session]
-  (let [from (* page-number page-size)
-        search-results (search/search-entities query from page-size search-session)
-        total_hits (esr/total-hits search-results)
-        hits (->> search-results esr/hits-from (map #(-> % :_source :full_entity)) (map #(clean-entity %)))]
-    {:total_hits total_hits
-     :page page-number
-     :entities hits}))
-
-(defn index-handle-ok [store ctx]
-  (let [request (:request ctx)
-        params (:params request)
-        query-string (or (:q params) "*")
-        page-number (or (:page params) 0)
-        page-size (or (:size params) 20)]
-    (index-response query-string page-number page-size nil nil (:search-session store))))
-
 (defresource index [store]
   :allowed-methods #{:post :get}
   :available-media-types #{"text/csv" "application/json" "application/edn"}
   :known-content-type? #{"text/csv" "application/json"}
   :authorized? (authorized? store)
-  :allowed? (index-allowed? store)
+  :allowed? (partial index-allowed? store)
   :malformed? #(malformed? %)
   :post! (partial index-post! store)
   :handle-created index-handle-created

@@ -20,9 +20,9 @@
 (defn invalid? [device]
   (s/check Device device))
 
-(def user-editable-keys [:id :description :entity_id
-                        :location :metadata :metering_point_id
-                        :name :parent_id :privacy])
+(def user-editable-keys [:device_id :description :entity_id
+                         :location :metadata :metering_point_id
+                         :name :parent_id :privacy])
 
 (defn encode
   ([device]
@@ -32,6 +32,8 @@
                     (select-keys user-editable-keys)
                     (update-in [:location] json/encode)
                     (update-in [:metadata] json/encode)
+                    (assoc :id (:device_id device))
+                    (dissoc :device_id)
                     (cond-> remove-pk? (dissoc :id))
                     stringify-values)))
 
@@ -40,15 +42,16 @@
       (assoc :readings (map #(dissoc % :user_id) (sensors/get-sensors (:id device) session)))
       (update-in [:location] json/decode)
       (update-in [:metadata] json/decode)
+      (assoc :device_id (:id device))
       (dissoc :user_id :id)))
 
 (defn insert [session entity_id device]
-  (let [id             (:id device)
-        encoded-device (encode device)]
+  (let [device_id       (:device_id device)
+        encoded-device  (encode device)]
     (db/execute session (hayt/insert :devices
                                      (hayt/values encoded-device)))
     (db/execute session (hayt/update :entities
-                                     (hayt/set-columns {:devices [+ {id (str encoded-device)}]})
+                                     (hayt/set-columns {:devices [+ {device_id (str encoded-device)}]})
                                      (hayt/where [[= :id entity_id]])))))
 
 (defn get-by-id [session id]
@@ -58,7 +61,7 @@
 
 (defn update
   ([session device]
-     (update session (:entity_id device) (:id device) device))
+     (update session (:entity_id device) (:device_id device) device))
   ([session entity_id id device]
      (let [encoded-device (encode device :remove-pk)
            entity_id (or entity_id (:entity_id (get-by-id session id)))]

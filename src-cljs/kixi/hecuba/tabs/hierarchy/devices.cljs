@@ -269,6 +269,7 @@
         (html
          (let [{:keys [description privacy location name
                        device_id editable metadata privacy]} cursor
+               _ (log "cursor: " cursor)
                devices   (:devices data)
                selected? (= (:selected devices) device_id)]
            [:tr {:onClick (fn [_] (om/update! devices :selected (if selected? nil device_id)))

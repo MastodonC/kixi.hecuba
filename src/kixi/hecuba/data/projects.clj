@@ -7,11 +7,18 @@
 
 (defn encode [project]
   (-> project
+      (assoc :id (:project_id project))
+      (dissoc :project_id)
       webutil/stringify-values))
+
+(defn decode [project]
+  (-> project
+      (assoc :project_id (:id project))
+      (dissoc :id :user_id)))
 
 (defn delete [project_id session]
   (let [entities         (entities/get-all session project_id)
-        entity_ids       (map :id entities)
+        entity_ids       (map :entity_id entities)
         deleted-entities (doall (map #(entities/delete % session) entity_ids))
         deleted-project  (db/execute
                           session
@@ -22,21 +29,25 @@
 
 (defn get-by-id
   ([session id]
-     (first (db/execute session
-                        (hayt/select :projects
-                                     (hayt/where [[= :id id]]))))))
+     (-> (db/execute session
+                     (hayt/select :projects
+                                  (hayt/where [[= :id id]])))
+         first
+         decode)))
 
 (defn get-all
   ([session]
-     (->> (db/execute session (hayt/select :projects))))
+     (->> (db/execute session (hayt/select :projects))
+          (map decode)))
   ([session programme_id]
-     (->> (db/execute session (hayt/select :projects (hayt/where [[= :programme_id programme_id]]))))))
+     (->> (db/execute session (hayt/select :projects (hayt/where [[= :programme_id programme_id]])))
+          (map decode))))
 
 (defn insert
   ([session project]
-     (db/execute session (hayt/insert :projects (hayt/values project)))))
+     (db/execute session (hayt/insert :projects (hayt/values (encode project))))))
 
 (defn update [session id project]
   (db/execute session (hayt/update :projects
-                                   (hayt/set-columns (encode (dissoc project :id)))
+                                   (hayt/set-columns (dissoc (encode project) :id))
                                    (hayt/where [[= :id id]]))))

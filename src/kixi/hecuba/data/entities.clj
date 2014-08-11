@@ -13,7 +13,7 @@
 
 (defn delete [entity_id session]
   (let [devices              (devices/get-devices session entity_id)
-        device_ids           (map :id devices)
+        device_ids           (map :device_id devices)
         delete-measurements? true
         deleted-devices      (doall (map #(devices/delete % delete-measurements? session) device_ids))
         deleted-entity       (db/execute
@@ -37,10 +37,12 @@
    encode-tech-icons))
 
 (defn encode [entity]
-  (cond-> (dissoc entity :device_ids)
-          (get-in entity [:notes]) (update-stringified-list :notes)
-          (get-in entity [:metering_point_ids]) (update-in [:metering_point_ids] str)
-          (get-in entity [:property_data]) (update-in [:property_data] encode-property-data)))
+  (-> entity
+      (assoc :id (:entity_id entity))
+      (dissoc entity :device_ids :entity_id)
+      (cond-> (get-in entity [:notes]) (update-stringified-list :notes)
+              (get-in entity [:metering_point_ids]) (update-in [:metering_point_ids] str)
+              (get-in entity [:property_data]) (update-in [:property_data] encode-property-data))))
 
 (defn decode-list [entity key]
   (->> (get entity key [])
@@ -87,20 +89,22 @@
       (decode-tech-icons)))
 
 (defn decode [entity]
-  (cond-> entity
-          (:property_data entity) (decode-property-data)
-          (:notes entity) (decode-list :notes)
-          (:documents entity) (decode-list :documents)
-          (:photos entity) (decode-list :photos)
-          (:devices entity) (decode-edn-map :devices)
-          (:metering_point_ids entity) (decode-entry :metering_point_ids)))
+  (-> entity
+      (assoc :entity_id (:id entity))
+      (dissoc :id)
+      (cond-> (:property_data entity) (decode-property-data)
+              (:notes entity) (decode-list :notes)
+              (:documents entity) (decode-list :documents)
+              (:photos entity) (decode-list :photos)
+              (:devices entity) (decode-edn-map :devices)
+              (:metering_point_ids entity) (decode-entry :metering_point_ids))))
 
 (defn insert [session entity]
   (db/execute session (hayt/insert :entities (hayt/values (encode entity)))))
 
 (defn update [session id entity]
   (db/execute session (hayt/update :entities
-                                   (hayt/set-columns (encode (dissoc entity :id)))
+                                   (hayt/set-columns (dissoc (encode entity) :id))
                                    (hayt/where [[= :id id]]))))
 
 (defn get-by-id

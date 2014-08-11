@@ -8,8 +8,7 @@
             [clojure.test.check :as tc]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
-            [clojure.tools.logging  :as log]
-            ))
+            [clojure.tools.logging  :as log]))
 
 (def ^:private poster-map (atom {:programme-name ""
                                  :project-name ""
@@ -55,7 +54,7 @@
           (get-in (:headers
                    (let [sample (last (sg/generate-examples amon/BaseProgramme))]
                      (reset! poster-map (assoc-in @poster-map [:programme-name] (:name sample)))
-                     (client/post (apply str base-addr "/4/programmes/") {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str sample)})))
+                     (client/post (apply str base-addr "/4/programmes/") {:accept :json :content-type :json :basic-auth ["test@mastodonc.com" "password"] :body (json/write-str sample)})))
                   ["Location"]))
   (log/info "Programmes: " @programme-loc))
 
@@ -64,7 +63,7 @@
           (get-in (:headers
                    (let [sample (last (sg/generate-examples amon/BaseProject))]
                      (reset! poster-map (assoc-in @poster-map [:project-name] (:name sample)))
-                     (client/post (apply str base-addr @programme-loc "/projects/") {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str (assoc-in sample [:programme_id]  (clojure.string/replace @programme-loc  #"/4/programmes/(.*?)" "$1")))})))
+                     (client/post (apply str base-addr @programme-loc "/projects/") {:accept :json :content-type :json :basic-auth ["test@mastodonc.com" "password"] :body (json/write-str (assoc-in sample [:programme_id]  (clojure.string/replace @programme-loc  #"/4/programmes/(.*?)" "$1")))})))
                   ["Location"]))
   (log/info "Project: " @project-loc))
 
@@ -73,7 +72,7 @@
           (get-in (:headers
                    (let [sample (last (sg/generate-examples amon/BaseEntity))]
                       (reset! poster-map (assoc-in @poster-map [:entity-property-code] (:property_code sample)))
-                      (client/post (apply str base-addr "/4/entities/") {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str (assoc-in sample [:project_id]  (clojure.string/replace @project-loc  #"/4/projects/(.*?)" "$1")))})))
+                      (client/post (apply str base-addr "/4/entities/") {:accept :json :content-type :json :basic-auth ["test@mastodonc.com" "password"] :body (json/write-str (assoc-in sample [:project_id]  (clojure.string/replace @project-loc  #"/4/projects/(.*?)" "$1")))})))
                   ["Location"]))
   (log/info "Entity: " @entity-loc))
 
@@ -83,17 +82,17 @@
                    (let [sample (last (sg/generate-examples amon/BaseDevice))]
                      (reset! reading-type (:type (first (:readings sample))))
                      (reset! poster-map (assoc-in @poster-map [:device-description] (:description sample)))
-                     (client/post (apply str base-addr @entity-loc "/devices/") {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str (assoc-in sample [:entity_id]  (clojure.string/replace @entity-loc  #"/4/entities/(.*?)" "$1")))})))
+                     (client/post (apply str base-addr @entity-loc "/devices/") {:accept :json :content-type :json :basic-auth ["test@mastodonc.com" "password"] :body (json/write-str (assoc-in sample [:entity_id]  (clojure.string/replace @entity-loc  #"/4/entities/(.*?)" "$1")))})))
                   ["Location"]))
   (log/info "Devices: " @device-loc))
 
 (defn- post-measurement []
-  (client/post (apply str base-addr @device-loc "/measurements/") {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str (assoc-in (sample-Measurement) [:measurements 0 :type] @reading-type))})
+  (client/post (apply str base-addr @device-loc "/measurements/") {:accept :json :content-type :json :basic-auth ["test@mastodonc.com" "password"] :body (json/write-str (assoc-in (sample-Measurement) [:measurements 0 :type] @reading-type))})
   (log/info "Posting Measurements"))
 
-                                        ;using a specific example -- schema for this may be too hard
+;; using a specific example -- schema for this may be too hard
 (defn- post-dataset []
-  (client/post (apply str base-addr @entity-loc "/datasets/") { :basic-auth ["support@mastodonc.com" "password"] :body  (json/write-str {:entity_id "9ac7f5635832d843dda594f58525239263ffdd37" :operation "divide" :name "systemEfficiencyOverall" :members ["interpolatedHeatConsumption-b4f0c7e2b15ba9636f3fb08379cc4b3798a226bb" "interpolatedElectricityConsumption-268e93a5249c24482ac1519b77f6a45f36a6231d"]})})
+  (client/post (apply str base-addr @entity-loc "/datasets/") { :basic-auth ["test@mastodonc.com" "password"] :body  (json/write-str {:entity_id "9ac7f5635832d843dda594f58525239263ffdd37" :operation "divide" :name "systemEfficiencyOverall" :members ["interpolatedHeatConsumption-b4f0c7e2b15ba9636f3fb08379cc4b3798a226bb" "interpolatedElectricityConsumption-268e93a5249c24482ac1519b77f6a45f36a6231d"]})})
   (log/info "Posting dataset"))
 
 ;post one of everything
@@ -104,8 +103,7 @@
   (post-entity)
   (post-device)
   (post-measurement)
-  (post-dataset)
-  )
+  (post-dataset))
 
 ;; ---------------------------------
 ;; get data back after calling post-data
@@ -119,28 +117,28 @@
 
 (defn- get-programme []
   (log/info "\nProgramme data:\n")
-  (let [output (json/read-json (:body (client/get (apply str base-addr "/4" @programme-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
+  (let [output (json/read-json (:body (client/get (apply str base-addr "/4" @programme-loc) {:accept :json :content-type :json :basic-auth ["test@mastodonc.com" "password"]})))
         prog-name (:name output)]
     (reset! getter-map (assoc-in @getter-map [:programme-name] prog-name))
      (log/info output)))
 
 (defn- get-project []
   (log/info "\nProject data:\n")
-  (let [output (json/read-json (:body (client/get (apply str base-addr "/4" @programme-loc @project-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
+  (let [output (json/read-json (:body (client/get (apply str base-addr "/4" @programme-loc @project-loc) {:accept :json :content-type :json :basic-auth ["test@mastodonc.com" "password"]})))
         proj-name (:name output)]
     (reset! getter-map (assoc-in @getter-map [:project-name] proj-name))
      (log/info output)))
 
 (defn- get-entity []
   (log/info "\nEntity data:\n")
-  (let [output (json/read-json (:body (client/get (apply str base-addr "/4" @entity-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
+  (let [output (json/read-json (:body (client/get (apply str base-addr "/4" @entity-loc) {:accept :json :content-type :json :basic-auth ["test@mastodonc.com" "password"]})))
         prop-code (:property_code output)]
     (reset! getter-map (assoc-in @getter-map [:entity-property-code] prop-code))
      (log/info output)))
 
 (defn- get-device []
   (log/info "\nDevice data:\n")
-  (let [output (json/read-json (:body (client/get (apply str base-addr "/4" @device-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
+  (let [output (json/read-json (:body (client/get (apply str base-addr "/4" @device-loc) {:accept :json :content-type :json :basic-auth ["test@mastodonc.com" "password"]})))
         device-desc (:description output)]
      (reset! getter-map (assoc-in @getter-map [:device-description] device-desc))
     (log/info output)))
@@ -151,8 +149,7 @@
   (get-programme)
   (get-project)
   (get-entity)
-  (get-device)
-  )
+  (get-device))
 
 ;;---------------------------------
 ;; overall test to POST and GET a full set of data and check equality
@@ -167,8 +164,7 @@
 ;;-----------------------------
 (defn- test-post-device [coll]
   (let [sample  (assoc-in coll [:entity_id]  (clojure.string/replace @entity-loc  #"/4/entities/(.*?)" "$1"))]
-    (client/post (apply str base-addr @entity-loc "/devices/") {:content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str sample)}))
-  )
+    (client/post (apply str base-addr @entity-loc "/devices/") {:content-type :json :basic-auth ["test@mastodonc.com" "password"] :body (json/write-str sample)})))
 
 (def ^:private postable-device?
   (prop/for-all [v (sg/generate amon/BaseDevice)]
@@ -176,16 +172,14 @@
 
 (deftest ^:http-tests test-devices-bug []
   (reset! entity-loc "/4/entities/821e6367f385d82cc71b2afd9dc2df3b2ec5b81c")
-  (is (true? (get (tc/quick-check 10 postable-device?) :result)))
-  )
+  (is (true? (get (tc/quick-check 10 postable-device?) :result))))
 ;;-----------------------------
 ;; entity quick-check
 ;;-----------------------------
 (defn- test-post-entity [coll]
   (let [sample  (assoc-in coll [:project_id]  "ba776928f94b3aaa1e444569276ee5b66d6b21f7")]
     (log/info "\n-----------------STARTING EXAMPLE--------------\n" sample)
-    (client/post base-addr "/4/entities/" {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str sample)}))
-  )
+    (client/post base-addr "/4/entities/" {:accept :json :content-type :json :basic-auth ["test@mastodonc.com" "password"] :body (json/write-str sample)})))
 
 (def ^:private postable-entity?
   (prop/for-all [v (sg/generate amon/BaseEntity)]
@@ -199,19 +193,22 @@
 ;;-----------------------------
 (deftest ^:http-tests test-edn-json-programmes
   (is (=  
-       (:body (client/get (apply str base-addr "/4" @programme-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]}))
-       (:body (client/get (apply str base-addr "/4" @programme-loc) {:accept :edn :content-type :json :basic-auth ["support@mastodonc.com" "password"]}))))
+       (:body (client/get (apply str base-addr "/4" @programme-loc) {:accept :json :content-type :json :basic-auth ["test@mastodonc.com" "password"]}))
+       (:body (client/get (apply str base-addr "/4" @programme-loc) {:accept :edn :content-type :json :basic-auth ["test@mastodonc.com" "password"]}))))
   (log/info "Passed JSON EDN equality check for Programmes"))
 
 (deftest ^:http-tests test-edn-json-projects
   (is (=
-       (:body (client/get (apply str base-addr "/4" @programme-loc @project-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})) 
-       (:body (client/get (apply str base-addr "/4" @programme-loc @project-loc) {:accept :edn :content-type :json :basic-auth ["support@mastodonc.com" "password"]}))))
+       (:body (client/get (apply str base-addr "/4" @programme-loc @project-loc) {:accept :json :content-type :json :basic-auth ["test@mastodonc.com" "password"]})) 
+       (:body (client/get (apply str base-addr "/4" @programme-loc @project-loc) {:accept :edn :content-type :json :basic-auth ["test@mastodonc.com" "password"]}))))
   (log/info "Passed JSON EDN equality check for Projects"))
 ;;-----------------------------
 ;; test get device with edn (json not currently working):
 ;; "Don't know how to write JSON of class java.util.Date"
 ;;-----------------------------
 (deftest ^:http-tests test-edn-get-device
-  (is (:body (client/get (apply str base-addr "/4" @device-loc) {:accept :edn :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
+  (is (:body (client/get (apply str base-addr "/4" @device-loc) {:accept :edn :content-type :json :basic-auth ["test@mastodonc.com" "password"]})))
   (log/info "Passed EDN GET test for devices"))
+
+;; Add test user
+;; (sec/add-user! (:store system) "Test" "test@mastodonc.com" "password"  #{:kixi.hecuba.security/super-admin})

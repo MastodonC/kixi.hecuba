@@ -56,7 +56,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Data fetchers
 
-(defn fetch-properties [data query]
+(defn fetch-properties [data query] ;; TOFIX rename to search-properties
   (GET (str "/4/entities/?q=" query)
        {:handler (fn [response]
                    (om/update! data [:properties :data] (take 20 (:entities response)))

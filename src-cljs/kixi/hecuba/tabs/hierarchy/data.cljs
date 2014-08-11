@@ -44,7 +44,7 @@
 (defn fetch-properties
   ([project-id data error-handler]
      (om/update! data [:properties :fetching] :fetching)
-     (GET (str "/4/projects/" project-id "/properties/")
+     (GET (str "/4/projects/" project-id "/properties/") ;; TOFIX get from /4/projects/<project_id>/entities
           {:handler  (fn [x]
                        (log "Fetching properties for project: " project-id)
                        (om/update! data [:properties :data] (mapv slugs/slugify-property x))
