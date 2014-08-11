@@ -29,7 +29,10 @@
         (throw t))))
   (hecuba/-delete [this index mapping-type id]
     (try
-      (doc/delete (:search-session this) index mapping-type id))))
+      (doc/delete (:search-session this) index mapping-type id)))
+  (hecuba/-get-by-id [this index mapping-type id]
+    (try
+      (doc/get (:search-session this) index mapping-type id))))
 
 (defn new-search-session [opts]
   (->ElasticsearchConnection opts))
@@ -40,3 +43,5 @@
   (hecuba/-search session index mapping-type args))
 (defn delete [session index mapping-type id]
   (hecuba/-delete session index mapping-type id))
+(defn get-by-id [session index mapping-type id]
+  (hecuba/-get-by-id session index mapping-type id))

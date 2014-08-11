@@ -125,3 +125,7 @@
 
 (defn delete-by-id [entity_id search-session]
   (search/delete search-session "entities" "entity" entity_id))
+
+(defn get-by-id [entity_id search-session]
+  (-> (search/get-by-id search-session "entities" "entity" entity_id)
+      :source))

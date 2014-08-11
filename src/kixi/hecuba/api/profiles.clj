@@ -18,8 +18,7 @@
    [kixi.hecuba.data.profiles :as profiles]
    [clojure.java.io           :as io]
    [clojure.data.csv          :as csv]
-   [kixi.hecuba.data.entities.search :as search]
-   [clojurewerkz.elastisch.native.response :as esr]))
+   [kixi.hecuba.data.entities.search :as search]))
 
 (def ^:private entity-profiles-resource (p/resource-path-string :entity-profiles-resource))
 
@@ -74,8 +73,7 @@
           method         (:request-method request)
           route-params   (:route-params request)
           entity_id      (:entity_id route-params)
-          search-results (search/search-entities entity_id 0 1 (:search-session store))
-          entity         (->> search-results esr/hits-from (map #(-> % :_source :full_entity)) first)]
+          entity         (search/get-by-id entity_id (:search-session store))]
       (case method
         :post (not (nil? entity))
         :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
@@ -910,8 +908,7 @@
           profile_id (str (:entity_id profile) "-" (get-in profile [:profile_data :event_type]))]
       (when (and entity_id timestamp)
         ;; FIXME This might be doing more reading than it should
-        (let [search-results (search/search-entities entity_id 0 1 (:search-session store))
-              entity         (->> search-results esr/hits-from (map #(-> % :_source :full_entity)) first)]
+        (let [entity (search/get-by-id entity_id (:search-session store))]
           (when entity
             (profiles/update session profile_id (assoc profile :user_id username))
             (-> (search/searchable-entity-by-id entity_id session)

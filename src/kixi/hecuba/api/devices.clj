@@ -19,7 +19,6 @@
    [kixi.hecuba.data.devices :as devices]
    [kixi.hecuba.data.sensors :as sensors]
    [kixi.hecuba.data.entities.search :as search]
-   [clojurewerkz.elastisch.native.response :as esr]
    [schema.core :as s]
    [kixi.amon-schema :as schema]))
 
@@ -61,8 +60,7 @@
           {:keys [projects programmes roles]}     (sec/current-authentication session)
           entity_id (:entity_id params)       
           project_id (when entity_id 
-                       (let [search-results (search/search-entities entity_id 0 1 (:search-session store))]
-                         (:project_id (->> search-results esr/hits-from (map #(-> % :_source :full_entity)) first))))
+                       (:project_id (search/get-by-id entity_id (:search-session store))))
           programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
       (if (and project_id programme_id)
         (allowed?* programme_id project_id programmes projects roles request-method)
@@ -74,8 +72,7 @@
           method         (:request-method request)
           route-params   (:route-params request)
           entity_id      (:entity_id route-params)
-          search-results (search/search-entities entity_id 0 1 (:search-session store))
-          entity         (->> search-results esr/hits-from (map #(-> % :_source :full_entity)) first)]
+          entity         (search/get-by-id entity_id (:search-session store))]
       (case method
         :post (not (nil? entity))
         :get (let [items (devices/get-devices session entity_id)]

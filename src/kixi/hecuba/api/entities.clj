@@ -455,9 +455,8 @@
         true))))
 
 (defn resource-exists? [store ctx]
-  (let [id (get-in ctx [:request :route-params :entity_id])
-        search-results (search/search-entities id 0 1 (:search-session store))]
-    (when-let [item (->> search-results esr/hits-from (map #(-> % :_source :full_entity)) first)]
+  (let [id (get-in ctx [:request :route-params :entity_id])]
+    (when-let [item (search/get-by-id id (:search-session store))]
       {::item item})))
 
 (defn resource-handle-ok [store ctx]

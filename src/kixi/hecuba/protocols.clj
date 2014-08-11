@@ -11,4 +11,5 @@
 (defprotocol Elasticsearch
   (-upsert [this index mapping-type id doc])
   (-search [this index mapping-type args])
-  (-delete [this index mapping-type id]))
+  (-delete [this index mapping-type id])
+  (-get-by-id [this index mapping-type id]))
