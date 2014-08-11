@@ -37,6 +37,8 @@
                        (gen/choose 0 59)
                        (gen/choose 0 59))))
 
+(def base-addr "http://127.0.0.1:8010")
+
 (defn- get-date []
   (str (subs (str (last (gen/sample gen-date-time))) 0 19) "Z"))
 
@@ -53,7 +55,7 @@
           (get-in (:headers
                    (let [sample (last (sg/generate-examples amon/BaseProgramme))]
                      (reset! poster-map (assoc-in @poster-map [:programme-name] (:name sample)))
-                     (client/post "http://127.0.0.1:8010/4/programmes/" {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str sample)})))
+                     (client/post (apply str base-addr "/4/programmes/") {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str sample)})))
                   ["Location"]))
   (log/info "Programmes: " @programme-loc))
 
@@ -62,7 +64,7 @@
           (get-in (:headers
                    (let [sample (last (sg/generate-examples amon/BaseProject))]
                      (reset! poster-map (assoc-in @poster-map [:project-name] (:name sample)))
-                     (client/post (apply str "http://127.0.0.1:8010" @programme-loc "/projects/") {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str (assoc-in sample [:programme_id]  (clojure.string/replace @programme-loc  #"/4/programmes/(.*?)" "$1")))})))
+                     (client/post (apply str base-addr @programme-loc "/projects/") {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str (assoc-in sample [:programme_id]  (clojure.string/replace @programme-loc  #"/4/programmes/(.*?)" "$1")))})))
                   ["Location"]))
   (log/info "Project: " @project-loc))
 
@@ -71,7 +73,7 @@
           (get-in (:headers
                    (let [sample (last (sg/generate-examples amon/BaseEntity))]
                       (reset! poster-map (assoc-in @poster-map [:entity-property-code] (:property_code sample)))
-                     (client/post "http://127.0.0.1:8010/4/entities/" {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str (assoc-in sample [:project_id]  (clojure.string/replace @project-loc  #"/4/projects/(.*?)" "$1")))})))
+                      (client/post (apply str base-addr "/4/entities/") {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str (assoc-in sample [:project_id]  (clojure.string/replace @project-loc  #"/4/projects/(.*?)" "$1")))})))
                   ["Location"]))
   (log/info "Entity: " @entity-loc))
 
@@ -81,17 +83,17 @@
                    (let [sample (last (sg/generate-examples amon/BaseDevice))]
                      (reset! reading-type (:type (first (:readings sample))))
                      (reset! poster-map (assoc-in @poster-map [:device-description] (:description sample)))
-                     (client/post (apply str "http://127.0.0.1:8010" @entity-loc "/devices/") {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str (assoc-in sample [:entity_id]  (clojure.string/replace @entity-loc  #"/4/entities/(.*?)" "$1")))})))
+                     (client/post (apply str base-addr @entity-loc "/devices/") {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str (assoc-in sample [:entity_id]  (clojure.string/replace @entity-loc  #"/4/entities/(.*?)" "$1")))})))
                   ["Location"]))
   (log/info "Devices: " @device-loc))
 
 (defn- post-measurement []
-  (client/post (apply str "http://127.0.0.1:8010" @device-loc "/measurements/") {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str (assoc-in (sample-Measurement) [:measurements 0 :type] @reading-type))})
+  (client/post (apply str base-addr @device-loc "/measurements/") {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"] :body (json/write-str (assoc-in (sample-Measurement) [:measurements 0 :type] @reading-type))})
   (log/info "Posting Measurements"))
 
                                         ;using a specific example -- schema for this may be too hard
 (defn- post-dataset []
-  (client/post (apply str "http://127.0.0.1:8010" @entity-loc "/datasets/") { :basic-auth ["support@mastodonc.com" "password"] :body  (json/write-str {:entity_id "9ac7f5635832d843dda594f58525239263ffdd37" :operation "divide" :name "systemEfficiencyOverall" :members ["interpolatedHeatConsumption-b4f0c7e2b15ba9636f3fb08379cc4b3798a226bb" "interpolatedElectricityConsumption-268e93a5249c24482ac1519b77f6a45f36a6231d"]})})
+  (client/post (apply str base-addr @entity-loc "/datasets/") { :basic-auth ["support@mastodonc.com" "password"] :body  (json/write-str {:entity_id "9ac7f5635832d843dda594f58525239263ffdd37" :operation "divide" :name "systemEfficiencyOverall" :members ["interpolatedHeatConsumption-b4f0c7e2b15ba9636f3fb08379cc4b3798a226bb" "interpolatedElectricityConsumption-268e93a5249c24482ac1519b77f6a45f36a6231d"]})})
   (log/info "Posting dataset"))
 
 ;post one of everything
@@ -117,28 +119,28 @@
 
 (defn- get-programme []
   (log/info "\nProgramme data:\n")
-  (let [output (json/read-json (:body (client/get (apply str "http://127.0.0.1:8010/4" @programme-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
+  (let [output (json/read-json (:body (client/get (apply str base-addr "/4" @programme-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
         prog-name (:name output)]
     (reset! getter-map (assoc-in @getter-map [:programme-name] prog-name))
      (log/info output)))
 
 (defn- get-project []
   (log/info "\nProject data:\n")
-  (let [output (json/read-json (:body (client/get (apply str "http://127.0.0.1:8010/4" @programme-loc @project-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
+  (let [output (json/read-json (:body (client/get (apply str base-addr "/4" @programme-loc @project-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
         proj-name (:name output)]
     (reset! getter-map (assoc-in @getter-map [:project-name] proj-name))
      (log/info output)))
 
 (defn- get-entity []
   (log/info "\nEntity data:\n")
-  (let [output (json/read-json (:body (client/get (apply str "http://127.0.0.1:8010/4" @entity-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
+  (let [output (json/read-json (:body (client/get (apply str base-addr "/4" @entity-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
         prop-code (:property_code output)]
     (reset! getter-map (assoc-in @getter-map [:entity-property-code] prop-code))
      (log/info output)))
 
 (defn- get-device []
   (log/info "\nDevice data:\n")
-  (let [output (json/read-json (:body (client/get (apply str "http://127.0.0.1:8010/4" @device-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
+  (let [output (json/read-json (:body (client/get (apply str base-addr "/4" @device-loc) {:accept :json :content-type :json :basic-auth ["support@mastodonc.com" "password"]})))
         device-desc (:description output)]
      (reset! getter-map (assoc-in @getter-map [:device-description] device-desc))
     (log/info output)))
