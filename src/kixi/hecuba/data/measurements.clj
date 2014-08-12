@@ -36,7 +36,7 @@
   "WARNING: This will delete data in 1 month chunks based on the dates
   passed in."
   [sensor_id start-date end-date session]
-  (log/infof "Deleting Measurements for % from %s to %s" sensor_id type start-date end-date)
+  (log/infof "Deleting Measurements for %s from %s to %s" sensor_id start-date end-date)
   (s/validate SensorId sensor_id)
   (let [months (time/range->months start-date end-date)
         years  (time/range->years start-date end-date)
