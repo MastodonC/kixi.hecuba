@@ -6,7 +6,7 @@
    [cljs.core.async :refer [chan mult tap]]
    [ajax.core :refer (GET)]
    [kixi.hecuba.history :as history]
-   [kixi.hecuba.common :refer (log) :as common]
+   [kixi.hecuba.common :refer (log interval) :as common]
    [kixi.hecuba.tabs.hierarchy.data :as data]
    [kixi.hecuba.tabs.hierarchy.property-details :as pd]
    [kixi.hecuba.tabs.slugs :as slugs]
@@ -73,13 +73,17 @@
   (go-loop []
     (let [nav-event                     (<! history-channel)
           history-status                (-> nav-event :args)
-          [start-date end-date]         (:search history-status)
+          search                        (:search history-status)
+          [start-date end-date]         search
           {:keys [properties sensors]}  (:ids history-status)
           old-nav                       (:active-components @data)
           old-properties                (:properties (:ids old-nav))
           old-sensors                   (:sensors (:ids old-nav))
-          [old-start-date old-end-date] (:range (:ids old-nav))]
+          old-range                     (:range (:ids old-nav))
+          [old-start-date old-end-date] old-range]
 
+      (log "old: " (-> @data :active-components))
+      (log "history: " history-status)
       ;; Clear down
       (when-not properties
         (log "Clearing devices, sensors and measurements.")
@@ -99,13 +103,26 @@
                  properties)
         (log "Setting property details to: " properties)
         (om/update! data [:properties :selected] properties)
+        (om/update! data [:chart :property] properties)
+        (om/update! data [:chart :sensors] #{})
         (om/update! data [:sensors :selected] #{}))
 
       (when sensors
-        (log "Setting selected sensors to: " sensors)
-        (om/update! data [:sensors :selected] (into #{} (str/split sensors #";"))))
+        (let [sensors-set (into #{} (str/split sensors #";"))]
+          (log "Setting selected sensors to: " sensors)
+          (om/update! data [:sensors :selected] sensors-set)
+          (om/update! data [:chart :sensors] sensors-set)))
+
+      (when (and (not= search old-range)
+                 (seq search))
+        (log "Setting date range to: " start-date end-date)
+        (om/update! data [:chart :range] {:start-date start-date :end-date end-date}))
+
+      (when (and properties sensors start-date end-date)
+         (data/fetch-measurements data properties sensors start-date end-date))
 
       ;; Update the new active components
+      (om/update! data [:active-components :range] search)
       (om/update! data :active-components (:ids history-status)))
     (recur)))
 

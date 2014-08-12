@@ -116,12 +116,12 @@
       [:tbody
        (for [property-details (sort-by #(-> % :property_code) (:data properties))]
          (let [property_data (:property_data property-details)
-               id            (:id property-details)]
+               entity_id     (:entity_id property-details)]
            [:tr
             {:onClick (fn [_ _]
-                        (om/update! properties :selected id)
-                        (history/update-token-ids! history :properties id))
-             :className (if (= id (:selected properties)) "success")
+                        (om/update! properties :selected entity_id)
+                        (history/update-token-ids! history :properties entity_id))
+             :className (if (= entity_id (:selected properties)) "success")
              :id (str table-id "-selected")}
             [:td (when-let [pic (:path (first (:photos property-details)))]
                    [:img.img-thumbnail.tmg-responsive

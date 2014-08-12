@@ -18,7 +18,6 @@
 
    [kixi.hecuba.api.programmes :as programmes]
    [kixi.hecuba.api.projects :as projects]
-   [kixi.hecuba.api.properties :as properties]
    [kixi.hecuba.api.entities :as entities]
    [kixi.hecuba.api.profiles :as profiles]
    [kixi.hecuba.api.devices :as devices]
@@ -107,14 +106,11 @@
    (resource-route :programme-projects-resource [:programme_id :project_id] (projects/resource store))
 
    ;; Projects/Properties
-   (index-routes :project-properties-index [:project_id] (properties/index store))
+   (index-routes :project-entities-index [:project_id] (entities/index store))
 
    ;; Entities
    (index-routes :entities-index (entities/index store))
-   (resource-route :entity-resource [:entity_id] (entities/resource store))
-
-   ;; All properties
-   (index-routes :properties (properties/index-all store))
+   (resource-route :entity-resource [:entity_id] (entities/resource store))   
 
    ;; Datasets
    (index-routes :entity-datasets-index [:entity_id] (datasets/index store))

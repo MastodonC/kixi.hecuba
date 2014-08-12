@@ -24,7 +24,7 @@
    :programme-projects-resource "programmes/%s/projects/%s"
    :projects-index "projects"
    :project-resource "projects/%s"
-   :project-properties-index "projects/%s/properties"
+   :project-entities-index "projects/%s/entities"
 
    ;; entities
    :entities-index "entities"

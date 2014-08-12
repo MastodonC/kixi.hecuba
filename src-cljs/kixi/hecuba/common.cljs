@@ -123,3 +123,10 @@
                 :handler handler
                 :error-handler error-handler
                 :params resource}))))
+
+(defn location-col [location]
+  (let [{:keys [name longitude latitude]} location]
+    [:div
+     (when name [:p "Name: " name])
+     (when latitude [:p "Latitude: " latitude])
+     (when longitude [:p "Longitude: " longitude])]))

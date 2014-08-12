@@ -5,7 +5,7 @@
             [sablono.core :as html :refer-macros [html]]
             [kixi.hecuba.bootstrap :refer (static-text) :as bs]
             [ajax.core :refer [GET POST PUT]]
-            [kixi.hecuba.tabs.hierarchy.data :refer (fetch-properties fetch-devices fetch-sensors)]
+            [kixi.hecuba.tabs.hierarchy.data :refer (fetch-property fetch-devices fetch-sensors)]
             [clojure.string :as string]
             [kixi.hecuba.common :refer (log) :as common]))
 
@@ -51,34 +51,35 @@
         text]]))))
 
 (defn location-input [cursor owner]
-  [:div
-   [:div.form-group
-    [:label.control-label.col-md-2 {:for "location"} "Location"]
-    [:div.col-md-10
+  (let [location (-> cursor :location)]
+    [:div
      [:div.form-group
-      [:label.control-label.col-md-2 {:for "name"} "Name"]
-      [:div.col-md-8
-       [:input {:defaultValue (get cursor [:location :name] "")
-                :on-change #(om/set-state! owner [:device :location :name] (.-value (.-target %1)))
-                :class "form-control"
-                :type "text"
-                :id "location_name"}]]]
-     [:div.form-group
-      [:label.control-label.col-md-2 {:for "latitude"} "Latitude"]
-      [:div.col-md-8
-       [:input {:defaultValue (get cursor [:location :latitude] "")
-                :on-change #(om/set-state! owner [:device :location :latitude] (.-value (.-target %1)))
-                :class "form-control"
-                :type "text"
-                :id "location_latitude"}]]]
-     [:div.form-group
-      [:label.control-label.col-md-2 {:for "longitude"} "Longitude"]
-      [:div.col-md-8
-       [:input {:defaultValue (get cursor [:location :longitude] "")
-                :on-change #(om/set-state! owner [:device :location :longitude] (.-value (.-target %1)))
-                :class "form-control"
-                :type "text"
-                :id "location_longitude"}]]]]]])
+      [:label.control-label.col-md-2 {:for "location"} "Location"]
+      [:div.col-md-10
+       [:div.form-group
+        [:label.control-label.col-md-2 {:for "name"} "Name"]
+        [:div.col-md-8
+         [:input {:defaultValue (get location :name "")
+                  :on-change #(om/set-state! owner [:device :location :name] (.-value (.-target %1)))
+                  :class "form-control"
+                  :type "text"
+                  :id "location_name"}]]]
+       [:div.form-group
+        [:label.control-label.col-md-2 {:for "latitude"} "Latitude"]
+        [:div.col-md-8
+         [:input {:defaultValue (get location :latitude "")
+                  :on-change #(om/set-state! owner [:device :location :latitude] (.-value (.-target %1)))
+                  :class "form-control"
+                  :type "text"
+                  :id "location_latitude"}]]]
+       [:div.form-group
+        [:label.control-label.col-md-2 {:for "longitude"} "Longitude"]
+        [:div.col-md-8
+         [:input {:defaultValue (get location :longitude "")
+                  :on-change #(om/set-state! owner [:device :location :longitude] (.-value (.-target %1)))
+                  :class "form-control"
+                  :type "text"
+                  :id "location_longitude"}]]]]]]))
 
 (defn error-handler [data]
   (fn [{:keys [status status-text]}]
@@ -89,11 +90,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Adding new sensor
 
-(defn put-new-sensor [data owner sensor project_id property_id device_id]
+(defn put-new-sensor [data owner sensor property_id device_id]
   (common/put-resource data (str "/4/entities/" property_id "/devices/" device_id)
                        {:readings [sensor]}
                        (fn [_]
-                         (fetch-properties project_id data (error-handler data))
+                         (fetch-property property_id data (error-handler data))
                          (om/update! data [:devices :adding-sensor] false)
                          (om/update! data [:devices :alert] {:status true
                                                              :class "alert alert-success"
@@ -106,7 +107,7 @@
        (:period sensor)
        (:unit sensor))) ;; device_id comes from the selection above
 
-(defn new-sensor-form [data project_id property_id device_id]
+(defn new-sensor-form [data property_id device_id]
   (fn [cursor owner]
     (reify
       om/IRenderState
@@ -123,7 +124,7 @@
                           :onClick (fn [_]
                                      (let [sensor (om/get-state owner :sensor)]
                                        (if (valid-sensor? sensor)
-                                         (put-new-sensor data owner sensor project_id property_id device_id)
+                                         (put-new-sensor data owner sensor property_id device_id)
                                          (om/update! data [:devices :alert]
                                                      {:status true
                                                       :class "alert alert-danger"
@@ -147,22 +148,22 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Editing device
 
-(defn put-edited-device [data owner device project_id property_id device_id]
+(defn put-edited-device [data owner device property_id device_id]
   (common/put-resource data (str "/4/entities/" property_id "/devices/" device_id)
                        device
                        (fn [_]
-                         (fetch-properties project_id data (error-handler data))
+                         (fetch-property property_id data (error-handler data))
                          (om/update! data [:devices :editing] false)
                          (om/update! data [:devices :alert] {:status true
                                                              :class "alert alert-success"
                                                              :text "Device was edited successfully."}))
                        (error-handler data)))
 
-(defn save-edited-device [data owner project_id property_id device_id]
+(defn save-edited-device [data owner property_id device_id]
   (let [{:keys [device sensors]} (om/get-state owner)
         readings (into [] (map (fn [[k v]] (assoc v :type k)) sensors))]
     (put-edited-device data owner (assoc device :readings readings)
-                       project_id property_id device_id)
+                       property_id device_id)
     (om/update! data [:devices :editing] false)))
 
 (defn sensor-edit-div [cursor owner]
@@ -175,7 +176,7 @@
      (text-input-control cursor owner [:sensors sensor-type] :resolution "Resolution")
      (checkbox cursor owner [:sensors sensor-type] :actual_annual "Calculated Field")]))
 
-(defn edit-device-form [data project_id property_id]
+(defn edit-device-form [data property_id]
   (fn [cursor owner]
     (reify
       om/IRenderState
@@ -191,7 +192,7 @@
                 [:button {:type "button"
                           :class (str "btn btn-success")
                           :onClick (fn [_]
-                                     (save-edited-device data owner project_id property_id device_id))} "Save"]
+                                     (save-edited-device data owner property_id device_id))} "Save"]
                 [:button {:type "button"
                           :class (str "btn btn-danger")
                           :onClick (fn [_]
@@ -212,11 +213,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Adding new device
 
-(defn post-new-device [data owner device project_id property_id]
+(defn post-new-device [data owner device property_id]
   (common/post-resource data (str "/4/entities/" property_id "/devices/")
                         device
                         (fn [_]
-                          (fetch-properties project_id data (error-handler data))
+                          (fetch-property property_id data (error-handler data))
                           (om/update! data [:devices :adding-device] false)
                           (om/update! data [:devices :alert] {:status true
                                                               :class "alert alert-success"
@@ -226,7 +227,7 @@
 (defn valid-device? [device]
   (not (nil? (:description device)))) ;; entity_id comes from the selection above
 
-(defn new-device-form [data project_id property_id]
+(defn new-device-form [data property_id]
   (fn [cursor owner]
     (om/component
      (html
@@ -241,7 +242,7 @@
                      :onClick (fn [_] (let [device (->  (om/get-state owner :device)
                                                         (assoc :entity_id property_id))]
                                         (if (valid-device? device)
-                                          (post-new-device data owner device project_id property_id)
+                                          (post-new-device data owner device property_id)
                                           (om/update! data [:devices :alert]
                                                       {:status true
                                                        :class "alert alert-danger"
@@ -269,7 +270,6 @@
         (html
          (let [{:keys [description privacy location name
                        device_id editable metadata privacy]} cursor
-               _ (log "cursor: " cursor)
                devices   (:devices data)
                selected? (= (:selected devices) device_id)]
            [:tr {:onClick (fn [_] (om/update! devices :selected (if selected? nil device_id)))
@@ -277,7 +277,7 @@
                  :id (str table-id "-selected")}
             [:td description]
             [:td device_id]
-            [:td location]
+            [:td (common/location-col location)]
             [:td metadata]
             [:td name]
             [:td (privacy-label privacy)]
@@ -393,8 +393,8 @@
                  :style {:padding-top "10px"}}
            (om/build (devices-table editing-chan data) devices)]
           [:div {:id "sensor-add-div" :class (if adding-sensor "" "hidden")}
-           (om/build (new-sensor-form data project_id property_id device_id) nil)]
+           (om/build (new-sensor-form data property_id device_id) nil)]
           [:div {:id "device-add-div" :class (if adding-device "" "hidden")}
-           (om/build (new-device-form data project_id property_id) nil)]
+           (om/build (new-device-form data property_id) nil)]
           [:div {:id "device-edit-div" :class (if editing "" "hidden")}
-           (om/build (edit-device-form data project_id property_id) (:edited-device devices))]])))))
+           (om/build (edit-device-form data property_id) (:edited-device devices))]])))))

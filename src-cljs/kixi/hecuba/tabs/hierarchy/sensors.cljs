@@ -9,7 +9,7 @@
             [kixi.hecuba.widgets.chart :as chart]
             [kixi.hecuba.widgets.datetimepicker :as dtpicker]
             [ajax.core :refer [GET POST PUT]]
-            [kixi.hecuba.tabs.hierarchy.data :refer (fetch-properties fetch-sensors)]
+            [kixi.hecuba.tabs.hierarchy.data :refer (fetch-property fetch-sensors)]
             [clojure.string :as string]
             [kixi.hecuba.common :refer (log) :as common]))
 
@@ -40,20 +40,16 @@
                     :errors :events :frequency :max :median :min :period
                     :resolution :status :synthetic :unit :user_id])])
 
-(defn refresh-contents [data project_id property_id device_id]
-  (GET (str "/4/entities/property_id" property_id "/devices/" device_id)
-       {:handler #(fetch-properties project_id data)}))
-
-(defn post-resource [data project_id property_id device_id sensor-data]
+(defn post-resource [data property_id device_id sensor-data]
   (PUT  (str "/4/entities/" property_id "/devices/" device_id)
          {:content-type "application/json"
-          :handler #(refresh-contents data project_id property_id device_id)
+          :handler #(fetch-property property_id data)
           :params sensor-data}))
 
-(defn save-form [data owner project_id property_id device_id type]
+(defn save-form [data owner property_id device_id type]
   (let [sensor-data (om/get-state owner [:sensor])
         [device readings] (split-device-and-sensor sensor-data)]
-    (post-resource data project_id property_id device_id (assoc device :readings [(assoc readings :type type)]))
+    (post-resource data property_id device_id (assoc device :readings [(assoc readings :type type)]))
     (om/update! data [:sensors :editing] false)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -94,7 +90,7 @@
             [:div.btn-toolbar
              [:button.btn.btn-default {:type "button"
                                        :class (str "btn btn-success")
-                                       :onClick (fn [_ _] (save-form data owner project-id property-id device_id type))} "Save"]
+                                       :onClick (fn [_ _] (save-form data owner property-id device_id type))} "Save"]
              [:button.btn.btn-default {:type "button"
                                        :class (str "btn btn-danger")
                                        :onClick (fn [_ _] (om/update! data [:sensors :editing] false))} "Cancel"]]]
@@ -157,7 +153,7 @@
             [:td period]
             [:td resolution]
             [:td device_id]
-            [:td location]
+            [:td (common/location-col location)]
             [:td (if-let [t (common/unparse-date lower_ts "yyyy-MM-dd")] t "")]
             [:td (if-let [t (common/unparse-date upper_ts "yyyy-MM-dd")] t "")]
             [:td (status-label status privacy actual_annual)]]))))))

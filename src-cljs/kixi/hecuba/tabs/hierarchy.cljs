@@ -14,7 +14,7 @@
    [kixi.hecuba.tabs.hierarchy.projects :as projects]
    [kixi.hecuba.tabs.hierarchy.properties :as properties]
    [kixi.hecuba.tabs.hierarchy.property-details :as property-details]
-   [kixi.hecuba.tabs.hierarchy.data :refer (fetch-programmes fetch-projects fetch-properties)]
+   [kixi.hecuba.tabs.hierarchy.data :refer (fetch-programmes fetch-projects fetch-properties) :as data]
    [kixi.hecuba.common :refer (log) :as common]
    [sablono.core :as html :refer-macros [html]]))
 
@@ -109,7 +109,8 @@
                  properties)
         (log "Setting property details to: " properties)
         (om/update! data [:properties :selected] properties)
-        (om/update! data [:sensors :selected] #{}))
+        (om/update! data [:sensors :selected] #{})
+        (om/update! data [:chart :sensors] #{}))
 
       (when sensors
         (log "Setting selected sensors to: " sensors)
@@ -126,48 +127,26 @@
               (not= selected new-selected))
       (vector new-selected ids search))))
 
-(defmulti url-str (fn [start end entity_id device_id type measurements-type] measurements-type))
-(defmethod url-str :raw [start end entity_id device_id type _]
-  (str "/4/entities/" entity_id "/devices/" device_id "/measurements/"
-       type "?startDate=" start "&endDate=" end))
-(defmethod url-str :hourly_rollups [start end entity_id device_id type _]
-  (str "/4/entities/" entity_id "/devices/" device_id "/hourly_rollups/"
-       type "?startDate=" start "&endDate=" end))
-(defmethod url-str :daily_rollups [start end entity_id device_id type _]
-  (str "/4/entities/" entity_id "/devices/" device_id "/daily_rollups/"
-       type "?startDate=" start "&endDate=" end))
-
 ;; updates chart cursor only
 (defn chart-ajax [in data {:keys [selection-key content-type]}]
   (go-loop []
     (let [nav-event (<! in)]
-      (when-let [[new-range ids search] (selected-range-change (:range @data)
+      (when-let [[new-range ids search] (selected-range-change (-> @data :chart :range)
                                                                selection-key
                                                                nav-event)]
         (let [[start-date end-date] search
               entity_id  (get ids :properties)
               sensor_ids (get ids :sensors)]
 
-          (om/update! data :range {:start-date start-date :end-date end-date})
-          (om/update! data :sensors sensor_ids)
-          (om/update! data :measurements []) ;; TOFIX why are we resetting it?
+          (om/update! data [:chart :range] {:start-date start-date :end-date end-date})
+          (om/update! data [:chart :sensors] sensor_ids)
+          (om/update! data [:chart :measurements] [])
 
           (when (and (not (empty? start-date))
                      (not (empty? end-date))
                      (not (empty? sensor_ids)))
             (log "Fetching measurements for sensors: " sensor_ids " and range: " start-date end-date)
-            (doseq [sensor (str/split sensor_ids #";")]
-              (let [[type device_id] (str/split sensor #"-")
-                    url (url-str start-date end-date entity_id device_id type (common/interval start-date end-date))]
-                (GET url
-                     {:handler #(om/update! data :measurements (concat (:measurements @data)
-                                                                       (into []
-                                                                             (map (fn [m]
-                                                                                    (assoc m "sensor" sensor))
-                                                                                  (:measurements %)))))
-                      :headers {"Accept" "application/json"}
-                      :response-format :json
-                      :keywords? true})))))))
+            (data/fetch-measurements data entity_id sensor_ids start-date end-date)))))
     (recur)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -186,7 +165,7 @@
         (history-loop (tap-history) data)
 
         (chart-ajax (tap-history)
-                    (:chart data)
+                    data
                     {:template "/4/entities/:properties/devices/:devices/measurements?startDate=:start-date&endDate=:end-date"
                      :content-type  "application/json"
                      :selection-key :range})))
