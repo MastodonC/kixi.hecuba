@@ -11,6 +11,7 @@
    :multiple-properties-comparison "properties_comparison"
    :property_map "property_map"
    :property-search "search"
+   :user-management "user"
 
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
    ;; API
@@ -81,7 +82,11 @@
    :download-data-resource "download/%s/data"
 
    :upload-status-for-username "uploads/for-username/programme/%s/project/%s/entity/%s/status"
-   :download-status "downloads/programme/%s/project/%s/entity/%s/status"})
+   :download-status "downloads/programme/%s/project/%s/entity/%s/status"
+
+   ;; Usernames
+   :username-index "usernames"
+   :username-resource "usernames/%s"})
 
 (defn compojure-route
   ([route keys]

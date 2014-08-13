@@ -122,15 +122,19 @@
   (let [value (.-value (.-target e))]
     (om/set-state! owner [table key] value)))
 
-(defn alert [class body status id]
-  [:div 
-   [:div {:id id :class class :style {:display (if status "block" "none")}}
-    [:button.close {:type "button" :onClick (fn [e] (set! (.-display (.-style (.getElementById js/document id))) "none"))}
-     [:span {:class "fa fa-times"}]]
-    body]])
+(defn alert [cursor owner]
+  (om/component
+   (let [{:keys [status text class]} cursor]
+     (html
+      [:div {:style {:display (if status "block" "none")}}
+       [:div {:class class}
+        [:button.close {:type "button"
+                        :onClick (fn [_] (om/update! cursor :status false))}
+         [:span {:class "fa fa-times"}]]
+        text]]))))
 
 (defn text-input-control [data owner table key label & required]
-  [:div.form-group 
+  [:div.form-group
    [:label.control-label.col-md-2 {:for (name key)} label]
    [:div {:class (str (if required "required " "") "col-md-10")}
     [:input {:defaultValue (get data key "")
