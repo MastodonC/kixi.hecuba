@@ -25,7 +25,7 @@
   (->>  data
         :properties
         :data
-        (filter #(= (:id %) selected-property-id))
+        (filter #(= (:entity_id %) selected-property-id))
         first))
 
 (defn post-resource [data property_id property-data project_id]

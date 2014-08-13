@@ -99,7 +99,7 @@
   (vec (mapcat flatten-device devices)))
 
 (defn sensors-for-property [data id]
-  (let [property (first (filter #(= (:id %) id) (get-in data [:entities :selected-data])))
+  (let [property (first (filter #(= (:entity_id %) id) (get-in data [:entities :selected-data])))
         sensors  (extract-sensors (:devices property))]
     sensors))
 
@@ -247,7 +247,7 @@
     (om/component
      (let [code                (get the-item :property_code)
            property_data       (get the-item :property_data)
-           id                  (get the-item :id)
+           id                  (get the-item :entity_id)
            selected-entities   (-> data :entities :selected-entities)
            selected?           (contains? selected-entities id)
            history             (om/get-shared owner :history)]

@@ -29,7 +29,7 @@
                         (error-handler owner)))
 
 (defn put-edited-programme [data owner url programme]
-  (common/put-resource data url 
+  (common/put-resource data url
                        (assoc programme :updated_at (common/now->str))
                        (fn [_]
                          (fetch-programmes data)
@@ -92,7 +92,7 @@
                                                           (put-edited-programme data owner url programme)))} "Save"]
              [:button.btn.btn-danger {:type "button"
                                        :onClick (fn [_] (om/update! data [:programmes :editing] false))} "Cancel"]]]
-           (static-text cursor :id "Programme ID")
+           (static-text cursor :programme_id "Programme ID")
            (alert "alert alert-danger "
                   [:div [:div {:class "fa fa-exclamation-triangle"} alert-body]]
                   error
