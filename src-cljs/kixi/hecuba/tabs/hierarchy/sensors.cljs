@@ -255,7 +255,7 @@
             editing        (-> sensors :editing)
             project_id     (-> data :active-components :projects)
             property_id    (-> data :active-components :properties)
-            property       (-> (filter #(= (:id %) property_id) (-> properties :data)) first)]
+            property       (-> (filter #(= (:entity_id %) property_id) (-> properties :data)) first)]
         (html
          [:div.col-md-12
           [:h3 "Sensors"]

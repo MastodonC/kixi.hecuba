@@ -98,7 +98,7 @@
   (->>  data
         :properties
         :data
-        (filter #(= (:id %) selected-property-id))
+        (filter #(= (:entity_id %) selected-property-id))
         first))
 
 (defn fetch-sensors [selected-property-id data]

@@ -155,7 +155,7 @@
       (let [{:keys [programmes projects properties active-components]} data
             history         (om/get-shared owner :history)
             project_id      (-> data :active-components :projects)
-            project         (-> (filter #(= (:id %) project_id) (-> projects :data)) first)
+            project         (-> (filter #(= (:project_id %) project_id) (-> projects :data)) first)
             adding-property (-> properties :adding-property)]
         (html
          [:div.row#properties-div

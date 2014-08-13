@@ -134,10 +134,10 @@
     (om/component
      (html
       (let [property_data (:property_data cursor)
-            id            (:id cursor)
+            entity_id     (:entity_id cursor)
             history       (om/get-shared owner :history)]
-        [:tr {:onClick (fn [_] (history/update-token-ids! history :properties id))
-              :class (if (= (-> data :properties :selected) id) "success" "")}
+        [:tr {:onClick (fn [_] (history/update-token-ids! history :properties entity_id))
+              :class (if (= (-> data :properties :selected) entity_id) "success" "")}
          [:td (when-let [pic (:path (first (:photos cursor)))]
                 [:img.img-thumbnail.tmg-responsive
                  {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" pic)}])]
@@ -164,7 +164,7 @@
              [:tr [:th "Photo"] [:th "Property Code"] [:th "Type"] [:th "Address"]
               [:th "Region"] [:th "Ownership"] [:th "Technologies"] [:th "Monitoring Hierarchy"]]]
             [:tbody
-             (om/build-all (table-row data) cursor {:key :id})]]]])))))
+             (om/build-all (table-row data) cursor {:key :entity_id})]]]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Search input field
