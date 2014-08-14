@@ -227,7 +227,7 @@
 
 (defmethod projects-table-html :has-data [projects]
   [:div.row
-   [:div.col-md-10
+   [:div.col-md-12
     [:table {:className "table table-hover"}
      [:thead
       [:tr [:th "Name"] [:th "Type"] [:th "Description"] [:th "Created At"] [:th "Organisation"] [:th "Project Code"]]]
@@ -235,7 +235,7 @@
       (om/build-all (project-row projects) (sort-by :project_id (:data projects)) {:key :project_id})]]]])
 
 (defmethod projects-table-html :default [_]
-  [:div.row [:div.col-md-10]])
+  [:div.row [:div.col-md-12]])
 
 (defn projects-table [cursor owner]
   (reify
@@ -271,17 +271,16 @@
         (let [programmes   (-> data :programmes)]
           (html
            [:div.row-xs-height
-            [:div.col-md-10
-             [:table {:className "table table-hover"}
-              [:thead
-               [:tr
-                [:th "Name"]
-                [:th "Organisations"]
-                [:th "ID"]
-                [:th "Created At"]]]
-              [:tbody
-               (om/build-all (programmes-row programmes selected-chan)
-                             (sort-by :name (:data programmes)) {:key :programme_id})]]]]))))))
+            [:table {:className "table table-hover"}
+             [:thead
+              [:tr
+               [:th "Name"]
+               [:th "Organisations"]
+               [:th "ID"]
+               [:th "Created At"]]]
+             [:tbody
+              (om/build-all (programmes-row programmes selected-chan)
+                            (sort-by :name (:data programmes)) {:key :programme_id})]]]))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Entire view of the page
@@ -351,11 +350,11 @@
                (om/build role-selection-form (:user-roles data))]]
              [:button.btn.btn-primary {:onClick #(save-form data user role programmes projects)} "Save"]
              ;; Programmes
-             [:div.col-md-10 {:style {:padding-top "15px"}}
+             [:div.col-md-12 {:style {:padding-top "15px"}}
               [:h4 "Programmes"]
               (om/build (programmes-table (:selected-chan state)) data)]
              ;; Projects
-             [:div.col-md-10
+             [:div.col-md-12
               [:h4 "Projects"]
               (om/build projects-table (:projects data))]]
 

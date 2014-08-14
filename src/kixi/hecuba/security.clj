@@ -39,6 +39,7 @@
      (add-user! store name username password roles #{} #{})))
 ;; (kixi.hecuba.security/add-user! (:store system) "support@example.com" "<password>" #{:kixi.hecuba.security/super-admin})
 
+;; FIXME We should be using k.h.d.users for queries now
 (defn get-user [store]
   (let [user-cql (db/prepare-statement (:hecuba-session store) "select * from users where id = ?;")]
     (fn [username]

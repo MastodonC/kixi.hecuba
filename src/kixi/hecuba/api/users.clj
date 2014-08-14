@@ -21,7 +21,7 @@
 
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (users/get-all session)))
+    (util/render-items ctx (users/get-all session))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Resource
@@ -34,8 +34,11 @@
                  {:keys [data username]} user]
              (if (and (seq data) username)
                [false {:user user :request request}]
-               true))
+               [true {:representation {:media-type (:content-type request)}}]))
        false)))
+
+(defn resource-handle-malformed [ctx]
+  {:error "Request must contain username and data."})
 
 (defn resource-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -68,4 +71,5 @@
   :exists? (partial resource-exists? store)
   :malformed? resource-malformed?
   :put! (partial resource-put! store)
-  :handle-ok (partial resource-handle-ok))
+  :handle-ok (partial resource-handle-ok)
+  :handle-malformed resource-handle-malformed)
