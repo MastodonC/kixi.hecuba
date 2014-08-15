@@ -46,6 +46,16 @@
 (defn login-form [req]
   {:status 200 :body (slurp (io/resource "site/login.html"))})
 
+(defn reset-form [req]
+  {:status 200 :body (slurp (io/resource "site/reset.html"))})
+
+(defn new-password [req]
+  {:status 200 :body (slurp (io/resource "site/password_change.html"))})
+
+(defn reset-error-page [req]
+  {:status 200
+   :body (slurp (io/resource "site/password_change_error.html"))})
+
 (defn app-page [req]
   (log/infof "App Session: %s" (:session req))
   {:status 200 :body (slurp (io/resource "site/app.html"))})
@@ -189,6 +199,13 @@
    (GET "/register" [] (redirect "/app"))
    (POST "/register" request (security/register-user request store))
    (GET "/registration-error" [] registration-error-page)
+
+   ;; Reset Password
+   (GET "/reset" [] reset-form)
+   (POST "/reset" request (security/reset-password-email request store))
+   (GET "/reset/:uuid" [uuid] (security/reset-password uuid store))
+   (POST "/reset/:uuid" request (security/post-new-password request store))
+   (GET "/reset-error" [] reset-error-page)
 
    ;; Main Application
    (GET (compojure-route :app) []

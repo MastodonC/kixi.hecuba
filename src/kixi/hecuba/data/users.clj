@@ -3,12 +3,14 @@
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.webutil :as webutil]
             [cheshire.core :as json]
-            [clojure.edn :as edn]))
+            [clojure.edn :as edn]
+            (cemerick.friend [credentials :as creds])))
 
 (defn encode [user]
   (-> user
-      (dissoc :username :password :id)
-      webutil/stringify-values))
+      (dissoc :username :id)
+      webutil/stringify-values
+      (cond-> (:password user) (update-in [:password] (fn [password] (creds/hash-bcrypt password))))))
 
 (defn decode [user]
   (-> user
@@ -31,3 +33,10 @@
   (db/execute session (hayt/update :users
                                    (hayt/set-columns (encode user))
                                    (hayt/where [[= :id username]])))) ;; FIXME at the moment id and username are the same
+
+(defn get-by-uuid [session uuid]
+  (first (db/execute session (hayt/select :users
+                                          (hayt/columns :reset_uuid
+                                                        :reset_timestamp
+                                                        :username)
+                                          (hayt/where [[= :reset_uuid uuid]])))))

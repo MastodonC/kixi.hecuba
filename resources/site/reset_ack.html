@@ -6,7 +6,7 @@
     <meta name="description" content="">
     <meta name="author" content="">
 
-    <title>getembed - Login</title>
+    <title>getembed - Password Reset</title>
 
     <!-- Shims and Shivs for old, broken IE8 -->
     <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
 
       <div class="collapse navbar-collapse">
         <ul class="nav navbar-nav">
-          <li><a href="https://github.com/MastodonC/AMON">Documentation</a></li>
+          <li><a href="https://github.com/MastodonC/kixi.hecuba/blob/master/doc/documentation.md">Documentation</a></li>
         </ul>
       </div>
 
@@ -43,23 +43,10 @@
     <div class="container">
       <div class="row">
         <div class="col-md-12">
+          <h1>Reset Password</h1>
 
-          <div id="reset-alert"></div>
-
-          <h1>Log In</h1>
-
-          <form role="form" method="POST" action="/login">
-            <div class="form-group">
-              <label for="username">Email Address</label>
-              <input type="email" class="form-control" name="username" id="username" placeholder="Enter email">
-            </div>
-            <div class="form-group">
-              <label for="password">Password</label>
-              <input type="password" class="form-control" name="password" id="password" placeholder="Password">
-            </div>
-            <button type="submit" class="btn btn-primary btn-lg">Log
-            In</button><a href="/reset"> Reset password</a>
-          </form>
+         <p>Please check your email for instructions on how to
+         complete the password reset procedure.</p>
 
         </div>
       </div>
@@ -73,19 +60,9 @@
 
   </body>
 
-  <!-- react.js from -->
-   <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/react/0.9.0/react.js"></script>
-
   <!-- JavaScript, bootstrap needs jquery-->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.10.2/jquery.js"></script>
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
-
-  <!-- Hecuba -->
-  <script type="text/javascript" src="/cljs/goog/base.js"></script>
-  <script type="text/javascript" src="/cljs/hecuba.js"></script>
-  <script type="text/javascript">
-    goog.require('kixi.hecuba.login');
-  </script>
 
 
 </html>

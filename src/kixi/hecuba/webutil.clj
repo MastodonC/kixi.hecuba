@@ -186,6 +186,9 @@
 (defn to-db-format [date] (tf/parse formatter date))
 (defn db-to-iso [date] (tf/unparse formatter (tc/from-date date)))
 
+(defn now->timestamp []
+  (db-to-iso (tc/to-date (t/now))))
+
 (defn time-range
   "Return a lazy sequence of DateTime's from start to end, incremented
   by 'step' units of time."

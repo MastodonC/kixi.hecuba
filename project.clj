@@ -14,7 +14,7 @@
                  [kixi/schema_gen "0.1.3" :exclusions [schema-contrib]]
                  [schema-contrib "0.1.3"]
                  [kixi/amon-schema "0.1.10"]
-                 [clj-http "0.9.2"]
+                 [clj-http "1.0.0"]
 
                  ;; logging
                  [org.clojure/tools.logging "0.3.0"]
