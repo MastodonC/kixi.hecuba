@@ -39,17 +39,6 @@
             :defaultChecked (get cursor key "")
             :on-change #(om/set-state! owner (conj path key) (.-checked (.-target %1)))}]])
 
-(defn alert [cursor owner]
-  (om/component
-   (let [{:keys [status text class]} cursor]
-     (html
-      [:div {:style {:display (if status "block" "none")}}
-       [:div {:class class}
-        [:button.close {:type "button"
-                        :onClick (fn [_] (om/update! cursor :status false))}
-         [:span {:class "fa fa-times"}]]
-        text]]))))
-
 (defn location-input [cursor owner]
   (let [location (-> cursor :location)]
     [:div
@@ -387,7 +376,7 @@
                        :onClick (fn [_] (om/update! data [:devices :adding-sensor] true))}
               [:div {:class  "fa fa-plus"} " Add sensor"]]])
           [:div {:id "alert-div" :style {:padding-top "10px"}}
-           (om/build alert (:alert devices))]
+           (om/build bs/alert (:alert devices))]
           [:div {:id "devices-div"
                  :class (if (or editing adding-sensor adding-device) "hidden" "")
                  :style {:padding-top "10px"}}

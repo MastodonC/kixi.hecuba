@@ -28,7 +28,8 @@
    [kixi.hecuba.api.downloads :as downloads]
    [kixi.hecuba.api.uploads :as uploads]
    [kixi.hecuba.api.entity.upload :as entity-uploads]
-   [kixi.hecuba.api.entity.property-map :as map]))
+   [kixi.hecuba.api.entity.property-map :as map]
+   [kixi.hecuba.api.users :as users]))
 
 (defn index-page [req]
   {:status 200
@@ -60,6 +61,10 @@
 (defn property-search [req]
   (log/infof "App Session: %s" (:session req))
   {:status 200 :body (slurp (io/resource "site/property-search.html"))})
+
+(defn user-management [req]
+  (log/infof "App Session: %s" (:session req))
+  {:status 200 :body (slurp (io/resource "site/user-management.html"))})
 
 (defn index-routes
   ([route handler]
@@ -110,7 +115,7 @@
 
    ;; Entities
    (index-routes :entities-index (entities/index store))
-   (resource-route :entity-resource [:entity_id] (entities/resource store))   
+   (resource-route :entity-resource [:entity_id] (entities/resource store))
 
    ;; Datasets
    (index-routes :entity-datasets-index [:entity_id] (datasets/index store))
@@ -161,6 +166,10 @@
    (index-routes :entity-images-index [:entity_id] (entity-uploads/index store s3 pipeline-head))
    (index-routes :entity-documents-index [:entity_id] (entity-uploads/index store s3 pipeline-head))
 
+   ;; Usernames
+   (index-routes :username-index (users/index store))
+   (resource-route :username-resource [:username] (users/resource store))
+
    (index-routes :entity-property-having-locations (map/index store))))
 
 (defn all-routes [store s3 pipeline-head]
@@ -203,6 +212,12 @@
    (GET (compojure-route :property-search) []
         (friend/wrap-authorize
          property-search
+         #{:kixi.hecuba.security/user}))
+
+   ;; User management
+   (GET (compojure-route :user-management) []
+        (friend/wrap-authorize
+         user-management
          #{:kixi.hecuba.security/user}))
 
    ;; AMON API Routes

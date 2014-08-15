@@ -26,16 +26,20 @@
                               (om/update! data [:programmes :error-text] status-text)))))
 
 (defn fetch-projects
-  ([programme-id data error-handler]
+  ([programme-id data handler error-handler]
      (om/update! data [:projects :fetching] :fetching)
      (GET (str "/4/programmes/" programme-id "/projects/")
-          {:handler  (fn [x]
-                       (log "Fetching projects for programme: " programme-id)
-                       (om/update! data [:projects :data] (mapv slugs/slugify-project x))
-                       (om/update! data [:projects :fetching] (if (empty? x) :no-data :has-data)))
+          {:handler handler
            :error-handler error-handler
            :headers {"Accept" "application/edn"}
            :response-format :text}))
+  ([programme-id data error-handler]
+     (fetch-projects programme-id data
+                     (fn [x]
+                       (log "Fetching projects for programme: " programme-id)
+                       (om/update! data [:projects :data] (mapv slugs/slugify-project x))
+                       (om/update! data [:projects :fetching] (if (empty? x) :no-data :has-data)))
+                     error-handler))
   ([programme-id data]
      (fetch-projects programme-id data (fn [{:keys [status status-text]}]
                                          (om/update! data [:projects :fetching] :error)
@@ -60,6 +64,23 @@
                          (om/update! data [:properties :fetching] :error)
                          (om/update! data [:properties :error-status] status)
                          (om/update! data [:properties :error-text] status-text)))))
+
+(defn fetch-usernames
+  ([data error-handler]
+     (om/update! data [:users :fetching] :fetching)
+     (GET (str "/4/usernames/")
+          {:handler  (fn [x]
+                       (om/update! data [:users :data] x)
+                       (om/update! data [:users :fetching] (if (empty? x) :no-data :has-data)))
+           :error-handler error-handler
+           :headers {"Accept" "application/edn"}
+           :response-format :text}))
+  ([data]
+     (fetch-usernames data (fn [{:keys [status status-text]}]
+                             (om/update! data [:users :fetching] :error)
+                             (om/update! data [:users :error-status] status)
+                             (om/update! data [:users :error-text] status-text)))))
+
 
 (defn update-entity [entity refreshed-entity entity_id]
   (if (= entity_id (:entity_id entity))
