@@ -14,11 +14,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; projects
 
-(defn error-handler [owner]
+(defn error-handler [data]
   (fn [{:keys [status status-text]}]
-    (om/set-state! owner :error true)
-    (om/set-state! owner :http-error-response {:status status
-                                               :status-text status-text})))
+    (om/update! data [:projects :alert] {:status true
+                                         :class "alert alert-danger"
+                                         :text status-text})))
 (defn valid-project? [project]
   (not (nil? (:name project))))
 
@@ -30,7 +30,7 @@
                           (fn [_]
                             (fetch-projects programme_id data)
                             (om/update! data [:projects :adding-project] false))
-                          (error-handler owner))))
+                          (error-handler data))))
 
 (defn put-edited-project [data owner project programme_id project_id]
   (let [url (str "/4/programmes/" programme_id  "/projects/" project_id)]
@@ -39,53 +39,44 @@
                           (fn [_]
                             (fetch-projects programme_id data)
                             (om/update! data [:projects :editing] false))
-                          (error-handler owner))))
+                          (error-handler data))))
 
 (defn project-add-form [data programme_id]
   (fn [cursor owner]
     (om/component
-     (let [{:keys [status-text]} (om/get-state owner :http-error-response)
-            error      (om/get-state owner :error)
-            alert-body (if status-text
-                         (str " Server returned status: " status-text)
-                         " Please enter name of the project.")]
-       (html
-        [:div
-         [:h3 "Add new project"]
-         [:form.form-horizontal {:role "form"}
-          [:div.col-md-6
-           [:div.form-group
-            [:div.btn-toolbar
-             [:button {:class "btn btn-success"
-                       :type "button"
-                       :onClick (fn [_] (let [project (om/get-state owner [:project])]
-                                          (if (valid-project? project)
-                                            (post-new-project data owner project programme_id)
-                                            (om/set-state! owner [:error] true))))}
-              "Save"]
-             [:button {:type "button"
-                       :class "btn btn-danger"
-                       :onClick (fn [_]
-                                  (om/update! data [:projects :adding-project] false))}
-              "Cancel"]]]
-           (bs/alert "alert alert-danger "
-                  [:div [:div {:class "fa fa-exclamation-triangle"} alert-body]]
-                  error
-                  (str "add-project-form-failure"))
-           (bs/text-input-control cursor owner :project :name "Project Name" true)
-           (bs/text-input-control cursor owner :project :description "Description")
-           (bs/text-input-control cursor owner :project :organisation "Organisation")
-           (bs/text-input-control cursor owner :project :project_code "Project Code")
-           (bs/text-input-control cursor owner :project :project_type "Project Type")
-           (bs/text-input-control cursor owner :project :type_of "Type Of")]]])))))
+     (html
+      [:div
+       [:h3 "Add new project"]
+       [:form.form-horizontal {:role "form"}
+        [:div.col-md-6
+         [:div.form-group
+          [:div.btn-toolbar
+           [:button {:class "btn btn-success"
+                     :type "button"
+                     :onClick (fn [_] (let [project (om/get-state owner [:project])]
+                                        (if (valid-project? project)
+                                          (post-new-project data owner project programme_id)
+                                          (om/update! data [:projects :alert] {:status true
+                                                                               :class "alert alert-danger"
+                                                                               :text "Please enter name of the project."}))))}
+            "Save"]
+           [:button {:type "button"
+                     :class "btn btn-danger"
+                     :onClick (fn [_]
+                                (om/update! data [:projects :adding-project] false))}
+            "Cancel"]]]
+         (om/build bs/alert (-> data :projects :alert))
+         (bs/text-input-control cursor owner :project :name "Project Name" true)
+         (bs/text-input-control cursor owner :project :description "Description")
+         (bs/text-input-control cursor owner :project :organisation "Organisation")
+         (bs/text-input-control cursor owner :project :project_code "Project Code")
+         (bs/text-input-control cursor owner :project :project_type "Project Type")
+         (bs/text-input-control cursor owner :project :type_of "Type Of")]]]))))
 
 (defn project-edit-form [data]
   (fn [cursor owner]
     (om/component
-     (let [{:keys [project_id programme_id]} cursor
-           {:keys [status-text]} (om/get-state owner :http-error-response)
-            error      (om/get-state owner :error)
-            alert-body (str " Server returned status: " status-text)]
+     (let [{:keys [project_id programme_id]} cursor]
        (html
         [:div
          [:h3 "Editing Project"]
@@ -103,10 +94,7 @@
              [:button {:type "button"
                        :class "btn btn-danger"
                        :onClick (fn [_] (om/update! data [:projects :editing] false))} "Cancel"]]]
-           (bs/alert "alert alert-danger "
-                  [:div [:div {:class "fa fa-exclamation-triangle"} alert-body]]
-                  error
-                  (str "edit-project-form-failure"))
+           (om/build bs/alert (-> data :projects :alert))
            (bs/static-text cursor :project_id "Project ID")
            (bs/static-text cursor :programme_id "Programme ID")
            (bs/static-text cursor :created_at "Created At")
