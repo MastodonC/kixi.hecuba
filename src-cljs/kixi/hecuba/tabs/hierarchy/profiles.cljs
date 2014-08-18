@@ -103,6 +103,7 @@
              (bs/panel
               "Occupancy"
               [:div
+               (text-control profile_data state owner :occupancy_total "Total Occupancy")
                (text-control profile_data state owner :occupancy_under_18 "Occupancy Under 18")
                (text-control profile_data state owner :occupancy_18_to_60 "Occupancy 18 To 60")
                (text-control profile_data state owner :occupancy_over_60 "Occupancy Over 60")

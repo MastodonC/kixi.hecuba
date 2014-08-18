@@ -3,6 +3,7 @@
 (def profile-data-schema
   [:id
    :event_type
+   :occupancy_total
    :occupancy_under_18
    :onsite_days_new_build
    :flat_floor_heat_loss_type
