@@ -166,13 +166,18 @@
   (-> (parser/temp-file->rows file-data)
       (malformed-data? project_id)))
 
-(defn malformed-entity-post? [entity project_id]
-  (let [validation-errors (entity-validation-failures entity project_id)]
-    (if validation-errors
-      [true {:entities [entity]
-             :malformed-msg "Uploaded data validation failed"
-             :errors {:entities [validation-errors]}}]
-      [false {:entities [entity]}])))
+(defn malformed-entity-post?
+  ([entity project_id]
+     (let [validation-errors (entity-validation-failures entity project_id)]
+       (if validation-errors
+         [true {:entities [entity]
+                :malformed-msg "Uploaded data validation failed"
+                :errors {:entities [validation-errors]}}]
+         [false {:entities [(add-entity-id entity project_id)]}])))
+  ([entity]
+     (if-let [project_id (:project_id entity)]
+       (malformed-entity-post? entity project_id)
+       [true {:malformed-msg "Missing project_id"}])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Puts to an entity resource
