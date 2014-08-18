@@ -156,7 +156,7 @@
 ;; Index
 (defn index-allowed? [store ctx]
   (let [{:keys [request-method session params route-params]} (:request ctx)
-        project_id (:project_id route-params)
+        project_id (or (:project_id route-params) (-> ctx :entities first))
         programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))
         {:keys [projects programmes roles]} (sec/current-authentication session)]
     (if (and programme_id project_id)
@@ -180,7 +180,7 @@
              [:post "multipart/form-data" false             true ] (es/malformed-multipart-data? received-data project_id)
              [:post "text/csv"            false             _    ] (es/malformed-data? (decode-body request) project_id)
              [:post _                     false             _    ] (-> (decode-body request) (es/malformed-entity-post? project_id))
-             [:post _                     true              _    ] [true {:malformed-msg "Missing project_id"}]
+             [:post _                     true              _    ] (-> (decode-body request) es/malformed-entity-post?)
              [:post "multipart/form-data" _                 false] [true {:malformed-msg "No multipart data sent."}]
              :else false))
     (catch Throwable t
