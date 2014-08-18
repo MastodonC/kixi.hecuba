@@ -58,8 +58,8 @@
   (fn [ctx]
     (let [{:keys [request-method session params]} (:request ctx)
           {:keys [projects programmes roles]}     (sec/current-authentication session)
-          entity_id (:entity_id params)       
-          project_id (when entity_id 
+          entity_id (:entity_id params)
+          project_id (when entity_id
                        (:project_id (search/get-by-id entity_id (:search-session store))))
           programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
       (if (and project_id programme_id)
@@ -109,7 +109,8 @@
       (update-in [:type] #(str % "_" type-ext))
       (assoc :period "PULSE" :synthetic true)))
 
-(defmulti calculated-sensor (fn [sensor] (.toUpperCase (:unit sensor))))
+(defmulti calculated-sensor (fn [sensor] (when-let [unit (:unit sensor)]
+                                           (.toUpperCase unit))))
 
 (defmethod calculated-sensor "KWH" [sensor]
   (-> sensor
