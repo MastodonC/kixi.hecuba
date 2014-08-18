@@ -11,7 +11,7 @@
                  [org.clojure/core.match "0.2.1"]
 
                  ;; Testing POST and GET data
-                 [kixi/schema_gen "0.1.3" :exclusions [schema-contrib]]
+                 [kixi/schema_gen "0.1.5" :exclusions [schema-contrib]]
                  [schema-contrib "0.1.3"]
                  [kixi/amon-schema "0.1.10"]
                  [clj-http "1.0.0"]
@@ -121,7 +121,9 @@
 
   ;; lein test - runs default
   ;; lein test :http-tests  - runs just http-tests
+  ;; lein test :data-tests  - runs just data-tests
   ;; lein test :all - runs all tests
-  :test-selectors {:default (complement :http-tests)
+  :test-selectors {:default (fn [m] (not (or (:http-tests m) (:data-tests m))))
                    :http-tests :http-tests
+                   :data-tests :data-tests
                    :all (constantly true)})
