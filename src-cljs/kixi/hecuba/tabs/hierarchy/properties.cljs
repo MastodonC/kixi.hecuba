@@ -37,6 +37,12 @@
 
      (html
       [:div
+       [:div
+        [:h3 "Upload Properties"]
+        (let [div-id "properties-upload-form"]
+          (om/build (file/file-upload (str "/4/projects/" project_id "/entities/")
+                                      div-id)
+                    nil {:opts {:method "POST"}}))]
        [:h3 "Add new property"]
        [:form.form-horizontal {:role "form"}
         [:div.col-md-6
