@@ -451,6 +451,8 @@ CREATE TABLE users (
   data text,
   password text,
   username text,
+  reset_uuid text,
+  reset_timestamp timestmap,
   PRIMARY KEY (id)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
@@ -469,3 +471,4 @@ CREATE TABLE users (
   compression={'sstable_compression': 'SnappyCompressor'};
 
 CREATE INDEX users_idx ON users (username);
+CREATE INDEX users_reset_idx ON users (reset_uuid);

@@ -15,6 +15,7 @@
    [kixi.hecuba.routes :refer (new-web-app)]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.storage.search :as search]
+   [kixi.hecuba.email :refer (new-email)]
 
    ;; Misc
    clojure.tools.reader
@@ -68,10 +69,11 @@
          :store (db/new-store)
          :pipeline (new-pipeline)
          :scheduler (kixipipe.scheduler/mk-session cfg)
-         :web-app (new-web-app cfg))
+         :web-app (new-web-app cfg)
+         :e-mail (new-email (:e-mail cfg)))
         (mod/system-using
-         {:web-app [:store :s3 :pipeline]
-          :store [:hecuba-session :s3 :search-session]
+         {:web-app [:store :s3 :pipeline :e-mail]
+          :store [:hecuba-session :s3 :search-session :e-mail]
           :pipeline [:store]
           :scheduler [:pipeline]
           :hecuba-session [:cluster]}))))
