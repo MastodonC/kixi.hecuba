@@ -7,7 +7,6 @@
             [com.stuartsierra.component :as component]
             [clojure.data.json :as json]
             [clj-http.client :as client]
-            [kixi.amon-schema :as amon]
             [schema_gen.core :as sg]
             [schema.core :as s]
             [clojure.tools.logging  :as log]))
@@ -31,23 +30,22 @@
 ;; -----------------------------------
 
 (defn- connected? []
-  (let 
-      [sample (last (sg/generate-examples amon/BaseProgramme))]
-    (client/post "http://127.0.0.1:8010/4/programmes/" {:accept :json :content-type :json :basic-auth ["test@mastodonc.com" "password"] :body (json/write-str sample)}))
-  (log/info "Posted => connected"))
+  (try (client/get "http://localhost:9200/")
+       (:status (json/read-json (:body (client/get "http://localhost:9200/"))))
+       (log/info "Successful GET response.")
+       true
+       (catch Exception e (log/info "Could not connect.") false)) )
 
 ;;-----------------------------------
 ;; main testing fixture
 ;;-----------------------------------
 
 (defn data-test-fixture [tests]
-  (try
-    (connected?)
+  (when (connected?) 
     (reset! system (component/start (new-system)))
     (tests)
     (component/stop @system)
-    (log/info "Completed k.h.d.* tests inside 'use-fixture'.")
-    (catch Exception e (log/info "Not connected."))))
+    (log/info "Completed k.h.d.* tests inside 'use-fixture'.")))
 
 (use-fixtures :once data-test-fixture)
 
