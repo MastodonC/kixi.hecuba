@@ -1,4 +1,4 @@
-(ns kixi.hecuba.api.entity.upload
+(ns kixi.hecuba.api.entities.upload
   (:require
    [cheshire.core               :as json]
    [clojure.core.match          :refer (match)]

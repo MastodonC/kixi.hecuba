@@ -9,6 +9,7 @@
    [kixi.hecuba.tabs.slugs :as slugs]
    [kixi.hecuba.bootstrap  :as bs]
    [kixi.hecuba.common :refer (log) :as common]
+   [kixi.hecuba.widgets.fileupload :as file]
    [sablono.core :as html :refer-macros [html]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -33,6 +34,7 @@
 (defn property-add-form [data project_id]
   (fn [cursor owner]
     (om/component
+
      (html
       [:div
        [:h3 "Add new property"]

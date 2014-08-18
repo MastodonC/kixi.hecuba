@@ -39,9 +39,9 @@
         (assoc :age age)
         (assoc :address_region address_region))))
 
-(defn project-search-fields [entity session]
+(defn project-search-fields [entity db-session]
   (let [project_id (:project_id entity)
-        {:keys [name organisation type_of programme_id]} (projects/get-by-id session project_id)]
+        {:keys [name organisation type_of programme_id]} (projects/get-by-id db-session project_id)]
     (-> entity
         (assoc :programme_id programme_id)
         (assoc-in [:full_entity :programme_id] programme_id)
@@ -50,9 +50,9 @@
         (assoc :project_organisation organisation))))
 
 ;; TOFIX Some projects didn't have programme_id. Not sure if it's just a local issue.
-(defn programme-search-fields [entity session]
+(defn programme-search-fields [entity db-session]
   (let [programme_id (:programme_id entity)
-        public_access  (when programme_id (:public_access (programmes/get-by-id session programme_id)))]
+        public_access  (when programme_id (:public_access (programmes/get-by-id db-session programme_id)))]
     (-> entity
         (assoc :public_access public_access)
         (assoc-in [:full_entity :public_access] public_access))))
@@ -60,9 +60,9 @@
 (defn has-technology? [profile technology]
   (-> profile (get technology) seq nil? not))
 
-(defn profile-search-fields [entity session]
+(defn profile-search-fields [entity db-session]
   (let [{:keys [entity_id]} entity
-        profiles (profiles/get-profiles entity_id session)
+        profiles (profiles/get-profiles entity_id db-session)
         last_profile (last profiles)
         profile_data (-> last_profile :profile_data)]
     (-> entity
@@ -78,25 +78,25 @@
         (assoc :heat_pumps (has-technology? last_profile :heat_pumps))
         (assoc :chps (has-technology? last_profile :chps)))))
 
-(defn entity-devices [entity session]
-  (let [devices (devices/get-devices session (:entity_id entity))]
+(defn entity-devices [entity db-session]
+  (let [devices (devices/get-devices db-session (:entity_id entity))]
     (assoc-in entity [:full_entity :devices] devices)))
 
-(defn searchable-entity [entity session]
+(defn searchable-entity [entity db-session]
   (-> entity
       property-search-fields
-      (project-search-fields session)
-      (programme-search-fields session)
-      (profile-search-fields session)
-      (entity-devices session)))
+      (project-search-fields db-session)
+      (programme-search-fields db-session)
+      (profile-search-fields db-session)
+      (entity-devices db-session)))
 
-(defn searchable-entity-by-id [entity_id session]
-  (let [entity (entities/get-by-id session entity_id)]
-    (searchable-entity entity session)))
+(defn searchable-entity-by-id [entity_id db-session]
+  (let [entity (entities/get-by-id db-session entity_id)]
+    (searchable-entity entity db-session)))
 
-(defn searchable-entities [session]
-  (->> (entities/get-all session)
-       (map #(searchable-entity % session))))
+(defn searchable-entities [db-session]
+  (->> (entities/get-all db-session)
+       (map #(searchable-entity % db-session))))
 
 (defn ->elasticsearch [entity search-session]
   (let [entity_id (:entity_id entity)]

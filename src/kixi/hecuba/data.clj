@@ -24,4 +24,17 @@
         m))
     m))
 
+(defn assoc-if [m k v]
+  (if v
+    (assoc m k v)
+    m))
 
+(defn assoc-encode-item-if [m k v]
+  (if v
+    (assoc m k (json/encode v))
+    m))
+
+(defn assoc-encode-list-if [m k v]
+  (if seq
+    (assoc m k (mapv json/encode v))
+    m))

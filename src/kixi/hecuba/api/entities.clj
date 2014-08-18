@@ -8,279 +8,23 @@
    [cheshire.core :as json]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
-   [qbits.hayt :as hayt]
    [clojurewerkz.elastisch.native.response :as esr]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-   [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? content-type-from-context)]
+   [kixi.hecuba.webutil :refer (decode-body authorized? content-type-from-context) :as util]
+   [kixi.hecuba.web-paths :as p]
    [kixi.hecuba.storage.db :as db]
+   [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.data.programmes :as programmes]
    [kixi.hecuba.data.projects :as projects]
    [kixi.hecuba.data.entities :as entities]
-   [kixi.hecuba.data.users :as users]
    [kixi.hecuba.data.entities.search :as search]
-   [kixi.hecuba.storage.sha1 :as sha1]
-   [kixi.hecuba.web-paths :as p]
-   [kixi.hecuba.data.entities.search :as search]))
+   [kixi.hecuba.data.profiles :as profiles]
+   [kixi.hecuba.data.users :as users]
+   [kixi.hecuba.api.parser :as parser]
+   [kixi.hecuba.api.entities.schema :as es]))
 
 (def ^:private entities-index-path (p/index-path-string :entities-index))
 (def ^:private entity-resource-path (p/resource-path-string :entity-resource))
-
-;; hang on a minute, do we need the whole schema or shall we aggregate everything
-;; in the property_data field?!
-(def property-data-schema
-  [:description
-   :monitoring_policy
-   :address_street
-   :address_city
-   :address_county
-   :address_code
-   :created_at
-   :updated_at
-   :address_country
-   :terrain
-   :address_region
-   :degree_day_region
-   :ownership
-   :fuel_poverty
-   :property_value
-   :property_value_basis
-   :retrofit_start_date
-   :retrofit_completion_date
-   :project_summary
-   :energy_strategy
-   :project_team
-   :design_strategy
-   :other_notes
-   :property_type
-   :property_type_other
-   :built_form
-   :built_form_other
-   :age
-   :construction_date
-   :conservation_area
-   :listed
-   :address_street_two
-   :property_code
-   :monitoring_hierarchy
-   :project_phase
-   :construction_start_date
-   :practical_completion_date
-   :photo_file_name
-   :photo_content_type
-   :photo_file_size
-   :photo_updated_at
-   :completeness
-   :entity_completeness_6m
-   :latitude
-   :longitude
-   :technology_icons
-   :address_code_masked])
-
-(def content-only-schema
-  [])
-
-(def document-schema
-  [:id
-   :content-type
-   :name
-   :file_name])
-
-(def photo-schema
-  [:path])
-
-(def entity-schema
-  [:entity_id
-   :address_country
-   :address_county
-   :address_region
-   :address_street_two
-   :name
-   :project_id
-   :user_id
-   :property_code
-   :retrofit_completion_date
-   { :name :property_data
-     :type :nested-item
-     :schema property-data-schema }
-   { :name :documents
-     :type :associated-items
-     :schema document-schema }
-   { :name :notes
-     :type :associated-items
-     :schema content-only-schema }
-   { :name :photos
-     :type :associated-items
-     :schema photo-schema }
-   ])
-
-(defn attribute-type [attr]
-  (if (keyword? attr)
-    :attribute
-    (:type attr)))
-
-(defn explode-nested-item [association item-string]
-  "Explodes a nested item, that is represented in the object coming from
-  the datastore as a json encoded string. Returns a list of vectors of
-  two elements, the first being the attribute key, and the second the value.
-  The key is expanded to <nested item name>_<attribute name>"
-  (let [item (json/decode item-string)
-        association-name   (:name   association)
-        association-schema (:schema association)]
-    (map
-     (fn [attr]
-       [(str (name association-name) "_" (name attr)) (item (name attr))])
-     association-schema)))
-
-(defn explode-associated-items [association items]
-  "Explodes the elements of a (one to many) association, that is represented
-  in the object coming from the datastore as a list of json encoded strings.
-  Returns a list of vectors of two elements, the first being the attribute key,
-  and the second the value.
-  The keys are expanded like <association name>_<associated item index>_<attribute name>"
-  (let [association-name   (name (:name association))
-        association-schema (:schema association)]
-    (apply concat
-    (map-indexed
-      (fn [index item-string]
-         (let [item-name         (str association-name "_" index)
-               named-association (assoc association :name item-name)]
-           (if (empty? association-schema)
-             [item-name item-string]
-             (explode-nested-item named-association item-string))))
-      items))))
-
-(defn explode-and-sort-by-schema [item schema]
-  "Take a (profile) item from the datastore and converts into a list
-  of pairs (represented as a vector) where the first element is the
-  exploded key for the attribute and the second is the value"
-  (let [exploded-item
-         (mapcat
-           (fn [attr]
-             (let [t (attribute-type attr)]
-               (case t
-                 :attribute          (list [(name attr) (item attr)])
-                 :nested-item        (explode-nested-item attr (item (:name attr)))
-                 :associated-items   (explode-associated-items attr (item (:name attr))))))
-           schema)]
-    exploded-item))
-
-(defn extract-attribute [attr-key input]
-  "Extracts a hash-map containing a single key and its value from the input.
-  The key is expected to be a keyword, while input is supposed to be a hash-map
-  with strings as keys"
-  (let [attr-name (name attr-key)
-        attr-value (input attr-name)]
-  {attr-key attr-value}))
-
-(defn extract-nested-item [attr input]
-  "Extracts a nested item from input, returning a hashmap with a single pair,
-  where the key is the nested item association name, and the value is a json
-  string representing all the attributes of the nested item.
-  attr is expected to be a hash-map with at least :name and :schema keys,
-  while input is expected to be a hash-map representing the profile, with strings as keys"
-  (let [association-name   (:name   attr)
-        association-schema (:schema attr)
-        nested-item (reduce
-                      (fn [nested-item nested-attr]
-                        (let [nested-attr-name (name nested-attr)
-                              exploded-attr-name (str (name association-name) "_" nested-attr-name)]
-                          (conj nested-item { nested-attr (input exploded-attr-name)})))
-                      {}
-                      association-schema)]
-    {association-name nested-item}))
-
-(defn extract-associated-item [association-name association-schema input index]
-  "Extracts the item belonging to a 'has many' association from input, at position index."
-  (reduce
-    (fn [associated-item associated-item-attr]
-      (let [associated-item-attr-name (name associated-item-attr)
-            exploded-attr-name (str (name association-name) "_" index "_" associated-item-attr-name)]
-        (conj associated-item {associated-item-attr (input exploded-attr-name)})))
-    {}
-    association-schema))
-
-(defn extract-associated-items [attr input]
-  "Extracts a collection representing a 'has many' association from input.
-  It returns a list of hash-maps, each representing one of the items from
-  the association.
-  attr is expected to be a hash-map with at least :name and :schema keys,
-  while input is expected to be a hash-map representing the whole profile, with strings as keys"
-  (let [association-name   (:name attr)
-        association-schema (:schema attr)
-        attribute-names    (doall (keys input))
-        items-id-pattern   (re-pattern (str (name association-name) "_(\\d+)_"))
-        items-ids (into #{} (->> attribute-names
-                                 (map #(when-some [x (re-find items-id-pattern %)] (last x)))
-                                 (filter #(not (nil? %)))))
-        associated-items (map #(extract-associated-item association-name association-schema input %) items-ids) ]
-    {association-name associated-items}))
-
-(defn parse-by-schema [input schema]
-  "Parses input according to schema, assuming it was shaped as a
-  'tall' CSV profile.
-  This means that the first column contains attribute names, and the
-  second column contains values. Attribute names are presented in
-  'exploded' format, in order to properly address associations and
-  nesting.
-  Example:
-
-  attribute type | attribute name              | exploded name              |
-  standard       | timestamp                   | timestamp                  |
-  nested item    | profile_data, bedroom_count | profile_data_bedroom_count |
-  association    | storeys, first storey_type  | storeys_0_storey_type      |"
-  (try
-    (reduce
-     (fn [item attr]
-       (let [t (attribute-type attr)
-             imploded-attribute (case t
-                                  :attribute               (extract-attribute attr input)
-                                  :nested-item             (extract-nested-item attr input)
-                                  :associated-items        (extract-associated-items attr input))]
-         (conj item imploded-attribute)))
-     {}
-     schema)
-    (catch Throwable t
-      (log/error "Got malformed CSV. " t)
-      nil)))
-
-(defn process-file [ctx]
-  (let [file-data (-> ctx :request :multipart-params (get "data"))
-        {:keys [tempfile content-type]} file-data
-        dir       (.getParent tempfile)
-        filename  (.getName tempfile)
-        in-file   (io/file dir filename)]
-    (with-open [in (io/reader in-file)]
-      (try
-        (let [data (->> in
-                        (csv/read-csv)
-                        (into {}))]
-          (parse-by-schema data entity-schema))
-        (catch Throwable t
-          (log/error t "Unparsable CSV.")
-          nil)))))
-
-(defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
-  (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
-             programme-id project-id allowed-programmes allowed-projects roles request-method)
-  (match [(has-admin? roles)
-          (has-programme-manager? roles)
-          (some #(= % programme-id) allowed-programmes)
-          (has-project-manager? roles)
-          (some #(= % project-id) allowed-projects)
-          (has-user? roles)
-          request-method]
-         ;; super-admin - do everything
-         [true _ _ _ _ _ _] true
-         ;; programme-manager for this programme - do everything
-         [_ true true _ _ _ _] true
-         ;; project-manager for this project - do everything
-         [_ _ _ true true _ _] true
-         ;; user with this programme - get allowed
-         [_ _ true _ _ true :get] true
-         ;; user with this project - get allowed
-         [_ _ _ _ true true :get] true
-         :else false))
 
 ;; curl -v -H "Content-Type: application/json" -H 'Accept: application/edn' -X GET -u support-test@mastodonc.com:password 127.0.0.1:8010/4/entities/?q=TSB119
 
@@ -362,9 +106,9 @@
           (has-user? roles)
           request-method]
 
-         [true _ _ _ _] [true (filter-entities programmes projects params store nil true)]
-         [_ true _ _ _] [true (filter-entities programmes projects params store :programme_id true)]
-         [_ _ true _ _] [true (filter-entities programmes projects params store :project_id true)]
+         [true _ _ _ :get] [true (filter-entities programmes projects params store nil true)]
+         [_ true _ _ :get] [true (filter-entities programmes projects params store :programme_id true)]
+         [_ _ true _ :get] [true (filter-entities programmes projects params store :project_id true)]
          [_ _ _ true :get] [true (filter-entities programmes projects params store :project_id false)]
          :else false))
 
@@ -381,9 +125,12 @@
              (has-user? roles)
              request-method]
 
-            [true _ _ _ _ _ _] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
-            [_ true true _ _ _ _] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
-            [_ _ _ true true _ _] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
+            [true _ _ _ _ _ :post] true
+            [_ true true _ _ _ :post] true
+            [_ _ _ true true _ :post] true
+            [true _ _ _ _ _ :get] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
+            [_ true true _ _ _ :get] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
+            [_ _ _ true true _ :get] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
             [_ _ true _ _ true :get] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
             [_ _ _ _ true true :get] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
             :else false))
@@ -405,12 +152,11 @@
              [_ _ _ _ true true :get] true
              :else false)))
 
-(defn- project_id-from [ctx]
-  (get-in ctx [:request :route-params :project_id]))
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Index
 (defn index-allowed? [store ctx]
-  (let [{:keys [request-method session params]} (:request ctx)
-        project_id (project_id-from ctx)
+  (let [{:keys [request-method session params route-params]} (:request ctx)
+        project_id (:project_id route-params)
         programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))
         {:keys [projects programmes roles]} (sec/current-authentication session)]
     (if (and programme_id project_id)
@@ -420,69 +166,57 @@
 (defn index-handle-ok [store ctx]
   (util/render-item ctx (:entities ctx)))
 
-(defmulti malformed? content-type-from-context)
+(defn index-handle-malformed [ctx]
+  (util/render-item ctx (:malformed-msg ctx)))
 
-(defmethod malformed? "multipart/form-data" [ctx]
-  (let [request   (:request ctx)
-        {:keys [route-params request-method]} request
-        project_id (:project_id route-params)]
-    (case request-method
-      :post (let [parsed-csv    (process-file ctx)
-                  property_code (:property_code parsed-csv)]
-              (if (and (seq property_code) parsed-csv (= project_id (:project_id parsed-csv)))
-                [false {:entity parsed-csv}]
-                true))
-      :put  (let [entity_id  (:entity_id route-params)
-                  parsed-csv (process-file ctx)]
-              (if (and parsed-csv (= entity_id (:entity_id parsed-csv)))
-                [false {:entity parsed-csv}]
-                true))
-      false)))
+(defn index-malformed? [ctx]
+  (try
+    (let [request (:request ctx)
+          {:keys [request-method params route-params multipart-params]} request
+          {:keys [project_id]} route-params
+          content-type (content-type-from-context ctx) ;; multipart uploads give us weird content-types
+          received-data (get multipart-params "data")]
+      (match [request-method content-type (nil? project_id) (boolean (seq received-data))]
+             [:post "multipart/form-data" false             true ] (es/malformed-multipart-data? received-data project_id)
+             [:post "text/csv"            false             _    ] (es/malformed-data? (decode-body request) project_id)
+             [:post _                     false             _    ] (-> (decode-body request) (es/malformed-entity-post? project_id))
+             [:post _                     true              _    ] [true {:malformed-msg "Missing project_id"}]
+             [:post "multipart/form-data" _                 false] [true {:malformed-msg "No multipart data sent."}]
+             :else false))
+    (catch Throwable t
+      (log/error t "Malformed entity index.")
+      [true {:malformed-msg "Could not parse entity data."}])))
 
-(defmethod malformed? :default [ctx]
-  (let [request (:request ctx)
-        {:keys [route-params request-method]} request]
-    (case request-method
-      :post (let [decoded-body  (decode-body request)
-                  entity        (if (= "text/csv" (:content-type request))
-                                  (let [body-map (into {} decoded-body)]
-                                    (parse-by-schema body-map entity-schema))
-                                  decoded-body)
-                  {:keys [property_code project_id]} entity]
-              (if (and (seq property_code) (seq project_id))
-                [false {:entity entity}]
-                true))
-      :put (let [decoded-body  (decode-body request)
-                 entity_id     (:entity_id route-params)
-                 entity        (if (= "text/csv" (:content-type request))
-                                 (let [body-map (into {} decoded-body)]
-                                   (parse-by-schema body-map entity-schema))
-                                 decoded-body)]
-             (if entity
-               [false {:entity (assoc entity :entity_id entity_id)}]
-               true))
-      false)))
+(defn index-exists? [store ctx]
+  (if (= :post (-> ctx :request :request-method))
+    (if-let [project_id (-> ctx :request :route-params :project_id)]
+      (projects/get-by-id (:hecuba-session store) project_id)
+      false))
+  true)
+
+(defn store-profile [profile user_id store]
+  (let [query-profile (assoc profile :user_id user_id)]
+    (profiles/insert (:hecuba-session store) query-profile)))
+
+(defn store-entity [entity user_id store]
+  (let [query-entity (assoc entity :user_id user_id)]
+    (entities/insert (:hecuba-session store) query-entity)
+    (-> query-entity
+        (search/searchable-entity (:hecuba-session store))
+        (search/->elasticsearch (:search-session store)))
+    (:entity_id entity)))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [{:keys [request entity]} ctx
-          project_id    (:project_id entity)
-          username      (sec/session-username (:session request))
-          user_id       (:id (users/get-by-username session username))]
-      (when (projects/get-by-id session project_id)
-        (let [entity_id (sha1/gen-key :entity entity)
-              query-entity (assoc entity
-                             :user_id user_id
-                             :entity_id entity_id)]
-          (entities/insert session query-entity)
-          (-> query-entity
-              (search/searchable-entity session)
-              (search/->elasticsearch (:search-session store)))
-          {::entity_id entity_id})))))
+    (let [{:keys [request entities profiles]} ctx
+          username (sec/session-username (:session request))]
+      (mapv #(store-profile % username store) profiles)
+      (mapv #(store-entity % username store) entities)
+      {:entity_id (-> entities first :entity_id)})))
 
 (defn index-handle-created [ctx]
   (let [request (:request ctx)
-        id      (::entity_id ctx)]
+        id      (:entity_id ctx)]
     (if id
       (let [location (format entity-resource-path id)]
         (when-not location
@@ -494,6 +228,26 @@
                                             :version "4"})}))
       (ring-response {:status 422
                       :body "Provide valid projectId and propertyCode."}))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Resource
+(defn resource-malformed? [ctx]
+  (try
+    (let [request (:request ctx)
+          {:keys [request-method content-type params route-params multipart-params]} request
+          {:keys [entity_id]} route-params
+          received-entity (get multipart-params "data")]
+      (match
+       [request-method content-type          (nil? entity_id) (boolean (seq received-entity))]
+       [:put           "multipart/form-data" false            true ] (es/malformed-multipart-entity-put? received-entity entity_id)
+       [:put           "text/csv"            false            _    ] (-> (decode-body request) (es/malformed-entity-csv-put? entity_id))
+       [:put           _                     false            _    ] (-> (decode-body request) (es/malformed-entity-put? entity_id))
+       [:put           "multipart/form-data" false            false] [true {:malformed-msg "No multipart data sent."}]
+       [_              _                     true             _    ] [true {:malformed-msg "Missing entity_id"}]
+       :else false))
+    (catch Throwable t
+      (log/error t "Malformed entity.")
+      [true {:malformed-msg "Missing entity_id"}])))
 
 (defn resource-allowed? [store]
   (fn [ctx]
@@ -522,7 +276,7 @@
                             clean-entity
                             (cond-> editable (assoc :editable editable)))
            formatted-item (if (= "text/csv" mime)
-                            (let [exploded-item (explode-and-sort-by-schema clean-item entity-schema)]
+                            (let [exploded-item (parser/explode-and-sort-by-schema clean-item es/entity-schema)]
                               exploded-item)
                             clean-item)]
       (util/render-item ctx formatted-item))))
@@ -556,7 +310,9 @@
   :known-content-type? #{"text/csv" "application/json"}
   :authorized? (authorized? store)
   :allowed? (partial index-allowed? store)
-  :malformed? #(malformed? %)
+  :exists? (partial index-exists? store)
+  :malformed? #(index-malformed? %)
+  :handle-malformed index-handle-malformed
   :post! (partial index-post! store)
   :handle-created index-handle-created
   :handle-ok (partial index-handle-ok store))
@@ -569,7 +325,8 @@
   :allowed? (resource-allowed? store)
   :exists? (partial resource-exists? store)
   :handle-ok (partial resource-handle-ok store)
-  :malformed? #(malformed? %)
+  :malformed? #(resource-malformed? %)
+  :handle-malformed #(select-keys % [:malformed-msg])
   :put! (partial resource-put! store)
   :respond-with-entity? (partial resource-respond-with-entity)
   :delete! (partial resource-delete! store))

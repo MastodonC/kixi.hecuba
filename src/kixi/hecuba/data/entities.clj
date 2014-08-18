@@ -9,7 +9,9 @@
             [kixi.hecuba.webutil :refer (update-stringified-list)]
             [clojure.tools.logging :as log]
             [hickory.core :as hickory]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [kixi.hecuba.schema-utils :as su]
+            [schema.core :as s]))
 
 (defn delete [entity_id session]
   (let [devices              (devices/get-devices session entity_id)
@@ -99,13 +101,40 @@
               (:devices entity) (decode-edn-map :devices)
               (:metering_point_ids entity) (decode-entry :metering_point_ids))))
 
+;; See hecuba-schema.cql
+(def InsertableEntity
+  {:entity_id s/Str
+   (s/optional-key :address_country) s/Str
+   (s/optional-key :address_county) s/Str
+   (s/optional-key :address_region) s/Str
+   (s/optional-key :address_street_two) s/Str
+   (s/optional-key :calculated_fields_labels) {s/Str s/Str}
+   (s/optional-key :calculated_fields_last_calc) {s/Str s/Str} ;; sc/ISO-Date-Time
+   (s/optional-key :calculated_fields_values) {s/Str s/Str}
+   (s/optional-key :csv_uploads) [s/Str]
+   (s/optional-key :devices) {s/Str s/Any}
+   (s/optional-key :documents) [s/Str]
+   (s/optional-key :metering_point_ids) [s/Str]
+   (s/optional-key :name) s/Str
+   (s/optional-key :notes) [s/Str]
+   (s/optional-key :photos) [s/Str]
+   :project_id s/Str
+   :property_code s/Str
+   (s/optional-key :property_data) {s/Any s/Any}
+   (s/optional-key :retrofit_completion_date) s/Str ;; sc/ISO-Date-Time
+   :user_id s/Str})
+
 (defn insert [session entity]
-  (db/execute session (hayt/insert :entities (hayt/values (encode entity)))))
+  (let [insertable-entity (su/select-keys-by-schema entity InsertableEntity)]
+    (s/validate InsertableEntity insertable-entity)
+    (db/execute session (hayt/insert :entities (hayt/values (encode insertable-entity))))))
 
 (defn update [session id entity]
-  (db/execute session (hayt/update :entities
-                                   (hayt/set-columns (dissoc (encode entity) :id))
-                                   (hayt/where [[= :id id]]))))
+  (let [insertable-entity (su/select-keys-by-schema entity InsertableEntity)]
+    (s/validate InsertableEntity insertable-entity)
+       (db/execute session (hayt/update :entities
+                                        (hayt/set-columns (dissoc (encode insertable-entity) :id))
+                                        (hayt/where [[= :id id]])))))
 
 (defn get-by-id
   ([session entity_id]
