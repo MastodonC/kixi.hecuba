@@ -156,7 +156,7 @@
 ;; Index
 (defn index-allowed? [store ctx]
   (let [{:keys [request-method session params route-params]} (:request ctx)
-        project_id (or (:project_id route-params) (-> ctx :entities first))
+        project_id (or (:project_id route-params) (-> ctx :entities first :project_id))
         programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))
         {:keys [projects programmes roles]} (sec/current-authentication session)]
     (if (and programme_id project_id)
