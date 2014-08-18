@@ -14,11 +14,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; properties
 
-(defn error-handler [owner]
+(defn error-handler [data]
   (fn [{:keys [status status-text]}]
-    (om/set-state! owner :error true)
-    (om/set-state! owner :http-error-response {:status status
-                                               :status-text status-text})))
+    (om/update! data [:properties :alert] {:status true
+                                           :class "alert alert-danger"
+                                           :text status-text})))
 (defn valid-property? [property]
   (not (nil? (:property_code property)))) ;; project_id comes from the selection above
 
@@ -28,64 +28,58 @@
                         (fn [_]
                           (fetch-properties project_id data)
                           (om/update! data [:properties :adding-property] false))
-                        (error-handler owner)))
+                        (error-handler data)))
 
 (defn property-add-form [data project_id]
   (fn [cursor owner]
     (om/component
-     (let [{:keys [status-text]} (om/get-state owner :http-error-response)
-            error      (om/get-state owner :error)
-            alert-body (if status-text
-                         (str " Server returned status: " status-text)
-                         " Please enter property code.")]
-       (html
-        [:div
-         [:h3 "Add new property"]
-         [:form.form-horizontal {:role "form"}
-          [:div.col-md-6
-           [:div.form-group
-            [:div.btn-toolbar
-             [:button {:class "btn btn-success"
-                       :type "button"
-                       :onClick (fn [_] (let [property      (om/get-state owner :property)
-                                              property_data (om/get-state owner :property_data)]
-                                          (if (valid-property? property)
-                                            (post-new-property data owner (assoc property
-                                                                            :property_data property_data
-                                                                            :project_id project_id)
-                                                               project_id)
-                                            (om/set-state! owner [:error] true))))}
-              "Save"]
-             [:button {:type "button"
-                       :class "btn btn-danger"
-                       :onClick (fn [_]
-                                  (om/update! data [:properties :adding-property] false))}
-              "Cancel"]]]
-           (bs/alert "alert alert-danger "
-                  [:div [:div {:class "fa fa-exclamation-triangle"} alert-body]]
-                  error
-                  (str "add-property-form-failure"))
-           (bs/text-input-control cursor owner :property :property_code "Property Code" true)
-           (bs/address-control cursor owner :property_data)
-           (bs/text-input-control cursor owner :property_data :property_type "Property Type")
-           (bs/text-input-control cursor owner :property_data :built_form "Built Form")
-           (bs/text-input-control cursor owner :property_data :age "Age")
-           (bs/text-input-control cursor owner :property_data :ownership "Ownership")
-           (bs/text-input-control cursor owner :property_data :project_phase "Project Phase")
-           (bs/text-input-control cursor owner :property_data :monitoring_hierarchy "Monitoring Hierarchy")
-           (bs/text-input-control cursor owner :property_data :practical_completion_date "Practical Completion Date")
-           (bs/text-input-control cursor owner :property_data :construction_date "Construction Date")
-           (bs/text-input-control cursor owner :property_data :conservation_area "Conservation Area")
-           (bs/text-input-control cursor owner :property_data :listed "Listed Building")
-           (bs/text-input-control cursor owner :property_data :terrain "Terrain")
-           (bs/text-input-control cursor owner :property_data :degree_day_region "Degree Day Region")
-           (bs/text-area-control cursor owner :property_data :description "Description")
-           (bs/text-area-control cursor owner :property_data :project_summary "Project Summary")
-           (bs/text-area-control cursor owner :property_data :project_team "Project Team")
-           (bs/text-area-control cursor owner :property_data :design_strategy "Design Strategy")
-           (bs/text-area-control cursor owner :property_data :energy_strategy "Energy Strategy")
-           (bs/text-area-control cursor owner :property_data :monitoring_policy "Monitoring Policy")
-           (bs/text-area-control cursor owner :property_data :other_notes "Other Notes")]]])))))
+     (html
+      [:div
+       [:h3 "Add new property"]
+       [:form.form-horizontal {:role "form"}
+        [:div.col-md-6
+         [:div.form-group
+          [:div.btn-toolbar
+           [:button {:class "btn btn-success"
+                     :type "button"
+                     :onClick (fn [_] (let [property      (om/get-state owner :property)
+                                            property_data (om/get-state owner :property_data)]
+                                        (if (valid-property? property)
+                                          (post-new-property data owner (assoc property
+                                                                          :property_data property_data
+                                                                          :project_id project_id)
+                                                             project_id)
+                                          (om/update! data [:properties :alert] {:status true
+                                                                                 :class "alert alert-danger"
+                                                                                 :text "Please enter property code"}))))}
+            "Save"]
+           [:button {:type "button"
+                     :class "btn btn-danger"
+                     :onClick (fn [_]
+                                (om/update! data [:properties :adding-property] false))}
+            "Cancel"]]]
+         (om/build bs/alert (-> data :properties :alert))
+         (bs/text-input-control cursor owner :property :property_code "Property Code" true)
+         (bs/address-control cursor owner :property_data)
+         (bs/text-input-control cursor owner :property_data :property_type "Property Type")
+         (bs/text-input-control cursor owner :property_data :built_form "Built Form")
+         (bs/text-input-control cursor owner :property_data :age "Age")
+         (bs/text-input-control cursor owner :property_data :ownership "Ownership")
+         (bs/text-input-control cursor owner :property_data :project_phase "Project Phase")
+         (bs/text-input-control cursor owner :property_data :monitoring_hierarchy "Monitoring Hierarchy")
+         (bs/text-input-control cursor owner :property_data :practical_completion_date "Practical Completion Date")
+         (bs/text-input-control cursor owner :property_data :construction_date "Construction Date")
+         (bs/text-input-control cursor owner :property_data :conservation_area "Conservation Area")
+         (bs/text-input-control cursor owner :property_data :listed "Listed Building")
+         (bs/text-input-control cursor owner :property_data :terrain "Terrain")
+         (bs/text-input-control cursor owner :property_data :degree_day_region "Degree Day Region")
+         (bs/text-area-control cursor owner :property_data :description "Description")
+         (bs/text-area-control cursor owner :property_data :project_summary "Project Summary")
+         (bs/text-area-control cursor owner :property_data :project_team "Project Team")
+         (bs/text-area-control cursor owner :property_data :design_strategy "Design Strategy")
+         (bs/text-area-control cursor owner :property_data :energy_strategy "Energy Strategy")
+         (bs/text-area-control cursor owner :property_data :monitoring_policy "Monitoring Policy")
+         (bs/text-area-control cursor owner :property_data :other_notes "Other Notes")]]]))))
 
 (defn back-to-projects [history]
   (fn [_ _]

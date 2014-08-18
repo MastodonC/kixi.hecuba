@@ -9,7 +9,8 @@
                  :selected nil
                  :editing false
                  :edited-row nil
-                 :adding-programme false}
+                 :adding-programme false
+                 :alert {}}
     :projects {:name     "Projects"
                :data     []
                :selected nil
@@ -19,7 +20,8 @@
     :properties {:name     "Properties"
                  :data     []
                  :selected nil
-                 :adding-property false}
+                 :adding-property false
+                 :alert {}}
     :property-details {:data {}}
     :measurements {:name     "Measurements"
                    :header   {:cols {:timestamp {:label "Timestamp"}
