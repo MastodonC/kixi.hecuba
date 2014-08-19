@@ -51,6 +51,8 @@
               :selected nil
               :editing false
               :row nil}
+    :profiles {:alert {}
+               :adding-profile false}
     :uploads []
     :downloads {:files []}
     :chart    {:property ""

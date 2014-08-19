@@ -112,6 +112,7 @@
                  :error-handler error-handler
                  :params resource}))))
 
+;; TODO remove data since it's not used.
 (defn put-resource
   ([data url resource handler]
     (put-resource data url resource handler

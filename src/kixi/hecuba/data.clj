@@ -38,3 +38,7 @@
   (if (seq v)
     (assoc m k (mapv json/encode v))
     m))
+
+(defn assoc-encode-list-update-if [m k v]
+  (if (seq v)
+    (assoc m k [+ (json/encode v)])))
