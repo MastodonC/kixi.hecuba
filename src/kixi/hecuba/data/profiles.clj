@@ -64,6 +64,7 @@
       (parse-list :window_sets)))
 
 (defn encode [profile]
+  (log/info "*************** profile: "(prn-str profile))
   (-> profile
       (assoc :id (:profile_id profile))
       (dissoc :profile_id)
@@ -144,7 +145,7 @@
       (s/validate InsertableProfile insertable-profile)
       (db/execute session (hayt/insert :profiles (hayt/values (encode insertable-profile)))))
     (catch Throwable t
-      (log/errorf t "Could not insert: %s" (pr-str profile))
+     ; (log/errorf t "Could not insert: %s" (pr-str profile))
       (throw t))))
 
 (defn update [session id profile]

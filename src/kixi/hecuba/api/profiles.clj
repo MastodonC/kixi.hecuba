@@ -131,9 +131,9 @@
               ;; test file is in examples/csv-upload/profiles.csv
               ;; curl command used:
               ;; curl -v -H "Content-Type: text/csv; charset=utf-8" -H "Accept: text/csv" -X POST -u "username:password" --data-binary "@profiles.csv" http://localhost:8010/4/entities/821e6367f385d82cc71b2afd9dc2df3b2ec5b81c/profiles/
-              (if (not= (:entity_id body) entity_id)
+              (if (not (every? #(= (:entity_id %) entity_id) body))
                 true
-                [false {:profiles body}]))
+                [false {:profiles (map sha1/add-profile-id body)}]))
       false)))
 
 (defn index-handle-ok [ctx]

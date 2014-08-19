@@ -33,7 +33,7 @@
 ;; Save form
 
 (defn post-form [data username role programmes projects]
-  (common/put-resource data (str "/4/usernames/" username)
+  (common/put-resource (str "/4/usernames/" username)
                        {:username username
                         :data {:roles #{role}
                                :programmes programmes

@@ -24,7 +24,7 @@
 
 (defn post-new-project [data owner project programme_id]
   (let [url  (str "/4/programmes/" programme_id "/projects/")]
-    (common/post-resource data url
+    (common/post-resource url
                           (assoc project :created_at (common/now->str)
                                  :programme_id programme_id)
                           (fn [_]
@@ -34,12 +34,12 @@
 
 (defn put-edited-project [data owner project programme_id project_id]
   (let [url (str "/4/programmes/" programme_id  "/projects/" project_id)]
-    (common/put-resource data url
-                          (assoc project :updated_at (common/now->str))
-                          (fn [_]
-                            (fetch-projects programme_id data)
-                            (om/update! data [:projects :editing] false))
-                          (error-handler data))))
+    (common/put-resource url
+                         (assoc project :updated_at (common/now->str))
+                         (fn [_]
+                           (fetch-projects programme_id data)
+                           (om/update! data [:projects :editing] false))
+                         (error-handler data))))
 
 (defn project-add-form [data programme_id]
   (fn [cursor owner]
