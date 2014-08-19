@@ -35,6 +35,6 @@
     m))
 
 (defn assoc-encode-list-if [m k v]
-  (if seq
+  (if (seq v)
     (assoc m k (mapv json/encode v))
     m))

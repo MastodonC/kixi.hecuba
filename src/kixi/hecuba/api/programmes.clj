@@ -44,7 +44,9 @@
     (log/debugf "Roles: %s Programmes: %s" roles programmes)
     (if (some #(isa? % ::sec/admin) roles)
       (map #(assoc % :editable true :admin true) items)
-      (editable-programmes (filter #(programmes (:programme_id %)) items) programmes roles))))
+      (editable-programmes (filter #(or
+                                     (= (:public_access %) "true")
+                                     (programmes (:programme_id %))) items) programmes roles))))
 
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]

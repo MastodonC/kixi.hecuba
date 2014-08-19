@@ -13,7 +13,7 @@
                  ;; Testing POST and GET data
                  [kixi/schema_gen "0.1.5" :exclusions [schema-contrib]]
                  [schema-contrib "0.1.3"]
-                 [kixi/amon-schema "0.1.11"]
+                 [kixi/amon-schema "0.1.12"]
                  [clj-http "1.0.0"]
 
                  ;; logging
@@ -71,8 +71,7 @@
 
                  [ankha "0.1.3"]
 
-                 [cc.qbits/alia "2.0.0-rc4" :exclusions [com.google.guava/guava org.flatland/useful]]
-                 [cc.qbits/hayt "2.0.0-beta4"]
+                 [cc.qbits/alia "2.1.0-rc2"]
                  ;; add lz4 to avoid startup warning.
                  [net.jpountz.lz4/lz4 "1.2.0"]
 

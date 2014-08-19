@@ -28,29 +28,72 @@
 
 ;; curl -v -H "Content-Type: application/json" -H 'Accept: application/edn' -X GET -u support-test@mastodonc.com:password 127.0.0.1:8010/4/entities/?q=TSB119
 
+;; from https://github.com/weavejester/medley/blob/master/src/medley/core.cljx Thx @weavejester
+(defn dissoc-in
+  "Dissociate a value in a nested assocative structure, identified by a sequence
+of keys. Any collections left empty by the operation will be dissociated from
+their containing structures."
+  [m ks]
+  (if-let [[k & ks] (seq ks)]
+    (if (seq ks)
+      (let [v (dissoc-in (get m k) ks)]
+        (if (empty? v)
+          (dissoc m k)
+          (assoc m k v)))
+      (dissoc m k))
+    m))
+
+(defn remove-private-data [entity]
+  (if-not (:editable entity)
+      (-> entity
+          (dissoc-in [:property_data :address_street])
+          (dissoc-in [:property_data :address_street_two])
+          (dissoc-in [:property_data :address_city])
+          (dissoc-in [:property_data :address_code])
+          (dissoc-in [:property_data :fuel_poverty])
+          (dissoc :documents)
+          (dissoc :notes))
+      entity))
+
+(defn editable? [programme_id project_id allowed-programmes allowed-projects roles]
+  (log/infof "editable? programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s"
+             programme_id project_id allowed-programmes allowed-projects roles)
+  (match [(has-admin? roles)
+          (has-programme-manager? roles)
+          (some #(= % programme_id) allowed-programmes)
+          (has-project-manager? roles)
+          (some #(= % project_id) allowed-projects)
+          (has-user? roles)]
+
+         [true _ _ _ _ _] true
+         [_ true true _ _ _] true
+         [_ _ _ true true _] true
+         :else false))
+
 (defn clean-entity
   "Get rid of the keys that we don't want the user to see."
   [entity]
   (-> entity
+      remove-private-data
       (dissoc :user_id)))
 
-(defn parse-entities [results editable?]
+(defn parse-entities [results allowed-programmes allowed-projects roles]
   (->> results
        esr/hits-from
+       (map #(update-in % [:_source :full_entity] assoc :editable (editable? (:programme_id %) (:project_id %) allowed-programmes allowed-projects roles)))
        (map #(-> % :_source :full_entity))
-       (map #(clean-entity %))
-       (map #(assoc % :editable editable?))))
+       (map #(clean-entity %))))
 
-;; TODO shoudl accept either a set of ids or a single id
+;; TODO should accept either a set of ids or a single id
 (defn search-filter [k ids]
   (let [should (mapv #(hash-map :term {k %}) ids)]
     {:bool {:must {}
-            :should should
+            :should (conj should {:term {:public_access "true"}})
             :must_not {}}}))
 
-(defmulti filter-entities (fn [programmes projects params store k editable? & project_id] k))
+(defmulti filter-entities (fn [programmes projects params store k roles & project_id] k))
 
-(defmethod filter-entities :programme_id [programmes _ params store k editable? & project_id]
+(defmethod filter-entities :programme_id [programmes _ params store k roles & project_id]
   (let [search-session (:search-session store)
         query-string   (or (:q params) "*")
         page-number    (or (:page params) 0)
@@ -60,13 +103,13 @@
                          (search-filter :programme_id programmes))
         results        (search/search-entities query-string filter page-number page-size search-session)
         total_hits     (esr/total-hits results)
-        parsed-results (parse-entities results editable?)]
+        parsed-results (parse-entities results programmes nil roles)]
 
     {:entities {:total_hits total_hits
                 :page page-number
                 :entities parsed-results}}))
 
-(defmethod filter-entities :project_id [_ projects params store k editable? & project_id]
+(defmethod filter-entities :project_id [_ projects params store k roles & project_id]
   (let [search-session (:search-session store)
         query-string   (or (:q params) "*")
         page-number    (or (:page params) 0)
@@ -76,13 +119,13 @@
                          (search-filter :project_id projects))
         results        (search/search-entities query-string filter page-number page-size search-session)
         total_hits     (esr/total-hits results)
-        parsed-results (parse-entities results editable?)]
+        parsed-results (parse-entities results nil projects roles)]
 
     {:entities {:total_hits total_hits
                 :page page-number
                 :entities parsed-results}}))
 
-(defmethod filter-entities :default [_ _ params store k editable? & project_id]
+(defmethod filter-entities :default [_ _ params store k roles & project_id]
   (let [search-session (:search-session store)
         query-string   (or (:q params) "*") ;; need to add route params in as programme_id:<foo> project_id:<foo>
         page-number    (or (:page params) 0)
@@ -92,7 +135,7 @@
                            (search/search-entities query-string filter page-number page-size search-session))
                          (search/search-entities query-string page-number page-size search-session))
         total_hits     (esr/total-hits results)
-        parsed-results (parse-entities results editable?)]
+        parsed-results (parse-entities results nil nil roles)]
 
     {:entities {:total_hits total_hits
                 :page page-number
@@ -106,10 +149,10 @@
           (has-user? roles)
           request-method]
 
-         [true _ _ _ :get] [true (filter-entities programmes projects params store nil true)]
-         [_ true _ _ :get] [true (filter-entities programmes projects params store :programme_id true)]
-         [_ _ true _ :get] [true (filter-entities programmes projects params store :project_id true)]
-         [_ _ _ true :get] [true (filter-entities programmes projects params store :project_id false)]
+         [true _ _ _ :get] [true (filter-entities programmes projects params store nil roles)]
+         [_ true _ _ :get] [true (filter-entities programmes projects params store :programme_id roles)]
+         [_ _ true _ :get] [true (filter-entities programmes projects params store :project_id roles)]
+         [_ _ _ true :get] [true (filter-entities programmes projects params store :project_id roles)]
          :else false))
 
 ;; TODO Implement a better way of handling different requests
@@ -128,11 +171,7 @@
             [true _ _ _ _ _ :post] true
             [_ true true _ _ _ :post] true
             [_ _ _ true true _ :post] true
-            [true _ _ _ _ _ :get] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
-            [_ true true _ _ _ :get] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
-            [_ _ _ true true _ :get] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
-            [_ _ true _ _ true :get] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
-            [_ _ _ _ true true :get] [true (filter-entities allowed-programmes allowed-projects params store nil true project-id)]
+            [_ _ _ _ _ _ :get] [true (filter-entities allowed-programmes allowed-projects params store nil roles project-id)]
             :else false))
   ([programme-id project-id allowed-programmes allowed-projects roles request-method]
       (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
@@ -258,7 +297,7 @@
           programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
       (if (and project_id programme_id)
         [(allowed?* programme_id project_id programmes projects roles request-method)
-         {:editable (allowed?* programme_id project_id programmes projects roles :put)}]
+         {:editable (editable? programme_id project_id programmes projects roles)}]
         true))))
 
 (defn resource-exists? [store ctx]
@@ -274,7 +313,8 @@
            route-params (:route-params request)
            clean-item   (-> item
                             clean-entity
-                            (cond-> editable (assoc :editable editable)))
+                            (cond-> editable (assoc :editable editable))
+                            remove-private-data)
            formatted-item (if (= "text/csv" mime)
                             (let [exploded-item (parser/explode-and-sort-by-schema clean-item es/entity-schema)]
                               exploded-item)
@@ -285,17 +325,18 @@
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [request entity]} ctx
           username  (sec/session-username (-> ctx :request :session))]
-      (when entity
-        (entities/update session (:entity_id entity) (assoc entity :user_id username))
-        (-> entity
-            (search/searchable-entity session)
-            (search/->elasticsearch (:search-session store)))))))
+      (if-let [entity_id (:entity_id entity)]
+        (do (entities/update session entity_id (assoc entity :user_id username))
+            (-> (entities/get-by-id session entity_id)
+                (search/searchable-entity session)
+                (search/->elasticsearch (:search-session store))))
+        (throw (Exception. "Missing entity_id.")))))
 
-(defn resource-delete! [store ctx]
-  (db/with-session [session (:hecuba-session store)]
-    (let [entity_id  (get-in ctx [::item :entity_id])]
-      (entities/delete entity_id session)
-      (search/delete-by-id entity_id (:search-session store)))))
+  (defn resource-delete! [store ctx]
+    (db/with-session [session (:hecuba-session store)]
+      (let [entity_id  (get-in ctx [::item :entity_id])]
+        (entities/delete entity_id session)
+        (search/delete-by-id entity_id (:search-session store))))))
 
 (defn resource-respond-with-entity [ctx]
   (let [request (:request ctx)
