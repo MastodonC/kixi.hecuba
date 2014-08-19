@@ -171,7 +171,6 @@
 (defn get-entities-having-location [session]
   (let [data
         (->> (db/execute session (hayt/select :entities) (hayt/columns [:id :name :property_data]))
-             (map (fn [e] (update-in e [:property_data] #(json/decode % keyword))))
-             (map encode)
+             (map decode)
              (keep has-location?))]
     data))
