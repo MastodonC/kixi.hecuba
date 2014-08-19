@@ -108,7 +108,8 @@
       (try
         (let [data (->> in
                         (csv/read-csv)
-                        (parser/csv->maps ps/profile-schema))]
+                        (parser/csv->maps ps/profile-schema)
+                        (map sha1/add-profile-id))]
           (if (and data
                    (every? identity (map (fn [d] (let [e (:entity_id d)] (= e entity_id))) data)))
             [false {:profiles data}]
@@ -124,7 +125,7 @@
     (case request-method
       :post (let [decoded-body (decode-body request)
                   body         (if (= "text/csv" (:content-type request))
-                                 (parser/csv->maps decoded-body ps/profile-schema)
+                                 (parser/csv->maps ps/profile-schema decoded-body)
                                  [decoded-body])]
               ;; TODO It's not working as body is a seq and we can post to multiple entities
               ;; test file is in examples/csv-upload/profiles.csv
@@ -222,16 +223,12 @@
 
 (defn store-profile [profile username store]
   (db/with-session [session (:hecuba-session store)]
-    (let [{:keys [entity_id timestamp]} profile
-          profile_id (str (:entity_id profile) "-" (get-in profile [:profile_data :event_type]))]
-      (when (and entity_id timestamp)
-        ;; FIXME This might be doing more reading than it should
-        (let [entity (search/get-by-id entity_id (:search-session store))]
-          (when entity
-            (profiles/update session profile_id (assoc profile :user_id username))
-            (-> (search/searchable-entity-by-id entity_id session)
-                (search/->elasticsearch (:search-session store)))
-            {:profile_id profile_id}))))))
+    (let [{:keys [entity_id]} profile]
+      (when entity_id
+        (profiles/insert session (assoc profile :user_id username))
+        (-> (search/searchable-entity-by-id entity_id session)
+            (search/->elasticsearch (:search-session store)))
+        {:profile_id (:profile_id profile)}))))
 
 (defn index-post! [store ctx]
   (let [{:keys [request profiles]} ctx

@@ -12,6 +12,7 @@
    [kixi.hecuba.web-paths :as p]
    [kixi.hecuba.data.users :as users]
    [kixi.hecuba.data.projects :as projects]
+   [kixi.hecuba.data.programmes :as programmes]
    [schema.core :as s]
    [kixi.amon-schema :as schema]))
 
@@ -66,13 +67,15 @@
             (assoc % :editable editable)
             %)) projects))
 
-(defn items->authz-items [session items]
-  (let [{:keys [roles programmes projects]} (sec/current-authentication session)]
+(defn items->authz-items [session programme items]
+  (let [{:keys [roles programmes projects]} (sec/current-authentication session)
+        public_access (= "true" (:public_access programme))]
     (log/debugf "Roles: %s Programmes: %s Projects: %s" roles programmes projects)
     (if (some #(isa? % ::sec/admin) roles)
       (map #(assoc % :editable true) items)
-      (editable-projects (filter #(or (programmes (:programme_id %))
-                                      (projects (:id %)))
+      (editable-projects (filter #(or public_access
+                                      (programmes (:programme_id %))
+                                      (projects (:project_id %)))
                                  items) programmes projects roles))))
 
 (defn index-malformed? [ctx]
@@ -90,9 +93,10 @@
     (let [request      (:request ctx)
           web-session  (-> ctx :request :session)
           programme_id (-> (:route-params request) :programme_id)
+          programme (programmes/get-by-id session programme_id)
           items        (projects/get-all session programme_id)]
       (->> items
-           (items->authz-items web-session)
+           (items->authz-items web-session programme)
            (map #(-> %
                      (assoc :href (format programme-projects-resource (:programme_id %) (:project_id %))
                             :properties (format project-properties-index (:project_id %)))))

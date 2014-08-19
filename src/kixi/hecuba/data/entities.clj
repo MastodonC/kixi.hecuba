@@ -34,17 +34,17 @@
                              (map #(clojure.string/replace % ".jpg" ".png"))))
     property_data))
 
-(defn encode-property-data [property_data]
-  (-> property_data
-   encode-tech-icons))
+(defn encode-map-vals [m]
+  (into {} (map (fn [[k v]] [k (json/encode v)]) m)))
 
 (defn encode [entity]
   (-> entity
       (assoc :id (:entity_id entity))
       (dissoc entity :device_ids :entity_id)
-      (cond-> (get-in entity [:notes]) (update-stringified-list :notes)
-              (get-in entity [:metering_point_ids]) (update-in [:metering_point_ids] str)
-              (get-in entity [:property_data]) (update-in [:property_data] encode-property-data))))
+      (cond-> (:notes entity) (update-stringified-list :notes)
+              (:metering_point_ids entity) (update-stringified-list :metering_point_ids)
+              (:devices entity) (assoc :devices (encode-map-vals (:devices entity)))
+              (:property_data entity) (assoc :property_data (json/encode (:property_data entity))))))
 
 (defn decode-list [entity key]
   (->> (get entity key [])
@@ -118,9 +118,9 @@
    (s/optional-key :name) s/Str
    (s/optional-key :notes) [s/Str]
    (s/optional-key :photos) [s/Str]
-   :project_id s/Str
-   :property_code s/Str
-   (s/optional-key :property_data) {s/Any s/Any}
+   (s/optional-key :project_id) s/Str
+   (s/optional-key :property_code) s/Str
+   (s/optional-key :property_data) {s/Keyword s/Str}
    (s/optional-key :retrofit_completion_date) s/Str ;; sc/ISO-Date-Time
    :user_id s/Str})
 

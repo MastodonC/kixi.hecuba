@@ -113,8 +113,8 @@
 (defn extract-entities-and-profiles [rows]
   ;; TODO filter entities by looking for CREATION event
   ;;
-  {:entities (filter #(entity? %) (parser/csv->maps rows entity-schema))
-   :profiles (filter #(profile? %) (parser/csv->maps rows ps/profile-schema))})
+  {:entities (->> rows (parser/csv->maps entity-schema) (filter #(entity? %)))
+   :profiles (->> rows (parser/csv->maps ps/profile-schema) (filter #(profile? %)))})
 
 (defn entity-validation-failures [entity project_id]
   (if-let [validation-errors (s/check schema/Entity entity)]
@@ -182,17 +182,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Puts to an entity resource
 (defn extract-entity [rows]
-  (parser/csv->maps rows entity-schema))
+  (parser/csv->maps entity-schema rows))
 
 (defn malformed-entity-put? [entity entity_id]
-  (let [validation-failures (s/check schema/Entity entity)
-        wrong-entity (not= (sha1/gen-key :entity entity) entity_id)]
-    (if (or (seq validation-failures)
-            wrong-entity)
+  (let [validation-failures (s/check schema/Entity entity)]
+    (if validation-failures
       [true {:entity entity
              :malformed-msg "Uploaded data validation failed"
-             :errors validation-failures
-             :wrong-entity wrong-entity}]
+             :errors (su/validation-error-explain validation-failures)}]
       [false {:entity entity}])))
 
 (defn malformed-entity-csv-put? [entity entity_id]

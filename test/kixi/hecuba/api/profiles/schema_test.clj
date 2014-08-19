@@ -220,4 +220,4 @@ timestamp,2011-11-17 09:40:48+0000")
 
 (deftest parse-profile-test
   (testing "Check that parse profile matches profile schema."
-    (is (s/validate schema/Profile (first (parser/csv->maps (csv/read-csv csv-profile) profile-schema))))))
+    (is (s/validate schema/Profile (first (parser/csv->maps profile-schema (csv/read-csv csv-profile)))))))

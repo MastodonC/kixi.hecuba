@@ -36,7 +36,7 @@
 
 (defn save-form [data property-details owner property_id project_id]
   (let [property-data (merge (:property_data @property-details) (om/get-state owner [:property_data]))]
-    (post-resource data property_id {:property_data property-data} project_id)
+    (post-resource data property_id {:entity_id property_id :property_data property-data} project_id)
     (om/set-state! owner :editing false)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

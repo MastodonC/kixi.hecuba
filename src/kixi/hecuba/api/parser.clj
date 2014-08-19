@@ -157,7 +157,7 @@
   (or (.startsWith c "values")
       (.startsWith c "keys")))
 
-(defn csv->maps [rows parse-schema]
+(defn csv->maps [parse-schema rows]
   (try
     (let [[k & data] (->> rows
                           rows->columns
