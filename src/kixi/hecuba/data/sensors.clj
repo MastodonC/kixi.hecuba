@@ -84,10 +84,12 @@
 
 (defn insert [session sensor]
   (s/validate Sensor sensor)
-  (db/execute session (hayt/insert :sensors
-                                   (hayt/values (encode sensor))))
-  (db/execute session (hayt/insert :sensor_metadata
-                                   (hayt/values {:device_id (:device_id sensor) :type (:type sensor)}))))
+  (let [encoded-sensor (encode sensor)]
+    (log/debugf "Inserting sensor: %s" encoded-sensor)
+    (db/execute session (hayt/insert :sensors
+                                     (hayt/values encoded-sensor)))
+    (db/execute session (hayt/insert :sensor_metadata
+                                     (hayt/values {:device_id (:device_id sensor) :type (:type sensor)})))))
 
 (defn update-user-metadata [sensor]
   ;; sensor has primary keys removed by now

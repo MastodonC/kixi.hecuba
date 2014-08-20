@@ -159,7 +159,7 @@
   (let [sensor-type (:type cursor)]
     [:li.list-group-item
      (static-text cursor :type "Type")
-     (text-input-control (:alias cursor) owner [:sensors sensor-type]  :name "Alias")
+     (text-input-control cursor owner [:sensors sensor-type]  :alias "Alias")
      (text-input-control cursor owner [:sensors sensor-type] :unit "Unit")
      (text-input-control cursor owner [:sensors sensor-type] :period "Period")
      (text-input-control cursor owner [:sensors sensor-type] :resolution "Resolution")
@@ -270,7 +270,7 @@
             [:td metadata]
             [:td name]
             [:td (privacy-label privacy)]
-            [:td (count (:readings cursor))]]))))))
+            [:td (count (filter #(not (:synthetic %)) (:readings cursor)))]]))))))
 
 
 (defn devices-table [editing-chan data]
