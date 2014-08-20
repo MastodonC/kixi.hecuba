@@ -122,9 +122,9 @@
             (text-area-control property_data state owner :monitoring_policy "Monitoring Policy")
             (text-area-control property_data state owner :other_notes "Other Notes")]
            [:div.col-md-2
-            (for [uri (:photos property-details)]
+            (for [photo (:photos property-details)]
               [:p [:img.img-thumbnail.tmg-responsive
-                   {:src uri}]])]
+                   {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" (:path photo))}]])]
            [:div.col-md-4
             (for [ti (:technology_icons property_data)]
               [:img.tmg-responsive {:src ti :width 80 :height 80}])]]])))))
