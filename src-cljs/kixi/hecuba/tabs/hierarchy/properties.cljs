@@ -8,7 +8,7 @@
    [kixi.hecuba.tabs.hierarchy.data :refer (fetch-properties)]
    [kixi.hecuba.tabs.slugs :as slugs]
    [kixi.hecuba.bootstrap  :as bs]
-   [kixi.hecuba.common :refer (log) :as common]
+   [kixi.hecuba.common :refer (log assoc-if) :as common]
    [kixi.hecuba.widgets.fileupload :as file]
    [sablono.core :as html :refer-macros [html]]))
 
@@ -53,9 +53,8 @@
                      :onClick (fn [_] (let [property      (om/get-state owner :property)
                                             property_data (om/get-state owner :property_data)]
                                         (if (valid-property? property)
-                                          (post-new-property data owner (assoc property
-                                                                          :property_data property_data
-                                                                          :project_id project_id)
+                                          (post-new-property data owner (-> (assoc property :project_id project_id)
+                                                                            (assoc-if :property_data property_data))
                                                              project_id)
                                           (om/update! data [:properties :alert] {:status true
                                                                                  :class "alert alert-danger"
