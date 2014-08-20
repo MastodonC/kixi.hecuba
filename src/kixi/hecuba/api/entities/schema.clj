@@ -119,7 +119,7 @@
 (defn entity-validation-failures [entity project_id]
   (if-let [validation-errors (s/check schema/Entity entity)]
     (do
-      (log/debugf "Entity %s validation errors: %s" (pr-str entity) validation-errors)
+      (log/debugf "Entity: %s validation errors: %s" (pr-str entity) (su/validation-error-explain validation-errors))
       {:received-entity entity
        :proposed-project_id project_id
        :validation-errors (su/validation-error-explain validation-errors)})

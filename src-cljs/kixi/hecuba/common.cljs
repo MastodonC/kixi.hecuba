@@ -130,3 +130,8 @@
      (when name [:p "Name: " name])
      (when latitude [:p "Latitude: " latitude])
      (when longitude [:p "Longitude: " longitude])]))
+
+(defn assoc-if [m k v]
+  (if v
+    (assoc m k v)
+    m))

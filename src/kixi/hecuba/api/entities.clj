@@ -206,7 +206,8 @@ their containing structures."
   (util/render-item ctx (:entities ctx)))
 
 (defn index-handle-malformed [ctx]
-  (util/render-item ctx (:malformed-msg ctx)))
+  (let [content-type (-> ctx :request :content-type)]
+    (util/render-item (assoc-in ctx [:representation :media-type] content-type) (:malformed-msg ctx))))
 
 (defn index-malformed? [ctx]
   (try
