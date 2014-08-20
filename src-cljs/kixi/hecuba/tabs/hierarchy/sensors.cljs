@@ -97,7 +97,7 @@
            (static-text row :device_id "Device ID")
            (static-text row :type "Type")
            (text-input-control (:parent-device row) owner :sensor :name "Parent Device Name")
-           (text-input-control (:alias row) owner :sensor  :name "Alias")
+           (text-input-control row owner :sensor :alias "Alias")
            (text-input-control row owner :sensor :unit "Unit")
            (text-input-control row owner :sensor :period "Period")
            (text-input-control row owner :sensor :resolution "Resolution")
