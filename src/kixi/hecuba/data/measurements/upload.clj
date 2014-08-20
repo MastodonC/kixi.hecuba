@@ -79,12 +79,12 @@
     (db/with-session [session (:hecuba-session store)]
       (let [entity                   (entities/get-by-id session entity_id)
             devices                  (devices/get-devices session entity_id)
-            sensors                  (sensors/get-sensors-by-device_ids (map :id devices) session)
+            sensors                  (sensors/get-sensors-by-device_ids (map :device_id devices) session)
             aliases                  (map (partial str/join \|) (rest (transpose header-rows)))
             sensors-in-alias-order   (for [a aliases s sensors :when (= a (:alias s))] s)
             ds-and-ss-in-alias-order (for [s sensors-in-alias-order
                                            d devices
-                                           :when (= (:id d) (:device_id s))]
+                                           :when (= (:device_id d) (:device_id s))]
                                        (merge d s))
             header (map relocate-user-id item ds-and-ss-in-alias-order)]
         (with-meta
