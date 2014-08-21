@@ -26,6 +26,11 @@
 
 (def full-header-row-count 12)
 
+(def valid-date-formatters
+  (concat [(tf/formatter "dd/MM/yyyy HH:mm")
+           (tf/formatter "yyyy/MM/dd HH:mm")]
+          (vals tf/formatters)))
+
 (defn merge-meta [obj meta]
   (with-meta obj (merge (meta obj) meta)))
 
@@ -50,12 +55,20 @@
 (defn relocate-user-id [{:keys [auth] :as item} x]
   (assoc x :user_id (:id auth)))
 
+(defn auto-date-parser []
+  (fn [s]
+    (first
+      (for [f valid-date-formatters
+            :let [d (try (tf/parse f s) (catch Exception _ nil))]
+            :when d] d))))
+
 (defmulti get-header #'identify-file-type)
 
 (defmethod get-header :full [_ item]
   (let [{:keys [dir filename date-format]} item
-        formatter                          (tf/formatter date-format)
-        date-parser                        (partial tf/parse formatter)]
+        date-parser                        (if date-format
+                                             (partial tf/parse (tf/formatter date-format))
+                                             auto-date-parser)]
     (with-meta
       (with-open [in (io/reader (io/file dir filename))]
         (->> in
@@ -71,10 +84,12 @@
        ::date-parser date-parser})))
 
 (defmethod get-header :with-aliases [store item]
-  (let [{:keys [dir filename entity_id]} item
+  (let [{:keys [dir filename entity_id date-format]} item
         blank-row?                       (fn [cells] (every? #(re-matches #"\s*" %) cells))
-        formatter                        (tf/formatter (:date-format item))
-        date-parser                      (fn [s] (try (tf/parse formatter s) (catch Exception _ nil)))
+        date-parser                      (if date-format
+                                           (let [formatter (tf/formatter date-format)]
+                                             (fn [s] (try (tf/parse formatter s) (catch Exception _ nil))))
+                                           auto-date-parser)
         invalid-date?                    (complement date-parser)
         header-rows                      (with-open [in (io/reader (io/file dir filename))]
                                            (->> in
