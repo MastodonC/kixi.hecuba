@@ -186,6 +186,11 @@
           response (profiles/delete session profile_id)]
       (empty? response))))
 
+(defn respond-with-entity? [ctx]
+  (let [request        (:request ctx)
+        method         (:request-method request)]
+    (if (= :put method) true false)))
+
 (defn resource-put! [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)]
@@ -200,7 +205,7 @@
           (profiles/insert session (assoc body :user_id username))
           (-> (search/searchable-entity-by-id entity_id session)
               (search/->elasticsearch (:search-session store)))
-          (ring-response {:status 200 :body "OK"})) ;;TODO investigate why it returns 204
+          {::item body})
         (ring-response {:status 404 :body "Please provide valid entity_id and timestamp"})))))
 
 (defn resource-handle-ok [store ctx]
@@ -249,6 +254,7 @@
   :allowed? (resource-allowed? store)
   :exists? (partial resource-exists? store)
   :delete-enacted? (partial resource-delete-enacted? store)
+  :respond-with-entity? respond-with-entity?
   :new? (constantly false)
   :can-put-to-missing? (constantly false)
   :put! (partial resource-put! store)
