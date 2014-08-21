@@ -452,7 +452,7 @@ CREATE TABLE users (
   password text,
   username text,
   reset_uuid text,
-  reset_timestamp timestmap,
+  reset_timestamp timestamp,
   PRIMARY KEY (id)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
