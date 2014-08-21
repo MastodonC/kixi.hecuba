@@ -15,7 +15,8 @@
             [kixi.hecuba.common :refer (log)]
             [kixi.hecuba.tabs.hierarchy.data :refer (fetch-properties)]
             [ajax.core :refer [GET PUT]]
-            [kixi.hecuba.widgets.fileupload :as file]))
+            [kixi.hecuba.widgets.fileupload :as file]
+            [kixi.hecuba.widgets.measurementsupload :as measurementsupload]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Property Details Helpers
@@ -269,7 +270,7 @@
                     [:div
                      [:h4 "Upload measurements CSV"]
                      (let [div-id "measurements-upload"]
-                       (om/build (file/file-upload (str "/4/measurements/for-entity/" property-id "/")
+                       (om/build (measurementsupload/measurements-upload (str "/4/measurements/for-entity/" property-id "/")
                                                    div-id)
                                  nil {:opts {:method "POST"}}))]]]
                   ;; Upload profile data
