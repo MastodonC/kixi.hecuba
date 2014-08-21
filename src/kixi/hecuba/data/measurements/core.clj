@@ -52,4 +52,6 @@
       (finally (ioplus/delete! status-file)))))
 
 (defn transpose [xs]
-  (apply map vector xs))
+  (if (seq xs)
+    (apply map vector xs)
+    []))
