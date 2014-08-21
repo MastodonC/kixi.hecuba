@@ -4,11 +4,11 @@
               [kixi.hecuba.widgets.fileupload :refer (alert upload)]))
 
 ;; FIXME bit of a bodge here. hard coded date formats. Perhaps these should be returned from the server.
-(def date-formats [{:display "dd/mm/yyyy hh:mm" :format "dd'/'mm'/'yyyy"} ;; defaults to first
-                   {:display "dd-mm-yyyy hh:mm" :format "dd'-'mm'-'yyyy"}
-                   {:display "yyyy/mm/dd hh:mm" :format "yyyy'/'mm'/'dd"}
-                   {:display "yyyy-mm-dd hh:mm" :format "yyyy'-'mm'-'dd"}
-                   {:display "yyyy-mm-dd hh:mm" :format "yyyy'-'mm'-'dd"}])
+(def date-formats [{:display "dd/mm/yyyy hh:mm" :format "dd/MM/yyyy HH:mm"} ;; defaults to first
+                   {:display "dd-mm-yyyy hh:mm" :format "dd-MM-yyyy HH:mm"}
+                   {:display "yyyy/mm/dd hh:mm" :format "yyyy/MM/dd HH:mm"}
+                   {:display "yyyy-mm-dd hh:mm" :format "yyyy-MM-dd HH:mm"}
+                   {:display "yyyy-mm-dd hh:mm:ss" :format "yyyy-MM-dd HH:mm:ss"}])
 
 (defn measurements-upload [url id]
   (fn [data owner {:keys [method]}]

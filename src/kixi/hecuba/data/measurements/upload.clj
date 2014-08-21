@@ -53,7 +53,9 @@
 (defmulti get-header #'identify-file-type)
 
 (defmethod get-header :full [_ item]
-  (let [{:keys [dir filename]} item]
+  (let [{:keys [dir filename date-format]} item
+        formatter                          (tf/formatter date-format)
+        date-parser                        (partial tf/parse formatter)]
     (with-meta
       (with-open [in (io/reader (io/file dir filename))]
         (->> in
@@ -65,17 +67,21 @@
              (map (partial relocate-user-id item))
              (doall)))
       {::row-count full-header-row-count
-       ::update-devices-and-sensors? true})))
+       ::update-devices-and-sensors? true
+       ::date-parser date-parser})))
 
 (defmethod get-header :with-aliases [store item]
   (let [{:keys [dir filename entity_id]} item
-        blank-row? (fn [cells] (every? #(re-matches #"\s*" %) cells))
-        header-rows   (with-open [in (io/reader (io/file dir filename))]
-                        (->> in
-                             (csv/read-csv)
-                             (take-while (complement (comp tf/parse first)))
-                             (remove blank-row?)
-                             (doall)))]
+        blank-row?                       (fn [cells] (every? #(re-matches #"\s*" %) cells))
+        formatter                        (tf/formatter (:date-format item))
+        date-parser                      (fn [s] (try (tf/parse formatter s) (catch Exception _ nil)))
+        invalid-date?                    (complement date-parser)
+        header-rows                      (with-open [in (io/reader (io/file dir filename))]
+                                           (->> in
+                                                (csv/read-csv)
+                                                (take-while (comp invalid-date? first))
+                                                (remove blank-row?)
+                                                (doall)))]
     (db/with-session [session (:hecuba-session store)]
       (let [entity                   (entities/get-by-id session entity_id)
             devices                  (devices/get-devices session entity_id)
@@ -90,7 +96,9 @@
         (with-meta
           header
           {::row-count (count header-rows)
-           ::update-devices-and-sensors? false})))))
+           ::update-devices-and-sensors? false
+           ::date-parser date-parser
+           })))))
 
 (defn seq-of-seq-of-seqs->seq-of-seq-of-maps [header xs]
   (map #(map (partial zipmap header) %) xs))
@@ -101,8 +109,8 @@
        (transpose (map rest xs))))
 
 ;; TODO - this is copied from api.measurements.
-(defn prepare-measurement [m sensor]
-  (let [t  (tc/to-date (tf/parse (:timestamp m)))]
+(defn prepare-measurement [m sensor date-parser]
+  (let [t  (tc/to-date (date-parser (:timestamp m)))]
     {:device_id        (:device_id sensor)
      :type             (:type sensor)
      :timestamp        t
@@ -220,10 +228,10 @@
              (contains? x :device-error)
              (contains? x :sensor-error)))))
 
-(defn process-column [store page-size update-devices-and-sensors? device-and-sensor measurements ]
+(defn process-column [store page-size update-devices-and-sensors? date-parser device-and-sensor measurements]
   (let [[device sensor :as ds] (split-device-and-sensor device-and-sensor)
         validated-measurements (map #(-> %
-                                         (prepare-measurement sensor)
+                                         (prepare-measurement sensor date-parser)
                                          (v/validate sensor))
                                     measurements)]
 
@@ -251,10 +259,10 @@
 
 (defn- parse-file-to-db [store header in-file ]
   (with-open [in (io/reader in-file)]
-    (let [{:keys [::row-count ::update-devices-and-sensors?]} (meta header)
+    (let [{:keys [::row-count ::update-devices-and-sensors? ::date-parser]} (meta header)
           data      (get-data row-count in)
           page-size 10]
-      (dorun (map (partial process-column store page-size update-devices-and-sensors?) header data))
+      (dorun (map (partial process-column store page-size update-devices-and-sensors? date-parser) header data))
       (when-let [errors (not-empty (parse-errors header))]
         (throw (ex-info "Errors found" errors))))))
 
