@@ -15,6 +15,8 @@
       ;; id text,
       ;; airflow_measurements list<text>,
       (parse-list :airflow_measurements)
+      ;; biomasses list<text>
+      (parse-list :biomasses)
       ;; chps list<text>,
       (parse-list :chps)
       ;; conservatories list<text>,
@@ -148,8 +150,7 @@
 (defn update [session id profile]
   (try
     (let [insertable-profile (su/select-keys-by-schema profile InsertableProfile)]
-      (s/validate InsertableProfile insertable-profile)
-      (db/execute session (hayt/update :profiles (hayt/set-columns (dissoc (encode profile) :id))
+      (db/execute session (hayt/update :profiles (hayt/set-columns (dissoc (encode insertable-profile) :id))
                                        (hayt/where [[= :id id]]))))
     (catch Throwable t
       (log/errorf t "Could not update: %s" (pr-str profile))

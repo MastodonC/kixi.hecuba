@@ -186,6 +186,11 @@
           response (profiles/delete session profile_id)]
       (empty? response))))
 
+(defn respond-with-entity? [ctx]
+  (let [request        (:request ctx)
+        method         (:request-method request)]
+    (if (= :put method) true false)))
+
 (defn resource-put! [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)]
@@ -197,9 +202,10 @@
                          decoded-body)
               {:keys [entity_id profile_id]} item
               username   (sec/session-username (-> ctx :request :session))]
-          (profiles/insert session (assoc body :user_id username :profile_id profile_id))
+          (profiles/insert session (assoc body :user_id username))
           (-> (search/searchable-entity-by-id entity_id session)
-              (search/->elasticsearch (:search-session store))))
+              (search/->elasticsearch (:search-session store)))
+          {::item body})
         (ring-response {:status 404 :body "Please provide valid entity_id and timestamp"})))))
 
 (defn resource-handle-ok [store ctx]
@@ -213,13 +219,6 @@
                            exploded-item)
                          userless-item)]
     (util/render-item ctx formatted-item)))
-
-(defn resource-respond-with-entity [ctx]
-  (let [request (:request ctx)
-        method  (:request-method request)]
-    (cond
-     (= method :delete) false
-      :else true)))
 
 (defn store-profile [profile username store]
   (db/with-session [session (:hecuba-session store)]
@@ -249,13 +248,13 @@
 
 (defresource resource [store]
   :allowed-methods #{:get :delete :put}
-  :available-media-types #{"text/csv" "application/json"}
-  :known-content-type? #{"text/csv" "application/json"}
+  :available-media-types #{"text/csv" "application/json" "application/edn"}
+  :known-content-type? #{"text/csv" "application/json" "application/edn"}
   :authorized? (authorized? store)
   :allowed? (resource-allowed? store)
   :exists? (partial resource-exists? store)
   :delete-enacted? (partial resource-delete-enacted? store)
-  :respond-with-entity? resource-respond-with-entity
+  :respond-with-entity? respond-with-entity?
   :new? (constantly false)
   :can-put-to-missing? (constantly false)
   :put! (partial resource-put! store)
