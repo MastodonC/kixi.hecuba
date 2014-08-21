@@ -45,7 +45,7 @@
                      (hayt/where [[= :id username]])))))
   ([store name username password roles]
      (add-user! store name username password roles #{} #{})))
-;; (kixi.hecuba.security/add-user! (:store system) "support@example.com" "<password>" #{:kixi.hecuba.security/super-admin})
+;; (kixi.hecuba.security/add-user! (:store system) "<YOUR NAME>" "support@example.com" "<password>" #{:kixi.hecuba.security/super-admin})
 
 ;; FIXME We should be using k.h.d.users for queries now
 (defn get-user [store]
