@@ -4,10 +4,11 @@
               [kixi.hecuba.widgets.fileupload :refer (alert upload)]))
 
 ;; FIXME bit of a bodge here. hard coded date formats. Perhaps these should be returned from the server.
-(def date-formats [{:display "dd/mm/yyyy hh:mm" :format "dd/MM/yyyy HH:mm"} ;; defaults to first
-                   {:display "dd-mm-yyyy hh:mm" :format "dd-MM-yyyy HH:mm"}
-                   {:display "yyyy/mm/dd hh:mm" :format "yyyy/MM/dd HH:mm"}
-                   {:display "yyyy-mm-dd hh:mm" :format "yyyy-MM-dd HH:mm"}
+(def date-formats [{:display "automatic" :format ""} ;; defaults to first
+                   {:display "dd/mm/yyyy hh:mm"    :format "dd/MM/yyyy HH:mm"}
+                   {:display "dd-mm-yyyy hh:mm"    :format "dd-MM-yyyy HH:mm"}
+                   {:display "yyyy/mm/dd hh:mm"    :format "yyyy/MM/dd HH:mm"}
+                   {:display "yyyy-mm-dd hh:mm"    :format "yyyy-MM-dd HH:mm"}
                    {:display "yyyy-mm-dd hh:mm:ss" :format "yyyy-MM-dd HH:mm:ss"}])
 
 (defn measurements-upload [url id]
@@ -41,32 +42,17 @@
                    (= :failure status)
                    (str id "-failure"))
 
-            [:div
-             [:form {:role "form" :id id :enc-type "multipart/form-data"}
-              [:div.form-group
-               [:div.dropdown
-                [:button {:class "btn btn-default dropdown-toggle"
-                          :type "button"
-                          :id "dateformatMenu1"
-                          :title "Date Format"
-                          :data-toggle "dropdown"}
-                 (:display default-date-format)
-                 [:span.caret.pull-right]]
-                [:label {:for "dateformatMenu1"} "Date Format"]
-                [:ul.dropdown-menu {:role "menu"
-                                    :aria-labelledby "dateformatMenu1"}
-                 (for [item date-formats]
-                   [:li {:role "presentation"}
-                    [:a {:role "menuitem" :tab-index "-1" :href "#"
-                         :onClick (fn [e]
-                                    (.preventDefault e)
-                                    (println "hidden-id:" hidden-id)
-                                    (aset (.getElementById js/document hidden-id) "value" (:format item))
-                                    false)} (:display item)]])]] [:input {:type "file" :name "data"
-                 :title "Browse files"}]
-               [:input {:type "hidden" :name "dateformat" :id hidden-id :value (:format default-date-format)}]]
-
-              [:button {:type "button"
-                        :class "btn btn-primary"
-                        :onClick (fn [_] (upload owner (.getElementById js/document id) url method))}
-               "Upload"]]]]))))))
+            [:form {:role "form" :id id :enc-type "multipart/form-data"}
+             [:div.form-group
+              [:label {:for "dateformat"} "Date Format"]
+              [:select.form-control {:name "dateformat" :id "dateformat"}
+               (for [item date-formats]
+                 [:option {:value (:format item)}
+                  (:display item)])]]
+             [:div.form-group
+              [:label {:for "file"} "File Input"]
+              [:input {:type "file" :id "file" :name "data" :title "Browse files"}]]
+             [:button {:type "button"
+                       :class "btn btn-primary"
+                       :onClick (fn [_] (upload owner (.getElementById js/document id) url method))}
+              "Upload"]]]))))))

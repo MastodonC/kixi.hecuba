@@ -55,18 +55,17 @@
 (defn relocate-user-id [{:keys [auth] :as item} x]
   (assoc x :user_id (:id auth)))
 
-(defn auto-date-parser []
-  (fn [s]
-    (first
-      (for [f valid-date-formatters
-            :let [d (try (tf/parse f s) (catch Exception _ nil))]
-            :when d] d))))
+(defn auto-date-parser [s]
+  (first
+   (for [f valid-date-formatters
+         :let [d (try (tf/parse f s) (catch Exception _ nil))]
+         :when d] d)))
 
 (defmulti get-header #'identify-file-type)
 
 (defmethod get-header :full [_ item]
   (let [{:keys [dir filename date-format]} item
-        date-parser                        (if date-format
+        date-parser                        (if (not-empty date-format)
                                              (partial tf/parse (tf/formatter date-format))
                                              auto-date-parser)]
     (with-meta
@@ -86,7 +85,7 @@
 (defmethod get-header :with-aliases [store item]
   (let [{:keys [dir filename entity_id date-format]} item
         blank-row?                       (fn [cells] (every? #(re-matches #"\s*" %) cells))
-        date-parser                      (if date-format
+        date-parser                      (if (not-empty date-format)
                                            (let [formatter (tf/formatter date-format)]
                                              (fn [s] (try (tf/parse formatter s) (catch Exception _ nil))))
                                            auto-date-parser)
