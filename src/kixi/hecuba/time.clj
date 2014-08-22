@@ -4,6 +4,29 @@
             [clj-time.periodic :as tp]
             [clj-time.format   :as tf]))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; @  @  @       @@@@     @    @   @   @@@   @@@@  @@@@        @  @  @
+;; @  @  @       @   @   @ @   @@  @  @   @  @     @   @       @  @  @
+;; @  @  @       @   @  @   @  @ @ @  @      @@@   @@@@        @  @  @
+;; @  @  @       @   @  @@@@@  @ @ @  @  @@  @     @ @         @  @  @
+;;               @   @  @   @  @  @@  @   @  @     @  @
+;; @  @  @       @@@@   @   @  @   @   @@@@  @@@@  @   @       @  @  @
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; No-one understands date/time properly. Write tests before changing.
+;; ======
+
+;; year/month/day/hour/minute constants vary wildly.
+
+;; Review these...
+;;
+;; http://joda-time.sourceforge.net/apidocs/org/joda/time/DateTimeConstants.html
+;; http://docs.oracle.com/javase/7/docs/api/constant-values.html#java.util
+;; http://docs.oracle.com/javase/7/docs/api/javax/xml/datatype/DatatypeConstants.html
+
+
 
 (defn hourly-timestamp [t]
   (tc/to-date (tf/unparse (tf/formatters :date-hour) (tc/from-date t))))
@@ -19,11 +42,11 @@
 
 (defmulti truncate-seconds type)
 (defmethod truncate-seconds java.util.Date [t]
-  (let [time-str (tf/unparse (tf/formatter "yyyy-MM-dd'T'HH:mm") (tc/from-date t))]
-    (tc/to-date  (tf/parse (tf/formatter "yyyy-MM-dd'T'HH:mm") time-str))))
+  (let [time-str (tf/unparse (tf/formatters :date-hour-minute) (tc/from-date t))]
+    (tc/to-date  (tf/parse (tf/formatters :date-hour-minute) time-str))))
 (defmethod truncate-seconds org.joda.time.DateTime [t]
-  (let [time-str (tf/unparse (tf/formatter "yyyy-MM-dd'T'HH:mm") t)]
-    (tf/parse (tf/formatter "yyyy-MM-dd'T'HH:mm") time-str)))
+  (let [time-str (tf/unparse (tf/formatters :date-hour-minute) t)]
+    (tf/parse (tf/formatters :date-hour-minute) time-str)))
 
 (defn dates-overlap?
   "Takes a start/end range from sensor_metadata \"dirty dates\" and a period,
@@ -50,3 +73,14 @@
 (defn range->years [start-date end-date]
   (->> (time-range start-date end-date (t/years 1))
        (map #(get-year-partition-key (tc/to-date-time %)))))
+
+(defn start-end-dates
+  "Given a sensor, column and where clause, returns start and end dates for (re)calculations."
+  [column sensor]
+  (let [range (-> sensor column)
+        start (get range "start")
+        end   (get range "end")]
+    (when (and (not (nil? start))
+               (not (nil? end))
+               (not= start end))
+      {:start-date (tc/from-date start) :end-date (tc/from-date end)})))

@@ -66,8 +66,7 @@
           (let [device_id (:device_id s)
                 type      (:type s)
                 period    (:period s)
-                where     {:device_id device_id :type type}
-                range     (misc/start-end-dates :median_calc_check s where)
+                range     (misc/start-end-dates :median_calc_check s)
                 new-item  (assoc item :sensor s :range range)]
             (when period
               (when (and range (not= period "PULSE"))
@@ -83,8 +82,7 @@
           (let [device_id (:device_id s)
                 type      (:type s)
                 period    (:period s)
-                where     {:device_id device_id :type type}
-                range     (misc/start-end-dates :mislabelled_sensors_check s where)
+                range     (misc/start-end-dates :mislabelled_sensors_check s)
                 new-item  (assoc item :sensor s :range range)]
             (when (and range (some #{period} ["INSTANT" "PULSE" "CUMULATIVE"]))
               (log/info  "Checking if mislabelled: " device_id type)
@@ -99,8 +97,7 @@
           (let [device_id (:device_id s)
                 type      (:type s)
                 period    (:period s)
-                where     {:device_id device_id :type type}
-                range     (misc/start-end-dates :difference_series s where)
+                range     (misc/start-end-dates :difference_series s)
                 new-item  (assoc item :sensor s :range range)]
             (when (and range (= "CUMULATIVE" period))
               (log/debugf "Started calculating Difference Series for Sensor: %s:%s Start: %s End: %s" device_id type (:start-date range) (:end-date range))
@@ -121,8 +118,7 @@
             should-convert-type? (fn [type] (some #(substring? % type) regex-seq))]
         (doseq [s sensors]
           (let [{:keys [device_id type unit period]} s
-                where     {:device_id device_id :type type}
-                range     (misc/start-end-dates :co2 s where)
+                range     (misc/start-end-dates :co2 s)
                 new-item  (assoc item :sensor s :range range)]
             (when (and range
                        unit
@@ -139,8 +135,7 @@
       (let [sensors (misc/all-sensors store)]
         (doseq [s sensors]
           (let [{:keys [device_id type unit period]} s
-                where     {:device_id device_id :type type}
-                range     (misc/start-end-dates :kwh s where)
+                range     (misc/start-end-dates :kwh s)
                 new-item  (assoc item :sensor s :range range)]
             (when (and range
                        unit
@@ -159,8 +154,7 @@
                 type       (:type s)
                 period     (:period s)]
             (when period
-              (let [where      {:device_id device_id :type type}
-                    range      (misc/start-end-dates :rollups s where)
+              (let [range      (misc/start-end-dates :rollups s)
                     new-item   (assoc item :sensor s :range range)]
                 (when range
                   (log/debugf "Started Rolling Up for Sensor: %s:%s Start: %s End: %s" device_id type (:start-date range) (:end-date range))
@@ -182,8 +176,7 @@
             (let [device_id (:device_id s)
                   type      (:type s)
                   period    (:period s)
-                  where     {:device_id device_id :type type}
-                  range     (misc/start-end-dates :spike_check s where)
+                  range     (misc/start-end-dates :spike_check s)
                   new-item  (assoc item :sensor s :range range)]
               (when (and range (not= period "PULSE"))
                 (checks/median-spike-check store new-item)
@@ -196,9 +189,8 @@
         (doseq [ds datasets]
           (let [sensors (datasets/sensors-for-dataset ds store)
                 {:keys [device_id name]} ds
-                where  {:device_id device_id :type name}
                 sensor (misc/all-sensor-information store device_id name)]
-            (when-let [range (misc/start-end-dates :calculated_datasets sensor where)]
+            (when-let [range (misc/start-end-dates :calculated_datasets sensor)]
               (calculate/calculate-dataset store ds sensors range)))))
       (log/info "Finished synthetic readings job."))
 
@@ -210,8 +202,7 @@
           (when (and (= (:actual_annual s) true)
                      (not= (:period s) "CUMULATIVE"))
             (let [{:keys [device_id type period]} s
-                  where {:device_id device_id :type type}
-                  range (misc/start-end-dates :actual_annual_calculation s where)]
+                  range (misc/start-end-dates :actual_annual_calculation s)]
 
               (when-let [new-range (misc/dates-overlap? range (t/months 12))]
                 (fields/calculate store s :actual-annual
