@@ -87,7 +87,12 @@
 
 (defn decode-property-data [entity]
   (-> entity
-      (assoc :property_data (json/parse-string (:property_data entity) keyword))
+      (assoc :property_data
+        (try
+          (json/parse-string (:property_data entity) keyword)
+          (catch Throwable t
+            (log/errorf "Could not parse property_data %s for entity %s" (:property_data entity) entity)))
+             {})
       (decode-tech-icons)))
 
 (defn decode [entity]
