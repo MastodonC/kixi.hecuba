@@ -84,62 +84,60 @@ their containing structures."
        (map #(-> % :_source :full_entity))
        (map #(clean-entity %))))
 
-;; TODO should accept either a set of ids or a single id
-(defn search-filter [k ids]
-  (let [should (mapv #(hash-map :term {k %}) ids)]
-    {:bool {:must {}
-            :should (conj should {:term {:public_access "true"}})
-            :must_not {}}}))
+(defn should-terms [allowed-programmes allowed-projects]
+  (vec
+   (conj
+    (concat (map #(hash-map :term {:programme_id %}) allowed-programmes)
+            (map #(hash-map :term {:project_id %}) allowed-projects))
+    {:term {:public_access "true"}})))
 
-(defmulti filter-entities (fn [programmes projects params store k roles & project_id] k))
+(defn must-term [k v]
+  {:term {k v}})
 
-(defmethod filter-entities :programme_id [programmes _ params store k roles & project_id]
-  (let [search-session (:search-session store)
-        query-string   (or (:q params) "*")
-        page-number    (or (:page params) 0)
-        page-size      (or (:size params) 20)
-        filter         (if project_id
-                         (search-filter :project_id #{project_id})
-                         (search-filter :programme_id programmes))
-        results        (search/search-entities query-string filter page-number page-size search-session)
-        total_hits     (esr/total-hits results)
-        parsed-results (parse-entities results programmes nil roles)]
+(defn search-filter [must should must-not]
+  (let [shoulds (if must (conj (or should []) must) should)]
+    {:bool {:must (or must {})
+            :should shoulds
+            :must_not (or must-not {})}}))
 
-    {:entities {:total_hits total_hits
-                :page page-number
-                :entities parsed-results}}))
-
-(defmethod filter-entities :project_id [_ projects params store k roles & project_id]
-  (let [search-session (:search-session store)
-        query-string   (or (:q params) "*")
-        page-number    (or (:page params) 0)
-        page-size      (or (:size params) 20)
-        filter         (if project_id
-                         (search-filter :project_id #{project_id})
-                         (search-filter :project_id projects))
-        results        (search/search-entities query-string filter page-number page-size search-session)
-        total_hits     (esr/total-hits results)
-        parsed-results (parse-entities results nil projects roles)]
-
-    {:entities {:total_hits total_hits
-                :page page-number
-                :entities parsed-results}}))
-
-(defmethod filter-entities :default [_ _ params store k roles & project_id]
-  (let [search-session (:search-session store)
-        query-string   (or (:q params) "*") ;; need to add route params in as programme_id:<foo> project_id:<foo>
-        page-number    (or (:page params) 0)
-        page-size      (or (:size params) 20)
-        results        (if project_id
-                         (let [filter (search-filter :project_id #{project_id})]
-                           (search/search-entities query-string filter page-number page-size search-session))
-                         (search/search-entities query-string page-number page-size search-session))
-        total_hits     (esr/total-hits results)
-        parsed-results (parse-entities results nil nil roles)]
-
-    {:entities {:total_hits total_hits
-                :page page-number
-                :entities parsed-results}}))
+(defn filter-entities
+  ([params roles store]
+     (let [query-string    (or (:q params) "*")
+           page-number     (or (:page params) 0)
+           page-size       (or (:size params) 20)
+           results         (search/search-entities query-string page-number page-size (:search-session store))
+           total_hits      (esr/total-hits results)
+           parsed-results (parse-entities results nil nil roles)]
+       {:entities {:total_hits total_hits
+                   :page       page-number
+                   :entities   parsed-results}}))
+  ([params allowed-programmes allowed-projects roles store]
+     (let [query-string   (or (:q params) "*")
+           page-number    (or (:page params) 0)
+           page-size      (or (:size params) 20)
+           shoulds        (should-terms allowed-programmes allowed-projects)
+           filter-terms   (search-filter nil shoulds nil)
+           _ (log/debugf "Filter Terms: %s" filter-terms)
+           results        (search/search-entities query-string filter-terms page-number page-size (:search-session store))
+           total_hits     (esr/total-hits results)
+           parsed-results (parse-entities results allowed-programmes allowed-projects roles)]
+       {:entities {:total_hits total_hits
+                   :page       page-number
+                   :entities   parsed-results}}))
+  ([project_id params allowed-programmes allowed-projects roles store]
+     (let [query-string   (or (:q params) "*")
+           page-number    (or (:page params) 0)
+           page-size      (or (:size params) 20)
+           shoulds        (should-terms allowed-programmes allowed-projects)
+           must           (must-term :project_id project_id)
+           filter-terms   (search-filter must shoulds nil)
+           _ (log/debugf "Filter Terms: %s" filter-terms)
+           results        (search/search-entities query-string filter-terms page-number page-size (:search-session store))
+           total_hits     (esr/total-hits results)
+           parsed-results (parse-entities results allowed-programmes allowed-projects roles)]
+       {:entities {:total_hits total_hits
+                   :page       page-number
+                   :entities   parsed-results}})))
 
 (defn allowed-all?* [programmes projects roles request-method params store]
   (log/infof "allowed-all?* allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s" programmes projects roles request-method)
@@ -149,10 +147,8 @@ their containing structures."
           (has-user? roles)
           request-method]
 
-         [true _ _ _ :get] [true (filter-entities programmes projects params store nil roles)]
-         [_ true _ _ :get] [true (filter-entities programmes projects params store :programme_id roles)]
-         [_ _ true _ :get] [true (filter-entities programmes projects params store :project_id roles)]
-         [_ _ _ true :get] [true (filter-entities programmes projects params store :project_id roles)]
+         [true _ _ _ :get] [true (filter-entities params roles store)]
+         [_ _ _ _ :get] [true (filter-entities params programmes projects roles store)]
          :else false))
 
 ;; TODO Implement a better way of handling different requests
@@ -171,7 +167,7 @@ their containing structures."
             [true _ _ _ _ _ :post] true
             [_ true true _ _ _ :post] true
             [_ _ _ true true _ :post] true
-            [_ _ _ _ _ _ :get] [true (filter-entities allowed-programmes allowed-projects params store nil roles project-id)]
+            [_ _ _ _ _ _ :get] [true (filter-entities project-id params allowed-programmes allowed-projects roles store)]
             :else false))
   ([programme-id project-id allowed-programmes allowed-projects roles request-method]
       (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
