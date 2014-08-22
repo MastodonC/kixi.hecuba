@@ -91,8 +91,8 @@
         (try
           (json/parse-string (:property_data entity) keyword)
           (catch Throwable t
-            (log/errorf t "Could not parse property_data %s for entity %s" (:property_data entity) entity)))
-             {})
+            (log/errorf t "Could not parse property_data %s for entity %s" (:property_data entity) entity)
+            {})))
       (decode-tech-icons)))
 
 (defn decode [entity]
