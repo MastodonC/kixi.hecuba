@@ -59,15 +59,16 @@
              [:h3.text-center category [:br ] [:small timestamp]]]))]))))
 
 (defn panel-heading [data owner profile title {:keys [add-btn edit-btn]} keys]
-  (let [{:keys [editing adding]} (om/get-state owner)]
+  (let [{:keys [editing adding]} (om/get-state owner)
+        editable (:editable profile)]
     [:div.btn-toolbar
      title
-     (when edit-btn
+     (when (and edit-btn editable)
        [:button {:type "button" :class (str "btn btn-primary btn-xs pull-right "
                                             (when (or adding editing) "hidden"))
                  :on-click (fn [_] (om/set-state! owner :editing true))}
         [:div {:class "fa fa-pencil-square-o"}]])
-     (when add-btn
+     (when (and add-btn editable)
        [:button {:type "button" :class (str "btn btn-primary btn-xs pull-right "
                                             (when (or adding editing) "hidden"))
                  :on-click (fn [_] (om/set-state! owner :adding true))}
@@ -934,7 +935,11 @@
     om/IRender
     (render [_]
       (let [selected-property-id (-> data :active-components :properties)
-            profiles             (sort-by :timestamp (get-profiles selected-property-id data))]
+            properties           (-> data :properties)
+            property             (-> (filter #(= (:entity_id %) selected-property-id) (-> properties :data)) first)
+            editable             (:editable property)
+            profiles             (map #(assoc % :editable editable)
+                                      (sort-by :timestamp (get-profiles selected-property-id data)))]
         (html
          [:div
           [:h3 "Profiles"]
