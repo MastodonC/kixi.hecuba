@@ -95,17 +95,22 @@ their containing structures."
   {:term {k v}})
 
 (defn search-filter [must should must-not]
-  (let [shoulds (conj (or should []) must)]
+  (let [shoulds (if must (conj (or should []) must) should)]
     {:bool {:must (or must {})
             :should shoulds
             :must_not (or must-not {})}}))
 
 (defn filter-entities
-  ([params store]
-     (let [query-string   (or (:q params) "*")
-           page-number    (or (:page params) 0)
-           page-size      (or (:size params) 20)]
-       (search/search-entities query-string page-number page-size (:search-session store))))
+  ([params roles store]
+     (let [query-string    (or (:q params) "*")
+           page-number     (or (:page params) 0)
+           page-size       (or (:size params) 20)
+           results         (search/search-entities query-string page-number page-size (:search-session store))
+           total_hits      (esr/total-hits results)
+           parsed-results (parse-entities results nil nil roles)]
+       {:entities {:total_hits total_hits
+                   :page       page-number
+                   :entities   parsed-results}}))
   ([params allowed-programmes allowed-projects roles store]
      (let [query-string   (or (:q params) "*")
            page-number    (or (:page params) 0)
@@ -142,7 +147,7 @@ their containing structures."
           (has-user? roles)
           request-method]
 
-         [true _ _ _ :get] [true (filter-entities params store)]
+         [true _ _ _ :get] [true (filter-entities params roles store)]
          [_ _ _ _ :get] [true (filter-entities params programmes projects roles store)]
          :else false))
 
