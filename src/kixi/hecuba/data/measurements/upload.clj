@@ -28,7 +28,8 @@
 
 (def valid-date-formatters
   (concat [(tf/formatter "dd/MM/yyyy HH:mm")
-           (tf/formatter "yyyy/MM/dd HH:mm")]
+           (tf/formatter "dd/MM/yyyy HH:mm:ss")
+           ]
           (vals tf/formatters)))
 
 (defn merge-meta [obj meta]
