@@ -20,13 +20,17 @@
 (defn parse-profile [cursor]
   (clojure.walk/postwalk #(if-let [v (:_value %)] v %) cursor))
 
-(defn parse [cursor]
+(defn parse
+  "Remove all empty elements from the nested data structure and flatten :_value elements."
+  [cursor]
   (clojure.walk/postwalk (fn [m]
                            (if-let [v (:_value m)]
                              v
-                             (if (and (map? m) (empty? m))
-                               nil
-                               m))) cursor))
+                             (cond
+                              (and (map? m) (empty? m)) nil
+                              (map? m)                  (into {} (remove (comp nil? second) m))
+                              :else                     m)))
+                         cursor))
 
 (defn post-new-profile [cursor profile]
   (let [[_ _ entity_id] (string/split js/window.location.pathname #"/")
@@ -34,7 +38,11 @@
     (common/post-resource url (-> profile
                                   (assoc :entity_id entity_id)
                                   (dissoc :alert))
-                          (fn [response] (log "response" response))
+                          (fn [response]
+                            (om/update! cursor :alert {:status true
+                                                       :class "alert alert-success"
+                                                       :text "Profile added successfully."})
+                            (.back js/history))
                           (fn [{:keys [status status-text]}]
                             (om/update! cursor :alert {:status true
                                                        :class "alert alert-danger"

@@ -450,7 +450,7 @@
                 (if adding
                   (pf/storey owner profile key)
                   (if-let [storeys (seq (:storeys profile))]
-                    (let [profile (assoc-in profile :storeys (vec storeys))]
+                    (let [profile (assoc profile :storeys (vec storeys))]
                       [:div
                        (for [item storeys]
                          (let [keys [:storeys (.indexOf (to-array storeys) item)]]
