@@ -942,7 +942,7 @@
          [:div
           [:h3 "Profiles"]
           [:div [:button {:type "button"
-                          :class "btn btn-primary"
+                          :class (str "btn btn-primary " (if editable "" "hidden"))
                           :onClick (fn [_]  (set! (.-location js/window) (str "/profile/" selected-property-id)))}
                  "Add new profile"]]
           [:div {:id "alert"} (om/build bs/alert (-> data :profiles :alert))]
