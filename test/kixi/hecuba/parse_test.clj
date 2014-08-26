@@ -8,7 +8,7 @@
 
 (defn non-empty? [n] (if (coll? n) (seq n) n))
 
-;; This is a function copied from new_profile.cljs. Test shoudl be moved to cljs tests once they are set up.
+;; This is a function copied from new_profile.cljs. Test should be moved to cljs tests once they are set up.
 (defn parse
   "Remove all empty elements from the nested data structure and flatten :_value elements."
   [cursor]
