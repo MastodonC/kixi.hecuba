@@ -4,7 +4,8 @@
             [kixipipe.storage.s3 :as s3]
             [kixi.hecuba.data.entities :as entities]
             [kixipipe.ioplus :as ioplus]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [kixi.hecuba.data.entities.search :as search]))
 
 (defn- upload [store {:keys [dir filename entity_id] :as item} update-fn]
   (db/with-session [session (:hecuba-session store)]
@@ -12,7 +13,9 @@
      (let [item  (-> item
                      (assoc :uuid (str entity_id "/" (-> item :metadata :filename))))]
        (s3/store-file (:s3 store) item)
-       (update-fn session entity_id (s3/s3-key-from item)))
+       (update-fn session entity_id {:path (s3/s3-key-from item)})
+       (-> (search/searchable-entity-by-id entity_id session)
+           (search/->elasticsearch (:search-session store))))
      (finally
        (ioplus/delete! (io/file dir filename))))))
 

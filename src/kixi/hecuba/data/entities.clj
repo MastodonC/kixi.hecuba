@@ -159,12 +159,12 @@
 
 (defn add-image [session id key]
     (db/execute session (hayt/update :entities
-                                     (hayt/set-columns {:photos [+ [key]]})
+                                     (hayt/set-columns {:photos [+ [(json/encode key)]]})
                                      (hayt/where [[= :id id]]))))
 
 (defn add-document [session id key]
     (db/execute session (hayt/update :entities
-                                     (hayt/set-columns {:documents [+ [key]]})
+                                     (hayt/set-columns {:documents [+ [(json/encode key)]]})
                                      (hayt/where [[= :id id]]))))
 
 (defn has-location? [{:keys [property_data] :as e}]
