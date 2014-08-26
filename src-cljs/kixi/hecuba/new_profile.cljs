@@ -20,16 +20,24 @@
 (defn parse-profile [cursor]
   (clojure.walk/postwalk #(if-let [v (:_value %)] v %) cursor))
 
+(defn non-empty? [n] (if (coll? n) (seq n) n))
+
 (defn parse
   "Remove all empty elements from the nested data structure and flatten :_value elements."
   [cursor]
   (clojure.walk/postwalk (fn [m]
-                           (if-let [v (:_value m)]
-                             v
-                             (cond
-                              (and (map? m) (empty? m)) nil
-                              (map? m)                  (into {} (remove (comp nil? second) m))
-                              :else                     m)))
+                          (cond
+                           (:_value m)
+                           (:_value m)
+
+                           (map? m)
+                           (reduce-kv (fn [agg k v] (if (non-empty? v) (assoc agg k v) agg)) {} m)
+
+                           (and (coll? m) (not (keyword? (first m))))
+                           (into (empty m) (filter non-empty? m))
+
+                           :else
+                           m))
                          cursor))
 
 (defn post-new-profile [cursor profile]
