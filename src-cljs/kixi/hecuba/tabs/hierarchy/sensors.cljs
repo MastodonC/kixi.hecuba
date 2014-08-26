@@ -216,23 +216,26 @@
     om/IRender
     (render [_]
       (let [{:keys [unit measurements]} chart
-            values (map :value measurements)
-            measurements-min (apply min values)
-            measurements-max (apply max values)
-            measurements-sum (reduce + values)
-            measurements-count (count measurements)
-            measurements-mean (if (not= 0 measurements-count) (/ measurements-sum measurements-count) "NA")]
+            all-series (group-by #(get % "sensor") measurements)]
         (html
-         (if (seq measurements)
-           [:div.col-md-12#summary-stats
-            [:div {:class "col-md-3"}
-             (bs/panel "Minimum" (str (.toFixed (js/Number. measurements-min) 3) " " unit))]
-            [:div {:class "col-md-3"}
-             (bs/panel "Maximum" (str (.toFixed (js/Number. measurements-max) 3) " " unit))]
-            [:div {:class "col-md-3"}
-             (bs/panel "Average (mean)" (str (.toFixed (js/Number. measurements-mean) 3) " " unit))]
-            [:div {:class "col-md-3"}
-             (bs/panel "Range" (str (.toFixed (js/Number. (- measurements-max measurements-min)) 3) " " unit))]]
+         (if (->> all-series first seq)
+           [:div.col-md-12
+            (for [[key series] all-series]
+              (let [values             (map :value series)
+                    measurements-min   (apply min values)
+                    measurements-max   (apply max values)
+                    measurements-sum   (reduce + values)
+                    measurements-count (count series)
+                    measurements-mean  (if (not= 0 measurements-count) (/ measurements-sum measurements-count) "NA")]
+                [:div.col-md-3
+                 (bs/panel
+                  key
+                  [:div.col-md-12
+                   [:table.table.table-hover.table-condensed
+                    [:tr [:td "Minimum"] [:td.number (str (.toFixed (js/Number. measurements-min) 3))] [:td unit]]
+                    [:tr [:td "Maximum"] [:td.number (str (.toFixed (js/Number. measurements-max) 3))] [:td unit]]
+                    [:tr [:td "Average (Mean)"] [:td.number (str (.toFixed (js/Number. measurements-mean) 3))] [:td unit]]
+                    [:tr [:td "Range"] [:td.number (str (.toFixed (js/Number. (- measurements-max measurements-min)) 3))] [:td unit]]]])]))]
            [:div.row#summary-stats [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data."]]]))))))
 
 (defn sensors-div [data owner]

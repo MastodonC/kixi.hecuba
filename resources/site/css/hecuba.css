@@ -118,3 +118,7 @@ p#footer {
     width: 80px;
     height: auto;
 }
+
+td.number {
+    text-align: end;
+}
