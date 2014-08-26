@@ -49,7 +49,7 @@
         uuid      (uuid)]
     (map (fn [{:keys [tempfile content-type filename]}]
            {:dest      :upload
-            :type      :images
+            :type      (keyword feed-name)
             :entity_id entity_id
             :src-name  "uploads"
             :feed-name feed-name
