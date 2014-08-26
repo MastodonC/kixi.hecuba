@@ -20,7 +20,9 @@
 (defn non-empty? [n] (if (coll? n) (seq n) n))
 
 (defn parse
-  "Remove all empty elements from the nested data structure and flatten :_value elements."
+  "Remove all empty elements from the nested data structure and flatten :_value elements.
+  Since postwalk will check elements like [:some-key], there is a check against tuples:
+ (and (coll? m) (not (keyword (first m))))."
   [cursor]
   (clojure.walk/postwalk (fn [m]
                           (cond
