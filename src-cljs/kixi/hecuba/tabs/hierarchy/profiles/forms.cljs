@@ -2,7 +2,8 @@
   (:require [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]
             [cljs-time.coerce :as tc]
-            [cljs-time.format :as tf]))
+            [cljs-time.format :as tf]
+            [kixi.hecuba.common :as common :refer (log)]))
 
 (defn handle-change [owner keys e]
   (let [value (.-value (.-target e))]
@@ -83,16 +84,16 @@
    (text-control profile owner (conj keys :electricity_storage_present) "Electricity Storage Present")
    (text-control profile owner (conj keys :heat_storage_present) "Heat Storage Present")])
 
-(defn passivhaus [owner profile keys]
-  [:div
-   (text-control profile owner (conj keys :passive_solar_strategy) "Passive Solar Strategy")
-   (text-control profile owner (conj keys :used_passivehaus_principles) "Used Passivehaus Principles")])
-
 (defn efficiency [owner profile keys]
     [:div
      (text-control profile owner (conj keys :pipe_lagging) "Pipe Lagging")
      (text-control profile owner (conj keys :draught_proofing)  "Draught Proofing")
      (text-control profile owner (conj keys :draught_proofing_location)  "Draught Proofing Location")])
+
+(defn passivhaus [owner profile keys]
+  [:div
+   (text-control profile owner (conj keys :passive_solar_strategy) "Passive Solar Strategy")
+   (text-control profile owner (conj keys :used_passivehaus_principles) "Used Passivehaus Principles")])
 
 (defn flats [owner profile keys]
   [:div
@@ -125,6 +126,16 @@
    (text-control profile owner (conj keys :appliances_strategy) "Appliances Strategy")
    (text-control profile owner (conj keys :cellar_basement_issues) "Cellar Basement Issues")])
 
+(defn sap-results [owner profile keys]
+  [:div
+   (text-control profile owner (conj keys :sap_rating) "SAP Rating")
+   (text-control profile owner (conj keys :sap_performed_on) "SAP Performed On")
+   (text-control profile owner (conj keys :sap_assessor) "SAP Assessor")
+   (text-control profile owner (conj keys :sap_version_issue) "SAP Version Issue")
+   (text-control profile owner (conj keys :sap_version_year) "SAP Version Year")
+   (text-control profile owner (conj keys :sap_regulations_date) "SAP Regulations Date")
+   (text-control profile owner (conj keys :sap_software) "Name of SAP Software")])
+
 (defn lessons-learnt [owner profile keys]
     [:div
      (text-control profile owner (conj keys :thermal_bridging_strategy) "Thermal Bridging Strategy")
@@ -137,23 +148,6 @@
      (text-control profile owner (conj keys :lighting_strategy) "Lighting Strategy")
      (text-control profile owner (conj keys :water_saving_strategy) "Water Saving Strategy")
      (text-control profile owner (conj keys :innovation_approaches) "Innovation Approaches")])
-
-(defn project-details [owner profile keys]
-  [:div
-   (text-control profile owner (conj keys :total_budget_new_build) "Total Budget New Build")
-   (text-control profile owner (conj keys :estimated_cost_new_build) "Estimated Cost New Build")
-   (text-control profile owner (conj keys :final_cost_new_build) "Final Cost New Build")
-   (text-control profile owner (conj keys :construction_time_new_build) "Construction Time New Build (Days)")
-   (text-control profile owner (conj keys :design_guidance) "Design Guidance")
-   (text-control profile owner (conj keys :planning_considerations) "Planning Considerations")
-   (text-control profile owner (conj keys :total_budget) "Total Budget")])
-
-(defn coheating-test [owner profile keys]
-  [:div
-   (text-control profile owner (conj keys :co_heating_loss) "Fabric Heat Loss (W/m2)")
-   (text-control profile owner (conj keys :co_heating_performed_on) "Dates Performed")
-   (text-control profile owner (conj keys :co_heating_assessor) "Assessor Used")
-   (text-control profile owner (conj keys :co_heating_equipment) "Equipment")])
 
 (defn dwelling-u-values-summary [owner profile keys]
    [:div
@@ -173,6 +167,7 @@
    (text-control profile owner (conj keys :air_tightness_performed_on) "Air Tightness Performed On")
    (text-control profile owner (conj keys :air_tightness_rate) "Air Tightness Rate")])
 
+
 (defn bus-survey-information [owner profile keys]
   [:div
    (text-control profile owner (conj keys :profile_temperature_in_summer) "Temperature In Summer")
@@ -190,15 +185,22 @@
    (text-control profile owner (conj keys :profile_bus_summary_index) "Bus Summary Index")
    (text-control profile owner (conj keys :profile_bus_report_url) "BUS Report Url")])
 
-(defn sap-results [owner profile keys]
+(defn project-details [owner profile keys]
   [:div
-   (text-control profile owner (conj keys :sap_rating) "SAP Rating")
-   (text-control profile owner (conj keys :sap_performed_on) "SAP Performed On")
-   (text-control profile owner (conj keys :sap_assessor) "SAP Assessor")
-   (text-control profile owner (conj keys :sap_version_issue) "SAP Version Issue")
-   (text-control profile owner (conj keys :sap_version_year) "SAP Version Year")
-   (text-control profile owner (conj keys :sap_regulations_date) "SAP Regulations Date")
-   (text-control profile owner (conj keys :sap_software) "Name of SAP Software")])
+   (text-control profile owner (conj keys :total_budget_new_build) "Total Budget New Build")
+   (text-control profile owner (conj keys :estimated_cost_new_build) "Estimated Cost New Build")
+   (text-control profile owner (conj keys :final_cost_new_build) "Final Cost New Build")
+   (text-control profile owner (conj keys :construction_time_new_build) "Construction Time New Build (Days)")
+   (text-control profile owner (conj keys :design_guidance) "Design Guidance")
+   (text-control profile owner (conj keys :planning_considerations) "Planning Considerations")
+   (text-control profile owner (conj keys :total_budget) "Total Budget")])
+
+(defn coheating-test [owner profile keys]
+  [:div
+   (text-control profile owner (conj keys :co_heating_loss) "Fabric Heat Loss (W/m2)")
+   (text-control profile owner (conj keys :co_heating_performed_on) "Dates Performed")
+   (text-control profile owner (conj keys :co_heating_assessor) "Assessor Used")
+   (text-control profile owner (conj keys :co_heating_equipment) "Equipment")])
 
 (defn conservatory [owner profile keys]
   [:div
@@ -382,7 +384,7 @@
    (text-control profile owner (conj keys :total_installed_area) "Total Installed Area")])
 
 
-(defn airflow-measurement [owner profile key]
+(defn airflow-measurement [owner profile keys]
  [:div
   (text-control profile owner (conj keys :reference) "Reference")
   (text-control profile owner (conj keys :system) "System")

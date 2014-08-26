@@ -76,6 +76,10 @@
   (log/infof "App Session: %s" (:session req))
   {:status 200 :body (slurp (io/resource "site/user-management.html"))})
 
+(defn new-profile [req]
+  (log/infof "App Session: %s" (:session req))
+  {:status 200 :body (slurp (io/resource "site/new_profile.html"))})
+
 (defn index-routes
   ([route handler]
      (routes
@@ -236,6 +240,12 @@
         (friend/wrap-authorize
          user-management
          #{:kixi.hecuba.security/user}))
+
+   ;; New profile
+   (GET "/profile/:entity_id" [entity_id]
+        (friend/wrap-authorize
+         new-profile
+         #{:kixi.hecuba.security/project-manager}))
 
    ;; AMON API Routes
    (amon-api-routes store s3 pipeline-head)

@@ -14,11 +14,11 @@
 
 (defn post-form [data url password]
   (om/update! data :input-class "has-success")
-  (common/post-resource data url
-                       {:password password}
-                       (fn [response] (set! (.-location js/window) "/login?reset=true"))
-                       (fn [{:keys [status status-text]}]
-                         (om/update! data :alert {:status true
+  (common/post-resource url
+                        {:password password}
+                        (fn [response] (set! (.-location js/window) "/login?reset=true"))
+                        (fn [{:keys [status status-text]}]
+                          (om/update! data :alert {:status true
                                                   :class "alert alert-danger"
                                                   :text status-text}))))
 

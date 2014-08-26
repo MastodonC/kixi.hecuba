@@ -24,7 +24,7 @@
   (not (nil? (:property_code property)))) ;; project_id comes from the selection above
 
 (defn post-new-property [data owner property project_id]
-  (common/post-resource data  "/4/entities/"
+  (common/post-resource "/4/entities/"
                         property
                         (fn [_]
                           (fetch-properties project_id data)

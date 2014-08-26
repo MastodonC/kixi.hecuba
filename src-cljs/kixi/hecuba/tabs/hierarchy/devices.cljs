@@ -80,7 +80,7 @@
 ;; Adding new sensor
 
 (defn put-new-sensor [data owner sensor property_id device_id]
-  (common/put-resource data (str "/4/entities/" property_id "/devices/" device_id)
+  (common/put-resource (str "/4/entities/" property_id "/devices/" device_id)
                        {:readings [sensor]}
                        (fn [_]
                          (fetch-property property_id data (error-handler data))
@@ -138,7 +138,7 @@
 ;; Editing device
 
 (defn put-edited-device [data owner device property_id device_id]
-  (common/put-resource data (str "/4/entities/" property_id "/devices/" device_id)
+  (common/put-resource (str "/4/entities/" property_id "/devices/" device_id)
                        device
                        (fn [_]
                          (fetch-property property_id data (error-handler data))
@@ -203,7 +203,7 @@
 ;; Adding new device
 
 (defn post-new-device [data owner device property_id]
-  (common/post-resource data (str "/4/entities/" property_id "/devices/")
+  (common/post-resource (str "/4/entities/" property_id "/devices/")
                         device
                         (fn [_]
                           (fetch-property property_id data (error-handler data))

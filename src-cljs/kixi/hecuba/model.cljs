@@ -51,8 +51,6 @@
               :selected nil
               :editing false
               :row nil}
-    :profiles {:alert {}
-               :adding-profile false}
     :uploads []
     :downloads {:files []}
     :chart    {:property ""
@@ -65,4 +63,5 @@
                :data []
                :selected nil
                :message ""
-               :range {:start-date nil :end-end nil}}}))
+               :range {:start-date nil :end-end nil}}
+    :profiles {:alert {}}}))

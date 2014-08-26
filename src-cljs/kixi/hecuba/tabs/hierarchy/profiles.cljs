@@ -15,7 +15,7 @@
   (let [entity_id  (-> @data :active-components :properties)
         profile_id (:profile_id profile)
         resource   (merge-element profile edited-profile keys)]
-    (common/put-resource data (str "/4/entities/" entity_id "/profiles/" profile_id)
+    (common/put-resource (str "/4/entities/" entity_id "/profiles/" profile_id)
                          (-> resource
                              (assoc :entity_id entity_id)
                              (dissoc :editing :timestamp :adding))
@@ -88,8 +88,6 @@
                              (put-profile data @profile edited-data keys)
                              (om/set-state! owner :editing false)
                              (om/set-state! owner :adding false)))} "Save"]]))
-
-
 
 (defn description-row [data]
   (fn [profiles owner]
@@ -452,7 +450,7 @@
                 (if adding
                   (pf/storey owner profile key)
                   (if-let [storeys (seq (:storeys profile))]
-                    (let [profile (assoc-in profile :storeys (vec storeys))]
+                    (let [profile (assoc profile :storeys (vec storeys))]
                       [:div
                        (for [item storeys]
                          (let [keys [:storeys (.indexOf (to-array storeys) item)]]
@@ -604,7 +602,7 @@
                    position (count (:roof_rooms profile))
                    key      [:roof_rooms position]]
                (bs/panel
-                (panel-heading data owner profile "Door Sets" {:add-btn true :edit-btn false} key)
+                (panel-heading data owner profile "Roof Rooms" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/roof-room owner profile key)
                   (if-let [roof-rooms (seq (:roof_rooms profile))]
@@ -613,7 +611,7 @@
                        (for [item roof-rooms]
                          (let [keys [:roof_rooms (.indexOf (to-array roof-rooms) item)]]
                            (bs/panel
-                            (panel-heading data owner profile "Door Set" {:add-btn false :edit-btn true} keys)
+                            (panel-heading data owner profile "Roof Room" {:add-btn false :edit-btn true} keys)
                             (pf/roof-room owner profile keys))))])
                     [:p "No roof rooms recorded."]))))])])))))
 
@@ -943,6 +941,10 @@
         (html
          [:div
           [:h3 "Profiles"]
+          [:div [:button {:type "button"
+                          :class (str "btn btn-primary " (if editable "" "hidden"))
+                          :onClick (fn [_]  (set! (.-location js/window) (str "/profile/" selected-property-id)))}
+                 "Add new profile"]]
           [:div {:id "alert"} (om/build bs/alert (-> data :profiles :alert))]
           [:div
            (if (seq profiles)
@@ -950,7 +952,6 @@
              [:div.col-md-12.text-center
               [:p.lead {:style {:padding-top 30}}
                "No profile data to display"]])]])))))
-
 
 (comment
 

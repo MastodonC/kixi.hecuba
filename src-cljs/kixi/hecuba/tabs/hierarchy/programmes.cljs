@@ -21,7 +21,7 @@
                                            :text status-text})))
 
 (defn post-new-programme [data owner programme]
-  (common/post-resource data (str "/4/programmes/")
+  (common/post-resource (str "/4/programmes/")
                         (assoc programme :created_at (common/now->str))
                         (fn [_]
                           (fetch-programmes data)
@@ -29,7 +29,7 @@
                         (error-handler data)))
 
 (defn put-edited-programme [data owner url programme]
-  (common/put-resource data url
+  (common/put-resource url
                        (assoc programme :updated_at (common/now->str))
                        (fn [_]
                          (fetch-programmes data)
