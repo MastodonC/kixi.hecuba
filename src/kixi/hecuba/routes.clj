@@ -245,7 +245,7 @@
    (GET "/profile/:entity_id" [entity_id]
         (friend/wrap-authorize
          new-profile
-         #{:kixi.hecuba.security/user}))
+         #{:kixi.hecuba.security/project-manager}))
 
    ;; AMON API Routes
    (amon-api-routes store s3 pipeline-head)

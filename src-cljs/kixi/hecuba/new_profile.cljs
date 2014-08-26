@@ -17,9 +17,6 @@
                          (om/transact! cursor key #(conj % (-> model/profile-schema key first))))}
     [:div {:class "fa fa-plus"}]]])
 
-(defn parse-profile [cursor]
-  (clojure.walk/postwalk #(if-let [v (:_value %)] v %) cursor))
-
 (defn non-empty? [n] (if (coll? n) (seq n) n))
 
 (defn parse
@@ -225,7 +222,7 @@
               "mCHP Systems"]]]
            [:div.col-md-8
             (when (= active-item :description)
-              (bs/panel "Description"(panels/description (:profile_data cursor))))
+              (bs/panel "Description" (panels/description (:profile_data cursor))))
 
             (when (= active-item :occupancy)
               (bs/panel "Occupancy" (panels/occupancy (:profile_data cursor))))
