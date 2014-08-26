@@ -227,9 +227,6 @@
                     measurements-sum   (reduce + values)
                     measurements-count (count series)
                     measurements-mean  (if (not= 0 measurements-count) (/ measurements-sum measurements-count) "NA")]
-                (log "Key: " key)
-                (log "Series: " (pr-str series))
-                ;; (log "Values: " values)
                 [:div.col-md-3
                  (bs/panel
                   key
