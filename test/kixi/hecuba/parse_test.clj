@@ -1,4 +1,4 @@
-(ns kixi.hecuba.api.parse-test
+(ns kixi.hecuba.parse-test
   (:use clojure.test)
   (:require [clojure.test.check.generators :as gen]
             [clojure.test.check :as tc]
