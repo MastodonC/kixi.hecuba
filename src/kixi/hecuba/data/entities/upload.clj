@@ -10,7 +10,7 @@
   (db/with-session [session (:hecuba-session store)]
    (try
      (let [item  (-> item
-                     (update-in [:uuid] #(str entity_id "/" %)))]
+                     (assoc :uuid (str entity_id "/" (-> item :metadata :filename))))]
        (s3/store-file (:s3 store) item)
        (update-fn session entity_id (s3/s3-key-from item)))
      (finally

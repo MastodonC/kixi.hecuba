@@ -238,7 +238,7 @@
                  (when editable
                    [:li {:class (if (= active-tab :upload) "active" nil)}
                     [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :upload))}
-                     "CSV"]])]
+                     "Uploads"]])]
                 ;; Overview
                 [:div {:class (if (not= active-tab :overview) "hidden" "col-md-12")}
                  (om/build property-details-form data)]
@@ -254,7 +254,7 @@
                 ;; Profiles
                 [:div {:class (if (not= active-tab :profiles) "hidden" "col-md-12")}
                  (om/build profiles/profiles-div data)]
-                ;; CSV Management
+                ;; Uploads
                 [:div {:class (if (not= active-tab :upload) "hidden" "col-md-12")}
                  [:div.col-md-6
                   [:div {:style {:padding-top "15px"}}
@@ -289,7 +289,23 @@
                      [:h4 "Upload CSV property details"]
                      (let [div-id "property-details-form"]
                        (om/build (file/file-upload (str "/4/entities/" property-id) div-id)
-                                 nil {:opts {:method "PUT"}}))]]]]
+                                 nil {:opts {:method "PUT"}}))]]]
+                  ;; Upload image
+                  [:div.panel.panel-default
+                   [:div.panel-body
+                    [:div
+                     [:h4 "Upload an image"]
+                     (let [div-id "image-upload-form"]
+                       (om/build (file/file-upload (str "/4/entities/" property-id "/images/") div-id)
+                                 nil {:opts {:method "POST"}}))]]]
+                  ;; Upload document
+                  [:div.panel.panel-default
+                   [:div.panel-body
+                    [:div
+                     [:h4 "Upload a document"]
+                     (let [div-id "document-upload-form"]
+                       (om/build (file/file-upload (str "/4/entities/" property-id "/documents/") div-id)
+                                 nil {:opts {:method "POST"}}))]]]]
                  [:div.col-md-6
                   ;; Upload status
                   [:div {:style {:padding-top "15px"}}
