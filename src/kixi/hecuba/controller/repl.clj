@@ -25,4 +25,10 @@
 (defreplmethods convert-to-kwh-> :dest :calculated-datasets :type :convert-to-kwh)
 (defreplmethods sensor-status-check-> :dest :data-quality :type :sensor-status)
 (defreplmethods actual-annual-calculation-> :dest :calculated-fields :type :actual-annual)
-(defreplmethods recalculate-> :dest :recalculate) ;; (recalculate-> :rollups)
+;; Examples:
+;; (recalculate-> :rollups)
+;; (recalculate-> :convert-to-co2)
+;; (recalculate-> :median-calculation)
+;; (recalculate-> :difference-series)
+;; Calculation keys are the same as the :type values in repl methods above
+(defreplmethods recalculate-> :dest :recalculate)

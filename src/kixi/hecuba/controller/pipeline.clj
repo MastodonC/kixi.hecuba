@@ -65,22 +65,19 @@
     (defn median-calculation [store item]
       (let [{:keys [sensor range]} item
             {:keys [period device_id type]} sensor]
-        (when period
-          (when (not= period "PULSE")
-            (log/info  "Calculating median for: " device_id type)
-            (checks/median-calculation store item)
-            (misc/reset-date-range store sensor :median_calc_check
-                                   (:start-date range)
-                                   (:end-date range))))))
+        (when (and period (not= period "PULSE"))
+          (log/info  "Calculating median for: " device_id type)
+          (checks/median-calculation store item)
+          (misc/reset-date-range store sensor :median_calc_check
+                                 (:start-date range)
+                                 (:end-date range)))))
 
     (defnconsumer median-calculation-q [item]
       (log/info "Starting median calculation.")
       (let [sensors (misc/all-sensors store)]
         (doseq [s sensors]
-          (let [range     (misc/start-end-dates :median_calc_check s)
-                new-item  (assoc item :sensor s :range range)]
-            (when range
-              (median-calculation store new-item)))))
+          (when-let [range (misc/start-end-dates :median_calc_check s)]
+            (median-calculation store (assoc item :sensor s :range range)))))
       (log/info "Finished median calculation."))
 
     (defn mislabelled-sensors [store item]
@@ -97,10 +94,8 @@
       (log/info "Starting mislabelled sensors check.")
       (let [sensors (misc/all-sensors store)]
         (doseq [s sensors]
-          (let [range     (misc/start-end-dates :mislabelled_sensors_check s)
-                new-item  (assoc item :sensor s :range range)]
-            (when range
-              (mislabelled-sensors store new-item)))))
+          (when-let [range (misc/start-end-dates :mislabelled_sensors_check s)]
+            (mislabelled-sensors store (assoc item :sensor s :range range)))))
       (log/info "Finished mislabelled sensors check."))
 
     (defn difference-series [store item]
@@ -122,12 +117,8 @@
       (log/info "Starting calculation of difference series.")
       (let [sensors (misc/all-sensors store)]
         (doseq [s sensors]
-          (let [device_id (:device_id s)
-                type      (:type s)
-                range     (misc/start-end-dates :difference_series s)
-                new-item  (assoc item :sensor s :range range)]
-            (when range
-              (difference-series store new-item)))))
+          (when-let [range (misc/start-end-dates :difference_series s)]
+            (difference-series store (assoc item :sensor s :range range)))))
       (log/info "COMPLETED calculation of difference series."))
 
     (defn convert-to-co2 [store item]
@@ -150,10 +141,8 @@
       (log/info "Starting conversion from kWh to co2.")
       (let [sensors (misc/all-sensors store)]
         (doseq [s sensors]
-          (let [range     (misc/start-end-dates :co2 s)
-                new-item  (assoc item :sensor s :range range)]
-            (when range
-              (convert-to-co2 store new-item)))))
+          (when-let [range (misc/start-end-dates :co2 s)]
+            (convert-to-co2 store (assoc item :sensor s :range range)))))
       (log/info "Finished conversion from kWh to co2."))
 
     (defn convert-to-kwh [store item]
@@ -172,10 +161,8 @@
       (log/info "Starting conversion from vol to kwh.")
       (let [sensors (misc/all-sensors store)]
         (doseq [s sensors]
-          (let [range     (misc/start-end-dates :kwh s)
-                new-item  (assoc item :sensor s :range range)]
-            (when range
-              (convert-to-kwh store new-item)))))
+          (when-let [range (misc/start-end-dates :kwh s)]
+            (convert-to-kwh store (assoc item :sensor s :range range)))))
       (log/info "Finished conversion from vol to kwh."))
 
     (defn rollups [store item]
@@ -198,10 +185,8 @@
       (log/info "Starting rollups.")
       (let [sensors (misc/all-sensors store)]
         (doseq [s sensors]
-          (let [range      (misc/start-end-dates :rollups s)
-                new-item   (assoc item :sensor s :range range)]
-            (when range
-              (rollups store item)))))
+          (when-let [range (misc/start-end-dates :rollups s)]
+            (rollups store (assoc item :sensor s :range range)))))
       (log/info "Finished rollups."))
 
     (defn spike-check [store item]
@@ -215,11 +200,9 @@
       (log/info "Starting median spike check.")
       (let [sensors (misc/all-sensors store)]
         (doseq [s sensors]
-          (let [range     (misc/start-end-dates :spike_check s)
-                new-item  (assoc item :sensor s :range range)]
-            (when range
-              (spike-check store new-item)
-              (misc/reset-date-range store s :spike_check (:start-date range) (:end-date range))))))
+          (when-let [range (misc/start-end-dates :spike_check s)]
+            (spike-check store (assoc item :sensor s :range range))
+            (misc/reset-date-range store s :spike_check (:start-date range) (:end-date range)))))
       (log/info "Finished median spike check."))
 
     (defn synthetic-readings [store item]
@@ -231,16 +214,16 @@
       (let [datasets (datasets/all-datasets store)]
         (doseq [ds datasets]
           (let [sensors (datasets/sensors-for-dataset ds store)
-                {:keys [device_id name]} ds
-                [min-date max-date] (misc/range-for-all-sensors sensors)
-                range    {:start-date min-date :end-date max-date}
-                new-item (assoc item :range range :ds ds :sensors sensors)]
-            (when range
-              (synthetic-readings store new-item)))))
+                [min-date max-date] (misc/range-for-all-sensors sensors)]
+            (when (and min-date max-date)
+              (synthetic-readings store (assoc item
+                                          :range {:start-date min-date
+                                                  :end-date max-date}
+                                          :ds ds :sensors sensors))))))
       (log/info "Finished synthetic readings job."))
 
     (defn actual-annual [store item]
-      (let [{:keys [sensor range ]} item]
+      (let [{:keys [sensor range]} item]
         (when (and (= (:actual_annual sensor) true)
                    (not= (:period sensor) "CUMULATIVE"))
           (when-let [new-range (misc/dates-overlap? range (t/months 12))]
@@ -260,9 +243,8 @@
       (log/info "Starting calculation of actual annual use.")
       (let [sensors (misc/all-sensors store)]
         (doseq [s sensors]
-          (let [range (misc/start-end-dates :actual_annual_calculation s)
-                new-item (assoc item :range range :sensor s)]
-            (actual-annual store new-item))))
+          (when-let [range (misc/start-end-dates :actual_annual_calculation s)]
+            (actual-annual store (assoc item :range range :sensor s)))))
       (log/info "Finished calculation of actual annual use."))
 
     (defnconsumer resolution-q [item]
