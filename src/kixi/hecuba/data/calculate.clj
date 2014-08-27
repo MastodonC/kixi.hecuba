@@ -180,16 +180,24 @@
       (float (/ sum count))
       "N/A")))
 
+(defn parse-hourly-rollups
+  "Takes measurements from hourly_rollups and parses their values if present.
+  Because data in hourly_rollups has already been checked, it contains either nils
+  or stringified numbers."
+  [measurements]
+  (map (fn [m] (assoc-in m [:value] (when-let [value (:value m)]
+                                      (edn/read-string value)))) measurements))
+
 (defn daily-batch
   [store {:keys [device_id type period]} start-date]
   (db/with-session [session (:hecuba-session store)]
     (let [end-date     (t/plus start-date (t/days 1))
           year         (m/get-year-partition-key start-date)
           where        [[= :device_id device_id] [= :type type] [= :year year] [>= :timestamp start-date] [< :timestamp end-date]]
-          measurements (m/parse-measurements (db/execute session (hayt/select :hourly_rollups (hayt/where where))))
+          measurements (parse-hourly-rollups (db/execute session (hayt/select :hourly_rollups (hayt/where where))))
           filtered     (filter #(number? %) (map :value measurements))
           funct        (fn [measurements] (case period
-                                            "CUMULATIVE" (:value (last measurements))
+                                            "CUMULATIVE" (last measurements)
                                             "INSTANT"    (average-reading measurements)
                                             "PULSE"      (reduce + measurements)))]
       (when-not (empty? filtered)
@@ -204,9 +212,16 @@
   "Calculates daily rollups for given sensor and date range."
   [store {:keys [sensor range]}]
   (let [{:keys [start-date end-date]} range]
-    (loop [start  start-date]
+    (loop [start start-date]
       (when-not (t/before? end-date start)
         (recur (daily-batch store sensor start))))))
+
+(defn data-to-calculate? [measurements]
+  (let [filtered (filter #(number? %) (map :value measurements))]
+    (when-not (empty? filtered)
+      (let [invalid (/ (count filtered) (count measurements))]
+        (when-not (and (not= invalid 1) (> invalid 0.10))
+          filtered)))))
 
 (defn hour-batch
   [store {:keys [device_id type period]} start-date]
@@ -215,21 +230,18 @@
           month        (m/get-month-partition-key start-date)
           where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
           measurements (m/parse-measurements (db/execute session (hayt/select :partitioned_measurements (hayt/where where))))
-          filtered     (filter #(number? %) (map :value measurements))
           funct        (fn [measurements] (case period
                                             "CUMULATIVE" (last measurements)
                                             "INSTANT"    (average-reading measurements)
                                             "PULSE"      (reduce + measurements)))]
-      (when-not (empty? filtered)
-        (let [invalid (/ (count filtered) (count measurements))]
-          (when-not (and (not= invalid 1) (> invalid 0.10))
-            (db/execute session
-                        (hayt/insert :hourly_rollups (hayt/values
-                                                      {:value (str (round (funct filtered)))
-                                                       :timestamp (tc/to-date end-date)
-                                                       :year (m/get-year-partition-key start-date)
-                                                       :device_id device_id
-                                                       :type type}))))))
+      (when-let [filtered (data-to-calculate? measurements)]
+        (db/execute session
+                    (hayt/insert :hourly_rollups (hayt/values
+                                                  {:value (str (round (funct filtered)))
+                                                   :timestamp (tc/to-date end-date)
+                                                   :year (m/get-year-partition-key start-date)
+                                                   :device_id device_id
+                                                   :type type}))))
       end-date)))
 
 (defn hourly-rollups
@@ -238,8 +250,7 @@
                    :period \"CUMULATIVE\"} :range {:start-date \"Sat Mar 01 00:00:00 UTC 2014\"
                    :end-date \"Sun Mar 02 23:00:00 UTC 2014\"}}"
   [store {:keys [sensor range]}]
-  (let [{:keys [start-date end-date]} range
-        period (:period sensor)]
+  (let [{:keys [start-date end-date]} range]
     (loop [start  (m/truncate-seconds start-date)]
       (when-not (t/before? end-date start)
         (recur (hour-batch store sensor start))))))

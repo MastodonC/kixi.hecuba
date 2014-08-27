@@ -81,8 +81,8 @@
     (db/execute session (hayt/select :sensor_metadata (hayt/where [[= :device_id device_id]])))))
 
 (defn start-end-dates
-  "Given a sensor, table and where clause, returns start and end dates for (re)calculations."
-  [column sensor where]
+  "Given a sensor and column name returns start and end dates for (re)calculations."
+  [column sensor]
   (let [range (-> sensor column)
         start (get range "start")
         end   (get range "end")]

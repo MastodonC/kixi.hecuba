@@ -9,9 +9,10 @@
   `(let [options# (apply hash-map '~options)]
      (defn
        ~name
-       []
-       (submit-item (-> system :pipeline :head)
-                    (merge options#)))))
+       ([~'type] (submit-item (-> system :pipeline :head)
+                    (merge {:type ~'type}
+                           options#)))
+       ([] (~name nil)))))
 
 (defreplmethods rollups-> :dest :calculated-datasets :type :rollups)
 (defreplmethods difference-series-> :dest :calculated-datasets :type :difference-series)
@@ -24,4 +25,10 @@
 (defreplmethods convert-to-kwh-> :dest :calculated-datasets :type :convert-to-kwh)
 (defreplmethods sensor-status-check-> :dest :data-quality :type :sensor-status)
 (defreplmethods actual-annual-calculation-> :dest :calculated-fields :type :actual-annual)
-
+;; Examples:
+;; (recalculate-> :rollups)
+;; (recalculate-> :convert-to-co2)
+;; (recalculate-> :median-calculation)
+;; (recalculate-> :difference-series)
+;; Calculation keys are the same as the :type values in repl methods above
+(defreplmethods recalculate-> :dest :recalculate)
