@@ -10,28 +10,30 @@
    [kixi.hecuba.bootstrap  :as bs]
    [kixi.hecuba.common :refer (log assoc-if) :as common]
    [kixi.hecuba.widgets.fileupload :as file]
-   [sablono.core :as html :refer-macros [html]]))
+   [sablono.core :as html :refer-macros [html]]
+   [cljs.reader :as reader]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; properties
 
-(defn error-handler [data]
+(defn error-handler [properties]
   (fn [{:keys [status status-text]}]
-    (om/update! data [:properties :alert] {:status true
-                                           :class "alert alert-danger"
-                                           :text status-text})))
+    (om/update! properties :alert {:status true
+                                   :class "alert alert-danger"
+                                   :text status-text})))
 (defn valid-property? [property]
   (not (nil? (:property_code property)))) ;; project_id comes from the selection above
 
-(defn post-new-property [data owner property project_id]
+(defn post-new-property [properties refresh-chan owner property project_id]
   (common/post-resource "/4/entities/"
                         property
-                        (fn [_]
-                          (fetch-properties project_id data)
-                          (om/update! data [:properties :adding-property] false))
-                        (error-handler data)))
+                        (fn [response]
+                          (let [[_ _ _ entity_id] (str/split (get (js->clj response) "location") #"/")]
+                            (put! refresh-chan {:event :new-property :id entity_id}))
+                          (om/update! properties :adding-property false))
+                        (error-handler properties)))
 
-(defn property-add-form [data project_id]
+(defn property-add-form [properties refresh-chan project_id]
   (fn [cursor owner]
     (om/component
 
@@ -53,19 +55,19 @@
                      :onClick (fn [_] (let [property      (om/get-state owner :property)
                                             property_data (om/get-state owner :property_data)]
                                         (if (valid-property? property)
-                                          (post-new-property data owner (-> (assoc property :project_id project_id)
-                                                                            (assoc-if :property_data property_data))
+                                          (post-new-property properties refresh-chan owner (-> (assoc property :project_id project_id)
+                                                                                  (assoc-if :property_data property_data))
                                                              project_id)
-                                          (om/update! data [:properties :alert] {:status true
-                                                                                 :class "alert alert-danger"
-                                                                                 :text "Please enter property code"}))))}
+                                          (om/update! properties :alert {:status true
+                                                                         :class "alert alert-danger"
+                                                                         :text "Please enter property code"}))))}
             "Save"]
            [:button {:type "button"
                      :class "btn btn-danger"
                      :onClick (fn [_]
-                                (om/update! data [:properties :adding-property] false))}
+                                (om/update! properties :adding-property false))}
             "Cancel"]]]
-         (om/build bs/alert (-> data :properties :alert))
+         (om/build bs/alert (-> properties :alert))
          (bs/text-input-control cursor owner :property :property_code "Property Code" true)
          (bs/address-control cursor owner :property_data)
          (bs/text-input-control cursor owner :property_data :property_type "Property Type")
@@ -106,6 +108,28 @@
 (defmethod properties-table-html :error [properties owner]
   (bs/error-row properties))
 
+(defn property-row [property owner {:keys [table-id]}]
+  (om/component
+   (let [property_data (:property_data property)
+         entity_id     (:entity_id property)
+         history       (om/get-shared owner :history)]
+     (html  [:tr
+             {:onClick   (fn [_ _]
+                           (history/update-token-ids! history :properties entity_id))
+              :className (if (:selected property) "success")
+              :id        (str table-id "-selected")}
+             [:td (when-let [pic (:path (first (:photos property)))]
+                    [:img.img-thumbnail.tmg-responsive
+                     {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" pic)}])]
+             [:td (:property_code property)]
+             [:td (:property_type property_data)]
+             [:td (slugs/postal-address property_data)]
+             [:td (:address_region property_data)]
+             [:td (:ownership property_data)]
+             [:td (for [ti (:technology_icons property_data)]
+                    [:img.tmg-responsive {:src ti :width 40 :height 40}])]
+             [:td (:monitoring_hierarchy property_data)]]))))
+
 (defmethod properties-table-html :has-data [properties owner]
   (let [table-id "properties-table"
         history  (om/get-shared owner :history)]
@@ -115,26 +139,7 @@
        [:tr [:th "Photo"] [:th "Property Code"] [:th "Type"] [:th "Address"]
         [:th "Region"] [:th "Ownership"] [:th "Technologies"] [:th "Monitoring Hierarchy"]]]
       [:tbody
-       (for [property-details (sort-by #(-> % :property_code) (:data properties))]
-         (let [property_data (:property_data property-details)
-               entity_id     (:entity_id property-details)]
-           [:tr
-            {:onClick (fn [_ _]
-                        (om/update! properties :selected entity_id)
-                        (history/update-token-ids! history :properties entity_id))
-             :className (if (= entity_id (:selected properties)) "success")
-             :id (str table-id "-selected")}
-            [:td (when-let [pic (:path (first (:photos property-details)))]
-                   [:img.img-thumbnail.tmg-responsive
-                    {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" pic)}])]
-            [:td (:property_code property-details)]
-            [:td (:property_type property_data)]
-            [:td (slugs/postal-address property_data)]
-            [:td (:address_region property_data)]
-            [:td (:ownership property_data)]
-            [:td (for [ti (:technology_icons property_data)]
-                   [:img.tmg-responsive {:src ti :width 40 :height 40}])]
-            [:td (:monitoring_hierarchy property_data)]]))]]]))
+       (om/build-all property-row (sort-by #(-> % :property_code) (:data properties)) {:opts {:table-id table-id}})]]]))
 
 (defmethod properties-table-html :default [properties owner]
   [:div.row [:div.col-md-12]])
@@ -145,7 +150,7 @@
     (render [_]
       (html (properties-table-html properties owner)))))
 
-(defn properties-div [data owner]
+(defn properties-div [properties owner]
   (reify
     om/IInitState
     (init-state [_]
@@ -153,32 +158,25 @@
        :http-error-response nil})
     om/IRenderState
     (render-state [_ state]
-      (let [{:keys [programmes projects properties active-components]} data
-            history         (om/get-shared owner :history)
-            project_id      (-> data :active-components :projects)
-            project         (-> (filter #(= (:project_id %) project_id) (-> projects :data)) first)
-            adding-property (-> properties :adding-property)]
+      (let [history            (om/get-shared owner :history)
+            project_id         (-> properties :project_id)
+            can-add-properties (-> properties :can-add-properties)
+            adding-property    (-> properties :adding-property)
+            refresh-chan       (om/get-shared owner :refresh)]
         (html
          [:div.row#properties-div
           [:div {:class (str "col-md-12 " (if project_id "" "hidden"))}
            [:h2 "Properties"]
-           [:ul {:class "breadcrumb"}
-            [:li [:a
-                  {:href "/app"}
-                  (common/title-for programmes)]]
-            [:li [:a
-                  {:onClick (back-to-projects history)}
-                  (common/title-for projects)]]]
            (when (and (not adding-property)
-                      (:editable project))
+                      can-add-properties)
              [:div.form-group
               [:div.btn-toolbar
                [:button {:type "button"
                          :class "btn btn-primary"
                          :onClick (fn [_]
-                                    (om/update! data [:properties :adding-property] true))}
+                                    (om/update! properties :adding-property true))}
                 "Add new"]]])
            [:div {:id "property-add-div" :class (if adding-property "" "hidden")}
-            (om/build (property-add-form data project_id) nil)]
+            (om/build (property-add-form properties refresh-chan project_id) nil)]
            [:div {:id "property-div" :class (if adding-property "hidden" "")}
             (om/build properties-table properties)]]])))))

@@ -199,7 +199,9 @@ their containing structures."
       (allowed-all?* programmes projects roles request-method params store))))
 
 (defn index-handle-ok [store ctx]
-  (util/render-item ctx (:entities ctx)))
+  (let [items (util/render-item ctx (:entities ctx))]
+    (log/info "total hits:" (:total_hits (:entities ctx)))
+    items))
 
 (defn index-handle-malformed [ctx]
   (let [content-type (-> ctx :request :content-type)]
@@ -237,9 +239,11 @@ their containing structures."
 (defn store-entity [entity user_id store]
   (let [query-entity (assoc entity :user_id user_id)]
     (entities/insert (:hecuba-session store) query-entity)
+    (log/info "inserted: " query-entity)
     (-> query-entity
         (search/searchable-entity (:hecuba-session store))
         (search/->elasticsearch (:search-session store)))
+    (log/info "updated elastic search")
     (:entity_id entity)))
 
 (defn index-post! [store ctx]
@@ -309,9 +313,8 @@ their containing structures."
            {:keys [request editable]} ctx
            route-params (:route-params request)
            clean-item   (-> item
-                            clean-entity
                             (cond-> editable (assoc :editable editable))
-                            remove-private-data)
+                            clean-entity)
            formatted-item (if (= "text/csv" mime)
                             (let [exploded-item (parser/explode-and-sort-by-schema clean-item es/entity-schema)]
                               exploded-item)
@@ -321,7 +324,8 @@ their containing structures."
 (defn resource-put! [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [request entity]} ctx
-          username  (sec/session-username (-> ctx :request :session))]
+          username  (sec/session-username (-> ctx :request :session))
+          _ (log/info "entity: " entity)]
       (if-let [entity_id (:entity_id entity)]
         (do (entities/update session entity_id (assoc entity :user_id username))
             (-> (entities/get-by-id session entity_id)

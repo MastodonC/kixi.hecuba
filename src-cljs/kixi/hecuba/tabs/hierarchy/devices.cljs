@@ -70,25 +70,25 @@
                   :type "text"
                   :id "location_longitude"}]]]]]]))
 
-(defn error-handler [data]
+(defn error-handler [devices]
   (fn [{:keys [status status-text]}]
-    (om/update! data [:devices :alert] {:status true
-                                        :class "alert alert-danger"
-                                        :text status-text})))
+    (om/update! devices :alert {:status true
+                                :class "alert alert-danger"
+                                :text status-text})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Adding new sensor
 
-(defn put-new-sensor [data owner sensor property_id device_id]
+(defn put-new-sensor [devices refresh-chan owner sensor property_id device_id]
   (common/put-resource (str "/4/entities/" property_id "/devices/" device_id)
                        {:readings [sensor]}
                        (fn [_]
-                         (fetch-property property_id data (error-handler data))
-                         (om/update! data [:devices :adding-sensor] false)
-                         (om/update! data [:devices :alert] {:status true
-                                                             :class "alert alert-success"
-                                                             :text "Sensor was added successfully."}))
-                       (error-handler data)))
+                         (put! refresh-chan {:event :property})
+                         (om/update! devices :adding-sensor false)
+                         (om/update! devices :alert {:status true
+                                                     :class "alert alert-success"
+                                                     :text "Sensor was added successfully."}))
+                       (error-handler devices)))
 
 (defn valid-sensor? [sensor]
   (and sensor
@@ -96,64 +96,67 @@
        (:period sensor)
        (:unit sensor))) ;; device_id comes from the selection above
 
-(defn new-sensor-form [data property_id device_id]
+(defn new-sensor-form [devices property_id device_id]
   (fn [cursor owner]
     (reify
       om/IRenderState
       (render-state [_ state]
         (html
-           [:div
-            [:h3 "Add new sensor"]
-            [:form.form-horizontal {:role "form"}
-             [:div.col-md-6
-              [:div.form-group
-               [:div.btn-toolbar
-                [:button {:type "button"
-                          :class "btn btn-success"
-                          :onClick (fn [_]
-                                     (let [sensor (om/get-state owner :sensor)]
-                                       (if (valid-sensor? sensor)
-                                         (put-new-sensor data owner sensor property_id device_id)
-                                         (om/update! data [:devices :alert]
-                                                     {:status true
-                                                      :class "alert alert-danger"
-                                                      :text  " Please enter required sensor data."}))))}
-                 "Save"]
-                [:button {:type "button"
-                          :class "btn btn-danger"
-                          :onClick (fn [_]
-                                     (om/update! data [:devices :adding-sensor] false))}
-                 "Cancel"]]]
-              [:div.form-group
-               [:label.control-label.col-md-2 {:for "device_id"} "Device Id"]
-               [:p {:class "form-control-static col-md-10"} device_id]]
-              (bs/text-input-control nil owner :sensor :type "Type" true)
-              (bs/text-input-control nil owner :sensor :alias "Alias")
-              (bs/text-input-control nil owner :sensor :unit "Unit" true)
-              (bs/text-input-control nil owner :sensor :period "Period" true)
-              (bs/text-input-control nil owner :sensor :resolution "Resolution")
-              (bs/checkbox nil owner :sensor :actual_annual "Calculated Field")]]])))))
+         (let [refresh-chan (om/get-shared owner :refresh)]
+             [:div
+              [:h3 "Add new sensor"]
+              [:form.form-horizontal {:role "form"}
+               [:div.col-md-6
+                [:div.form-group
+                 [:div.btn-toolbar
+                  [:button {:type "button"
+                            :class "btn btn-success"
+                            :onClick (fn [_]
+                                       (let [sensor (om/get-state owner :sensor)]
+                                         (if (valid-sensor? sensor)
+                                           (put-new-sensor devices refresh-chan owner sensor property_id device_id)
+                                           (om/update! devices :alert
+                                                       {:status true
+                                                        :class "alert alert-danger"
+                                                        :text  " Please enter required sensor data."}))))}
+                   "Save"]
+                  [:button {:type "button"
+                            :class "btn btn-danger"
+                            :onClick (fn [_]
+                                       (om/update! devices :adding-sensor false))}
+                   "Cancel"]]]
+                [:div.form-group
+                 [:label.control-label.col-md-2 {:for "device_id"} "Device Id"]
+                 [:p {:class "form-control-static col-md-10"} device_id]]
+                (bs/text-input-control nil owner :sensor :type "Type" true)
+                (bs/text-input-control nil owner :sensor :alias "Alias")
+                (bs/text-input-control nil owner :sensor :unit "Unit" true)
+                (bs/text-input-control nil owner :sensor :period "Period" true)
+                (bs/text-input-control nil owner :sensor :resolution "Resolution")
+                (bs/checkbox nil owner :sensor :actual_annual "Calculated Field")]]]))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Editing device
 
-(defn put-edited-device [data owner device property_id device_id]
+(defn put-edited-device [devices refresh-chan owner device property_id device_id]
   (common/put-resource (str "/4/entities/" property_id "/devices/" device_id)
                        device
                        (fn [_]
-                         (fetch-property property_id data (error-handler data))
-                         (om/update! data [:devices :editing] false)
-                         (om/update! data [:devices :alert] {:status true
-                                                             :class "alert alert-success"
-                                                             :text "Device was edited successfully."}))
-                       (error-handler data)))
+                         (put! refresh-chan {:event :property})
+                         (om/update! devices :editing false)
+                         (om/update! devices :alert {:status true
+                                                     :class "alert alert-success"
+                                                     :text "Device was edited successfully."}))
+                       (error-handler devices)))
 
-(defn save-edited-device [data owner property_id device_id]
+
+(defn save-edited-device [devices existing-device refresh-chan owner property_id device_id]
   (let [{:keys [device sensors]} (om/get-state owner)
+        device (common/deep-merge @existing-device device)
         readings (into [] (map (fn [[k v]] (assoc v :type k)) sensors))]
-    (put-edited-device data owner (assoc device :readings readings)
+    (put-edited-device devices refresh-chan owner (assoc device :readings readings)
                        property_id device_id)
-    (om/update! data [:devices :editing] false)))
+    (om/update! devices :editing false)))
 
 (defn sensor-edit-div [cursor owner]
   (let [sensor-type (:type cursor)]
@@ -165,12 +168,13 @@
      (text-input-control cursor owner [:sensors sensor-type] :resolution "Resolution")
      (checkbox cursor owner [:sensors sensor-type] :actual_annual "Calculated Field")]))
 
-(defn edit-device-form [data property_id]
+(defn edit-device-form [devices property_id]
   (fn [cursor owner]
     (reify
       om/IRenderState
       (render-state [_ state]
-        (let [device_id (:device_id cursor)]
+        (let [device_id (:device_id cursor)
+              refresh-chan (om/get-shared owner :refresh)]
           (html
            [:div
             [:h3 "Editing device"]
@@ -181,11 +185,11 @@
                 [:button {:type "button"
                           :class (str "btn btn-success")
                           :onClick (fn [_]
-                                     (save-edited-device data owner property_id device_id))} "Save"]
+                                     (save-edited-device devices cursor refresh-chan owner property_id device_id))} "Save"]
                 [:button {:type "button"
                           :class (str "btn btn-danger")
                           :onClick (fn [_]
-                                     (om/update! data [:devices :editing] false))} "Cancel"]]]
+                                     (om/update! devices :editing false))} "Cancel"]]]
               [:h3 "Device"]
               (static-text cursor :device_id "Device ID")
               (text-input-control cursor owner [:device] :name "Parent Device Name")
@@ -202,56 +206,57 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Adding new device
 
-(defn post-new-device [data owner device property_id]
+(defn post-new-device [devices refresh-chan owner device property_id]
   (common/post-resource (str "/4/entities/" property_id "/devices/")
                         device
                         (fn [_]
-                          (fetch-property property_id data (error-handler data))
-                          (om/update! data [:devices :adding-device] false)
-                          (om/update! data [:devices :alert] {:status true
-                                                              :class "alert alert-success"
-                                                              :text "Device was created successfully."}))
-                        (error-handler data)))
+                          (put! refresh-chan {:event :property})
+                          (om/update! devices :adding-device false)
+                          (om/update! devices :alert {:status true
+                                                      :class "alert alert-success"
+                                                      :text "Device was created successfully."}))
+                        (error-handler devices)))
 
 (defn valid-device? [device]
   (not (nil? (:description device)))) ;; entity_id comes from the selection above
 
-(defn new-device-form [data property_id]
+(defn new-device-form [devices property_id]
   (fn [cursor owner]
     (om/component
      (html
-      [:div
-       [:h3 "Add new device"]
-       [:form.form-horizontal {:role "form"}
-        [:div.col-md-6
-         [:div.form-group
-          [:div.btn-toolbar
-           [:button {:class "btn btn-success"
-                     :type "button"
-                     :onClick (fn [_] (let [device (->  (om/get-state owner :device)
-                                                        (assoc :entity_id property_id))]
-                                        (if (valid-device? device)
-                                          (post-new-device data owner device property_id)
-                                          (om/update! data [:devices :alert]
-                                                      {:status true
-                                                       :class "alert alert-danger"
-                                                       :text " Please enter description."}))))}
-            "Save"]
-           [:button {:type "button"
-                     :class "btn btn-danger"
-                     :onClick (fn [_]
-                                (om/update! data [:devices :adding-device] false))}
-            "Cancel"]]]
-         (bs/text-input-control cursor owner :device :description "Description" true)
-         (location-input cursor owner)
-         (bs/text-input-control cursor owner :device :metadata "Metadata")
-         (bs/text-input-control cursor owner :device :name "Name")
-         (bs/checkbox cursor owner :device :privacy "Private")]]]))))
+      (let [refresh-chan (om/get-shared owner :refresh)]
+        [:div
+         [:h3 "Add new device"]
+         [:form.form-horizontal {:role "form"}
+          [:div.col-md-6
+           [:div.form-group
+            [:div.btn-toolbar
+             [:button {:class "btn btn-success"
+                       :type "button"
+                       :onClick (fn [_] (let [device (->  (om/get-state owner :device)
+                                                          (assoc :entity_id property_id))]
+                                          (if (valid-device? device)
+                                            (post-new-device devices refresh-chan owner device property_id)
+                                            (om/update! devices :alert
+                                                        {:status true
+                                                         :class "alert alert-danger"
+                                                         :text " Please enter description."}))))}
+              "Save"]
+             [:button {:type "button"
+                       :class "btn btn-danger"
+                       :onClick (fn [_]
+                                  (om/update! devices :adding-device false))}
+              "Cancel"]]]
+           (bs/text-input-control cursor owner :device :description "Description" true)
+           (location-input cursor owner)
+           (bs/text-input-control cursor owner :device :metadata "Metadata")
+           (bs/text-input-control cursor owner :device :name "Name")
+           (bs/checkbox cursor owner :device :privacy "Private")]]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Devices table
 
-(defn form-row [data table-id editing-chan]
+(defn form-row [properties table-id editing-chan]
   (fn [cursor owner]
     (reify
       om/IRender
@@ -259,7 +264,7 @@
         (html
          (let [{:keys [description privacy location name
                        device_id editable metadata privacy]} cursor
-               devices   (:devices data)
+               devices   (:devices properties)
                selected? (= (:selected devices) device_id)]
            [:tr {:onClick (fn [_] (om/update! devices :selected (if selected? nil device_id)))
                  :class (when selected? "success")
@@ -273,7 +278,7 @@
             [:td (count (filter #(not (:synthetic %)) (:readings cursor)))]]))))))
 
 
-(defn devices-table [editing-chan data]
+(defn devices-table [editing-chan properties]
   (fn [cursor owner]
     (reify
       om/IInitState
@@ -298,7 +303,7 @@
       om/IRenderState
       (render-state [_ state]
         (let [{:keys [sort-key sort-asc]} (:sort-spec state)
-              devices                     (fetch-devices (-> data :active-components :properties) data)
+              devices                     (fetch-devices (-> properties :selected) properties)
               table-id                    "sensors-table"]
           (html
            [:div.col-md-12 {:style {:overflow "auto"}}
@@ -316,12 +321,12 @@
               (for [row (if sort-asc
                           (sort-by sort-key devices)
                           (reverse (sort-by sort-key devices)))]
-                (om/build (form-row data table-id editing-chan) row) {:key :device_id})]]]))))))
+                (om/build (form-row properties table-id editing-chan) row) {:key :device_id})]]]))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Entire devices tab view
 
-(defn devices-div [data owner]
+(defn devices-div [properties owner]
   (reify
     om/IInitState
     (init-state [_]
@@ -331,20 +336,21 @@
       (go-loop []
         (let [{:keys [editing-chan]} (om/get-state owner)
               edited-row             (<! editing-chan)]
-          (om/update! data [:sensors :editing] true)
-          (om/update! data [:sensors :row] edited-row)
+          (om/update! properties [:sensors :editing] true)
+          (om/update! properties [:sensors :row] edited-row)
           (common/fixed-scroll-to-element "sensor-edit-div"))
         (recur)))
     om/IRenderState
     (render-state [_ {:keys [editing-chan]}]
-      (let [{:keys [properties devices]} data
+      (let [{:keys [devices]} properties
             editing        (-> devices :editing)
             adding-sensor  (-> devices :adding-sensor)
             adding-device  (-> devices :adding-device)
-            project_id     (-> data :active-components :projects)
-            property_id    (-> data :active-components :properties)
+            project_id     (-> properties :project_id)
+            property_id    (-> properties :selected)
             device_id      (-> devices :selected)
-            property       (-> (filter #(= (:entity_id %) property_id) (-> properties :data)) first)]
+            property       (-> (filter #(= (:entity_id %) property_id) (:data properties))
+                               first)]
         (html
          [:div.col-md-12
           [:h3 "Devices"]
@@ -356,34 +362,34 @@
             [:div [:button {:type "button"
                             :class "btn btn-primary"
                             :onClick (fn [_]
-                                       (om/update! data [:devices :adding-device] true))}
+                                       (om/update! properties [:devices :adding-device] true))}
                    "Add new device"]])
           (when (and (not adding-sensor)
                      (not adding-device)
                      (not editing)
                      (:editable property)
-                     (:selected devices))
+                     device_id)
             [:div.btn-toolbar
              [:button {:type "button"
                        :class "btn btn-primary"
                        :onClick (fn [_]
-                                  (let [device (first (filter #(= (:device_id %) device_id) (fetch-devices property_id @data)))]
-                                    (om/update! data [:devices :edited-device] device)
-                                    (om/update! data [:devices :editing] true)))}
+                                  (let [device (first (filter #(= (:device_id %) device_id) (fetch-devices property_id @properties)))]
+                                    (om/update! properties [:devices :edited-device] device)
+                                    (om/update! properties [:devices :editing] true)))}
               [:div {:class  "fa fa-pencil-square-o"} " Edit device"]]
              [:button {:type "button"
                        :class "btn btn-primary"
-                       :onClick (fn [_] (om/update! data [:devices :adding-sensor] true))}
+                       :onClick (fn [_] (om/update! properties [:devices :adding-sensor] true))}
               [:div {:class  "fa fa-plus"} " Add sensor"]]])
           [:div {:id "alert-div" :style {:padding-top "10px"}}
            (om/build bs/alert (:alert devices))]
           [:div {:id "devices-div"
                  :class (if (or editing adding-sensor adding-device) "hidden" "")
                  :style {:padding-top "10px"}}
-           (om/build (devices-table editing-chan data) devices)]
+           (om/build (devices-table editing-chan properties) devices)]
           [:div {:id "sensor-add-div" :class (if adding-sensor "" "hidden")}
-           (om/build (new-sensor-form data property_id device_id) nil)]
+           (om/build (new-sensor-form (:devices properties) property_id device_id) nil)]
           [:div {:id "device-add-div" :class (if adding-device "" "hidden")}
-           (om/build (new-device-form data property_id) nil)]
+           (om/build (new-device-form (:devices properties) property_id) nil)]
           [:div {:id "device-edit-div" :class (if editing "" "hidden")}
-           (om/build (edit-device-form data property_id) (:edited-device devices))]])))))
+           (om/build (edit-device-form (:devices properties) property_id) (:edited-device devices))]])))))

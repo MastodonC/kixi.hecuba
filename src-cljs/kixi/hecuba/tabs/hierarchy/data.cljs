@@ -3,7 +3,8 @@
             [om.core :as om :include-macros true]
             [kixi.hecuba.common :refer (log interval) :as common]
             [kixi.hecuba.tabs.slugs :as slugs]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [cljs-time.format :as tf]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Data Fetchers
@@ -12,10 +13,20 @@
   ([data error-handler]
      (om/update! data [:programmes :fetching] :fetching)
      (GET (str "/4/programmes/")
-          {:handler  (fn [x]
-                       (log "Fetching programmes.")
-                       (om/update! data [:programmes :data] (mapv slugs/slugify-programme x))
-                       (om/update! data [:programmes :fetching] (if (empty? x) :no-data :has-data)))
+          {:handler (fn [x]
+                      (log "Fetching programmes.")
+                      (let [programme-id (-> @data :active-components :ids :programmes)]
+                        (om/update! data [:programmes :data] (mapv (fn [programme]
+                                                                     (-> (slugs/slugify-programme programme)
+                                                                         (cond-> programme-id (assoc :selected (if (= programme-id (:programme_id programme))
+                                                                                                                 true
+                                                                                                                 false)))))
+                                                                   x))
+                        (when programme-id
+                          (om/update! data [:projects :can-add-projects] (-> (filter #(= (:programme_id %) programme-id) x)
+                                                                             first
+                                                                             :editable)))
+                        (om/update! data [:programmes :fetching] (if (empty? x) :no-data :has-data))))
            :error-handler error-handler
            :headers {"Accept" "application/edn"}
            :response-format :text}))
@@ -37,7 +48,17 @@
      (fetch-projects programme-id data
                      (fn [x]
                        (log "Fetching projects for programme: " programme-id)
-                       (om/update! data [:projects :data] (mapv slugs/slugify-project x))
+                       (let [project-id (-> @data :active-components :ids :projects)]
+                         (om/update! data [:projects :data] (mapv (fn [project]
+                                                                    (-> (slugs/slugify-project project)
+                                                                        (cond-> project-id (assoc :selected (if (= project-id (:project_id project))
+                                                                                                              true
+                                                                                                              false)))))
+                                                                  x))
+                         (when project-id
+                           (om/update! data [:properties :can-add-properties] (-> (filter #(= (:project_id %) project-id) x)
+                                                                                  first
+                                                                                  :editable))))
                        (om/update! data [:projects :fetching] (if (empty? x) :no-data :has-data)))
                      error-handler))
   ([programme-id data]
@@ -53,7 +74,14 @@
           {:handler  (fn [x]
                        (let [entities (:entities x)]
                          (log "Fetching properties for project: " project-id)
-                         (om/update! data [:properties :data] (mapv slugs/slugify-property entities))
+                         (let [property-id (-> @data :active-components :ids :properties)]
+                           (om/update! data [:properties :data]
+                                       (mapv (fn [property]
+                                               (-> (slugs/slugify-property property)
+                                                   (cond-> property-id (assoc :selected (if (= property-id (:entity_id property))
+                                                                                          true
+                                                                                          false)))))
+                                             entities)))
                          (om/update! data [:properties :fetching] (if (empty? entities) :no-data :has-data))))
            :error-handler error-handler
            :headers {"Accept" "application/edn"}
@@ -84,21 +112,41 @@
 
 (defn update-entity [entity refreshed-entity entity_id]
   (if (= entity_id (:entity_id entity))
-    (slugs/slugify-property refreshed-entity)
+    (-> (slugs/slugify-property refreshed-entity)
+        (assoc :selected true))
     entity))
 
 (defn fetch-property
-  ([entity-id data error-handler]
+  ([entity_id data error-handler]
      (om/update! data [:properties :fetching] :fetching)
-     (GET (str "/4/entities/" entity-id)
+     (GET (str "/4/entities/" entity_id)
           {:handler (fn [entity]
-                      (om/update! data [:properties :data] (mapv #(update-entity % entity entity-id) (-> @data :properties :data)))
+                      (log "Fetching property for id: " entity_id)
+                      (om/update! data [:properties :data] (mapv #(update-entity % entity entity_id)(-> @data :properties :data)))
                       (om/update! data [:properties :fetching] (if (empty? entity) :no-data :has-data)))
            :error-handler error-handler
            :headers {"Accept" "application/edn"}
            :response-format :text}))
-  ([entity-id data]
-     (fetch-property entity-id data
+  ([entity_id data]
+     (fetch-property entity_id data
+                     (fn [{:keys [status status-text]}]
+                       (om/update! data [:properties :fetching] :error)
+                       (om/update! data [:properties :error-status] status)
+                       (om/update! data [:properties :error-text] status-text)))))
+
+(defn fetch-new-property
+  ([entity_id data error-handler]
+     (om/update! data [:properties :fetching] :fetching)
+     (GET (str "/4/entities/" entity_id)
+          {:handler (fn [entity]
+                      (log "Fetching new property for id: " entity_id)
+                      (om/update! data [:properties :data] (conj (-> @data :properties :data) entity))
+                      (om/update! data [:properties :fetching] (if (empty? entity) :no-data :has-data)))
+           :error-handler error-handler
+           :headers {"Accept" "application/edn"}
+           :response-format :text}))
+  ([entity_id data]
+     (fetch-new-property entity_id data
                      (fn [{:keys [status status-text]}]
                        (om/update! data [:properties :fetching] :error)
                        (om/update! data [:properties :error-status] status)
@@ -115,25 +163,24 @@
 (defn extract-sensors [devices]
   (vec (mapcat flatten-device devices)))
 
-(defn get-property-details [selected-property-id data]
-  (->>  data
-        :properties
+(defn get-property-details [selected-property-id properties]
+  (->>  properties
         :data
         (filter #(= (:entity_id %) selected-property-id))
         first))
 
-(defn fetch-sensors [selected-property-id data]
+(defn fetch-sensors [selected-property-id properties]
   (if selected-property-id
-    (if-let [property-details (get-property-details selected-property-id data)]
+    (if-let [property-details (get-property-details selected-property-id properties)]
       (let [editable (:editable property-details)
             sensors  (extract-sensors (:devices property-details))]
         (map #(assoc % :editable editable) sensors))
       [])
     []))
 
-(defn fetch-devices [selected-property-id data]
+(defn fetch-devices [selected-property-id properties]
    (if selected-property-id
-    (if-let [property-details (get-property-details selected-property-id data)]
+    (if-let [property-details (get-property-details selected-property-id properties)]
       (let [editable (:editable property-details)
             devices  (:devices property-details)]
         (map #(assoc % :editable editable) devices))
@@ -151,17 +198,23 @@
   (str "/4/entities/" entity_id "/devices/" device_id "/daily_rollups/"
        type "?startDate=" start "&endDate=" end))
 
+(defn date->amon-timestamp [date]
+  (->> date
+       (tf/parse (tf/formatter "yyyy-MM-dd"))
+       (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss"))))
+
 (defn fetch-measurements [data entity_id sensors start-date end-date]
   (log "Fetching measurements for sensors: " sensors)
   (doseq [sensor (str/split sensors #";")]
     (let [[type device_id] (str/split sensor #"-" )
           measurements-type (interval start-date end-date)
+          start-date (date->amon-timestamp start-date)
+          end-date (date->amon-timestamp end-date)
           url (url-str start-date end-date entity_id device_id type measurements-type)]
-      (om/update! data [:chart :measurements] [])
-      (om/update! data [:fetching :measurements] true)
+      (om/update! data [:properties :chart :measurements] [])
       (GET url {:handler (fn [response]
-                           (om/update! data [:chart :measurements]
-                                       (concat (:measurements (:chart @data))
+                           (om/update! data [:properties :chart :measurements]
+                                       (concat (:measurements (:chart (:properties @data)))
                                                (into []
                                                      (map (fn [m]
                                                             (assoc m "sensor" sensor))

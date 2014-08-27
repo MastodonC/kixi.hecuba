@@ -40,7 +40,7 @@
 
 (defn interval
   [start-date end-date]
-  (let [formatter (tf/formatter "yyyy-MM-dd HH:mm:ss")
+  (let [formatter (tf/formatter "yyyy-MM-dd")
         start     (tf/parse formatter start-date)
         end       (tf/parse formatter end-date)
         interval  (t/in-minutes (t/interval start end))]
@@ -135,3 +135,10 @@
   (if v
     (assoc m k v)
     m))
+
+(defn deep-merge
+  "Recursively merges maps. If keys are not maps, the last value wins."
+  [& vals]
+  (if (every? map? vals)
+    (apply merge-with deep-merge vals)
+    (last vals)))

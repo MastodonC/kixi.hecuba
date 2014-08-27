@@ -10,7 +10,8 @@
             [cljs-time.format :as tf]
             [cljs-time.coerce :as tc]
             [kixi.hecuba.bootstrap :as bs]
-            [kixi.hecuba.common :refer (log) :as common]))
+            [kixi.hecuba.common :refer (log) :as common]
+            [kixi.hecuba.tabs.hierarchy.data :as data]))
 
 (defn url-str [start end entity_id device_id type]
   (str "/4/entities/" entity_id "/devices/" device_id "/measurements/"
@@ -21,39 +22,36 @@
        (tf/parse (tf/formatter "yyyy-MM-dd"))
        (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss"))))
 
-(defn get-measurements [cursor entity_id sensor start-date end-date]
+(defn get-measurements [raw-data entity_id sensor start-date end-date]
   (let [[type device_id] (str/split sensor #"-")
         start-ts (date->amon-timestamp start-date)
         end-ts (date->amon-timestamp end-date)
         url (url-str start-ts end-ts entity_id device_id type)]
     (GET url
-         {:handler #(om/update! cursor :data (:measurements %))
+         {:handler #(om/update! raw-data :data (:measurements %))
           :error-handler (fn [{:keys [status status-text]}]
                            (log "There was an error. Status " status " Text " status-text))
           :headers {"Accept" "application/json"}
           :response-format :json
           :keywords? true})))
 
-(defn handle-change [cursor owner key e]
+(defn handle-change [owner key e]
   (let [target (.. e -target)
         value (.. e -target -value)
         node (om/get-node owner)]
-    (log "Value: " value)
-    ;; (om/update! cursor key value)
     (om/set-state! owner :target target)
-    (om/set-state! owner key value)
-    (log "State: " (om/get-state owner))))
+    (om/set-state! owner key value)))
 
-(defn datetime-input-control [data owner table key label & required]
+(defn datetime-input-control [raw-data owner table key label & required]
   (let [id-for (str (name table) "-" (name key))]
     [:div
      [:label.control-label {:for id-for} label]
      [:input {:ref (name :key)
-              :default-value (let [default (get-in data [table key] "")]
+              :default-value (let [default (get-in raw-data [table key] "")]
                                (om/set-state! owner [table key] default)
                                default)
               :placeholder "YYYY-MM-DD"
-              :on-change #(handle-change data owner [table key] %1)
+              :on-change #(handle-change owner [table key] %1)
               :class "form-control"
               :id id-for
               :type "date"}]]))
@@ -77,34 +75,8 @@
          [:i.fa.fa-sort-asc]
          [:i.fa.fa-sort-desc]))]))
 
-(defn flatten-device [device]
-  (let [device-keys   (->> device keys (remove #(= % :readings)))
-        parent-device (select-keys device device-keys)
-        readings      (:readings device)]
-    (map #(assoc % :parent-device parent-device) readings)))
-
-(defn extract-sensors [devices]
-  (vec (mapcat flatten-device devices)))
-
-;; FIXME: This is a dupe from property-details
-(defn get-property-details [selected-property-id data]
-  (->>  data
-        :properties
-        :data
-        (filter #(= (:entity_id %) selected-property-id))
-        first))
-
-(defn get-sensors [selected-property-id data]
-  (if selected-property-id
-    (if-let [property-details (get-property-details selected-property-id data)]
-      (let [editable (:editable property-details)
-            sensors  (extract-sensors (:devices property-details))]
-        (map #(assoc % :editable editable) sensors))
-      [])
-    []))
-
 (defn datetime-picker [entity_id]
-  (fn [cursor owner]
+  (fn [raw-data owner]
     (reify
       om/IInitState
       (init-state [_]
@@ -114,18 +86,18 @@
         (log "State: " state)
         (html
          [:div
-          (datetime-input-control cursor owner :range :start-date "Start Date")
-          (datetime-input-control cursor owner :range :end-date "End Date")
+          (datetime-input-control raw-data owner :range :start-date "Start Date")
+          (datetime-input-control raw-data owner :range :end-date "End Date")
           [:div.form-group
            [:button.btn.btn-primary
             {:type "button"
              :id "raw-data-get-dates"
              :on-click (fn [_ _] (let [date-range (:range state)
                                        {:keys [start-date end-date]} date-range]
-                                   (om/update! cursor :range date-range)
-                                   (get-measurements cursor
+                                   (om/update! raw-data :range date-range)
+                                   (get-measurements raw-data
                                                      entity_id
-                                                     (:selected @cursor)
+                                                     (:selected @raw-data)
                                                      start-date
                                                      end-date)))}
             "Get Data"]]])))))
@@ -162,7 +134,7 @@
             [:td (status-label status privacy actual_annual)]]))))))
 
 
-(defn sensors-table [data]
+(defn sensors-table [properties]
   (fn [cursor owner {:keys [histkey path]}]
     (reify
       om/IInitState
@@ -187,10 +159,10 @@
       om/IRenderState
       (render-state [_ state]
         (let [{:keys [sort-key sort-asc]} (:sort-spec state)
-              selected-property-id        (-> data :active-components :properties)
-              selected-project-id         (-> data :active-components :projects)
-              flattened-sensors           (get-sensors selected-property-id data)
-              raw-data                    (:raw-data data)
+              selected-property-id        (-> properties :selected)
+              selected-project-id         (-> properties :project_id)
+              flattened-sensors           (data/fetch-sensors selected-property-id properties)
+              raw-data                    (:raw-data properties)
               history                     (om/get-shared owner :history)
               table-id                    "sensors-table"]
           (html
@@ -228,21 +200,18 @@
              (let [{:keys [timestamp value]} row]
                [:tr [:td timestamp] [:td value]]))]])))))
 
-(defn raw-data-div [data owner]
+(defn raw-data-div [properties owner]
   (reify
     om/IInitState
     (init-state [_]
       {})
     om/IRenderState
     (render-state [_ state]
-      (let [raw-data (:raw-data data)
-            entity_id (-> data :active-components :properties)]
+      (let [raw-data (:raw-data properties)
+            entity_id (-> properties :selected)]
         (html
          [:div [:h3 "Raw Sensor Data"]
-          [:button.btn.btn-primary
-           {:on-click (fn [_ _] (log "All Data: " (pr-str @data)))}
-           "Dump"]
-          (om/build (sensors-table data) raw-data)
+          (om/build (sensors-table properties) raw-data)
           [:div
            [:div.col-md-2.col-md-offset-3
             (om/build (datetime-picker entity_id) raw-data)]

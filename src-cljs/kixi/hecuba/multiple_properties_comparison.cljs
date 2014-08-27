@@ -12,7 +12,8 @@
    [kixi.hecuba.common :refer (interval log) :as common]
    [kixi.hecuba.history :as history]
    [sablono.core :as html :refer-macros [html]]
-   [kixi.hecuba.tabs.slugs :as slugs]))
+   [kixi.hecuba.tabs.slugs :as slugs]
+   [cljs-time.format :as tf]))
 
 (def data-model
   (atom
@@ -65,11 +66,18 @@
   (str "/4/entities/" entity_id "/devices/" device_id "/daily_rollups/"
        type "?startDate=" start "&endDate=" end))
 
+(defn date->amon-timestamp [date]
+  (->> date
+       (tf/parse (tf/formatter "yyyy-MM-dd"))
+       (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss"))))
+
 (defn fetch-measurements [data sensors start-date end-date]
   (log "Fetching measurements for sensors: " sensors)
   (doseq [sensor (str/split sensors #";")]
     (let [[entity_id device_id type] (str/split sensor #"-" )
           measurements-type (interval start-date end-date)
+          start-date (date->amon-timestamp start-date)
+          end-date (date->amon-timestamp end-date)
           url (url-str start-date end-date entity_id device_id type measurements-type)]
       (om/update! data [:chart :measurements] []) ;; TODO speed up deselection of sensors by not clearing measurements but by doing remove/concat
       (om/update! data [:fetching :measurements] true)
@@ -99,7 +107,10 @@
   (vec (mapcat flatten-device devices)))
 
 (defn sensors-for-property [data id]
-  (let [property (first (filter #(= (:entity_id %) id) (get-in data [:entities :selected-data])))
+  (let [loaded-properties (if-let [searched (seq (-> data :entities :searched-data))]
+                            searched
+                            (-> data :entities :selected-data))
+        property (first (filter #(= (:entity_id %) id) loaded-properties))
         sensors  (extract-sensors (:devices property))]
     sensors))
 
@@ -138,8 +149,9 @@
         (om/update! data [:chart :sensors] #{})
         (let [entities-seq  (str/split entities #";")]
           (om/update! data [:entities :selected-entities] (into #{} entities-seq))
-          (doseq [entity entities-seq]
-            (fetch-entity data entity))
+          (when-not (seq (-> @data :entities :searched-data))
+            (doseq [entity entities-seq]
+              (fetch-entity data entity)))
           (om/update! data [:sensors :data] (get-sensors @data))))
 
       (when (and (not= sensors old-sensors)
@@ -200,7 +212,10 @@
         [:tr {:class (when selected? "success")
               :onClick (fn [_] (process-sensor-row-click data history
                                                          id selected?
-                                                         entity_id))}
+                                                         entity_id)
+                         (when (and lower_ts upper_ts)
+                           (om/update! data [:chart :range] {:start-date (common/unparse-date lower_ts "yyyy-MM-dd")
+                                                             :end-date (common/unparse-date upper_ts "yyyy-MM-dd")})))}
          [:td type]
          [:td device_id]
          [:td entity_id]
@@ -227,7 +242,8 @@
            [:tbody
             (if (-> cursor :fetching :entities)
               (fetching-row)
-              (when (and (-> cursor :entities :selected-data seq)
+              (when (and (or (-> cursor :entities :selected-data seq)
+                             (-> cursor :entities :searched-data seq))
                          (-> cursor :entities :selected-entities seq))
                 (om/build-all (sensor-row cursor) (get-sensors cursor) {:key :id})))]])]))))
 
@@ -239,8 +255,8 @@
     (om/update! data [:entities :selected-entities] selected-properties)
     (history/update-token-ids! history
                                :entities (if (seq selected-properties)
-                                             (str/join ";" selected-properties)
-                                             nil))))
+                                           (str/join ";" selected-properties)
+                                           nil))))
 
 (defn property-row [data]
   (fn [the-item owner]
@@ -354,13 +370,13 @@
           [:div.panel-heading
            [:h3.panel-title "Chart"]]
           [:div.panel-body
-           [:div {:id "date-picker"}
-            (om/build dtpicker/date-picker data {:opts {:histkey :range}})]
+           [:div {:id "date-picker" :class "col-md-4"}
+            (om/build dtpicker/datetime-picker (-> data :chart :range))]
            (om/build chart-feedback-box (get-in data [:chart]))
            (when (-> data :fetching :measurements) (fetching-row))
            [:div.col-md-12.well
             [:div#chart {:style {:width "100%" :height 600}}
-             (om/build chart/chart-figure (:chart data))]]]]]]))))
+             (om/build chart/chart-figure (select-keys (:chart data) [:measurements :unit]))]]]]]]))))
 
 (when-let [charting (.getElementById js/document "charting")]
   (om/root multiple-properties-chart

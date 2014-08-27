@@ -14,7 +14,7 @@
    [kixi.hecuba.tabs.hierarchy.projects :as projects]
    [kixi.hecuba.tabs.hierarchy.properties :as properties]
    [kixi.hecuba.tabs.hierarchy.property-details :as property-details]
-   [kixi.hecuba.tabs.hierarchy.data :refer (fetch-programmes fetch-projects fetch-properties) :as data]
+   [kixi.hecuba.tabs.hierarchy.data :as data]
    [kixi.hecuba.common :refer (log) :as common]
    [sablono.core :as html :refer-macros [html]]))
 
@@ -58,14 +58,14 @@
 (defn history-loop [history-channel data]
   (go-loop []
     (let [nav-event                                        (<! history-channel)
-          history-status                                   (-> nav-event :args :ids)
-          {:keys [programmes projects properties sensors]} history-status
+          history-status                                   (-> nav-event :args)
+          [start-date end-date]                            (:search history-status)
+          {:keys [programmes projects properties sensors]} (:ids history-status)
           old-nav                                          (:active-components @data)
-          old-programmes                                   (:programmes old-nav)
-          old-projects                                     (:projects old-nav)
-          old-properties                                   (:properties old-nav)]
-      (log "Old Programmes: " old-programmes " Old Projects: " old-projects " Old Properties: " old-properties)
-      (log "New Programmes: " programmes " New Projects: " projects " New Properties: " properties)
+          old-programmes                                   (-> old-nav :ids :programmes)
+          old-projects                                     (-> old-nav :ids :projects)
+          old-properties                                   (-> old-nav :ids :properties)
+          [old-start-date old-end-date]                    (-> old-nav :search)]
 
       ;; Clear down
       (when (or (nil? programmes)
@@ -74,7 +74,7 @@
         (om/update! data [:programmes :selected] nil)
         (om/update! data [:projects :data] [])
         (om/update! data [:projects :programme_id] nil)
-        (fetch-programmes data))
+        (data/fetch-programmes data))
 
       (when-not projects
         (log "Clearing properties.")
@@ -87,66 +87,63 @@
         (om/update! data [:properties :selected] nil)
         (om/update! data [:property-details :data] {})
         (om/update! data [:property-details :property_id] nil)
-        (om/update! data [:devices :data] [])
-        (om/update! data [:sensors :data] [])
-        (om/update! data [:measurements :data] []))
+        (om/update! data [:properties :devices :data] [])
+        (om/update! data [:properties :sensors :data] [])
+        (om/update! data [:properties :measurements :data] []))
 
       (when (and (not= programmes old-programmes)
                  programmes)
         (log "Setting selected programme to: " programmes)
         (om/update! data [:programmes :selected] programmes)
         (om/update! data [:projects :programme_id] programmes)
-        (fetch-projects programmes data))
+        (om/update! data [:properties :programme_id] programmes)
+        (om/transact! data [:programmes :data] (fn [d] (mapv #(cond
+                                                               (= old-programmes (:programme_id %)) (assoc % :selected false)
+                                                               (= programmes (:programme_id %)) (assoc % :selected true)
+                                                               :else %)
+                                                             d)))
+        (data/fetch-projects programmes data))
 
       (when (and (not= projects old-projects)
                  projects)
         (log "Setting selected project to: " projects)
         (om/update! data [:projects :selected] projects)
         (om/update! data [:properties :project_id] projects)
-        (fetch-properties projects data))
+        (om/update! data [:properties :editable] (-> @data :projects :editable))
+        (om/transact! data [:projects :data] (fn [d] (mapv #(cond
+                                                             (= old-projects (:project_id %)) (assoc % :selected false)
+                                                             (= projects (:project_id %)) (assoc % :selected true)
+                                                             :else %)
+                                                           d)))
+        (data/fetch-properties projects data))
 
       (when (and (not= properties old-properties)
                  properties)
         (log "Setting property details to: " properties)
         (om/update! data [:properties :selected] properties)
-        (om/update! data [:sensors :selected] #{})
-        (om/update! data [:chart :sensors] #{}))
+        (om/update! data [:properties :sensors :selected] #{})
+       ;; (om/update! data [:properties :chart :sensors] #{})
+        (om/transact! data [:properties :data] (fn [d] (mapv #(cond
+                                                             (= old-properties (:entity_id %)) (assoc % :selected false)
+                                                             (= properties (:entity_id %)) (assoc % :selected true)
+                                                             :else %)
+                                                           d))))
 
       (when sensors
         (log "Setting selected sensors to: " sensors)
-        (om/update! data [:sensors :selected] (into #{} (str/split sensors #";"))))
+        (om/update! data [:properties :sensors :selected] (into #{} (str/split sensors #";"))))
+
+      (when (or (not= start-date old-start-date)
+                (not= end-date old-end-date))
+        (log "Setting date range to: " start-date end-date)
+        (om/update! data [:properties :chart :range] {:start-date start-date :end-date end-date})
+        (when (and (not (every? empty? [start-date end-date]))
+                   sensors)
+          (data/fetch-measurements data properties sensors start-date end-date)))
+
 
       ;; Update the new active components
       (om/update! data :active-components history-status))
-    (recur)))
-
-(defn selected-range-change
-  [selected selection-key {{ids :ids search :search} :args}]
-  (let [new-selected (get ids selection-key)]
-    (when (or (nil? selected)
-              (not= selected new-selected))
-      (vector new-selected ids search))))
-
-;; updates chart cursor only
-(defn chart-ajax [in data {:keys [selection-key content-type]}]
-  (go-loop []
-    (let [nav-event (<! in)]
-      (when-let [[new-range ids search] (selected-range-change (-> @data :chart :range)
-                                                               selection-key
-                                                               nav-event)]
-        (let [[start-date end-date] search
-              entity_id  (get ids :properties)
-              sensor_ids (get ids :sensors)]
-
-          (om/update! data [:chart :range] {:start-date start-date :end-date end-date})
-          (om/update! data [:chart :sensors] sensor_ids)
-          (om/update! data [:chart :measurements] [])
-
-          (when (and (not (empty? start-date))
-                     (not (empty? end-date))
-                     (not (empty? sensor_ids)))
-            (log "Fetching measurements for sensors: " sensor_ids " and range: " start-date end-date)
-            (data/fetch-measurements data entity_id sensor_ids start-date end-date)))))
     (recur)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -156,24 +153,31 @@
   (reify
     om/IWillMount
     (will-mount [_]
-      (let [history     (om/get-shared owner :history)
+      (let [history       (om/get-shared owner :history)
+            refresh       (om/get-shared owner :refresh)
             property-chan (om/get-shared owner :property-chan)
-            m           (mult (history/set-chan! history (chan)))
-            tap-history #(tap m (chan))]
+            m             (mult (history/set-chan! history (chan)))
+            tap-history   #(tap m (chan))]
 
         ;; handle navigation changes
         (history-loop (tap-history) data)
 
-        (chart-ajax (tap-history)
-                    data
-                    {:template "/4/entities/:properties/devices/:devices/measurements?startDate=:start-date&endDate=:end-date"
-                     :content-type  "application/json"
-                     :selection-key :range})))
+        ;; go loop listening for requests to refresh tables
+        (go-loop []
+          (let [{:keys [event id]}  (<! refresh)]
+
+            (cond
+             (= event :programmes)     (data/fetch-programmes data)
+             (= event :projects)       (data/fetch-projects (-> @data :active-components :ids :programmes) data)
+             (= event :properties)     (data/fetch-properties (-> @data :active-components :ids :projects) data)
+             (= event :property)       (data/fetch-property (-> @data :active-components :ids :properties) data)
+             (= event :new-property)   (data/fetch-new-property id data)))
+          (recur))))
     om/IRender
     (render [_]
 
       (html [:div
-             (om/build programmes/programmes-div data)
-             (om/build projects/projects-div data)
-             (om/build properties/properties-div data)
-             (om/build property-details/property-details-div data)]))))
+             (om/build programmes/programmes-div (:programmes data))
+             (om/build projects/projects-div (:projects data))
+             (om/build properties/properties-div (:properties data))
+             (om/build property-details/property-details-div (:properties data))]))))
