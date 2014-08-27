@@ -83,7 +83,7 @@
              "Save"]
             [:button {:type "button"
                       :class "btn btn-danger"
-                      :onClick (fn [_] (set! (.-location js/window) "/app"))}
+                      :onClick (fn [_] (.back js/history))}
              "Cancel"]]]
 
           [:div.col-md-12 {:id "alert-div" :style {:padding-top "10px"}}
