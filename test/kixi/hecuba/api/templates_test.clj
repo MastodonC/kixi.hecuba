@@ -7,7 +7,7 @@
             [qbits.hayt :as hayt]
             [clojure.walk :refer (prewalk)]
             [ring.mock.request :refer (request content-type)]
-            ))
+            [kixipipe.storage.s3 :refer (s3-key-from item-from-s3-key)]))
 
 (defn- multipart-request [method params]
     {:request {:request-method method
@@ -21,6 +21,7 @@
             (.deleteOnExit))]
     (spit f contents)
     f))
+
 
 (defrecord MockStore [state results-index results]
   hecuba/Cassandra
@@ -179,3 +180,15 @@
            (get-in result [:response :body])))
     )
   )
+
+(deftest s3-key-from-test
+  (is (= (s3-key-from {:src-name "downloads" :entity_id 1234})
+         "downloads/1234/data")
+      (= (s3-key-from {:src-name "downloads" :entity_id 1234 :suffix "status"})
+         "downloads/1234/status")))
+
+(deftest item-from-s3-key-test
+  (is (= {:src-name "downloads" :entity_id "1234"}
+         (item-from-s3-key "downloads/1234"))
+      (= nil
+         (item-from-s3-key "downloads/1234/123/123"))))
