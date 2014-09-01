@@ -40,8 +40,9 @@
 (defmethod kixipipe.storage.s3/item-from-s3-key "uploads" uploads-item-from-s3-key [key]
   (when-let [[src-name username entity_id uuid] (next (re-matches #"^([^/]+)/([^/]+)/([^/]+)/([^/]+)$" key))]
     {:src-name src-name
-     :username username
-     :entity_id entity_id}))
+     :metadata {:username username}
+     :entity_id entity_id
+     :uuid uuid}))
 
 (defn merge-meta [obj meta]
   (with-meta obj (merge (meta obj) meta)))
