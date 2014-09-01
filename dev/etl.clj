@@ -24,7 +24,7 @@
 
 (def custom-formatter (tf/formatter "yyyy-MM-dd'T'HH:mm:ss.SSSZ"))
 
-(defn update-reading-metadata [metadata] 
+(defn update-reading-metadata [metadata]
   (when metadata
     (let [new-metadata (walk/stringify-keys (read-string metadata))]
       new-metadata)))
@@ -34,7 +34,6 @@
     [(:username cred) (:password cred)]))
 
 (defn post-resource [post-uri content-type data]
-  (pr-str "DATA:" data)
   (let [response
         @(http-request
           {:method :post
@@ -66,7 +65,7 @@
   (doseq [batch (partition-all 500 measurements)]
     (post-measurements batch url)))
 
-(defn post-contextual-data 
+(defn post-contextual-data
   "Creates test programme, project and devices which are used to post measurements.
   Uses the API."
   [store]
@@ -77,13 +76,16 @@
   (post-resource (:device-1 urls) "application/json" (:device-1 resources))
 
   (db/with-session [session (:hecuba-session store)]
-    (db/execute session 
+    (db/execute session
                 (hayt/insert :entities (hayt/values {:id "14366c761c74592b9926e851bae8a64ece7239ff"
                                                      :project_id "ba776928f94b3aaa1e444569276ee5b66d6b21f7"})))
-    (db/execute session 
+    (db/execute session
                 (hayt/insert :entities (hayt/values {:id "9ac7f5635832d843dda594f58525239263ffdd37"
                                                      :project_id "ba776928f94b3aaa1e444569276ee5b66d6b21f7"}))))
-  
+  ;; cos we're bypassing the api above need to refresh ES.
+  (kixi.hecuba.data.entities.search/refresh-search
+   (:hecuba-session store) (:search-session store))
+
   (post-resource (:device-2 urls) "application/json" (:device-2 resources))
   (post-resource (:device-3 urls) "application/json" (:device-3 resources))
   (post-resource (:device-3 urls) "application/json" (:device-4 resources))
@@ -97,12 +99,12 @@
     (let [measurements2 (map #(zipmap [:device_id :type :month :timestamp :error :reading_metadata :value] %)
                              (rest (csv/read-csv in-file)))]
       (batch-csv measurements2 (:measurement-2 urls))))
-  
+
   (with-open [in-file2 (io/reader (io/resource "csv/b4f0c7e2b15ba9636f3fb08379cc4b3798a226bb-interpolatedHeatConsumption.csv"))]
     (let [measurements3 (map #(zipmap [:device_id :type :month :timestamp :error :reading_metadata :metadata :value] %)
                              (rest (csv/read-csv in-file2)))
           m3 (map #(update-in % [:timestamp] (fn [t] (let [d (tf/parse (tf/formatter  "yyyy-MM-dd HH:mm:ssZ") t)]
-                                                     (tf/unparse 
+                                                     (tf/unparse
                                                       (tf/formatter "yyyy-MM-dd HH:mm:ssZ")
                                                       (t/minus (t/plus d (t/years 2)) (t/days 9))))))
                   measurements3)]
@@ -112,7 +114,7 @@
     (let [measurements4 (map #(zipmap [:device_id :type :month :timestamp :error :reading_metadata :metadata :value] %)
                              (rest (csv/read-csv in-file3)))
            m4 (map #(update-in % [:timestamp] (fn [t] (let [d (tf/parse (tf/formatter  "yyyy-MM-dd HH:mm:ssZ") t)]
-                                                      (tf/unparse 
+                                                      (tf/unparse
                                                        (tf/formatter "yyyy-MM-dd HH:mm:ssZ")
                                                        (t/minus (t/plus d (t/years 2)) (t/days 9))))))
                    measurements4)]
@@ -122,14 +124,14 @@
     (let [measurements5 (map #(zipmap [:device_id :type :month :timestamp :error :reading_metadata :value] %)
                              (rest (csv/read-csv in-file4)))]
       (batch-csv measurements5 (:measurement-5 urls))))
-  
+
   (with-open [in-file5 (io/reader (io/resource "csv/122b4bf8dfa66cbf8f321f2d03c4d73f924bb719-interpolatedElectricityConsumption.csv"))]
     (let [measurements6 (map #(zipmap [:device_id :type :month :timestamp :error :reading_metadata :value] %)
                              (rest (csv/read-csv in-file5)))]
       (batch-csv measurements6 (:measurement-6 urls)))))
 
 
-(defn post-generated-measurements 
+(defn post-generated-measurements
   "Generates measurements (500) and posts them to Hecuba"
   []
   (let [generated-measurements (generators/measurements  {:type "electricityConsumption"
@@ -137,7 +139,7 @@
                                                           :resolution 60
                                                           :period "PULSE"})]
     (post-resource (:measurement-1 urls) "application/json" {:measurements
-                                                             (map (fn [x] 
+                                                             (map (fn [x]
                                                                     (-> x
                                                                         (dissoc :reading_metadata :error)
                                                                         (update-in [:timestamp]
@@ -147,10 +149,9 @@
 
 (defn load-test-data [system]
   (let [store (:store system)]
-    
+
     (post-contextual-data store)
     (post-readings)
     (post-generated-measurements)))
 
 ;; To load data (load-test-data system)
-
