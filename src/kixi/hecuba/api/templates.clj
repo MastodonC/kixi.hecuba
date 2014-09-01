@@ -157,7 +157,6 @@
 (defn queue-data-generation [store pipe username item]
   (let [entity_id (:entity_id item)
         location (format downloads-status-resource-path username entity_id)
-        item     (assoc item :uuid (str username "/" entity_id))
         status   (get-status store item)]
     (if (= status "PENDING")
       {:response {:status 303

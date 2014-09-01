@@ -75,7 +75,6 @@
     {:dest        :upload
      :type        :measurements
      :entity_id   entity_id
-     :uuid        (str entity_id "/" (uuid))
      :src-name    "uploads"
      :feed-name   "measurements"
      :dir         (.getParent tempfile)
