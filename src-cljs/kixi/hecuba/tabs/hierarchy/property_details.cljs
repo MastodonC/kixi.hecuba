@@ -70,6 +70,29 @@
      [:label.control-label.col-md-2 {:for "address"} "Address"]
      [:p {:class "form-control-static col-md-10"} (slugs/postal-address-html property_data)]]))
 
+(defn parse-label [label] (zipmap [:device_id :type :name] (clojure.string/split label #":")))
+
+(defn extract-calcs [property_details]
+  (into [] (map (fn [[k v]] (merge (parse-label k)
+                                   {:label (get (:calculated_fields_labels property_details) k "No Label")
+                                    :last-calc (get (:calculated_fields_last_calc property_details) k "No date")
+                                    :value v}))
+                (:calculated_fields_values property_details))))
+
+;; Change property_data to calcs and remove calcs from the let and all will be fine.
+(defn summary-stats [property_data owner]
+  (om/component
+   (html
+    [:div.col-md-12
+     [:h3 "Summary Statistics"]
+     (let [rows (extract-calcs property_data)]
+       [:table.table.table-hover.table-condensed
+        [:thead [:tr [:th "Name"] [:th "Calculation Type"] [:th "Device Type"] [:th "Device ID"] [:th "Last Calculated"] [:th "Value"]]]
+        [:tbody
+         (for [r rows]
+           [:tr [:td (:label r)] [:td (:name r)] [:td (:type r)] [:td (:device_id r)] [:td (:last-calc r)] [:td.number (:value r)]])]])])))
+
+
 (defn property-details-form [properties owner]
   (reify
     om/IInitState
@@ -123,6 +146,10 @@
             (text-area-control property_data state owner :monitoring_policy "Monitoring Policy")
             (text-area-control property_data state owner :other_notes "Other Notes")]
            [:div.col-md-6
+            (when (seq (:calculated_fields_values property-details))
+              (om/build summary-stats
+                        (select-keys property-details
+                                     [:calculated_fields_values :calculated_fields_labels :calculated_fields_last_calc])))
             (when-let [tech-icons (seq (:technology_icons property_data))]
               [:div.col-md-12
                [:h3 "Technologies"]
