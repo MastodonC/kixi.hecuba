@@ -139,9 +139,8 @@
   sensor)
 
 (defn prepare-device [device]
-  (-> device
-      (dissoc :device_id)
-      (assoc :id (:device_id device)))  )
+  ;;TODO - what preparation should we do?
+  device)
 
 (defn update-sensor-data [store sensor]
   (log/info "Updating sensor " (str (:device_id sensor) "-" (:type sensor)))
@@ -150,7 +149,7 @@
     (sensors/update session sensor)))
 
 (defn update-device-data [store device]
-  (log/info "Updating device " (:id device))
+  (log/info "Updating device " (:device_id device) " in entity " (:entity_id device))
   (db/with-session [session (:hecuba-session store)]
     (devices/update session device)))
 

@@ -82,7 +82,7 @@
                  [clj-time "0.6.0"]
                  [org.clojure/data.json "0.2.4"]
 
-                 [kixi/pipe "0.17.9"]]
+                 [kixi/pipe "0.17.10"]]
 
   :source-paths ["src" "src-cljs"]
   :resource-paths ["resources" "out"]
