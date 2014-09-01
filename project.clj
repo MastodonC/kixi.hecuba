@@ -10,6 +10,8 @@
                  [org.clojure/data.csv "0.1.2"]
                  [org.clojure/core.match "0.2.1"]
 
+                 [joda-time "2.4"]
+
                  ;; Testing POST and GET data
                  [kixi/schema_gen "0.1.5" :exclusions [schema-contrib]]
                  [schema-contrib "0.1.3"]
@@ -104,7 +106,8 @@
                [org.clojure/clojurescript]
                [org.clojure/core.async]
                [org.clojure/tools.trace]
-               [org.clojure/tools.logging]]
+               [org.clojure/tools.logging]
+               [joda-time]]
 
   ;; FIXME: We need to define a cljsbuild test key for the hooks to work
   ;; :hooks [leiningen.cljsbuild]
