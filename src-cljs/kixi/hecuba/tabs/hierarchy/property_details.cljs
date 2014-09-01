@@ -12,7 +12,7 @@
             [kixi.hecuba.tabs.hierarchy.raw-data :as raw]
             [kixi.hecuba.tabs.hierarchy.profiles :as profiles]
             [kixi.hecuba.tabs.hierarchy.status :as status]
-            [kixi.hecuba.common :refer (log)]
+            [kixi.hecuba.common :refer (log) :as common]
             [kixi.hecuba.tabs.hierarchy.data :refer (fetch-properties)]
             [ajax.core :refer [GET PUT]]
             [kixi.hecuba.widgets.fileupload :as file]
@@ -22,22 +22,21 @@
 ;; Property Details Helpers
 
 ;; FIXME: This is a dupe in sensors.cljs
-(defn get-property-details [selected-property-id data]
-  (->>  data
-        :properties
+(defn get-property-details [selected-property-id properties]
+  (->>  properties
         :data
         (filter #(= (:entity_id %) selected-property-id))
         first))
 
-(defn post-resource [data property_id property-data project_id]
+(defn post-resource [refresh-chan property_id property-data project_id]
   (PUT  (str "/4/entities/" property_id)
         {:headers {"Content-Type" "application/edn"}
-         :handler #(fetch-properties project_id data)
+         :handler #(put! refresh-chan {:event :property})
          :params property-data}))
 
-(defn save-form [data property-details owner property_id project_id]
-  (let [property-data (merge (:property_data @property-details) (om/get-state owner [:property_data]))]
-    (post-resource data property_id {:entity_id property_id :property_data property-data} project_id)
+(defn save-form [refresh-chan property-details owner property_id project_id]
+  (let [property-data (common/deep-merge (:property_data @property-details) (om/get-state owner [:property_data]))]
+    (post-resource refresh-chan property_id {:entity_id property_id :property_data property-data} project_id)
     (om/set-state! owner :editing false)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -71,15 +70,16 @@
      [:label.control-label.col-md-2 {:for "address"} "Address"]
      [:p {:class "form-control-static col-md-10"} (slugs/postal-address-html property_data)]]))
 
-(defn property-details-form [data owner]
+(defn property-details-form [properties owner]
   (reify
     om/IInitState
     (init-state [_]
       {:editing false})
     om/IRenderState
     (render-state [_ state]
-      (let [selected-property-id    (-> data :active-components :properties)
-            property-details        (get-property-details selected-property-id data)
+      (let [selected-property-id    (-> properties :selected)
+            property-details        (get-property-details selected-property-id properties)
+            refresh-chan            (om/get-shared owner :refresh)
             {:keys [project_id
                     property_data
                     editable]} property-details]
@@ -96,7 +96,7 @@
                                           :onClick (fn [_ _] (om/set-state! owner {:editing true}))} "Edit"]
                 [:button.btn.btn-default {:type "button"
                                           :class (str "btn btn-success " (if (om/get-state owner :editing) "" "hidden"))
-                                          :onClick (fn [_ _] (save-form data property-details
+                                          :onClick (fn [_ _] (save-form refresh-chan property-details
                                                                         owner selected-property-id project_id))} "Save"]
                 [:button.btn.btn-default {:type "button"
                                           :class (str "btn btn-danger " (if (om/get-state owner :editing) "" "hidden"))
@@ -208,7 +208,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; property-details
-(defn property-details-div [data owner]
+(defn property-details-div [properties owner]
   (reify
     om/IInitState
     (init-state [_]
@@ -216,112 +216,111 @@
     om/IRenderState
     (render-state [_ state]
       (let [active-tab        (:active-tab state)
-            programme-id      (-> data :active-components :programmes)
-            project-id        (-> data :active-components :projects)
-            property-id       (-> data :active-components :properties)
-            property-details  (get-property-details property-id data)
+            programme-id      (-> properties :programme_id)
+            project-id        (-> properties :project_id)
+            property-id       (-> properties :selected)
+            property-details  (get-property-details property-id properties)
             {:keys [editable devices]}  property-details
             property_data        (:property_data property-details)]
-        (log "Property Details: " (pr-str property-details))
         (html
-         (if property-id
-           [:div#property-details.col-md-12
-            [:h2 "Property Details" [:br] [:small (:slug property-details)]]
-            [:div ;; Tab Container
-             [:ul.nav.nav-tabs {:role "tablist"}
-              [:li {:class (if (= active-tab :overview) "active" nil)}
-               [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :overview))}
-                "Overview"]]
-              [:li {:class (if (= active-tab :profiles) "active" nil)}
-               [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :profiles))}
-                "Profiles"]]
-              [:li {:class (if (= active-tab :devices) "active" nil)}
-               [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :devices))}
-                "Devices"]]
-              [:li {:class (if (= active-tab :sensors) "active" nil)}
-               [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :sensors))}
-                "Sensor Charts"]]
-              [:li {:class (if (= active-tab :raw-data) "active" nil)}
-               [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :raw-data))}
-                "Raw Sensor Data"]]
-              (when editable
-                [:li {:class (if (= active-tab :upload) "active" nil)}
-                 [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :upload))}
-                  "Uploads"]])]
-             ;; Overview
-             (when (= active-tab :overview)
-               [:div.col-md-12 (om/build property-details-form data)])
-             ;; Devices
-             (when (= active-tab :devices)
-               [:div.col-md-12 (om/build devices/devices-div data)])
-             ;; Sensors
-             (when (= active-tab :sensors)
-               [:div.col-md-12 (om/build sensors/sensors-div data)])
-             ;; Raw Data
-             (when (= active-tab :raw-data)
-               [:div.col-md-12 (om/build raw/raw-data-div data)])
-             ;; Profiles
-             (when (= active-tab :profiles)
-               [:div.col-md-12 (om/build profiles/profiles-div data)])
-             ;; Uploads
-             (when (= active-tab :upload)
-               [:div.col-md-12
-                [:div.col-md-6
-                 [:div {:style {:padding-top "15px"}}
-                  ;; Download measurements template
+         [:div {:id "property-details-div"}
+          (when (seq property-id)
+            [:div#property-details.col-md-12
+             [:h2 "Property Details" [:br] [:small (:slug property-details)]]
+             [:div ;; Tab Container
+              [:ul.nav.nav-tabs {:role "tablist"}
+               [:li {:class (if (= active-tab :overview) "active" nil)}
+                [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :overview))}
+                 "Overview"]]
+               [:li {:class (if (= active-tab :profiles) "active" nil)}
+                [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :profiles))}
+                 "Profiles"]]
+               [:li {:class (if (= active-tab :devices) "active" nil)}
+                [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :devices))}
+                 "Devices"]]
+               [:li {:class (if (= active-tab :sensors) "active" nil)}
+                [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :sensors))}
+                 "Sensor Charts"]]
+               [:li {:class (if (= active-tab :raw-data) "active" nil)}
+                [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :raw-data))}
+                 "Raw Sensor Data"]]
+               (when editable
+                 [:li {:class (if (= active-tab :upload) "active" nil)}
+                  [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :upload))}
+                   "Uploads"]])]
+              ;; Overview
+              (when (= active-tab :overview)
+                [:div.col-md-12 (om/build property-details-form properties)])
+              ;; Devices
+              (when (= active-tab :devices)
+                [:div.col-md-12 (om/build devices/devices-div properties)])
+              ;; Sensors
+              (when (= active-tab :sensors)
+                [:div.col-md-12 (om/build sensors/sensors-div properties)])
+              ;; Raw Data
+              (when (= active-tab :raw-data)
+                [:div.col-md-12 (om/build raw/raw-data-div properties)])
+              ;; Profiles
+              (when (= active-tab :profiles)
+                [:div.col-md-12 (om/build profiles/profiles-div properties)])
+              ;; Uploads
+              (when (= active-tab :upload)
+                [:div.col-md-12
+                 [:div.col-md-6
+                  [:div {:style {:padding-top "15px"}}
+                   ;; Download measurements template
+                   [:div {:class (if (seq devices) "panel panel-default" "hidden")}
+                    [:div.panel-body
+                     [:div [:h4 "Download measurements CSV template"]]
+                     (om/build (measurements-template property-id) nil)
+                     (om/build (measurements-template-with-data programme-id project-id property-id) (:downloads properties))]]]
+                  ;; Upload measurements
                   [:div {:class (if (seq devices) "panel panel-default" "hidden")}
                    [:div.panel-body
-                    [:div [:h4 "Download measurements CSV template"]]
-                    (om/build (measurements-template property-id) nil)
-                    (om/build (measurements-template-with-data programme-id project-id property-id) (:downloads data))]]]
-                 ;; Upload measurements
-                 [:div {:class (if (seq devices) "panel panel-default" "hidden")}
-                  [:div.panel-body
-                   [:div
-                    [:h4 "Upload measurements CSV"]
-                    (let [div-id "measurements-upload"]
-                      (om/build (measurementsupload/measurements-upload (str "/4/measurements/for-entity/" property-id "/")
-                                                                        div-id)
-                                nil {:opts {:method "POST"}}))]]]
-                 ;; Upload profile data
-                 [:div.panel.panel-default
-                  [:div.panel-body
-                   [:div
-                    [:h4 "Upload CSV profile data"]
-                    (let [div-id "file-form"]
-                      (om/build (file/file-upload (str "/4/entities/" property-id "/profiles/")
-                                                  div-id)
-                                nil {:opts {:method "POST"}}))]]]
-                 ;; Upload property details
-                 [:div.panel.panel-default
-                  [:div.panel-body
-                   [:div
-                    [:h4 "Upload CSV property details"]
-                    (let [div-id "property-details-form"]
-                      (om/build (file/file-upload (str "/4/entities/" property-id) div-id)
-                                nil {:opts {:method "PUT"}}))]]]
-                 ;; Upload image
-                 [:div.panel.panel-default
-                  [:div.panel-body
-                   [:div
-                    [:h4 "Upload an image"]
-                    (let [div-id "image-upload-form"]
-                      (om/build (file/file-upload (str "/4/entities/" property-id "/images/") div-id)
-                                nil {:opts {:method "POST"}}))]]]
-                 ;; Upload document
-                 [:div.panel.panel-default
-                  [:div.panel-body
-                   [:div
-                    [:h4 "Upload a document"]
-                    (let [div-id "document-upload-form"]
-                      (om/build (file/file-upload (str "/4/entities/" property-id "/documents/") div-id)
-                                nil {:opts {:method "POST"}}))]]]]
-                [:div.col-md-6
-                 ;; Upload status
-                 [:div {:style {:padding-top "15px"}}
+                    [:div
+                     [:h4 "Upload measurements CSV"]
+                     (let [div-id "measurements-upload"]
+                       (om/build (measurementsupload/measurements-upload (str "/4/measurements/for-entity/" property-id "/")
+                                                                         div-id)
+                                 nil {:opts {:method "POST"}}))]]]
+                  ;; Upload profile data
                   [:div.panel.panel-default
                    [:div.panel-body
                     [:div
-                     [:h4 "Upload status"]
-                     (om/build (status/upload-status programme-id project-id property-id) (:uploads data))]]]]]])]]
-           [:div.col-md-12 [:p.lead "No Property"]]))))))
+                     [:h4 "Upload CSV profile data"]
+                     (let [div-id "file-form"]
+                       (om/build (file/file-upload (str "/4/entities/" property-id "/profiles/")
+                                                   div-id)
+                                 nil {:opts {:method "POST"}}))]]]
+                  ;; Upload property details
+                  [:div.panel.panel-default
+                   [:div.panel-body
+                    [:div
+                     [:h4 "Upload CSV property details"]
+                     (let [div-id "property-details-form"]
+                       (om/build (file/file-upload (str "/4/entities/" property-id) div-id)
+                                 nil {:opts {:method "PUT"}}))]]]
+                  ;; Upload image
+                  [:div.panel.panel-default
+                   [:div.panel-body
+                    [:div
+                     [:h4 "Upload an image"]
+                     (let [div-id "image-upload-form"]
+                       (om/build (file/file-upload (str "/4/entities/" property-id "/images/") div-id)
+                                 nil {:opts {:method "POST"}}))]]]
+                  ;; Upload document
+                  [:div.panel.panel-default
+                   [:div.panel-body
+                    [:div
+                     [:h4 "Upload a document"]
+                     (let [div-id "document-upload-form"]
+                       (om/build (file/file-upload (str "/4/entities/" property-id "/documents/") div-id)
+                                 nil {:opts {:method "POST"}}))]]]]
+                 [:div.col-md-6
+                  ;; Upload status
+                  [:div {:style {:padding-top "15px"}}
+                   [:div.panel.panel-default
+                    [:div.panel-body
+                     [:div
+                      [:h4 "Upload status"]
+                      (om/build (status/upload-status programme-id project-id property-id) (:uploads properties))]]]]]])]])])))))

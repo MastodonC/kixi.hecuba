@@ -15,40 +15,43 @@
 (def app-model
   (atom
    {:properties {:data []
-                 :selected nil}
-    :devices {:name "Devices"
-              :header   {:cols {[:location :name] {:label "Name"}
-                                :type     {:label "Type"}
-                                :unit     {:label "Unit"}
-                                :select   {:label "Select" :checkbox true}}
-                         :sort [:name]}
-              :alert {}
-              :selected nil
-              :adding false
-              :editing false
-              :edited-device nil}
-    :sensors {:name     "Sensors"
-              :header   {:cols {[:location :name] {:label "Name"}
-                                :type     {:label "Type"}
-                                :unit     {:label "Unit"}
-                                :select   {:label "Select" :checkbox true}}
-                         :sort [:name]}
-              :selected nil
-              :editing false
-              :row nil}
-    :uploads []
-    :downloads {:files []}
-    :chart    {:property ""
-               :sensors #{}
-               :unit ""
-               :range {}
-               :measurements []
-               :message ""}
-    :raw-data {:name "Raw Data"
-               :data []
-               :selected nil
-               :message ""
-               :range {:start-date nil :end-end nil}}
+                 :selected nil
+                 :alert {}
+                 :devices {:name "Devices"
+                           :header   {:cols {[:location :name] {:label "Name"}
+                                             :type     {:label "Type"}
+                                             :unit     {:label "Unit"}
+                                             :select   {:label "Select" :checkbox true}}
+                                      :sort [:name]}
+                           :alert {}
+                           :selected nil
+                           :adding false
+                           :editing false
+                           :edited-device nil}
+                 :sensors {:name     "Sensors"
+                           :header   {:cols {[:location :name] {:label "Name"}
+                                             :type     {:label "Type"}
+                                             :unit     {:label "Unit"}
+                                             :select   {:label "Select" :checkbox true}}
+                                      :sort [:name]}
+                           :selected nil
+                           :editing false
+                           :row nil
+                           :alert {}}
+                 :chart    {:property ""
+                            :sensors #{}
+                            :unit ""
+                            :range {}
+                            :measurements []
+                            :message ""}
+                 :raw-data {:name "Raw Data"
+                            :data []
+                            :selected nil
+                            :message ""
+                            :range {:start-date nil :end-end nil}}
+                 :profiles {:alert {}}
+                 :uploads []
+                 :downloads {:files []}}
     :search {:term nil}
     :fetching {:properties false}
     :active-components {}}))
@@ -73,17 +76,15 @@
   (go-loop []
     (let [nav-event                     (<! history-channel)
           history-status                (-> nav-event :args)
-          search                        (:search history-status)
-          [start-date end-date]         search
+          range                         (:search history-status)
+          [start-date end-date]         range
           {:keys [properties sensors]}  (:ids history-status)
           old-nav                       (:active-components @data)
           old-properties                (:properties (:ids old-nav))
           old-sensors                   (:sensors (:ids old-nav))
-          old-range                     (:range (:ids old-nav))
+          old-range                     (:search old-nav)
           [old-start-date old-end-date] old-range]
 
-      (log "old: " (-> @data :active-components))
-      (log "history: " history-status)
       ;; Clear down
       (when-not properties
         (log "Clearing devices, sensors and measurements.")
@@ -103,27 +104,28 @@
                  properties)
         (log "Setting property details to: " properties)
         (om/update! data [:properties :selected] properties)
-        (om/update! data [:chart :property] properties)
-        (om/update! data [:chart :sensors] #{})
-        (om/update! data [:sensors :selected] #{}))
+        (om/update! data [:properties :sensors :selected] #{})
+        (om/update! data [:properties :chart :measurements] [])
+        (om/transact! data [:properties :data] (fn [d] (mapv #(cond
+                                                               (= old-properties (:entity_id %)) (assoc % :selected false)
+                                                               (= properties (:entity_id %)) (assoc % :selected true)
+                                                               :else %)
+                                                             d))))
 
       (when sensors
-        (let [sensors-set (into #{} (str/split sensors #";"))]
-          (log "Setting selected sensors to: " sensors)
-          (om/update! data [:sensors :selected] sensors-set)
-          (om/update! data [:chart :sensors] sensors-set)))
+        (log "Setting selected sensors to: " sensors)
+        (om/update! data [:properties :sensors :selected] (into #{} (str/split sensors #";"))))
 
-      (when (and (not= search old-range)
-                 (seq search))
+      (when (and (not= range old-range)
+                 (seq range))
         (log "Setting date range to: " start-date end-date)
-        (om/update! data [:chart :range] {:start-date start-date :end-date end-date}))
+        (om/update! data [:properties :chart :range] {:start-date start-date :end-date end-date}))
 
       (when (and properties sensors start-date end-date)
-         (data/fetch-measurements data properties sensors start-date end-date))
+        (data/fetch-measurements data properties sensors start-date end-date))
 
       ;; Update the new active components
-      (om/update! data [:active-components :range] search)
-      (om/update! data :active-components (:ids history-status)))
+      (om/update! data :active-components history-status))
     (recur)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -202,19 +204,32 @@
     (will-mount [this]
       (let [clicked     (om/get-state owner [:chans :selection])
             history     (om/get-shared owner :history)
+            refresh     (om/get-shared owner :refresh)
             m           (mult (history/set-chan! history (chan)))
             tap-history #(tap m (chan))]
-        (history-loop (tap-history) data)))
+
+        (history-loop (tap-history) data)
+
+        ;;go loop listening for requests to refresh tables
+        (go-loop []
+          (let [{:keys [event id]}  (<! refresh)]
+
+            (cond
+             (= event :properties)     (data/fetch-properties (-> @data :active-components :ids :projects) data)
+             (= event :property)       (data/fetch-property (-> @data :active-components :ids :properties) data)
+             (= event :new-property)   (data/fetch-new-property id data)))
+          (recur))))
     om/IRender
     (render [_]
       (html
        [:div {:style {:padding-top "10px"}}
         (om/build (search-input data) (:search data))
         (om/build (table data) (-> data :properties :data))
-        (om/build pd/property-details-div data)]))))
+        (om/build pd/property-details-div (:properties data))]))))
 
 (when-let [search (.getElementById js/document "search")]
   (om/root property-search-view
            app-model
            {:target search
-            :shared {:history (history/new-history [:properties :sensors :range])}}))
+            :shared {:history (history/new-history [:properties :sensors :range])
+                     :refresh (chan)}}))

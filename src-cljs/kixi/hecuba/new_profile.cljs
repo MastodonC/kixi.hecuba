@@ -7,7 +7,8 @@
             [kixi.hecuba.common :as common :refer (log)]
             [kixi.hecuba.bootstrap :as bs]
             [kixi.hecuba.profiles.app-model :as model]
-            [kixi.hecuba.profiles.panels :as panels]))
+            [kixi.hecuba.profiles.panels :as panels]
+            [kixi.hecuba.widgets.datetimepicker :as dtpicker]))
 
 (defn panel-heading [cursor title key]
   [:div.btn-toolbar
@@ -101,10 +102,7 @@
             [:div.form-group
              [:label.control-label.col-md-1 {:for "event_type" :style {:text-align "left"}} "Timestamp"]
              [:div {:class "col-md-3"}
-              [:input {:id "event-type"
-                       :class "form-control"
-                       :default-value (-> cursor :timestamp :_value)
-                       :on-change #(om/update! cursor [:timestamp :_value] (.-value (.-target %)))}]]]]]
+              (dtpicker/datetime-input-control (:timestamp cursor) :_value nil)]]]]
           [:div
            [:div.col-md-4
             [:div.list-group {:style {:height "400px" :overflow-y "auto"}}
