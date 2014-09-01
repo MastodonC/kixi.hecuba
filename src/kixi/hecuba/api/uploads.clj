@@ -43,7 +43,7 @@
 
 (defn uploads-status-resource-exists? [{session :s3} ctx]
   (let [upload_id (-> ctx :request :route-params :upload_id)
-        username (-> ctx :request :route-params :user_id)
+        username  (-> ctx :request :route-params :user_id)
         s3-key    (s3/s3-key-from {:src-name "uploads" :username username :uuid upload_id})]
     (when (s3/item-exists? session s3-key)
       {::item (with-open [in (s3/get-object-by-metadata session {:key s3-key})] (slurp in))})))
