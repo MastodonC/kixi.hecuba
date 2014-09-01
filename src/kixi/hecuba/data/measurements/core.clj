@@ -48,7 +48,8 @@
       (spit status-file (json/generate-string (select-keys item [:status :data])))
       (s3/store-file (:s3 store) (assoc item
                                    :dir (.getParent status-file)
-                                   :filename (.getName status-file)))
+                                   :filename (.getName status-file)
+                                   :suffix "status"))
       (finally (ioplus/delete! status-file)))))
 
 (defn transpose [xs]

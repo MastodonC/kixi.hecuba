@@ -4,6 +4,7 @@
    [clojure.core.match          :refer (match)]
    [clojure.tools.logging       :as log]
    [kixipipe.pipeline           :as pipe]
+   [kixipipe.storage.s3]
    [kixi.hecuba.security        :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
    [kixi.hecuba.webutil         :as util]
    [kixi.hecuba.webutil         :refer (decode-body authorized? stringify-values sha1-regex update-stringified-lists content-type-from-context uuid)]
@@ -21,6 +22,16 @@
    [clj-time.core               :as t]))
 
 (def ^:private entity-resource-path (p/resource-path-string :entity-resource))
+
+(defmethod kixipipe.storage.s3/s3-key-from "media-resources" media-resources-s3-key-from [item]
+  (str "media-resources/"(:entity_id item) "/" (:feed-name item) "/" (-> item :metadata :filename)))
+
+(defmethod kixipipe.storage.s3/item-from-s3-key "media-resources" media-resources-item-from-s3-key [key]
+  (when-let [[src-name entity_id feed-name filename] (next (re-matches #"^([^/]+)/([^/]+)/([^/]+)/([^/]+)$" key))]
+    {:src-name "media-resources"
+     :feed-name feed-name
+     :metadata {:filename filename}
+     :entity_id entity_id}))
 
 (defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
   (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
@@ -51,7 +62,7 @@
            {:dest      :upload
             :type      (keyword feed-name)
             :entity_id entity_id
-            :src-name  "uploads"
+            :src-name  "media-resources"
             :feed-name feed-name
             :dir       (.getParent tempfile)
             :date      timestamp

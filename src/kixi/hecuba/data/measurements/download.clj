@@ -124,14 +124,12 @@
       (s3/store-file (:s3 store) (-> item
                                      (assoc :dir      (.getParent tmpfile)
                                             :filename (.getName tmpfile)
-                                            :metadata  metadata)
-                                     (update-in [:uuid] str "/data")))
+                                            :metadata  metadata)))
       (write-status store (assoc (-> item
-                                     (assoc :metadata metadata)
-                                     (update-in [:uuid] str "/status")) :status "SUCCESS"))
+                                     (assoc :metadata metadata)) :status "SUCCESS"))
       (catch Throwable t
         (log/error t "failed")
-        (write-status store (assoc (update-in item [:uuid] str "/status") :status "FAILURE" :data (ex-data t))))
+        (write-status store (assoc :status "FAILURE" :data (ex-data t))))
       (finally (.delete tmpfile)))))
 
 (defn download-item [store item]

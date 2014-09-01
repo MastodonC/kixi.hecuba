@@ -32,6 +32,18 @@
            ]
           (vals tf/formatters)))
 
+(defmethod kixipipe.storage.s3/s3-key-from "uploads" uploads-s3-key-from [item]
+  (let [suffix   (get item :suffix "data")
+        username (-> item :metadata :username)]
+    (str "uploads/" username "/" (:entity_id item) "/" suffix)))
+
+(defmethod kixipipe.storage.s3/item-from-s3-key "uploads" uploads-item-from-s3-key [key]
+  (when-let [[src-name username entity_id uuid] (next (re-matches #"^([^/]+)/([^/]+)/([^/]+)/([^/]+)$" key))]
+    {:src-name src-name
+     :metadata {:username username}
+     :entity_id entity_id
+     :uuid uuid}))
+
 (defn merge-meta [obj meta]
   (with-meta obj (merge (meta obj) meta)))
 
@@ -139,9 +151,8 @@
   sensor)
 
 (defn prepare-device [device]
-  (-> device
-      (dissoc :device_id)
-      (assoc :id (:device_id device)))  )
+  ;;TODO - what preparation should we do?
+  device)
 
 (defn update-sensor-data [store sensor]
   (log/info "Updating sensor " (str (:device_id sensor) "-" (:type sensor)))
@@ -150,7 +161,7 @@
     (sensors/update session sensor)))
 
 (defn update-device-data [store device]
-  (log/info "Updating device " (:id device))
+  (log/info "Updating device " (:device_id device) " in entity " (:entity_id device))
   (db/with-session [session (:hecuba-session store)]
     (devices/update session device)))
 
@@ -345,10 +356,10 @@
 
 (defn upload-item [store item]
   (let [username (-> item :metadata :user)]
-    (s3/store-file (:s3 store) (update-in item [:uuid] #(str username "/" % "/data")))
+    (s3/store-file (:s3 store) item)
     (try
       (db-store store item)
-      (write-status store (assoc (update-in item [:uuid] #(str username "/" % "/status")) :status "SUCCESS"))
+      (write-status store (assoc item :status "SUCCESS"))
       (catch Throwable t
         (log/error t "failed")
-        (write-status store (assoc (update-in item [:uuid] #(str username "/" % "/status")) :status "FAILURE" :data (str (ex-data t))))))))
+        (write-status store (assoc item :status "FAILURE" :data (str (ex-data t))))))))

@@ -1,27 +1,36 @@
 (ns kixi.hecuba.api.templates
   (:require [cheshire.core :as json]
+            [clj-time.core :as t]
             [clojure.set :as set]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [kixi.hecuba.api.entities :as entities]
-            [kixipipe.pipeline :as pipe]
-            [kixipipe.storage.s3 :as s3]
+            [kixi.hecuba.data.measurements.core :refer (get-status write-status)]
+            [kixi.hecuba.data.measurements.download :as measurements-download]
             [kixi.hecuba.security :as sec]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.storage.sha1 :as sha1]
             [kixi.hecuba.web-paths :as p]
             [kixi.hecuba.webutil :as util]
             [kixi.hecuba.webutil :refer (request-method-from-context decode-body authorized? stringify-values update-stringified-lists sha1-regex uuid)]
+            [kixipipe.pipeline :as pipe]
+            [kixipipe.storage.s3 :as s3]
             [liberator.core :refer (defresource)]
             [liberator.representation :refer (ring-response)]
-            [qbits.hayt :as hayt]
-            [kixi.hecuba.data.measurements.core :refer (get-status write-status)]
-            [kixi.hecuba.data.measurements.download :as measurements-download]
-            [clj-time.core :as t]))
+            [qbits.hayt :as hayt]))
 
 (def ^:private templates-resource (p/resource-path-string :templates-resource))
 (def ^:private entity-templates-resource (p/resource-path-string :entity-templates-resource))
 (def ^:private uploads-status-resource-path (p/resource-path-string :uploads-status-resource))
 (def ^:private downloads-status-resource-path (p/resource-path-string :downloads-status-resource))
+
+(defmethod kixipipe.storage.s3/s3-key-from "downloads" downloads-s3-key-from [item]
+  (let [suffix (get item :suffix "data")]
+    (str "downloads/"(:entity_id item) "/" suffix)))
+
+(defmethod kixipipe.storage.s3/item-from-s3-key "downloads" downloads-item-from-s3-key [key]
+  (when-let [[src-name entity_id] (next (re-matches #"^([^/]+)/([^/]+)$" key))]
+    {:src-name src-name :entity_id entity_id}))
 
 (defn- payload-from
   ([multipart] (payload-from (uuid) multipart))
@@ -148,7 +157,6 @@
 (defn queue-data-generation [store pipe username item]
   (let [entity_id (:entity_id item)
         location (format downloads-status-resource-path username entity_id)
-        item     (assoc item :uuid (str entity_id))
         status   (get-status store item)]
     (if (= status "PENDING")
       {:response {:status 303
@@ -158,8 +166,9 @@
         (write-status store (assoc (-> item
                                        (assoc :metadata  {:timestamp (t/now)
                                                           :content-type "text/csv"
-                                                          :filename "measurements.csv"})
-                                       (update-in [:uuid] str "/status")) :status "PENDING"))
+                                                          :filename "measurements.csv"}
+                                              :suffix "status"))
+                              :status "PENDING"))
         (pipe/submit-item pipe item)
         {:response {:status 202
                     :headers {"Location" location}
@@ -167,13 +176,12 @@
 
 (defn entity-resource-handle-ok [store pipe ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [entity_id (-> ctx :kixi.hecuba.api.entities/item :id)
+    (let [entity_id (-> ctx :request :params :entity_id)
           data?     (-> ctx :request :query-params (get "data"))
           session   (-> ctx :request :session)
           username  (sec/session-username session)
           auth      (sec/current-authentication session)
           item      {:src-name "downloads" :dest :download :type :measurements :entity_id entity_id}]
-
       (if data?
         (queue-data-generation store pipe username item)
         (ring-response {:headers {"Content-Disposition" (str "attachment; filename=" entity_id "_template.csv")}

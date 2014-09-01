@@ -51,21 +51,22 @@
   (with-open [in (s3/get-object-by-metadata (:s3 store) {:key s3-key})]
     (get (json/parse-string (slurp in) keyword) :status)))
 
-(defn merge-downloads-status-with-metadata [store s3-key entity_id]
-  (let [{:keys [auth file-bucket]} (:s3 store)
-        metadata (aws/get-object-metadata auth file-bucket s3-key) ;; FIXME this call to aws/get-object-metadata should be to a fn in kixipipe, passed an item map with uuid set to the generated string.
-        {:keys [downloads-timestamp downloads-filename]} (:user metadata)]
+(defn merge-downloads-status-with-metadata [store s3-object entity_id]
+  (let [session                      (:s3 store)
+        metadata                     (s3/get-user-metadata-from-s3-object session s3-object)
+        {:keys [downloads-timestamp
+                downloads-filename]} metadata]
     (hash-map :filename downloads-filename
               :timestamp (tc/to-string downloads-timestamp)
               :link (str "/4/download/" entity_id "/data")
-              :status (status-from-object store s3-key))))
+              :status (status-from-object store (:key s3-object)))))
 
 ;; TOFIX We currently store one file per entity only.
 (defn downloads-for-entity-status-handle-ok [store ctx]
   (let [{:keys [params session]} (:request ctx)
         {:keys [entity_id]} params
         files    (take 2 (s3/list-objects-seq (:s3 store) {:prefix (str "downloads/" entity_id)}))
-        statuses (map #(merge-downloads-status-with-metadata store (:key %) entity_id)
+        statuses (map #(merge-downloads-status-with-metadata store % entity_id)
                       (filter #(re-find #"status" (:key %)) files))]
     (util/render-items ctx statuses)))
 
