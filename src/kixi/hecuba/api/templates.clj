@@ -148,7 +148,7 @@
 (defn queue-data-generation [store pipe username item]
   (let [entity_id (:entity_id item)
         location (format downloads-status-resource-path username entity_id)
-        item     (assoc item :uuid (str entity_id))
+        item     (assoc item :uuid (str username "/" entity_id))
         status   (get-status store item)]
     (if (= status "PENDING")
       {:response {:status 303
@@ -167,13 +167,12 @@
 
 (defn entity-resource-handle-ok [store pipe ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [entity_id (-> ctx :kixi.hecuba.api.entities/item :id)
+    (let [entity_id (-> ctx :request :params :entity_id)
           data?     (-> ctx :request :query-params (get "data"))
           session   (-> ctx :request :session)
           username  (sec/session-username session)
           auth      (sec/current-authentication session)
           item      {:src-name "downloads" :dest :download :type :measurements :entity_id entity_id}]
-
       (if data?
         (queue-data-generation store pipe username item)
         (ring-response {:headers {"Content-Disposition" (str "attachment; filename=" entity_id "_template.csv")}
