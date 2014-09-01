@@ -20,7 +20,7 @@
                          (-> resource
                              (assoc :entity_id entity_id)
                              (dissoc :editing :timestamp :adding))
-                         (fn [_] (put! refresh-chan :property))
+                         (fn [_] (put! refresh-chan {:event :property}))
                          (fn [{:keys [status status-text]}]
                            (om/update! properties [:profiles :alert]
                                        {:status true

@@ -223,104 +223,104 @@
             {:keys [editable devices]}  property-details
             property_data        (:property_data property-details)]
         (html
-         (if property-id
-           [:div#property-details.col-md-12
-            [:h2 "Property Details" [:br] [:small (:slug property-details)]]
-            [:div ;; Tab Container
-             [:ul.nav.nav-tabs {:role "tablist"}
-              [:li {:class (if (= active-tab :overview) "active" nil)}
-               [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :overview))}
-                "Overview"]]
-              [:li {:class (if (= active-tab :profiles) "active" nil)}
-               [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :profiles))}
-                "Profiles"]]
-              [:li {:class (if (= active-tab :devices) "active" nil)}
-               [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :devices))}
-                "Devices"]]
-              [:li {:class (if (= active-tab :sensors) "active" nil)}
-               [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :sensors))}
-                "Sensor Charts"]]
-              [:li {:class (if (= active-tab :raw-data) "active" nil)}
-               [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :raw-data))}
-                "Raw Sensor Data"]]
-              (when editable
-                [:li {:class (if (= active-tab :upload) "active" nil)}
-                 [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :upload))}
-                  "Uploads"]])]
-             ;; Overview
-             (when (= active-tab :overview)
-               [:div.col-md-12 (om/build property-details-form properties)])
-             ;; Devices
-             (when (= active-tab :devices)
-               [:div.col-md-12 (om/build devices/devices-div properties)])
-             ;; Sensors
-             (when (= active-tab :sensors)
-               [:div.col-md-12 (om/build sensors/sensors-div properties)])
-             ;; Raw Data
-             (when (= active-tab :raw-data)
-               [:div.col-md-12 (om/build raw/raw-data-div properties)])
-             ;; Profiles
-             (when (= active-tab :profiles)
-               [:div.col-md-12 (om/build profiles/profiles-div properties)])
-             ;; Uploads
-             (when (= active-tab :upload)
-               [:div.col-md-12
-                [:div.col-md-6
-                 [:div {:style {:padding-top "15px"}}
-                  ;; Download measurements template
+         [:div {:id "property-details-div"}
+          (when (seq property-id)
+            [:div#property-details.col-md-12
+             [:h2 "Property Details" [:br] [:small (:slug property-details)]]
+             [:div ;; Tab Container
+              [:ul.nav.nav-tabs {:role "tablist"}
+               [:li {:class (if (= active-tab :overview) "active" nil)}
+                [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :overview))}
+                 "Overview"]]
+               [:li {:class (if (= active-tab :profiles) "active" nil)}
+                [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :profiles))}
+                 "Profiles"]]
+               [:li {:class (if (= active-tab :devices) "active" nil)}
+                [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :devices))}
+                 "Devices"]]
+               [:li {:class (if (= active-tab :sensors) "active" nil)}
+                [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :sensors))}
+                 "Sensor Charts"]]
+               [:li {:class (if (= active-tab :raw-data) "active" nil)}
+                [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :raw-data))}
+                 "Raw Sensor Data"]]
+               (when editable
+                 [:li {:class (if (= active-tab :upload) "active" nil)}
+                  [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :upload))}
+                   "Uploads"]])]
+              ;; Overview
+              (when (= active-tab :overview)
+                [:div.col-md-12 (om/build property-details-form properties)])
+              ;; Devices
+              (when (= active-tab :devices)
+                [:div.col-md-12 (om/build devices/devices-div properties)])
+              ;; Sensors
+              (when (= active-tab :sensors)
+                [:div.col-md-12 (om/build sensors/sensors-div properties)])
+              ;; Raw Data
+              (when (= active-tab :raw-data)
+                [:div.col-md-12 (om/build raw/raw-data-div properties)])
+              ;; Profiles
+              (when (= active-tab :profiles)
+                [:div.col-md-12 (om/build profiles/profiles-div properties)])
+              ;; Uploads
+              (when (= active-tab :upload)
+                [:div.col-md-12
+                 [:div.col-md-6
+                  [:div {:style {:padding-top "15px"}}
+                   ;; Download measurements template
+                   [:div {:class (if (seq devices) "panel panel-default" "hidden")}
+                    [:div.panel-body
+                     [:div [:h4 "Download measurements CSV template"]]
+                     (om/build (measurements-template property-id) nil)
+                     (om/build (measurements-template-with-data programme-id project-id property-id) (:downloads properties))]]]
+                  ;; Upload measurements
                   [:div {:class (if (seq devices) "panel panel-default" "hidden")}
                    [:div.panel-body
-                    [:div [:h4 "Download measurements CSV template"]]
-                    (om/build (measurements-template property-id) nil)
-                    (om/build (measurements-template-with-data programme-id project-id property-id) (:downloads properties))]]]
-                 ;; Upload measurements
-                 [:div {:class (if (seq devices) "panel panel-default" "hidden")}
-                  [:div.panel-body
-                   [:div
-                    [:h4 "Upload measurements CSV"]
-                    (let [div-id "measurements-upload"]
-                      (om/build (measurementsupload/measurements-upload (str "/4/measurements/for-entity/" property-id "/")
-                                                                        div-id)
-                                nil {:opts {:method "POST"}}))]]]
-                 ;; Upload profile data
-                 [:div.panel.panel-default
-                  [:div.panel-body
-                   [:div
-                    [:h4 "Upload CSV profile data"]
-                    (let [div-id "file-form"]
-                      (om/build (file/file-upload (str "/4/entities/" property-id "/profiles/")
-                                                  div-id)
-                                nil {:opts {:method "POST"}}))]]]
-                 ;; Upload property details
-                 [:div.panel.panel-default
-                  [:div.panel-body
-                   [:div
-                    [:h4 "Upload CSV property details"]
-                    (let [div-id "property-details-form"]
-                      (om/build (file/file-upload (str "/4/entities/" property-id) div-id)
-                                nil {:opts {:method "PUT"}}))]]]
-                 ;; Upload image
-                 [:div.panel.panel-default
-                  [:div.panel-body
-                   [:div
-                    [:h4 "Upload an image"]
-                    (let [div-id "image-upload-form"]
-                      (om/build (file/file-upload (str "/4/entities/" property-id "/images/") div-id)
-                                nil {:opts {:method "POST"}}))]]]
-                 ;; Upload document
-                 [:div.panel.panel-default
-                  [:div.panel-body
-                   [:div
-                    [:h4 "Upload a document"]
-                    (let [div-id "document-upload-form"]
-                      (om/build (file/file-upload (str "/4/entities/" property-id "/documents/") div-id)
-                                nil {:opts {:method "POST"}}))]]]]
-                [:div.col-md-6
-                 ;; Upload status
-                 [:div {:style {:padding-top "15px"}}
+                    [:div
+                     [:h4 "Upload measurements CSV"]
+                     (let [div-id "measurements-upload"]
+                       (om/build (measurementsupload/measurements-upload (str "/4/measurements/for-entity/" property-id "/")
+                                                                         div-id)
+                                 nil {:opts {:method "POST"}}))]]]
+                  ;; Upload profile data
                   [:div.panel.panel-default
                    [:div.panel-body
                     [:div
-                     [:h4 "Upload status"]
-                     (om/build (status/upload-status programme-id project-id property-id) (:uploads properties))]]]]]])]]
-           [:div.col-md-12 [:p.lead "No Property"]]))))))
+                     [:h4 "Upload CSV profile data"]
+                     (let [div-id "file-form"]
+                       (om/build (file/file-upload (str "/4/entities/" property-id "/profiles/")
+                                                   div-id)
+                                 nil {:opts {:method "POST"}}))]]]
+                  ;; Upload property details
+                  [:div.panel.panel-default
+                   [:div.panel-body
+                    [:div
+                     [:h4 "Upload CSV property details"]
+                     (let [div-id "property-details-form"]
+                       (om/build (file/file-upload (str "/4/entities/" property-id) div-id)
+                                 nil {:opts {:method "PUT"}}))]]]
+                  ;; Upload image
+                  [:div.panel.panel-default
+                   [:div.panel-body
+                    [:div
+                     [:h4 "Upload an image"]
+                     (let [div-id "image-upload-form"]
+                       (om/build (file/file-upload (str "/4/entities/" property-id "/images/") div-id)
+                                 nil {:opts {:method "POST"}}))]]]
+                  ;; Upload document
+                  [:div.panel.panel-default
+                   [:div.panel-body
+                    [:div
+                     [:h4 "Upload a document"]
+                     (let [div-id "document-upload-form"]
+                       (om/build (file/file-upload (str "/4/entities/" property-id "/documents/") div-id)
+                                 nil {:opts {:method "POST"}}))]]]]
+                 [:div.col-md-6
+                  ;; Upload status
+                  [:div {:style {:padding-top "15px"}}
+                   [:div.panel.panel-default
+                    [:div.panel-body
+                     [:div
+                      [:h4 "Upload status"]
+                      (om/build (status/upload-status programme-id project-id property-id) (:uploads properties))]]]]]])]])])))))

@@ -47,7 +47,7 @@
           [:div.btn-toolbar
            [:button.btn.btn-success {:type "button"
                                      :onClick (fn [_] (let [programme (om/get-state owner [:programme])]
-                                                        (if (:name programme)
+                                                        (if (seq (:name programme))
                                                           (post-new-programme programmes refresh-chan owner programme)
                                                           (om/update! programmes :alert {:status true
                                                                                          :class "alert alert-danger"

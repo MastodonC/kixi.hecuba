@@ -115,6 +115,9 @@
                                                              (= projects (:project_id %)) (assoc % :selected true)
                                                              :else %)
                                                            d)))
+        (om/update! data [:properties :can-add-properties] (-> (filter #(= (:project_id %) projects) (-> @data :projects :data))
+                                                               first
+                                                               :editable))
         (data/fetch-properties projects data))
 
       (when (and (not= properties old-properties)

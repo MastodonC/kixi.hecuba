@@ -79,6 +79,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Adding new sensor
 
+(defn sensor-period-dropdown [owner]
+  [:div.form-group
+   [:label.control-label.col-md-2 {:for "period-select"} "Period"]
+   [:div.col-md-10.required
+    [:select.form-control {:on-change #(om/set-state! owner [:sensor :period] (.-value (.-target %)))}
+     (for [item ["Select period" "CUMULATIVE" "INSTANT" "PULSE"]]
+       [:option item])]]])
+
 (defn put-new-sensor [devices refresh-chan owner sensor property_id device_id]
   (common/put-resource (str "/4/entities/" property_id "/devices/" device_id)
                        {:readings [sensor]}
@@ -91,10 +99,11 @@
                        (error-handler devices)))
 
 (defn valid-sensor? [sensor]
-  (and sensor
-       (:type sensor)
-       (:period sensor)
-       (:unit sensor))) ;; device_id comes from the selection above
+  (let [period (:period sensor)]
+    (and sensor
+         (seq (:type sensor))
+         (and (seq period) (some #{period} ["CUMULATIVE" "INSTANT" "PULSE"])) ;; Prevents from selecting "Select period"
+         (seq (:unit sensor))))) ;; device_id comes from the selection above
 
 (defn new-sensor-form [devices property_id device_id]
   (fn [cursor owner]
@@ -103,37 +112,37 @@
       (render-state [_ state]
         (html
          (let [refresh-chan (om/get-shared owner :refresh)]
-             [:div
-              [:h3 "Add new sensor"]
-              [:form.form-horizontal {:role "form"}
-               [:div.col-md-6
-                [:div.form-group
-                 [:div.btn-toolbar
-                  [:button {:type "button"
-                            :class "btn btn-success"
-                            :onClick (fn [_]
-                                       (let [sensor (om/get-state owner :sensor)]
-                                         (if (valid-sensor? sensor)
-                                           (put-new-sensor devices refresh-chan owner sensor property_id device_id)
-                                           (om/update! devices :alert
-                                                       {:status true
-                                                        :class "alert alert-danger"
-                                                        :text  " Please enter required sensor data."}))))}
-                   "Save"]
-                  [:button {:type "button"
-                            :class "btn btn-danger"
-                            :onClick (fn [_]
-                                       (om/update! devices :adding-sensor false))}
-                   "Cancel"]]]
-                [:div.form-group
-                 [:label.control-label.col-md-2 {:for "device_id"} "Device Id"]
-                 [:p {:class "form-control-static col-md-10"} device_id]]
-                (bs/text-input-control nil owner :sensor :type "Type" true)
-                (bs/text-input-control nil owner :sensor :alias "Alias")
-                (bs/text-input-control nil owner :sensor :unit "Unit" true)
-                (bs/text-input-control nil owner :sensor :period "Period" true)
-                (bs/text-input-control nil owner :sensor :resolution "Resolution")
-                (bs/checkbox nil owner :sensor :actual_annual "Calculated Field")]]]))))))
+           [:div
+            [:h3 "Add new sensor"]
+            [:form.form-horizontal {:role "form"}
+             [:div.col-md-6
+              [:div.form-group
+               [:div.btn-toolbar
+                [:button {:type "button"
+                          :class "btn btn-success"
+                          :onClick (fn [_]
+                                     (let [sensor (om/get-state owner :sensor)]
+                                       (if (valid-sensor? sensor)
+                                         (put-new-sensor devices refresh-chan owner sensor property_id device_id)
+                                         (om/update! devices :alert
+                                                     {:status true
+                                                      :class "alert alert-danger"
+                                                      :text  " Please enter required sensor data."}))))}
+                 "Save"]
+                [:button {:type "button"
+                          :class "btn btn-danger"
+                          :onClick (fn [_]
+                                     (om/update! devices :adding-sensor false))}
+                 "Cancel"]]]
+              [:div.form-group
+               [:label.control-label.col-md-2 {:for "device_id"} "Device Id"]
+               [:p {:class "form-control-static col-md-10"} device_id]]
+              (bs/text-input-control nil owner :sensor :type "Type" true)
+              (bs/text-input-control nil owner :sensor :alias "Alias")
+              (bs/text-input-control nil owner :sensor :unit "Unit" true)
+              (sensor-period-dropdown owner)
+              (bs/text-input-control nil owner :sensor :resolution "Resolution")
+              (bs/checkbox nil owner :sensor :actual_annual "Calculated Field")]]]))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Editing device
@@ -208,7 +217,7 @@
 
 (defn post-new-device [devices refresh-chan owner device property_id]
   (common/post-resource (str "/4/entities/" property_id "/devices/")
-                        device
+                        (update-in device [:privacy] str)
                         (fn [_]
                           (put! refresh-chan {:event :property})
                           (om/update! devices :adding-device false)
@@ -264,8 +273,8 @@
         (html
          (let [{:keys [description privacy location name
                        device_id editable metadata privacy]} cursor
-               devices   (:devices properties)
-               selected? (= (:selected devices) device_id)]
+                       devices   (:devices properties)
+                       selected? (= (:selected devices) device_id)]
            [:tr {:onClick (fn [_] (om/update! devices :selected (if selected? nil device_id)))
                  :class (when selected? "success")
                  :id (str table-id "-selected")}

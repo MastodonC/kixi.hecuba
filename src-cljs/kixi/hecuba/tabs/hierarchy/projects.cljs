@@ -20,7 +20,7 @@
                                  :class "alert alert-danger"
                                  :text status-text})))
 (defn valid-project? [project]
-  (not (nil? (:name project))))
+  (seq(:name project)))
 
 (defn post-new-project [projects-data refresh-chan owner project programme_id]
   (let [url  (str "/4/programmes/" programme_id "/projects/")]

@@ -115,7 +115,8 @@
          history       (om/get-shared owner :history)]
      (html  [:tr
              {:onClick   (fn [_ _]
-                           (history/update-token-ids! history :properties entity_id))
+                           (history/update-token-ids! history :properties entity_id)
+                           (common/fixed-scroll-to-element "property-details-div"))
               :className (if (:selected property) "success")
               :id        (str table-id "-selected")}
              [:td (when-let [pic (:path (first (:photos property)))]
@@ -161,6 +162,7 @@
       (let [history            (om/get-shared owner :history)
             project_id         (-> properties :project_id)
             can-add-properties (-> properties :can-add-properties)
+
             adding-property    (-> properties :adding-property)
             refresh-chan       (om/get-shared owner :refresh)]
         (html
