@@ -33,14 +33,14 @@
           (vals tf/formatters)))
 
 (defmethod kixipipe.storage.s3/s3-key-from "uploads" uploads-s3-key-from [item]
-  (let [suffix (get item :suffix "data")]
-    (str "uploads/"(:entity_id item) "/" suffix)))
+  (let [suffix   (get item :suffix "data")
+        username (-> item :metadata :username)]
+    (str "uploads/" username "/" (:entity_id item) "/" suffix)))
 
 (defmethod kixipipe.storage.s3/item-from-s3-key "uploads" uploads-item-from-s3-key [key]
   (when-let [[src-name username entity_id uuid] (next (re-matches #"^([^/]+)/([^/]+)/([^/]+)/([^/]+)$" key))]
     {:src-name src-name
      :username username
-     :uuid uuid
      :entity_id entity_id}))
 
 (defn merge-meta [obj meta]

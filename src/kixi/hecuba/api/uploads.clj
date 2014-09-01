@@ -81,22 +81,20 @@
         (allowed?* programme_id project_id programmes projects roles request-method)
         true))))
 
-(defn merge-uploads-status-with-metadata [store s3-key]
-  (let [[_ _ uuid _] (str/split s3-key #"/")
-        {:keys [auth file-bucket]} (:s3 store)
-        metadata (aws/get-object-metadata auth file-bucket (str/replace s3-key #"status" "data")) ;; FIXME this call to aws/get-object-metadata should be to a fn in kixipipe, passed an item map with uuid set to the generated string.
-        {:keys [uploads-timestamp uploads-filename]} (:user metadata)]
+(defn merge-uploads-status-with-metadata [store s3-object]
+  (let [session (:s3 store)
+        metadata (s3/get-user-metadata-from-s3-object session s3-object)
+        {:keys [uploads-timestamp uploads-filename]} metadata]
     (hash-map :filename uploads-filename
               :timestamp (tc/to-string uploads-timestamp)
-              :uuid uuid
-              :status (status-from-object store s3-key))))
+              :status (status-from-object store (:key s3-object)))))
 
 (defn uploads-for-username-handle-ok [store ctx]
   (let [{:keys [params session]} (:request ctx)
         {:keys [entity_id]} params
         username (sec/session-username session)
         files    (s3/list-objects-seq (:s3 store) {:max-keys 100 :prefix (str "uploads/" username "/" entity_id)})
-        statuses (map #(merge-uploads-status-with-metadata store (:key %))
+        statuses (map #(merge-uploads-status-with-metadata store %)
                       (filter #(re-find #"status" (:key %)) files))]
     (util/render-items ctx statuses)))
 

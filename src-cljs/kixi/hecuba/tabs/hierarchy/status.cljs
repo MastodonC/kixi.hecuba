@@ -21,7 +21,6 @@
            [:thead
             [:tr
              [:th "File"]
-             [:th "ID"]
              [:th "Timestamp"]
              [:th "Status"]]
             [:tbody
@@ -29,7 +28,6 @@
                (let [status (:status item)]
                  [:tr
                   [:td (:filename item)]
-                  [:td (:id item)]
                   [:td (common/unparse-date-str (:timestamp item) "yyyy-MM-dd HH:mm:ss")]
                   [:td (if (= status "SUCCESS")
                          [:span {:class "label label-success"} status]
