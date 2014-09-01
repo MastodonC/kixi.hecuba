@@ -4,6 +4,7 @@
    [clojure.core.match          :refer (match)]
    [clojure.tools.logging       :as log]
    [kixipipe.pipeline           :as pipe]
+   [kixipipe.storage.s3]
    [kixi.hecuba.security        :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
    [kixi.hecuba.webutil         :as util]
    [kixi.hecuba.webutil         :refer (decode-body authorized? stringify-values sha1-regex update-stringified-lists content-type-from-context uuid)]
