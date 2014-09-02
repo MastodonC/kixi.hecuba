@@ -213,7 +213,7 @@
               (let [values             (keep #(let [v (:value %)]
                                                 (cond (nil? v) nil
                                                       (number? v) v
-                                                      (re-matches #"-?\+?\d+(\.\d+)?" v) (js/parseFloat v))) series)
+                                                      (re-matches #"[-+]?\d+(\.\d+)?" v) (js/parseFloat v))) series)
                     measurements-min   (apply min values)
                     measurements-max   (apply max values)
                     measurements-sum   (reduce + values)
