@@ -81,8 +81,9 @@
                                                               url       (str "/4/programmes/" programme-id)]
                                                           (put-edited-programme programmes refresh-chan owner url programme)))} "Save"]
              [:button.btn.btn-danger {:type "button"
-                                       :onClick (fn [_] (om/update! programmes :editing false))} "Cancel"]]]
+                                      :onClick (fn [_] (om/update! programmes :editing false))} "Cancel"]]]
            (static-text cursor :programme_id "Programme ID")
+           (static-text cursor :name "Programme Name")
            (om/build alert (-> programmes :alert))
            (text-input-control cursor owner :programme :created_at "Created At")
            (text-input-control cursor owner :programme :description "Description")
