@@ -134,10 +134,14 @@
 (defn post-generated-measurements
   "Generates measurements (500) and posts them to Hecuba"
   []
-  (let [generated-measurements (generators/measurements  {:type "electricityConsumption"
-                                                          :unit "kWh"
-                                                          :resolution 60
-                                                          :period "PULSE"})]
+  (let [generated-measurements1 (generators/measurements  {:type "electricityConsumption"
+                                                           :unit "kWh"
+                                                           :resolution 60
+                                                           :period "CUMULATIVE"})
+        generated-measurements2 (generators/measurements  {:type "temperature"
+                                                           :unit "C"
+                                                           :resolution 60
+                                                           :period "PULSE"})]
     (post-resource (:measurement-1 urls) "application/json" {:measurements
                                                              (map (fn [x]
                                                                     (-> x
@@ -145,7 +149,15 @@
                                                                         (update-in [:timestamp]
                                                                                    #(tf/unparse custom-formatter (tc/from-date %)))
                                                                         (assoc-in [:type] "electricityConsumption")))
-                                                                  generated-measurements)})))
+                                                                  generated-measurements1)})
+    (post-resource (:measurement-1 urls) "application/json" {:measurements
+                                                             (map (fn [x]
+                                                                    (-> x
+                                                                        (dissoc :reading_metadata :error)
+                                                                        (update-in [:timestamp]
+                                                                                   #(tf/unparse custom-formatter (tc/from-date %)))
+                                                                        (assoc-in [:type] "temperature")))
+                                                                  generated-measurements2)})))
 
 (defn load-test-data [system]
   (let [store (:store system)]

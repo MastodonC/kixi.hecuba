@@ -19,6 +19,10 @@
                            :readings [{:type "electricityConsumption"
                                        :unit "kWh"
                                        :resolution "60"
+                                       :period "CUMULATIVE"}
+                                      {:type "temperature"
+                                       :unit "C"
+                                       :resolution "60"
                                        :period "PULSE"}]}
                 :device-2 {:entity_id "14366c761c74592b9926e851bae8a64ece7239ff"
                            :description "GasMeterPulse"

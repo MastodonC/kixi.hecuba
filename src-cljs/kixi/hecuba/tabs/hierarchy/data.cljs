@@ -4,10 +4,46 @@
             [kixi.hecuba.common :refer (log interval) :as common]
             [kixi.hecuba.tabs.slugs :as slugs]
             [clojure.string :as str]
-            [cljs-time.format :as tf]))
+            [cljs-time.format :as tf]
+            [cljs-time.core :as t]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Data Fetchers
+
+;; Extract and flatten sensors from properties data
+(defn flatten-device [device]
+  (let [device-keys   (->> device keys (remove #(= % :readings)))
+        parent-device (select-keys device device-keys)
+        readings      (:readings device)]
+    (map #(assoc % :parent-device parent-device
+                 :id (str (:type %) "-" (:device_id %))) readings)))
+
+(defn extract-sensors [devices]
+  (vec (mapcat flatten-device devices)))
+
+(defn get-property-details [selected-property-id properties]
+  (->>  properties
+        :data
+        (filter #(= (:entity_id %) selected-property-id))
+        first))
+
+(defn fetch-sensors [selected-property-id properties]
+  (if selected-property-id
+    (if-let [property-details (get-property-details selected-property-id properties)]
+      (let [editable (:editable property-details)
+            sensors  (extract-sensors (:devices property-details))]
+        (map #(assoc % :editable editable) sensors))
+      [])
+    []))
+
+(defn fetch-devices [selected-property-id properties]
+   (if selected-property-id
+    (if-let [property-details (get-property-details selected-property-id properties)]
+      (let [editable (:editable property-details)
+            devices  (:devices property-details)]
+        (map #(assoc % :editable editable) devices))
+      [])
+    []))
 
 (defn fetch-programmes
   ([data error-handler]
@@ -67,6 +103,13 @@
                                          (om/update! data [:projects :error-status] status)
                                          (om/update! data [:projects :error-text] status-text)))))
 
+(defn get-units [property-id selected-sensor-ids properties]
+  (let [sensors-hashmap      (into #{} (str/split selected-sensor-ids #";"))
+        sensors-for-property (fetch-sensors property-id properties)
+        selected-sensors     (filter (fn [sensor] (some #(= (:id sensor) %) sensors-hashmap))
+                                     sensors-for-property)]
+    (into {} (map #(hash-map (:id %) (:unit %)) selected-sensors))))
+
 (defn fetch-properties
   ([project-id data error-handler]
      (om/update! data [:properties :fetching] :fetching)
@@ -74,14 +117,17 @@
           {:handler  (fn [x]
                        (let [entities (:entities x)]
                          (log "Fetching properties for project: " project-id)
-                         (let [property-id (-> @data :active-components :ids :properties)]
+                         (let [property-id (-> @data :active-components :ids :properties)
+                               sensors     (-> @data :active-components :ids :sensors)]
                            (om/update! data [:properties :data]
                                        (mapv (fn [property]
                                                (-> (slugs/slugify-property property)
                                                    (cond-> property-id (assoc :selected (if (= property-id (:entity_id property))
                                                                                           true
                                                                                           false)))))
-                                             entities)))
+                                             entities))
+                           (when (seq sensors)
+                             (om/update! data [:properties :chart :units] (get-units property-id sensors (-> @data :properties)))))
                          (om/update! data [:properties :fetching] (if (empty? entities) :no-data :has-data))))
            :error-handler error-handler
            :headers {"Accept" "application/edn"}
@@ -152,41 +198,6 @@
                        (om/update! data [:properties :error-status] status)
                        (om/update! data [:properties :error-text] status-text)))))
 
-;; Extract and flatten sensors from properties data
-(defn flatten-device [device]
-  (let [device-keys   (->> device keys (remove #(= % :readings)))
-        parent-device (select-keys device device-keys)
-        readings      (:readings device)]
-    (map #(assoc % :parent-device parent-device
-                 :id (str (:type %) "-" (:device_id %))) readings)))
-
-(defn extract-sensors [devices]
-  (vec (mapcat flatten-device devices)))
-
-(defn get-property-details [selected-property-id properties]
-  (->>  properties
-        :data
-        (filter #(= (:entity_id %) selected-property-id))
-        first))
-
-(defn fetch-sensors [selected-property-id properties]
-  (if selected-property-id
-    (if-let [property-details (get-property-details selected-property-id properties)]
-      (let [editable (:editable property-details)
-            sensors  (extract-sensors (:devices property-details))]
-        (map #(assoc % :editable editable) sensors))
-      [])
-    []))
-
-(defn fetch-devices [selected-property-id properties]
-   (if selected-property-id
-    (if-let [property-details (get-property-details selected-property-id properties)]
-      (let [editable (:editable property-details)
-            devices  (:devices property-details)]
-        (map #(assoc % :editable editable) devices))
-      [])
-    []))
-
 (defmulti url-str (fn [start end entity_id device_id type measurements-type] measurements-type))
 (defmethod url-str :raw [start end entity_id device_id type _]
   (str "/4/entities/" entity_id "/devices/" device_id "/measurements/"
@@ -203,23 +214,30 @@
        (tf/parse (tf/formatter "yyyy-MM-dd"))
        (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss"))))
 
+(defn pad-end-date [date]
+  (let [timestamp (tf/parse (tf/formatter "yyyy-MM-dd") date)
+        padded    (t/plus timestamp (t/days 1))]
+    (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss") padded)))
+
 (defn fetch-measurements [data entity_id sensors start-date end-date]
   (log "Fetching measurements for sensors: " sensors)
+  (om/update! data [:properties :chart :fetching] true)
+  (om/update! data [:properties :chart :measurements] [])
   (doseq [sensor (str/split sensors #";")]
-    (let [[type device_id] (str/split sensor #"-" )
-          measurements-type (interval start-date end-date)
+    (let [[type device_id] (str/split sensor #"-")
+          end (if (= start-date end-date) (pad-end-date end-date) (date->amon-timestamp end-date))
           start-date (date->amon-timestamp start-date)
-          end-date (date->amon-timestamp end-date)
-          url (url-str start-date end-date entity_id device_id type measurements-type)]
-      (om/update! data [:properties :chart :measurements] [])
+          measurements-type (interval start-date end)
+          url (url-str start-date end entity_id device_id type measurements-type)]
       (GET url {:handler (fn [response]
-                           (om/update! data [:properties :chart :measurements]
-                                       (concat (:measurements (:chart (:properties @data)))
-                                               (into []
-                                                     (map (fn [m]
-                                                            (assoc m "sensor" sensor))
-                                                          (:measurements response)))))
-                           (om/update! data [:fetching :measurements] false))
+                           (om/transact! data [:properties :chart :measurements]
+                                         (fn [measurements]
+                                           (conj measurements
+                                                 (into [] (map (fn [m]
+                                                                 (assoc m :sensor sensor))
+                                                               (:measurements response))))))
+                           (when (= (-> (str/split sensors #";") last) sensor)
+                             (om/update! data [:properties :chart :fetching] false)))
                 :headers {"Accept" "application/json"}
                 :response-format :json
                 :keywords? true}))))

@@ -283,7 +283,9 @@
                 [:div.col-md-12 (om/build devices/devices-div properties)])
               ;; Sensors
               (when (= active-tab :sensors)
-                [:div.col-md-12 (om/build sensors/sensors-div properties)])
+                [:div.col-md-12 (om/build sensors/sensors-div {:property-details property-details
+                                                               :sensors (:sensors properties)
+                                                               :chart (:chart properties)})])
               ;; Raw Data
               (when (= active-tab :raw-data)
                 [:div.col-md-12 (om/build raw/raw-data-div properties)])

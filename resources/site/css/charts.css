@@ -1,16 +1,55 @@
-.axis path,
-.axis line {
+
+path {
+    stroke-width: 1;
+    fill: none;
+}
+
+.left-axis {
+    stroke: steelblue;
+}
+
+.right-axis {
+    stroke: #a63603;
+}
+
+.axis {
+    shape-rendering: crispEdges;
+}
+
+.x.axis line {
+    stroke: lightgrey;
+}
+
+.x.axis .minor {
+    stroke-opacity: .5;
+}
+
+.x.axis path {
+    display: none;
+}
+
+.x.axis text {
+    font-size: 12px;
+}
+
+.y.axis line, .y.axis path {
+    fill: none;
+    stroke: #000;
+}
+
+.y.axis text {
+    font-size: 12px;
+}
+
+.y.axisRight text {
+    fill: #a63603;
+}
+
+.y.axisLeft text {
+    fill: steelblue;
+}
+
+.overlay {
   fill: none;
-  stroke: #000;
-  shape-rendering: crispEdges;
-}
-
-.chart {
-  margin: 0 auto;
-  font-size: 8px;
-}
-
-
-.tooltip {
-    opacity: 0.95;
+  pointer-events: all;
 }
