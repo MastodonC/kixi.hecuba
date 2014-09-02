@@ -210,11 +210,14 @@
          (if (->> all-series first seq)
            [:div.col-md-12
             (for [[key series] all-series]
-              (let [values             (map :value series)
+              (let [values             (keep #(let [v (:value %)]
+                                                (cond (nil? v) nil
+                                                      (number? v) v
+                                                      (re-matches #"-?\+?\d+(\.\d+)?" v) (js/parseFloat v))) series)
                     measurements-min   (apply min values)
                     measurements-max   (apply max values)
                     measurements-sum   (reduce + values)
-                    measurements-count (count series)
+                    measurements-count (count values)
                     measurements-mean  (if (not= 0 measurements-count) (/ measurements-sum measurements-count) "NA")]
                 [:div.col-md-3
                  (bs/panel
