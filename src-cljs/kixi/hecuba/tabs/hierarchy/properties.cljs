@@ -119,16 +119,16 @@
                            (common/fixed-scroll-to-element "property-details-div"))
               :className (if (:selected property) "success")
               :id        (str table-id "-selected")}
-             [:td (when-let [pic (:path (first (:photos property)))]
-                    [:img.img-thumbnail.tmg-responsive
-                     {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" pic)}])]
+             [:td (when-let [uri (:uri (first (:photos property)))]
+                    [:img.img-thumbnail.table-image
+                     {:src uri}])]
              [:td (:property_code property)]
              [:td (:property_type property_data)]
              [:td (slugs/postal-address property_data)]
              [:td (:address_region property_data)]
              [:td (:ownership property_data)]
              [:td (for [ti (:technology_icons property_data)]
-                    [:img.tmg-responsive {:src ti :width 40 :height 40}])]
+                    [:img.img-responsive {:src ti :width 40 :height 40}])]
              [:td (:monitoring_hierarchy property_data)]]))))
 
 (defmethod properties-table-html :has-data [properties owner]

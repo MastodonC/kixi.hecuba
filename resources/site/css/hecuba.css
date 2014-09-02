@@ -122,3 +122,8 @@ p#footer {
 td.number {
     text-align: right;
 }
+
+.table-image {
+    width: 40px;
+    height: 40px;
+}
