@@ -56,4 +56,5 @@
                             :range {:start-date nil :end-end nil}}
                  :profiles {:alert {}}
                  :downloads {:files []}
-                 :uploads []}}))
+                 :uploads {:files []
+                           :alert {}}}}))

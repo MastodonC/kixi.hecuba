@@ -11,8 +11,27 @@
                    {:display "yyyy-mm-dd hh:mm"    :format "yyyy-MM-dd HH:mm"}
                    {:display "yyyy-mm-dd hh:mm:ss" :format "yyyy-MM-dd HH:mm:ss"}])
 
+(defn validate-size-and-upload [uploads owner id url method]
+  (if (not js/window.FileReader)
+    (om/update! uploads :alert {:status true
+                                :class "alert alert-danger"
+                                :text "The file API is not supported on this browser yet."})
+    (let [input (.getElementById js/document "file")
+          file  (aget (.-files input) 0)]
+      (if file
+        (let [name (aget file "name")
+              size (aget file "size")]
+          (if (> size 16000000)
+            (om/update! uploads :alert {:status true
+                                        :class "alert alert-danger"
+                                        :text "Maximum file size is 16MB."})
+            (upload owner (.getElementById js/document id) url method)))
+        (om/update! uploads :alert {:status true
+                                    :class "alert alert-danger"
+                                    :text "Please select a file."})))))
+
 (defn measurements-upload [url id]
-  (fn [data owner {:keys [method]}]
+  (fn [uploads owner {:keys [method]}]
     (reify
       om/IInitState
       (init-state [_]
@@ -32,7 +51,7 @@
 
             (alert "alert alert-success "
                    [:div
-                    [:div {:class "fa fa-check-square-o"} " File uploaded successfully."]]
+                    [:div {:class "fa fa-check-square-o"} " File accepted for processing."]]
                    (= :success status)
                    (str id "-success"))
 
@@ -42,7 +61,7 @@
                    (= :failure status)
                    (str id "-failure"))
 
-            [:form {:role "form" :id id :enc-type "multipart/form-data"}
+            [:form {:role "form" :id id :enc-type "multipart/form-data" :encoding "multipart/form-data"}
              [:div.form-group
               [:label {:for "dateformat"} "Date Format"]
               [:select.form-control {:name "dateformat" :id "dateformat"}
@@ -54,5 +73,5 @@
               [:input {:type "file" :id "file" :name "data" :title "Browse files"}]]
              [:button {:type "button"
                        :class "btn btn-primary"
-                       :onClick (fn [_] (upload owner (.getElementById js/document id) url method))}
+                       :onClick (fn [_] (validate-size-and-upload uploads owner id url method))}
               "Upload"]]]))))))

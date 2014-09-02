@@ -306,10 +306,12 @@
                    [:div.panel-body
                     [:div
                      [:h4 "Upload measurements CSV"]
+                     [:div {:id "sensors-unit-alert"}
+                      (om/build bs/alert (-> properties :uploads :alert))]
                      (let [div-id "measurements-upload"]
                        (om/build (measurementsupload/measurements-upload (str "/4/measurements/for-entity/" property-id "/")
                                                                          div-id)
-                                 nil {:opts {:method "POST"}}))]]]
+                                 (-> properties :uploads) {:opts {:method "POST"}}))]]]
                   ;; Upload profile data
                   [:div.panel.panel-default
                    [:div.panel-body
@@ -350,4 +352,4 @@
                     [:div.panel-body
                      [:div
                       [:h4 "Upload status"]
-                      (om/build (status/upload-status programme-id project-id property-id) (:uploads properties))]]]]]])]])])))))
+                      (om/build (status/upload-status programme-id project-id property-id) (:files (:uploads properties)))]]]]]])]])])))))
