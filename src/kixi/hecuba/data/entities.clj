@@ -96,7 +96,6 @@
       (decode-tech-icons)))
 
 (defn decode [entity]
-  (log/info "decode got : " entity)
   (-> entity
       (assoc :entity_id (:id entity))
       (dissoc :id)

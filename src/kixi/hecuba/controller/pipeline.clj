@@ -14,7 +14,10 @@
             [clj-time.core                          :as t]
             [clj-time.coerce                        :as tc]
             [com.stuartsierra.component             :as component]
-            [kixi.hecuba.api.datasets               :as datasets]))
+            [kixi.hecuba.api.datasets               :as datasets]
+            [kixi.hecuba.storage.db                 :as db]
+            [kixi.hecuba.data.devices               :as devices]
+            [kixi.hecuba.data.entities.search       :as search]))
 
 (defn build-pipeline [store]
   (let [fanout-q                (new-queue {:name "fanout-q" :queue-size 50})
@@ -176,6 +179,11 @@
             (misc/reset-date-range store sensor :rollups
                                    (:start-date range)
                                    (:end-date range))
+            (db/with-session [session (:hecuba-session store)]
+              (let [{:keys [device_id]} sensor
+                    {:keys [entity_id]} (devices/get-by-id session device_id)]
+                (-> (search/searchable-entity-by-id entity_id session)
+                    (search/->elasticsearch (:search-session store)))))
             (catch Throwable t
               (log/errorf t "FAILED to Roll Up for Sensor: %s:%s Start: %s End: %s" device_id type (:start-date range) (:end-date range))
               (throw t)))
