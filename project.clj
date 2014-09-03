@@ -8,13 +8,13 @@
 
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/data.csv "0.1.2"]
-                 [org.clojure/core.match "0.2.1"]
+                 [org.clojure/core.match "0.2.2"]
 
                  [joda-time "2.4"]
 
                  ;; Testing POST and GET data
-                 [kixi/schema_gen "0.1.5" :exclusions [schema-contrib]]
-                 [schema-contrib "0.1.3"]
+                 [kixi/schema_gen "0.1.6" :exclusions [schema-contrib]]
+                 [schema-contrib "0.1.5"]
                  [kixi/amon-schema "0.1.12"]
                  [clj-http "1.0.0"]
 
@@ -30,13 +30,13 @@
                  ;; tools.trace for liberator
                  [org.clojure/tools.trace "0.7.8"]
 
-                 [org.clojure/clojurescript "0.0-2280"]
+                 [org.clojure/clojurescript "0.0-2322"]
                  [org.clojure/core.async "0.1.267.0-0d7780-alpha" :scope "provided"]
 
                  [compojure "1.1.8"]
 
                  ;; to deal with some legacy html data
-                 [hickory "0.5.3"]
+                 [hickory "0.5.4"]
 
                  ;; elasticsearch integration
                  [clojurewerkz/elastisch "2.1.0-beta4"]
@@ -54,7 +54,7 @@
                  [juxt.modular/http-kit "0.2.0"]
 
                  ;; EDN reader with location metadata - for configuration
-                 [org.clojure/tools.reader "0.8.3"]
+                 [org.clojure/tools.reader "0.8.8"]
 
                  ;; using a patched liberator pending
                  ;; https://github.com/clojure-liberator/liberator/pull/120
@@ -62,18 +62,18 @@
                  [cheshire "5.3.1"]
 
                  ;; Required for Cassandra (possibly only OSX)
-                 [org.xerial.snappy/snappy-java "1.1.0.1"]
+                 [org.xerial.snappy/snappy-java "1.1.1.3"]
 
                  ;; ClojureScript dependencies
-                 [prismatic/dommy "0.1.2"]
                  [cljs-ajax "0.2.3"]
-                 [om "0.6.4"]
-                 [com.andrewmcveigh/cljs-time "0.1.5"]
-                 [sablono "0.2.17"]
+                 ;; [cljs-ajax "0.2.6"]
+                 [om "0.7.1"]
+                 [com.andrewmcveigh/cljs-time "0.1.6"]
+                 [sablono "0.2.22"]
 
-                 [ankha "0.1.3"]
+                 [ankha "0.1.4"]
 
-                 [cc.qbits/alia "2.1.0-rc2"]
+                 [cc.qbits/alia "2.1.2"]
                  ;; add lz4 to avoid startup warning.
                  [net.jpountz.lz4/lz4 "1.2.0"]
 
@@ -81,8 +81,8 @@
 
                  [roul "0.2.0"]
                  [com.stuartsierra/frequencies "0.1.0"]
-                 [clj-time "0.6.0"]
-                 [org.clojure/data.json "0.2.4"]
+                 [clj-time "0.8.0"]
+                 [org.clojure/data.json "0.2.5"]
 
                  [kixi/pipe "0.17.10"]]
 
@@ -95,9 +95,9 @@
   :profiles {:dev {:source-paths ["dev"]
                    :dependencies [
                                   [ring-mock "0.1.5"]
-                                  [org.clojure/tools.namespace "0.2.4"]
+                                  [org.clojure/tools.namespace "0.2.5"]
                                   [javax.servlet/servlet-api "2.5"]
-                                  [org.clojure/test.check "0.5.8"]]
+                                  [org.clojure/test.check "0.5.9"]]
                    :plugins [[com.cemerick/austin "0.1.4"]]}
 
              :uberjar {:main kixi.hecuba.controller.main :aot [kixi.hecuba.controller.main]}}
