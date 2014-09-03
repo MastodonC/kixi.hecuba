@@ -3,22 +3,24 @@
 # Script to export all contextual data tables from Cassandra using the COPY command.
 
 remote_host=kixi-dse00 # change to ssh config you use to log into a remote box
-local_host=vagrant-box  # change to ssh config for your local box
 
 echo exporting data from $remote_host.
 echo This requires /etc/hosts on $remote_host to have a suitable entry
 
-ssh $remote_host << EOF
+tmp_dir=$(mktemp -d)
+remote_tunnel_port=19160 #TODO allocate better, this could conflict.
 
-if [ -d "tmp_data" ]; then
-    rm -rf tmp_data/*
-else
-    mkdir tmp_data
-fi
+trap "rm -rf $tmp_dir; pkill -f -- "ssh.*${remote_tunnel_port}";" QUIT TERM EXIT
 
-cd tmp_data
+cd ${tmp_dir}
 
-cqlsh $(hostname -i) << EOD
+echo Starting ssh tunnel to ${remote_host}
+
+ssh -N -f -o ExitOnForwardFailure=yes -L ${remote_tunnel_port}:${remote_host}:9160 ${remote_host}
+
+echo Exporting data to ${tmp_dir}
+
+cqlsh localhost ${remote_tunnel_port} << EOD
 use hecuba;
 COPY profiles TO 'profiles.csv';
 COPY programmes TO 'programmes.csv';
@@ -29,27 +31,16 @@ COPY sensors TO 'sensors.csv';
 COPY sensor_metadata TO 'sensor_metadata.csv';
 exit;
 EOD
-exit
-EOF
 
-echo finished exporting data
+echo Finished exporting data
 
-echo copying from remote to local machine
+echo Killing ssh tunnel to ${remote_host}
 
-if [ -d "tmp_data" ]; then
-    rm -rf tmp_data/*
-else
-    mkdir tmp_data
-fi
+# FIXME could kill the wrong thing...
+pkill -f -- "ssh.*${remote_tunnel_port}";
 
-scp $remote_host:tmp_data/* tmp_data/
+echo Importing data to VM
 
-echo importing data to virtual machine
-scp tmp_data/* $local_host:
-
-echo importing data from csv files
-
-ssh $local_host << EOF
 cqlsh << EOD
 use test;
 COPY profiles FROM 'profiles.csv';
@@ -61,6 +52,7 @@ COPY sensors FROM 'sensors.csv';
 COPY sensor_metadata FROM 'sensor_metadata.csv';
 exit;
 EOD
+
 echo Finished importing data
-exit
-EOF
+
+echo Dont forget to refresh Elastic Search...
