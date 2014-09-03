@@ -7,8 +7,13 @@ remote_host=kixi-dse00 # change to ssh config you use to log into a remote box
 echo exporting data from $remote_host.
 echo This requires /etc/hosts on $remote_host to have a suitable entry
 
-tmp_dir=$(mktemp -d)
+tmp_dir=$(mktemp -d /tmp/contextual_data.XXXX)
 remote_tunnel_port=19160 #TODO allocate better, this could conflict.
+
+CQLSH=$(which cqlsh)
+if [ -z "$CQLSH" ] ; then
+    exit 1
+fi
 
 trap "rm -rf $tmp_dir; pkill -f -- "ssh.*${remote_tunnel_port}";" QUIT TERM EXIT
 
