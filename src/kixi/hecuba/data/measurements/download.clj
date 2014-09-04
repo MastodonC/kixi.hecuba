@@ -111,12 +111,12 @@
 
 
 (defn generate-file [store item]
-  (let [{:keys [header data]} item
+  (let [{:keys [header data entity_id]} item
         item (dissoc item :header :data)
         tmpfile (ioplus/mk-temp-file! "hecuba" ".csv-download")
         metadata  {:timestamp (t/now)
                    :content-type "text/csv"
-                   :filename "measurements.csv"}]
+                   :content-disposition (str "attachment; filename=\"" entity_id "_measurements.csv\"")}]
     (try
       (with-open [out (io/writer tmpfile)]
         (csv/write-csv out header)
