@@ -136,7 +136,7 @@
 
 (defn update [session id entity]
   (let [insertable-entity (su/select-keys-by-schema entity InsertableEntity)]
-    (s/validate InsertableEntity insertable-entity)
+    (s/validate InsertableEntity (assoc insertable-entity :entity_id id))
        (db/execute session (hayt/update :entities
                                         (hayt/set-columns (dissoc (encode insertable-entity) :id))
                                         (hayt/where [[= :id id]])))))
