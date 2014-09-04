@@ -156,7 +156,8 @@
        [:tbody
         (om/build-all project-row (sort-by :project_id (:data projects))
                       {:opts {:table-id table-id
-                              :editing-chan editing-chan}})]]]]))
+                              :editing-chan editing-chan}
+                       :key :project_id})]]]]))
 
 (defmethod projects-table-html :default [_ _ _]
   [:div.row [:div.col-md-12]])
@@ -204,9 +205,12 @@
                          :onClick (fn [_]
                                     (om/update! projects :adding-project true))}
                 "Add new"]]])
-           [:div {:id "projects-add-div" :class (if adding-project "" "hidden")}
-            (om/build (project-add-form projects programme_id refresh-chan) nil)]
-           [:div {:id "projects-edit-div" :class (if editing "" "hidden")}
-            (om/build (project-edit-form projects refresh-chan) (-> projects :edited-row))]
-           [:div {:id "projects-div" :class (if (or editing adding-project) "hidden" "")}
-            (om/build (projects-table editing-chan) projects)]]])))))
+           (when adding-project
+             [:div#projects-add-div
+              (om/build (project-add-form projects programme_id refresh-chan) nil)])
+           (when editing
+             [:div#projects-edit-div
+              (om/build (project-edit-form projects refresh-chan) (-> projects :edited-row))])
+           (when-not (or editing adding-project)
+             [:div#projects-div
+              (om/build (projects-table editing-chan) projects)])]])))))
