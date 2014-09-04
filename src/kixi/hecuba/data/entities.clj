@@ -37,7 +37,7 @@
 (defn encode-map-vals [m]
   (into {} (map (fn [[k v]] [k (json/encode v)]) m)))
 
-(defn encode [entity]
+(defn encode-for-insert [entity]
   (-> entity
       (assoc :id (:entity_id entity))
       (dissoc entity :device_ids :entity_id)
@@ -45,6 +45,9 @@
               (:metering_point_ids entity) (update-stringified-list :metering_point_ids)
               (:devices entity) (assoc :devices (encode-map-vals (:devices entity)))
               (:property_data entity) (assoc :property_data (json/encode (:property_data entity))))))
+
+(defn encode-for-update [entity]
+  (dissoc (encode-for-insert entity) :id))
 
 (defn decode-list [entity key]
   (->> (get entity key [])
@@ -129,17 +132,41 @@
    (s/optional-key :retrofit_completion_date) s/Str ;; sc/ISO-Date-Time
    :user_id s/Str})
 
+;; FIXME - potentially we can share stuff between updateable and insertable, but
+;; updateable needs to support alia update syntax, which is tricky to do a schema for, so
+;; we have a schema where we've relaxed the constraints for some lists for now.
+(def UpdateableEntity
+  {:entity_id s/Str
+   (s/optional-key :address_country) s/Str
+   (s/optional-key :address_county) s/Str
+   (s/optional-key :address_region) s/Str
+   (s/optional-key :address_street_two) s/Str
+   (s/optional-key :calculated_fields_labels) {s/Str s/Str}
+   (s/optional-key :calculated_fields_last_calc) {s/Str s/Str} ;; sc/ISO-Date-Time
+   (s/optional-key :calculated_fields_values) {s/Str s/Str}
+   (s/optional-key :csv_uploads) [s/Str]
+   (s/optional-key :devices) {s/Str s/Any}
+   (s/optional-key :documents) [s/Str]
+   (s/optional-key :metering_point_ids) [s/Str]
+   (s/optional-key :name) s/Str
+   (s/optional-key :notes) [s/Str]
+   (s/optional-key :photos) [s/Any] ;; TODO - make more restrictive (see above)?
+   (s/optional-key :project_id) s/Str
+   (s/optional-key :property_code) s/Str
+   (s/optional-key :property_data) {s/Keyword s/Str}
+   (s/optional-key :retrofit_completion_date) s/Str ;; sc/ISO-Date-Time
+   :user_id s/Str})
 (defn insert [session entity]
   (let [insertable-entity (su/select-keys-by-schema entity InsertableEntity)]
     (s/validate InsertableEntity insertable-entity)
-    (db/execute session (hayt/insert :entities (hayt/values (encode insertable-entity))))))
+    (db/execute session (hayt/insert :entities (hayt/values (encode-for-insert insertable-entity))))))
 
 (defn update [session id entity]
-  (let [insertable-entity (su/select-keys-by-schema entity InsertableEntity)]
-    (s/validate InsertableEntity (assoc insertable-entity :entity_id id))
-       (db/execute session (hayt/update :entities
-                                        (hayt/set-columns (dissoc (encode insertable-entity) :id))
-                                        (hayt/where [[= :id id]])))))
+  (let [updateable-entity (su/select-keys-by-schema entity InsertableEntity)]
+    (s/validate UpdateableEntity (assoc updateable-entity :entity_id id))
+    (db/execute session (hayt/update :entities
+                                     (hayt/set-columns (encode-for-update updateable-entity))
+                                     (hayt/where [[= :id id]])))))
 
 (defn get-by-id
   ([session entity_id]
@@ -157,14 +184,14 @@
      (->> (db/execute session (hayt/select :entities (hayt/where [[= :project_id project_id]])))
           (map decode))))
 
-(defn add-image [session id key]
+(defn add-image [session id image]
     (db/execute session (hayt/update :entities
-                                     (hayt/set-columns {:photos [+ [(json/encode key)]]})
+                                     (hayt/set-columns {:photos [+ [ (json/encode image)]]})
                                      (hayt/where [[= :id id]]))))
 
-(defn add-document [session id key]
+(defn add-document [session id document]
     (db/execute session (hayt/update :entities
-                                     (hayt/set-columns {:documents [+ [(json/encode key)]]})
+                                     (hayt/set-columns {:documents [+ [(json/encode document)]]})
                                      (hayt/where [[= :id id]]))))
 
 (defn has-location? [{:keys [property_data] :as e}]

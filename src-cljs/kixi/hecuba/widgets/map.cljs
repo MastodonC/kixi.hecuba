@@ -31,10 +31,11 @@
   (let [{:keys [address_street address_street_two address_region address_country description tech-icons]} property_data
         full-address (slugs/postal-address property_data)
         title (:property_code property_data) ;; TODO what should go here?
-        img-url (first photos)
+        img-url (:uri (first photos))
         entity-url (str "/search#" entity_id)
         tech-icons (apply str (for [i (:technology_icons property_data) :when i]
-                                (str "<div class=\"col-xs-1 tech-icon-container\"><img alt=\" \" class=\"img-responsive tech-icon\" src=\"" i "\"></div>")))]
+                                (str "<div class=\"col-xs-1 tech-icon-container-sm\">"
+                                     "<img alt=\" \" class=\"img-responsive tech-icon\" src=\"" i "\"></div>")))]
     (str "<div class=\"container-fluid container-xs-height\">
             <div class=\"panel panel-default\">
               <div class=\"panel-heading\">

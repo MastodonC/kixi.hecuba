@@ -77,21 +77,14 @@ their containing structures."
       remove-private-data
       (dissoc :user_id)))
 
-(defn enrich-media-uris [entity file-bucket key]
-  (let [path->uri (fn [x] 
-                    (-> x 
-                         (dissoc :path)
-                         (assoc :uri (str "https://" file-bucket ".s3.amazonaws.com/" (:path x)))))]
-    (update-in entity [key] #(mapv path->uri %))))
-
 (defn parse-entities [results allowed-programmes allowed-projects roles file-bucket]
   (->> results
        esr/hits-from
        (map #(update-in % [:_source :full_entity] assoc :editable (editable? (:programme_id %) (:project_id %) allowed-programmes allowed-projects roles)))
        (map #(-> % :_source :full_entity))
        (map #(clean-entity %))
-       (map #(enrich-media-uris % file-bucket :photos))
-       (map #(enrich-media-uris % file-bucket :documents))))
+       (map #(util/enrich-media-uris % file-bucket :photos))
+       (map #(util/enrich-media-uris % file-bucket :documents))))
 
 (defn should-terms [allowed-programmes allowed-projects]
   (vec

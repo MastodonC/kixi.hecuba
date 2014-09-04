@@ -148,8 +148,8 @@
          [:td (slugs/postal-address property_data)]
          [:td (:address_region property_data)]
          [:td (:ownership property_data)]
-         [:td (for [ti (:technology_icons property_data)]
-                [:img.img-responsive {:src ti :width 40 :height 40}])]
+         [:td.tech-icon-container-sm (for [ti (:technology_icons property_data)]
+                                        [:img {:src ti}])]
          [:td (:monitoring_hierarchy property_data)]])))))
 
 (defn table [data]
