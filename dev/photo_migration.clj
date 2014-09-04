@@ -9,24 +9,17 @@
             [clojure.tools.logging            :as log]
             [kixi.hecuba.webutil              :refer (uuid)]))
 
-
-(defn path-from [p]
-  (try
-    (when (instance? String p) (-> p
-                                   (json/parse-string keyword)
-                                   :path))
-    (catch Throwable t
-      (log/error (str "parsing " p)))))
-
 ;; TODO - need to look at the path things end up at in s3.
-(defn get-item-from-old-embed-bucket [s3-session key]
-  (let [outfile (ioplus/mk-temp-file! "photo-migration" "")]
+(defn get-item-from-old-embed-bucket [s3-session photo]
+  (let [outfile (ioplus/mk-temp-file! "photo-migration" "")
+        key (:path photo)]
+    
     (.deleteOnExit outfile)
-    (println key)
+    (log/info "looking for key " key " in " (:file-bucket s3-session))
     (when (s3/item-exists? s3-session key)
       (with-open [in (s3/get-object-by-metadata s3-session {:key key})]
         (io/copy in outfile))
-      {:src-name  "uploads"
+      {:src-name  "media-resources"
        :feed-name "images"
        :uuid      (uuid)
        :dir       (.getParent outfile)
@@ -37,12 +30,11 @@
         get-old (partial get-item-from-old-embed-bucket (assoc s3 :file-bucket "get-embed-data"))
         ]
     (db/with-session [session (:hecuba-session store)]
-      (doseq [{:keys [id photos]} (entities/get-all session)]
-        (log/info "migrating photos for " id)
-        (if-let [paths (not-empty (keep path-from photos))]
-          (doseq [item (keep get-old paths)]
-            (log/info "migrating path for " item)
-            (upload/image-upload store  (assoc item :entity_id id))))))))
+      (doseq [{:keys [entity_id photos]} (entities/get-all session)]
+        (log/info "migrating photos for " entity_id)
+        (doseq [item (keep get-old photos)]
+          (log/info "migrating path for " item)
+          (upload/image-upload store  (assoc item :entity_id entity_id)))))))
 
 (comment
   ;; from 'user ns after (go)
