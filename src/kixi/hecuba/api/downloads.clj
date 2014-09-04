@@ -15,8 +15,7 @@
             [cheshire.core :as json]
             [kixipipe.storage.s3 :as s3]
             [liberator.representation :refer (ring-response)]
-            [ring.util.response :refer (redirect)]
-            ))
+            [ring.util.response :refer (redirect)]))
 
 ;; List of files is retrieved for a username (read from the current session) so only users who can upload files can also GET those files. Other users will get an empty list.
 (defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
@@ -66,10 +65,10 @@
 ;; TOFIX We currently store one file per entity only.
 (defn downloads-for-entity-status-handle-ok [store ctx]
   (let [{:keys [params session]} (:request ctx)
-        {:keys [entity_id]} params
-        files    (take 2 (s3/list-objects-seq (:s3 store) {:prefix (str "downloads/" entity_id)}))
-        statuses (map #(merge-downloads-status-with-metadata store % entity_id)
-                      (filter #(re-find #"status" (:key %)) files))]
+        {:keys [entity_id]}      params
+        files                    (take 2 (s3/list-objects-seq (:s3 store) {:prefix (str "downloads/" entity_id)}))
+        statuses                 (map #(merge-downloads-status-with-metadata store % entity_id)
+                                      (filter #(re-find #"status" (:key %)) files))]
     (util/render-items ctx statuses)))
 
 (defn downloads-for-entity-data-resource-handle-ok [store ctx]
