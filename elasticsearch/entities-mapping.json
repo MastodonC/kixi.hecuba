@@ -1,9 +1,3 @@
-POST http://localhost:9200/entities
-{
-  "settings" : {}
-}
-
-PUT http://localhost:9200/entities/entity/_mapping
 {
   "entity" : {
     "properties" : {
