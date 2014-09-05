@@ -274,7 +274,7 @@
                             (workflows/interactive-form :login-uri "/login")]})
                          ;; Don't forget that Cassandra Session Store
                          {:session {:store (cassandra-store store)}})
-          server        (run-server all-routes {:port 8010 :max-body 16000000})]
+          server        (run-server all-routes {:port 8010 :max-body (* 16 1024 1024)})]
       (assoc this ::server server)))
   (stop [this]
     ((::server this))))

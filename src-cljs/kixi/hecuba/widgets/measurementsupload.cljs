@@ -21,7 +21,7 @@
       (if file
         (let [name (aget file "name")
               size (aget file "size")]
-          (if (> size 16000000)
+          (if (> size (* 16 1024 1024))
             (om/update! uploads :alert {:status true
                                         :class "alert alert-danger"
                                         :text "Maximum file size is 16MB."})
