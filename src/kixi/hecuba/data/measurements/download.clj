@@ -7,7 +7,7 @@
             [kixi.hecuba.data.measurements :as measurements]
             [kixi.hecuba.data.measurements.core :refer (headers-in-order extract-columns-in-order)]
             [kixi.hecuba.storage.db        :as db]
-            [kixi.hecuba.webutil           :refer (uuid)]
+            [kixi.hecuba.webutil           :refer (uuid) :as util]
             [kixipipe.ioplus               :as ioplus]
             [kixipipe.storage.s3           :as s3]
             [qbits.hayt                    :as hayt]
@@ -96,7 +96,7 @@
     (loop [ms measurements]
       (let [row (next-row ms)]
         (when row
-          (let [row-timestamps (mapv :timestamp row)
+          (let [row-timestamps (mapv #(util/db-to-iso (:timestamp %)) row)
                 row-timestamp  (first (sort (remove nil? row-timestamps)))
                 data-indexes   (indexes-of row-timestamp row-timestamps)
                 has-data?      #(contains? data-indexes %)
@@ -114,9 +114,11 @@
   (let [{:keys [header data entity_id]} item
         item (dissoc item :header :data)
         tmpfile (ioplus/mk-temp-file! "hecuba" ".csv-download")
+        filename (str entity_id "_measurements.csv")
         metadata  {:timestamp (t/now)
+                   :filename filename
                    :content-type "text/csv"
-                   :content-disposition (str "attachment; filename=\"" entity_id "_measurements.csv\"")}]
+                   :content-disposition (str "attachment; filename=\"" filename "\"")}]
     (try
       (with-open [out (io/writer tmpfile)]
         (csv/write-csv out header)
