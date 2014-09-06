@@ -4,11 +4,12 @@
             [schema.utils :as su]
             [kixi.amon-schema :as schema]
             [kixi.hecuba.storage.sha1 :as sha1]
+            [kixi.hecuba.time :as ht]
             [kixi.hecuba.api.parser :as parser]
             [kixi.hecuba.api.profiles.schema :as ps]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Schema (not primatic) used to rip the data out of the csvs to make
+;; Schema (not prismatic) used to rip the data out of the csvs to make
 ;; entities.
 (def property-data-schema
   [:description
@@ -110,11 +111,20 @@
     (and (not (nil? event_type))
          (not= (.toLowerCase event_type) "create"))))
 
+(defn fix-timestamp [m]
+  (if-let [ts (:timestamp m)]
+    (assoc m :timestamp (ht/hecuba-date-time-string ts))
+    m))
+
 (defn extract-entities-and-profiles [rows]
-  ;; TODO filter entities by looking for CREATION event
-  ;;
-  {:entities (->> rows (parser/csv->maps entity-schema) (filter #(entity? %)))
-   :profiles (->> rows (parser/csv->maps ps/profile-schema) (filter #(profile? %)))})
+  {:entities (->> rows
+                  (parser/csv->maps entity-schema)
+                  (filter #(entity? %))
+                  (map fix-timestamp))
+   :profiles (->> rows
+                  (parser/csv->maps ps/profile-schema)
+                  (filter #(profile? %))
+                  (map fix-timestamp))})
 
 (defn entity-validation-failures [entity project_id]
   (if-let [validation-errors (s/check schema/Entity entity)]

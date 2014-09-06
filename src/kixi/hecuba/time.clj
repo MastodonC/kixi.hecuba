@@ -84,3 +84,21 @@
                (not (nil? end))
                (not= start end))
       {:start-date (tc/from-date start) :end-date (tc/from-date end)})))
+
+(def default-date-formatters
+  (concat [(tf/formatter "dd/MM/yyyy")
+           (tf/formatter "dd/MM/yyyy HH:mm")
+           (tf/formatter "dd/MM/yyyy HH:mm:ss")]
+          (vals tf/formatters)))
+
+(defn auto-parse
+  ([s fmts]
+     (first
+      (for [f fmts
+            :let [d (try (tf/parse f s) (catch Exception _ nil))]
+            :when d] d)))
+  ([s]
+     (auto-parse s default-date-formatters)))
+
+(defn hecuba-date-time-string [date-time-string]
+  (tf/unparse (tf/formatters :date-time) (auto-parse date-time-string)))
