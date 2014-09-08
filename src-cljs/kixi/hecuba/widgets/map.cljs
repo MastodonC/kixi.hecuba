@@ -34,30 +34,19 @@
         img-url (:uri (first photos))
         entity-url (str "/search#" entity_id)
         tech-icons (apply str (for [i (:technology_icons property_data) :when i]
-                                (str "<div class=\"col-xs-1 tech-icon-container-sm\">"
-                                     "<img alt=\" \" class=\"img-responsive tech-icon\" src=\"" i "\"></div>")))]
+                                (str "<img alt=\" \" src=\"" i "\">")))]
     (str "<div class=\"container-fluid container-xs-height\">
             <div class=\"panel panel-default\">
               <div class=\"panel-heading\">
                 <h3 class=\"panel-title\">" title "</h3>
               </div>
               <div class=\"panel-body\">
-                <div class=\"row row-xs-height\">
-                  <div class=\"col-xs-12 col-xs-height\">
-                    <div class=\"row row-xs-height\">
-                      <div class=\"col-xs-4 col-xs-height\">
-                        <img class=\"img-responsive\" alt=\" \" src=\"" img-url "\" ></img>
-                        <a href=\"" entity-url "\">view</a>
-                      </div>
-                      <div class=\"col-xs-8 col-xs-height\">
-                      " full-address "
-                      </div>
-                    </div>
-                    <div class=\"row row-xs-height\">
-                      " tech-icons "
-                    </div>
-                  </div>
+                <div class=\"panel\">
+                  <div class=\"\">" full-address "</div>
+                  <div class=\"tech-icon-container-sm\">" tech-icons "</div>
                 </div>
+                <img class=\"img-responsive\" alt=\" \" src=\"" img-url "\" ></img>
+                <a href=\"" entity-url "\">view</a>
               </div>
             </div>
           </div>")))
