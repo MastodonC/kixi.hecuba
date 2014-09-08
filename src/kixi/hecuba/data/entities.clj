@@ -132,30 +132,13 @@
    (s/optional-key :retrofit_completion_date) s/Str ;; sc/ISO-Date-Time
    :user_id s/Str})
 
-;; FIXME - potentially we can share stuff between updateable and insertable, but
-;; updateable needs to support alia update syntax, which is tricky to do a schema for, so
-;; we have a schema where we've relaxed the constraints for some lists for now.
+;; FIXME -Here we make a tweak to the photos to allow alia update
+;; syntax. We should have a better way to allow that update syntax.
 (def UpdateableEntity
-  {:entity_id s/Str
-   (s/optional-key :address_country) s/Str
-   (s/optional-key :address_county) s/Str
-   (s/optional-key :address_region) s/Str
-   (s/optional-key :address_street_two) s/Str
-   (s/optional-key :calculated_fields_labels) {s/Str s/Str}
-   (s/optional-key :calculated_fields_last_calc) {s/Str s/Str} ;; sc/ISO-Date-Time
-   (s/optional-key :calculated_fields_values) {s/Str s/Str}
-   (s/optional-key :csv_uploads) [s/Str]
-   (s/optional-key :devices) {s/Str s/Any}
-   (s/optional-key :documents) [s/Str]
-   (s/optional-key :metering_point_ids) [s/Str]
-   (s/optional-key :name) s/Str
-   (s/optional-key :notes) [s/Str]
-   (s/optional-key :photos) [s/Any] ;; TODO - make more restrictive (see above)?
-   (s/optional-key :project_id) s/Str
-   (s/optional-key :property_code) s/Str
-   (s/optional-key :property_data) {s/Keyword s/Str}
-   (s/optional-key :retrofit_completion_date) s/Str ;; sc/ISO-Date-Time
-   :user_id s/Str})
+  (merge InsertableEntity
+         {(s/optional-key :photos) [s/Any]}) ;; TODO - make more restrictive (see above)?
+  )
+
 (defn insert [session entity]
   (let [insertable-entity (su/select-keys-by-schema entity InsertableEntity)]
     (s/validate InsertableEntity insertable-entity)
