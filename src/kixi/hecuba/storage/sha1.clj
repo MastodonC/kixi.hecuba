@@ -40,8 +40,12 @@
    s/Any s/Any})
 
 (defn add-entity-id [entity]
-  (s/validate KeyableEntity entity)
-  (assoc entity :entity_id (gen-key :entity entity)))
+  (try
+    (s/validate KeyableEntity entity)
+    (assoc entity :entity_id (gen-key :entity entity))
+    (catch Throwable t
+      (log/errorf t "Tried to add id to %s" entity)
+      (throw t))))
 
 (def KeyableProfile
   {:entity_id s/Str

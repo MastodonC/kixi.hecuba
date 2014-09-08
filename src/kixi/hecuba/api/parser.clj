@@ -153,7 +153,7 @@
 (defn rows->columns [rows]
   (apply map vector rows))
 
-(defn data-header? [c]
+(defn data-header? [^String c]
   (or (.startsWith c "values")
       (.startsWith c "keys")))
 

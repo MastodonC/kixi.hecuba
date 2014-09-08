@@ -2,6 +2,9 @@
   (:require [clojure.tools.logging :as log]
             [qbits.hayt :as hayt]
             [schema.core :as s]
+            [schema-contrib.core :as sc]
+            [clj-time.format :as tf]
+            [clj-time.coerce :as tc]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.data :refer [parse-item parse-list] :as data]
             [kixi.hecuba.webutil :as webutil]
@@ -63,10 +66,18 @@
       ;; window_sets list<text>,
       (parse-list :window_sets)))
 
+(defn fix-timestamp [profile]
+  (if-let [ts (:timestamp profile)]
+    (if-let [d (tf/parse (tf/formatters :date-time) ts)]
+      (assoc profile :timestamp (tc/to-date d))
+      profile)
+    profile))
+
 (defn encode [profile]
   (-> profile
       (assoc :id (:profile_id profile))
       (dissoc :profile_id)
+      fix-timestamp
       (data/assoc-encode-item-if :profile_data (:profile_data profile))
       (data/assoc-encode-list-if :airflow_measurements (:airflow_measurements profile))
       (data/assoc-encode-list-if :biomasses (:biomasses profile))
@@ -131,7 +142,7 @@
    (s/optional-key :solar_thermals) [{s/Keyword s/Any}]
    (s/optional-key :storeys) [{s/Keyword s/Any}]
    (s/optional-key :thermal_images) [{s/Keyword s/Any}]
-   (s/optional-key :timestamp) s/Str
+   (s/optional-key :timestamp) (s/maybe sc/ISO-Date-Time)
    (s/optional-key :user_id)  s/Str
    (s/optional-key :ventilation_systems) [{s/Keyword s/Any}]
    (s/optional-key :walls) [{s/Keyword s/Any}]
