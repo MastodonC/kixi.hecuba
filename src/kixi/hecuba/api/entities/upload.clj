@@ -24,7 +24,7 @@
 (def ^:private entity-resource-path (p/resource-path-string :entity-resource))
 
 (defmethod kixipipe.storage.s3/s3-key-from "media-resources" media-resources-s3-key-from [item]
-  (str "media-resources/"(:entity_id item) "/" (:feed-name item) "/" (-> item :metadata :filename)))
+  (str "media-resources/"(:entity_id item) "/" (:feed-name item) "/" (or (-> item :metadata :filename) (:filename item))))
 
 (defmethod kixipipe.storage.s3/item-from-s3-key "media-resources" media-resources-item-from-s3-key [key]
   (when-let [[src-name entity_id feed-name filename] (next (re-matches #"^([^/]+)/([^/]+)/([^/]+)/([^/]+)$" key))]
@@ -131,9 +131,10 @@
         entity_id    (:entity_id route-params)
         auth         (sec/current-authentication session)]
         (doseq [item (upload->items file-data feed-name entity_id username)]
-          (pipe/submit-item pipe item))   {:response {:status  202
-                :headers {"Location" (format entity-resource-path entity_id)}
-                :body    "Accepted"}}))
+          (pipe/submit-item pipe item))
+        {:response {:status  202
+                    :headers {"Location" (format entity-resource-path entity_id)}
+                    :body    "Accepted"}}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; RESOURCES

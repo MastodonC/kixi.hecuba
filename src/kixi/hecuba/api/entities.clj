@@ -77,12 +77,14 @@ their containing structures."
       remove-private-data
       (dissoc :user_id)))
 
-(defn parse-entities [results allowed-programmes allowed-projects roles]
+(defn parse-entities [results allowed-programmes allowed-projects roles file-bucket]
   (->> results
        esr/hits-from
        (map #(update-in % [:_source :full_entity] assoc :editable (editable? (:programme_id %) (:project_id %) allowed-programmes allowed-projects roles)))
        (map #(-> % :_source :full_entity))
-       (map #(clean-entity %))))
+       (map #(clean-entity %))
+       (map #(util/enrich-media-uris % file-bucket :photos))
+       (map #(util/enrich-media-uris % file-bucket :documents))))
 
 (defn should-terms [allowed-programmes allowed-projects]
   (vec
@@ -102,12 +104,13 @@ their containing structures."
 
 (defn filter-entities
   ([params roles store]
-     (let [query-string    (or (:q params) "*")
-           page-number     (or (:page params) 0)
-           page-size       (or (:size params) 20)
-           results         (search/search-entities query-string page-number page-size (:search-session store))
-           total_hits      (esr/total-hits results)
-           parsed-results (parse-entities results nil nil roles)]
+     (let [query-string   (or (:q params) "*")
+           page-number    (or (:page params) 0)
+           page-size      (or (:size params) 20)
+           results        (search/search-entities query-string page-number page-size (:search-session store))
+           total_hits     (esr/total-hits results)
+           file-bucket    (-> store :s3 :file-bucket)
+           parsed-results (parse-entities results nil nil roles file-bucket)]
        {:entities {:total_hits total_hits
                    :page       page-number
                    :entities   parsed-results}}))
@@ -117,10 +120,10 @@ their containing structures."
            page-size      (or (:size params) 20)
            shoulds        (should-terms allowed-programmes allowed-projects)
            filter-terms   (search-filter nil shoulds nil)
-           _ (log/debugf "Filter Terms: %s" filter-terms)
            results        (search/search-entities query-string filter-terms page-number page-size (:search-session store))
            total_hits     (esr/total-hits results)
-           parsed-results (parse-entities results allowed-programmes allowed-projects roles)]
+           file-bucket    (-> store :s3 :file-bucket)
+           parsed-results (parse-entities results allowed-programmes allowed-projects roles file-bucket)]
        {:entities {:total_hits total_hits
                    :page       page-number
                    :entities   parsed-results}}))
@@ -131,10 +134,10 @@ their containing structures."
            shoulds        (should-terms allowed-programmes allowed-projects)
            must           (must-term :project_id project_id)
            filter-terms   (search-filter must shoulds nil)
-           _ (log/debugf "Filter Terms: %s" filter-terms)
            results        (search/search-entities query-string filter-terms page-number page-size (:search-session store))
            total_hits     (esr/total-hits results)
-           parsed-results (parse-entities results allowed-programmes allowed-projects roles)]
+           file-bucket    (-> store :s3 :file-bucket)
+           parsed-results (parse-entities results allowed-programmes allowed-projects roles file-bucket)]
        {:entities {:total_hits total_hits
                    :page       page-number
                    :entities   parsed-results}})))

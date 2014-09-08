@@ -54,9 +54,11 @@
         true))))
 
 (defn index-handle-ok [store ctx]
-  (db/with-session [session (:hecuba-session store)]
-    (let [entities (entities/get-entities-having-location session)]
-      {:entities entities})))
+  (let [file-bucket (-> store :s3 :file-bucket)]
+    (db/with-session [session (:hecuba-session store)]
+      (let [entities (->> (entities/get-entities-having-location session)
+                          (map #(util/enrich-media-uris % file-bucket :photos)))]
+        {:entities entities}))))
 
 (defresource index [store]
   :allowed-methods #{:get}

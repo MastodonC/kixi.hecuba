@@ -153,15 +153,15 @@
             (when-let [tech-icons (seq (:technology_icons property_data))]
               [:div.col-md-12
                [:h3 "Technologies"]
-               [:p
+               [:span.tech-icon-container-md
                 (for [ti tech-icons]
-                  [:img.tmg-responsive {:src ti :width 80 :height 80}])]])
+                  [:img {:src ti}])]])
             (when-let [photos (seq (:photos property-details))]
               [:div.col-md-12
                [:h3 "Photos"]
                [:p
-                (for [uri photos]
-                  [:img.img-thumbnail.tmg-responsive {:src uri}])]])]]])))))
+                (for [photo photos]
+                  [:img.img-thumbnail {:src (:uri photo)}])]])]]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CSV measurements template (with & without data)

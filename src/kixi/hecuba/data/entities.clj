@@ -37,7 +37,7 @@
 (defn encode-map-vals [m]
   (into {} (map (fn [[k v]] [k (json/encode v)]) m)))
 
-(defn encode [entity]
+(defn encode-for-insert [entity]
   (-> entity
       (assoc :id (:entity_id entity))
       (dissoc entity :device_ids :entity_id)
@@ -45,6 +45,9 @@
               (:metering_point_ids entity) (update-stringified-list :metering_point_ids)
               (:devices entity) (assoc :devices (encode-map-vals (:devices entity)))
               (:property_data entity) (assoc :property_data (json/encode (:property_data entity))))))
+
+(defn encode-for-update [entity]
+  (dissoc (encode-for-insert entity) :id))
 
 (defn decode-list [entity key]
   (->> (get entity key [])
@@ -91,7 +94,7 @@
         (try
           (json/parse-string (:property_data entity) keyword)
           (catch Throwable t
-            (log/errorf t "Could not parse property_data %s for entity %s" (:property_data entity) entity)
+            (log/errorf "Could not parse property_data %s for entity with id %s" (:property_data entity) (:entity_id entity))
             {})))
       (decode-tech-icons)))
 
@@ -129,17 +132,24 @@
    (s/optional-key :retrofit_completion_date) s/Str ;; sc/ISO-Date-Time
    :user_id s/Str})
 
+;; FIXME -Here we make a tweak to the photos to allow alia update
+;; syntax. We should have a better way to allow that update syntax.
+(def UpdateableEntity
+  (merge InsertableEntity
+         {(s/optional-key :photos) [s/Any]}) ;; TODO - make more restrictive (see above)?
+  )
+
 (defn insert [session entity]
   (let [insertable-entity (su/select-keys-by-schema entity InsertableEntity)]
     (s/validate InsertableEntity insertable-entity)
-    (db/execute session (hayt/insert :entities (hayt/values (encode insertable-entity))))))
+    (db/execute session (hayt/insert :entities (hayt/values (encode-for-insert insertable-entity))))))
 
 (defn update [session id entity]
-  (let [insertable-entity (su/select-keys-by-schema entity InsertableEntity)]
-    (s/validate InsertableEntity insertable-entity)
-       (db/execute session (hayt/update :entities
-                                        (hayt/set-columns (dissoc (encode insertable-entity) :id))
-                                        (hayt/where [[= :id id]])))))
+  (let [updateable-entity (su/select-keys-by-schema entity InsertableEntity)]
+    (s/validate UpdateableEntity (assoc updateable-entity :entity_id id))
+    (db/execute session (hayt/update :entities
+                                     (hayt/set-columns (encode-for-update updateable-entity))
+                                     (hayt/where [[= :id id]])))))
 
 (defn get-by-id
   ([session entity_id]
@@ -157,14 +167,14 @@
      (->> (db/execute session (hayt/select :entities (hayt/where [[= :project_id project_id]])))
           (map decode))))
 
-(defn add-image [session id key]
+(defn add-image [session id image]
     (db/execute session (hayt/update :entities
-                                     (hayt/set-columns {:photos [+ [(json/encode key)]]})
+                                     (hayt/set-columns {:photos [+ [ (json/encode image)]]})
                                      (hayt/where [[= :id id]]))))
 
-(defn add-document [session id key]
+(defn add-document [session id document]
     (db/execute session (hayt/update :entities
-                                     (hayt/set-columns {:documents [+ [(json/encode key)]]})
+                                     (hayt/set-columns {:documents [+ [(json/encode document)]]})
                                      (hayt/where [[= :id id]]))))
 
 (defn has-location? [{:keys [property_data] :as e}]

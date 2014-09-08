@@ -235,3 +235,10 @@
           (get-in [:request :content-type])
           (string/split #";\s*")
           first))
+
+(defn enrich-media-uris [entity file-bucket key]
+  (let [path->uri (fn [x]
+                    (-> x
+                         (dissoc :path)
+                         (assoc :uri (str "https://" file-bucket ".s3.amazonaws.com/" (:path x)))))]
+    (update-in entity [key] #(mapv path->uri %))))

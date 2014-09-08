@@ -140,16 +140,16 @@
             history       (om/get-shared owner :history)]
         [:tr {:onClick (fn [_] (history/update-token-ids! history :properties entity_id))
               :class (if (= (-> data :properties :selected) entity_id) "success" "")}
-         [:td (when-let [pic (:path (first (:photos cursor)))]
-                [:img.img-thumbnail.tmg-responsive
-                 {:src (str "https://s3-us-west-2.amazonaws.com/get-embed-data/" pic)}])]
+         [:td (when-let [uri (:uri (first (:photos cursor)))]
+                [:img.img-thumbnail.table-image
+                 {:src uri}])]
          [:td (:property_code cursor)]
          [:td (:property_type property_data)]
          [:td (slugs/postal-address property_data)]
          [:td (:address_region property_data)]
          [:td (:ownership property_data)]
-         [:td (for [ti (:technology_icons property_data)]
-                [:img.tmg-responsive {:src ti :width 40 :height 40}])]
+         [:td.tech-icon-container-sm (for [ti (:technology_icons property_data)]
+                                        [:img {:src ti}])]
          [:td (:monitoring_hierarchy property_data)]])))))
 
 (defn table [data]
