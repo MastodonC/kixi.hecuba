@@ -40,11 +40,19 @@
                            m))
                          cursor))
 
+(defn fix-timestamp [profile]
+  (if-let [timestamp (:timestamp profile)]
+    (let [raw (tf/parse (tf/formatter "yyyy-MM-dd") timestamp)
+          formatted (tf/unparse (tf/formatter "yyyy-MM-dd'T'HH:mm:ss.SSSZ") raw)]
+      (assoc profile :timestamp formatted))
+    profile))
+
 (defn post-new-profile [cursor profile]
   (let [[_ _ entity_id] (string/split js/window.location.pathname #"/")
         url             (str "/4/entities/" entity_id "/profiles/")]
     (common/post-resource url (-> profile
                                   (assoc :entity_id entity_id)
+                                  fix-timestamp
                                   (dissoc :alert))
                           (fn [response]
                             (om/update! cursor :alert {:status true

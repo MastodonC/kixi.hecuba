@@ -289,7 +289,7 @@
                 [:div.col-md-12 (om/build raw/raw-data-div properties)])
               ;; Profiles
               (when (= active-tab :profiles)
-                [:div.col-md-12 (om/build profiles/profiles-div properties)])
+                [:div.col-md-12 (om/build profiles/profiles-div property-details)])
               ;; Uploads
               (when (= active-tab :upload)
                 [:div.col-md-12
