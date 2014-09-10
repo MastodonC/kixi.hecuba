@@ -930,7 +930,9 @@
         x-ind (order (-> x (get-in [:profile_data :event_type] "") string/lower-case))
         y-ind (order (-> y (get-in [:profile_data :event_type] "") string/lower-case))]
     (if (and x-ind y-ind)
-      (compare x-ind y-ind)
+      (if (zero? (compare x-ind y-ind))
+        (compare (:timestamp x) (:timestamp y))
+        (compare x-ind y-ind))
       (compare (:timestamp x) (:timestamp y)))))
 
 (defn profiles-div [property-details owner]

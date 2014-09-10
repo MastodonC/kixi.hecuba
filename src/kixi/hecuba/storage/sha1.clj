@@ -21,8 +21,9 @@
 (defmethod gen-key :entity [typ payload] ((sha1-keyfn :property_code :project_id) payload))
 (defmethod gen-key :device [typ payload] ((sha1-keyfn :description :entity_id) payload))
 (defmethod gen-key :profile [typ profile] (let [entity_id (:entity_id profile)
-                                                event_type (-> profile :profile_data :event_type)]
-                                            (sha1 (pr-str entity_id event_type))))
+                                                event_type (-> profile :profile_data :event_type)
+                                                timestamp (:timestamp profile)]
+                                            (sha1 (pr-str entity_id event_type timestamp))))
 
 (defmethod gen-key :sensor [typ payload] nil)
 (defmethod gen-key :sensor_metadata [typ payload] nil)
