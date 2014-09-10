@@ -133,9 +133,10 @@
             [:tbody
              (om/build-all programmes-row (sort-by :name (:data programmes))
                            {:opts {:table-id table-id
-                                   :editing-chan editing-chan}})]]))))))
+                                   :editing-chan editing-chan}
+                            :key :programme_id})]]))))))
 
-(defn programmes-div [programmes owner]
+(defn programmes-div [programmes owner opts]
   (reify
     om/IInitState
     (init-state [_]
@@ -147,7 +148,7 @@
               edited-row             (<! editing-chan)]
           (om/update! programmes :editing true)
           (om/update! programmes :edited-row edited-row)
-          (common/fixed-scroll-to-element "programmes-edit-div"))
+          (common/fixed-scroll-to-element "programmes-div"))
         (recur)))
     om/IRenderState
     (render-state [_ {:keys [editing-chan]}]
@@ -167,9 +168,12 @@
                                          :class (str "btn btn-primary " (if editing "hidden" ""))
                                          :onClick (fn [_] (om/update! programmes :adding-programme true))}
                 "Add new"]]])
-           [:div {:id "programmes-add-div" :class (if adding-programme "" "hidden")}
-            (om/build (programme-add-form programmes refresh-chan) nil)]
-           [:div {:id "programmes-edit-div" :class (if editing "" "hidden")}
-            (om/build (programme-edit-form programmes refresh-chan) (-> programmes :edited-row))]
-           [:div {:id "programmes-div" :class (if (or editing adding-programme) "hidden" "")}
-            (om/build (programmes-table editing-chan) programmes)]]])))))
+           (when adding-programme
+             [:div#programmes-add-div
+              (om/build (programme-add-form programmes refresh-chan) nil)])
+           (when editing
+             [:div#programmes-edit-div
+              (om/build (programme-edit-form programmes refresh-chan) (-> programmes :edited-row))])
+           (when (not (or adding-programme editing))
+             [:div#programmes-div
+              (om/build (programmes-table editing-chan) programmes)])]])))))
