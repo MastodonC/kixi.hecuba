@@ -138,7 +138,7 @@
                [:label.control-label.col-md-2 {:for "device_id"} "Device Id"]
                [:p {:class "form-control-static col-md-10"} device_id]]
               (bs/text-input-control nil owner :sensor :type "Type" true)
-              (bs/text-input-control nil owner :sensor :alias "Alias")
+              (bs/text-input-control nil owner :sensor :alias "Header Rows")
               (bs/text-input-control nil owner :sensor :unit "Unit" true)
               (sensor-period-dropdown owner)
               (bs/text-input-control nil owner :sensor :resolution "Resolution")
@@ -171,7 +171,7 @@
   (let [sensor-type (:type cursor)]
     [:li.list-group-item
      (static-text cursor :type "Type")
-     (text-input-control cursor owner [:sensors sensor-type]  :alias "Alias")
+     (text-input-control cursor owner [:sensors sensor-type] :alias "Header Rows")
      (text-input-control cursor owner [:sensors sensor-type] :unit "Unit")
      (text-input-control cursor owner [:sensors sensor-type] :period "Period")
      (text-input-control cursor owner [:sensors sensor-type] :resolution "Resolution")
