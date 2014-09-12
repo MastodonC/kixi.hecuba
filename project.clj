@@ -89,7 +89,8 @@
   :source-paths ["src" "src-cljs"]
   :resource-paths ["resources" "out"]
 
-  :jvm-opts ["-Duser.timezone=UTC" "-XX:MaxPermSize=128m" "-Xmx2G" "-XX:+UseCompressedOops" "-XX:+HeapDumpOnOutOfMemoryError"]
+  :jvm-opts ["-Duser.timezone=UTC" "-XX:MaxPermSize=128m" "-Xmx4G" "-XX:+UseCompressedOops" "-XX:+HeapDumpOnOutOfMemoryError"]
+  ;; "-XX:-UseConcMarkSweepGC" ;; if -Xmx4g isn't enough
   ;; "-XX:+PrintGC"  "-XX:+PrintGCDetails" "-XX:+PrintGCTimeStamps"
 
   :profiles {:dev {:source-paths ["dev"]
