@@ -40,12 +40,10 @@
                                              :select   {:label "Select" :checkbox true}}
                                       :sort [:name]}
                            :selected nil
-                           :editing false
-                           :row nil
                            :alert {}}
                  :chart    {:property ""
                             :sensors #{}
-                            :unit ""
+                            :units {}
                             :range {}
                             :measurements []
                             :message ""}

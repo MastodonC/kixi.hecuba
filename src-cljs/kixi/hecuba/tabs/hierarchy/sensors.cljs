@@ -1,6 +1,6 @@
 (ns kixi.hecuba.tabs.hierarchy.sensors
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
-  (:require [cljs.core.async :refer [<! >! chan put!]]
+  (:require [cljs.core.async :refer [<! >! chan put! sliding-buffer mult tap]]
             [om.core :as om :include-macros true]
             [goog.userAgent :as agent]
             [sablono.core :as html :refer-macros [html]]
@@ -8,39 +8,17 @@
             [kixi.hecuba.history :as history]
             [kixi.hecuba.widgets.chart :as chart]
             [kixi.hecuba.widgets.datetimepicker :as dtpicker]
-            [ajax.core :refer [GET POST PUT]]
-            [kixi.hecuba.tabs.hierarchy.data :refer (fetch-property fetch-sensors)]
+            [kixi.hecuba.tabs.hierarchy.data :as data]
             [clojure.string :as string]
+            [cljs-time.core :as t]
+            [cljs-time.format :as tf]
+            [cljs-time.coerce :as tc]
             [kixi.hecuba.common :refer (log) :as common]))
-
-(defn error-handler [owner]
-  (fn [{:keys [status status-text]}]
-    (om/set-state! owner :error true)
-    (om/set-state! owner :http-error-response {:status status
-                                               :status-text status-text})))
-
-(defn split-device-and-sensor [m]
-   [(select-keys m [:device_id :description :parent_id :entity_id :name
-                    :location :metadata :privacy :metering_point_id])
-    (select-keys m [:device_id :type :alias :accuracy :actual_annual :corrected_unit
-                    :correction :correction_factor :correction_factor_breakdown
-                    :errors :events :frequency :max :median :min :period
-                    :resolution :status :synthetic :unit :user_id])])
-
-(defn post-resource [refresh-chan property_id device_id sensor-data]
-  (PUT  (str "/4/entities/" property_id "/devices/" device_id)
-         {:content-type "application/json"
-          :handler #(put! refresh-chan {:event :property})
-          :params sensor-data}))
-
-(defn save-form [properties refresh-chan owner property_id device_id type]
-  (let [sensor-data (om/get-state owner [:sensor])
-        [device readings] (split-device-and-sensor sensor-data)]
-    (post-resource refresh-chan property_id device_id (assoc device :readings [(assoc readings :type type)]))
-    (om/update! properties [:sensors :editing] false)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; sensors
+
+(def amon-date (tf/formatter "yyyy-MM-dd'T'HH:mm:ssZ"))
 
 (defn status-label [status privacy calculated-field]
   [:div
@@ -61,82 +39,24 @@
          [:i.fa.fa-sort-asc]
          [:i.fa.fa-sort-desc]))]))
 
-(defn sensor-edit-form [properties]
-  (fn [cursor owner]
-    (om/component
-     (let [property-id (-> properties :selected)
-           project-id  (-> properties :project_id)
-           row         (-> cursor :row)
-           {:keys [device_id type]} row
-           refresh-chan (om/get-shared owner :refresh)]
-       (html
-        [:div
-         [:h3 "Editing sensor"]
-         [:form.form-horizontal {:role "form"}
-          [:div.col-md-6
-           [:div.form-group
-            [:div.btn-toolbar
-             [:button.btn.btn-default {:type "button"
-                                       :class (str "btn btn-success")
-                                       :onClick (fn [_ _] (save-form properties refresh-chan owner property-id device_id type))}
-              "Save"]
-             [:button.btn.btn-default {:type "button"
-                                       :class (str "btn btn-danger")
-                                       :onClick (fn [_ _] (om/update! properties [:sensors :editing] false))} "Cancel"]]]
-           (static-text row :device_id "Device ID")
-           (static-text row :type "Type")
-           (text-input-control (:parent-device row) owner :sensor :name "Parent Device Name")
-           (text-input-control row owner :sensor :alias "Header Rows")
-           (text-input-control row owner :sensor :unit "Unit")
-           (text-input-control row owner :sensor :period "Period")
-           (text-input-control row owner :sensor :resolution "Resolution")
-           (checkbox row owner :sensor :actual_annual "Calculated Field")]]])))))
-
-
-(defn update-sensor-selection [selected-sensors unit properties sensors history]
-  (om/update! sensors :selected selected-sensors)
-  (om/update! properties [:chart :sensor] selected-sensors)
-  (om/update! properties [:chart :unit] (if (seq selected-sensors) unit ""))
-  (history/update-token-ids! history :sensors (if (seq selected-sensors)
-                                                (string/join ";" selected-sensors)
-                                                nil)))
-
-(defn sensor-click [selected? sensors properties history id unit]
-
-  (let [selected-sensors ((if selected? disj conj) (:selected @sensors) id)]
-    (if-not selected?
-      (let [current-unit (-> @properties :chart :unit)]
-        (if (or (empty? current-unit)
-                (= current-unit unit))
-          (update-sensor-selection selected-sensors unit properties sensors history)
-          (om/update! properties [:sensors :alert] {:status true
-                                                    :class "alert alert-danger"
-                                                    :text "Sensors must be of the same unit."})))
-      (update-sensor-selection selected-sensors unit properties sensors history))))
-
-(defn form-row [properties history table-id editing-chan]
-  (fn [cursor owner]
+(defn form-row [sensors]
+  (fn [sensor owner {:keys [table-id selected-chan]}]
     (reify
       om/IRender
       (render [_]
         (html
          (let [{:keys [device_id type unit period resolution status synthetic
-                       parent-device lower_ts upper_ts actual_annual editable]} cursor
+                       parent-device lower_ts upper_ts actual_annual selected]} sensor
                        {:keys [description privacy location]} parent-device
                        id (str type "-" device_id)
-                       sensors (:sensors properties)
-                       selected? (contains? (:selected sensors) id)]
-           [:tr {:onClick (fn [e] (let [div-id (.-id (.-target e))]
-                                    (when-not (= "edit" div-id)
-                                      (sensor-click selected? sensors properties history id unit)
-                                      (when (and lower_ts upper_ts)
-                                        (om/update! properties [:chart :range] {:start-date (common/unparse-date lower_ts "yyyy-MM-dd")
-                                                                                :end-date (common/unparse-date upper_ts "yyyy-MM-dd")})))))
+                       selected? (contains? (:selected sensors) id)
+                       history (om/get-shared owner :history)]
+           [:tr {:onClick (fn [e] (put! selected-chan {:id id
+                                                       :unit unit
+                                                       :upper_ts upper_ts
+                                                       :lower_ts lower_ts}))
                  :class (when selected? "success")
                  :id (str table-id "-selected")}
-            [:td (when (and editable (not synthetic))
-                   [:div {:class "fa fa-pencil-square-o" :id "edit"
-                          :onClick #(when selected? (put! editing-chan cursor))}])]
             [:td description]
             [:td type]
             [:td unit]
@@ -148,69 +68,159 @@
             [:td (if-let [t (common/unparse-date upper_ts "yyyy-MM-dd")] t "")]
             [:td (status-label status privacy actual_annual)]]))))))
 
-(defn sensors-table [editing-chan properties]
-  (fn [cursor owner]
-    (reify
-      om/IInitState
-      (init-state [_]
-        {:th-chan (chan)
-         :sort-spec {:sort-key :type
-                     :sort-asc true}})
-      om/IWillMount
-      (will-mount [_]
-        (go-loop []
-          (let [{:keys [th-chan sort-spec]} (om/get-state owner)
-                {:keys [sort-key sort-asc]} sort-spec
-                th-click                    (<! th-chan)]
-            (if (= th-click sort-key)
-              (om/update-state! owner #(assoc %
-                                         :sort-spec {:sort-key th-click
-                                                     :sort-asc (not sort-asc)}))
-              (om/update-state! owner #(assoc %
-                                         :sort-spec {:sort-key th-click
-                                                     :sort-asc true}))))
-          (recur)))
-      om/IRenderState
-      (render-state [_ state]
-        (let [{:keys [sort-key sort-asc]} (:sort-spec state)
-              sensors-data                (fetch-sensors (-> properties :selected) properties)
-              history                     (om/get-shared owner :history)
-              table-id                    "sensors-table"]
-          (html
-           [:div.col-md-12 {:style {:overflow "auto"}}
-            [:table {:class "table table-hover table-condensed"}
-             [:thead
-              [:tr
-               [:th ""]
-               (sorting-th owner "Description" :description)
-               (sorting-th owner "Type" :type)
-               (sorting-th owner "Unit" :unit)
-               (sorting-th owner "Period" :period)
-               (sorting-th owner "Resolution" :resolution)
-               (sorting-th owner "Device ID" :device_id)
-               (sorting-th owner "Location" :location)
-               (sorting-th owner "Earliest Event" :lower_ts)
-               (sorting-th owner "Last Event" :upper_ts)
-               (sorting-th owner "Status" :status)]]
-             [:tbody
-              (for [row (if sort-asc
-                          (sort-by sort-key sensors-data)
-                          (reverse (sort-by sort-key sensors-data)))]
-                (om/build (form-row properties history table-id editing-chan) row))]]]))))))
+(defn flatten-device [device]
+  (let [device-keys   (->> device keys (remove #(= % :readings)))
+        parent-device (select-keys device device-keys)
+        readings      (:readings device)]
+    (map #(assoc % :parent-device parent-device
+                 :id (str (:type %) "-" (:device_id %))) readings)))
+
+(defn extract-sensors [devices]
+  (vec (mapcat flatten-device devices)))
+
+(defn fetch-sensors [property selected-sensors]
+  (let [editable (:editable property)
+        sensors  (extract-sensors (:devices property))]
+    (map #(assoc % :editable editable :selected (if (contains? selected-sensors (:id %)) true false)) sensors)))
+
+(defn allowed-unit? [existing-units new-unit]
+  (or (not (seq existing-units))
+      (< (count existing-units) 2)
+      (some #(= new-unit %) existing-units)))
+
+(defn update-sensor [click chart sensors property-details history selected?]
+  (let [{:keys [id unit lower_ts upper_ts]} click
+        new-selected-sensors ((if selected? disj conj) (:selected @sensors) id)
+        [type device_id] (string/split id #"-")]
+    ;; update history
+    (history/update-token-ids! history :sensors (if (seq new-selected-sensors)
+                                                  (string/join ";" new-selected-sensors)
+                                                  nil))
+    ;; update chart default range
+    (when (and lower_ts upper_ts (not selected?))
+      (om/update! chart :range {:start-date (common/unparse-date lower_ts "yyyy-MM-dd")
+                                :end-date (common/unparse-date upper_ts "yyyy-MM-dd")}))
+    ;; update units in chart
+    (om/transact! chart :units (fn [units]
+                                 (if (seq new-selected-sensors)
+                                   (assoc units id unit)
+                                   {})))))
+
+(defn process-click [click property-details history]
+  (let [{:keys [id unit]} click
+        {:keys [sensors property-details chart]} property-details
+        already-selected? (contains? (:selected @sensors) id)
+        existing-units    (into #{} (vals (:units @chart)))]
+    (if-not already-selected?
+      (if (allowed-unit? existing-units unit)
+        (update-sensor click chart sensors property-details history false)
+        (om/update! sensors [:alert] {:status true
+                                      :class "alert alert-danger"
+                                      :text "Please limit the number of different units to 2."}))
+      (update-sensor click chart sensors property-details history true))))
+
+(defn sensors-table [property-details owner]
+  (reify
+    om/IInitState
+    (init-state [_]
+      {:th-chan (chan)
+       :sort-spec {:sort-key :type
+                   :sort-asc true}
+       :selected-chan (chan)})
+    om/IWillMount
+    (will-mount [_]
+      (go-loop []
+        (let [selected-chan  (om/get-state owner :selected-chan)
+              history        (om/get-shared owner :history)
+              click          (<! selected-chan)]
+          (when click
+            (process-click click property-details history)))
+        (recur))
+      (go-loop []
+        (let [{:keys [th-chan sort-spec]} (om/get-state owner)
+              {:keys [sort-key sort-asc]} sort-spec
+              th-click                    (<! th-chan)]
+          (if (= th-click sort-key)
+            (om/update-state! owner #(assoc %
+                                       :sort-spec {:sort-key th-click
+                                                   :sort-asc (not sort-asc)}))
+            (om/update-state! owner #(assoc %
+                                       :sort-spec {:sort-key th-click
+                                                   :sort-asc true}))))
+        (recur)))
+    om/IRenderState
+    (render-state [_ state]
+      (let [{:keys [sort-key sort-asc]} (:sort-spec state)
+            selected-sensors  (-> property-details :sensors :selected)
+            sensors-data      (fetch-sensors (:property-details property-details) selected-sensors)
+            history           (om/get-shared owner :history)
+            table-id          "sensors-table"]
+        (html
+         [:div.col-md-12 {:style {:overflow "auto"}}
+          [:table {:class "table table-hover table-condensed"}
+           [:thead
+            [:tr
+             (sorting-th owner "Description" :description)
+             (sorting-th owner "Type" :type)
+             (sorting-th owner "Unit" :unit)
+             (sorting-th owner "Period" :period)
+             (sorting-th owner "Resolution" :resolution)
+             (sorting-th owner "Device ID" :device_id)
+             (sorting-th owner "Location" :location)
+             (sorting-th owner "Earliest Event" :lower_ts)
+             (sorting-th owner "Last Event" :upper_ts)
+             (sorting-th owner "Status" :status)]]
+           [:tbody
+            (for [sensor (if sort-asc
+                           (sort-by sort-key sensors-data)
+                           (reverse (sort-by sort-key sensors-data)))]
+              (om/build (form-row (:sensors property-details)) sensor {:opts {:selected-chan (:selected-chan state)
+                                                                              :table-id table-id}}))]]])))))
+
 
 (defn chart-summary
   "Show min, max, delta and average of chart data."
-  [chart owner]
+  [cursor owner]
   (reify
-    om/IRender
-    (render [_]
-      (let [{:keys [unit measurements]} chart
-            all-series (group-by #(get % "sensor") measurements)]
+    om/IInitState
+    (init-state [_]
+      {:value {}
+       :mouseover false})
+    om/IWillMount
+    (will-mount [_]
+      (go-loop []
+        (let [measurements       (-> cursor :measurements)
+              event-chan         (om/get-state owner :chan)
+              {:keys [event v]}  (<! event-chan)
+              bisect             (-> js/d3 (.bisector (fn [d] (aget d "timestamp"))) .-right)]
+          (cond
+           (= event :timestamp) (let [index  (bisect measurements v 1)
+                                      value  (js->clj (aget measurements index))]
+                                  (om/set-state! owner :value {:value (get value "value" "N/A")
+                                                               :timestamp (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm")
+                                                                                      (tc/from-date v))}))
+           (= event :mouseover) (om/set-state! owner :mouseover v)))
+        (recur)))
+    om/IRenderState
+    (render-state [_ state]
+      (let [{:keys [measurements]} cursor
+            mouseover (:mouseover state)
+            {:keys [value timestamp]} (:value state)
+            [type device_id] (-> measurements first (aget "sensor") (string/split #"-"))
+            description (-> measurements first (aget "description"))]
         (html
-         (if (->> all-series first seq)
-           [:div.col-md-12
-            (for [[key series] all-series]
-              (let [values             (keep #(let [v (:value %)]
+         [:div {:style {:font-size "80%"}}
+          (bs/panel
+           [:div [:p {:style {:word-wrap "break-word" :font-size "80%"}} type]
+            [:p {:style {:word-wrap "break-word" :font-size "80%"}} description]]
+           [:div
+            (if mouseover
+              [:dl
+               [:dt "Timestamp:"] [:dd timestamp]
+               [:dt "Value:"] [:dd value]]
+              (let [unit               (-> measurements first (aget "unit"))
+                    series             (js->clj measurements)
+                    values             (keep #(let [v (get % "value")]
                                                 (cond (nil? v) nil
                                                       (number? v) v
                                                       (re-matches #"[-+]?\d+(\.\d+)?" v) (js/parseFloat v))) series)
@@ -219,60 +229,76 @@
                     measurements-sum   (reduce + values)
                     measurements-count (count values)
                     measurements-mean  (if (not= 0 measurements-count) (/ measurements-sum measurements-count) "NA")]
-                [:div.col-md-3
-                 (bs/panel
-                  key
-                  [:div.col-md-12
-                   [:table.table.table-hover.table-condensed
-                    [:tr [:td "Minimum"] [:td.number (str (.toFixed (js/Number. measurements-min) 3))] [:td unit]]
-                    [:tr [:td "Maximum"] [:td.number (str (.toFixed (js/Number. measurements-max) 3))] [:td unit]]
-                    [:tr [:td "Average (Mean)"] [:td.number (str (.toFixed (js/Number. measurements-mean) 3))] [:td unit]]
-                    [:tr [:td "Range"] [:td.number (str (.toFixed (js/Number. (- measurements-max measurements-min)) 3))] [:td unit]]]])]))]
-           [:div.row#summary-stats [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data."]]]))))))
+                [:table.table.table-hover.table-condensed
+                 [:tr [:td "Minimum"] [:td.number (str (.toFixed (js/Number. measurements-min) 3))] [:td unit]]
+                 [:tr [:td "Maximum"] [:td.number (str (.toFixed (js/Number. measurements-max) 3))] [:td unit]]
+                 [:tr [:td "Average (Mean)"] [:td.number (str (.toFixed (js/Number. measurements-mean) 3))] [:td unit]]
+                 [:tr [:td "Range"] [:td.number (str (.toFixed (js/Number. (- measurements-max measurements-min)) 3))] [:td unit]]]))])])))))
 
-(defn sensors-div [properties owner]
+(defn get-description [sensors measurement]
+  (-> (filter #(= (:type measurement) (:type %)) sensors) first :parent-device :description))
+
+(defn parse
+  "Enriches measurements with unit and description of device and parses timestamp into a JavaScript Date object"
+  [measurements units sensors]
+  (map (fn [measurements-seq] (map #(assoc % :unit (get units (-> % :sensor))
+                                           :description (get-description sensors %)
+                                           :timestamp (tf/parse amon-date (:timestamp %))) measurements-seq)) measurements))
+
+(defn sensors-div [property-details owner]
   (reify
     om/IInitState
     (init-state [_]
-      {:editing-chan (chan)})
-    om/IWillMount
-    (will-mount [_]
-      (go-loop []
-        (let [{:keys [editing-chan]} (om/get-state owner)
-              edited-row             (<! editing-chan)]
-          (om/update! properties [:sensors :editing] true)
-          (om/update! properties [:sensors :row] edited-row)
-          (common/fixed-scroll-to-element "sensor-edit-div"))
-        (recur)))
+      (let [hovering-chan (chan 100)
+            m (mult hovering-chan)]
+        {:hovering-chan hovering-chan
+         :mult-chan m}))
     om/IRenderState
-    (render-state [_ {:keys [editing-chan]}]
-      (let [{:keys [sensors]} properties
-            editing        (-> properties :sensors :editing)
-            project_id     (-> properties :project_id)
-            property_id    (-> properties :selected)
-            property       (-> (filter #(= (:entity_id %) property_id) properties) first)]
+    (render-state [_ state]
+      (let [sensors (:sensors property-details)
+            {:keys [project_id entity_id]} (:property-details property-details)
+            selected-sensors  (-> property-details :sensors :selected)]
         (html
          [:div.col-md-12
           [:h3 "Sensors"]
           [:div {:id "sensors-unit-alert"}
-           (om/build bs/alert (-> properties :sensors :alert))]
-          [:div {:id "sensors-table" :class (if editing "hidden" "")}
-           (om/build (sensors-table editing-chan properties) sensors)]
-          [:div {:id "sensor-edit-div" :class (if editing "" "hidden")}
-           (om/build (sensor-edit-form properties) sensors)]
+           (om/build bs/alert (-> property-details :sensors :alert))]
+          [:div {:id "sensors-table"}
+           (om/build sensors-table property-details)]
 
           ;; FIXME: We should have better handling for IE8 here.
           (if (or (not agent/IE)
                   (agent/isVersionOrHigher 9))
-            [:div {:id "chart-div" :class (if editing "hidden" "")}
+            [:div {:id "chart-div"}
              [:div {:class "col-md-4"}
               [:div {:id "picker-alert"}
-               (om/build bs/alert (-> properties :chart :range :alert))]
-              (om/build dtpicker/datetime-picker (-> properties :chart :range) {:opts {:div-id "chart-date-picker"}})]
-             (om/build chart-summary (select-keys (:chart properties) [:measurements :unit]))
-             [:div.col-md-12.well
-              [:div#chart {:style {:width "100%" :height 600}}
-               (om/build chart/chart-figure (select-keys (:chart properties) [:measurements :unit]))]]]
+               (om/build bs/alert (-> property-details :chart :range :alert))]]
+             [:div.col-md-6.col-md-offset-3
+              (om/build dtpicker/datetime-picker (-> property-details :chart :range) {:opts {:div-id "chart-date-picker"}})]
+
+             ;; Chart and infoboxes
+             (let [{:keys [measurements units mouseover]} (get property-details :chart)
+                   {:keys [hovering-chan mult-chan]} (om/get-state owner)]
+               (when (and (seq measurements) (seq units))
+                 (let [all-series    (parse measurements units (fetch-sensors (:property-details property-details) selected-sensors))
+                       unit-groups   (group-by #(-> % first :unit) all-series)
+                       all-groups    (vals unit-groups)
+                       left-group    (first all-groups)]
+                   [:div.col-md-12
+                    [:div.col-md-2
+                     (for [series left-group]
+                       (let [c (chan)]
+                         (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}})))]
+                    [:div.col-md-8
+                     [:div#chart {:style {:width "100%" :height 600}}
+                      (om/build chart/chart-figure {:measurements (mapv #(into [] (flatten %)) all-groups)}
+                                {:opts {:chan hovering-chan}})]]
+                    [:div.col-md-2
+                     (when (> (count all-groups) 1)
+                       ;; Always max 2 groups as max 2 units
+                       (for [series (last all-groups)]
+                         (let [c (chan)]
+                           (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}}))))]])))]
             [:div.col-md-12.text-center
              [:p.lead {:style {:padding-top 30}}
               "Charting in Internet Explorer version " agent/VERSION " coming soon."]])])))))

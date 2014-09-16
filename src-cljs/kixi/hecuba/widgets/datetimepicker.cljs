@@ -34,7 +34,7 @@
 
     (cond
      (t/after? start end)       (invalid-dates data start-date end-date)
-     (= start-date end-date)    (invalid-dates data start-date end-date)
+     (= start-date end-date)    (valid-dates data history start-date end-date)
      (not= start-date end-date) (valid-dates data history start-date end-date))))
 
 
@@ -43,15 +43,14 @@
 
 (defn datetime-input-control [data key label]
   (let [id-for (str (name key))]
-    [:div
-     [:label.control-label {:for id-for} label]
-     [:input {:ref (name :key)
-              :value (get data key "")
-              :placeholder "YYYY-MM-DD"
-              :on-change #(handle-change data key %1)
-              :class "form-control"
-              :id id-for
-              :type "date"}]]))
+    [:input {:ref (name :key)
+             :value (get data key "")
+             :placeholder "YYYY-MM-DD"
+             :on-change #(handle-change data key %1)
+             :class "form-control"
+             :style {:margin-bottom "10px" :margin-right "5px"}
+             :id id-for
+             :type "date"}]))
 
 (defn datetime-picker [data owner {:keys [div-id]}]
   (reify
@@ -59,13 +58,12 @@
     (render-state [_ state]
       (html
        (let [history (om/get-shared owner :history)]
-         [:div
+         [:form.form-inline {:role "form"}
           (datetime-input-control data :start-date "Start Date")
           (datetime-input-control data :end-date "End Date")
-          [:div.form-group
-           [:button.btn.btn-primary
-            {:type "button"
-             :id div-id
-             :on-click (fn [_ _] (let [{:keys [start-date end-date]} @data]
-                                   (evaluate-dates data history start-date end-date)))}
-            "Get Data"]]])))))
+          [:button.btn.btn-primary
+           {:type "button"
+            :id div-id
+            :on-click (fn [_ _] (let [{:keys [start-date end-date]} @data]
+                                  (evaluate-dates data history start-date end-date)))}
+           "Get Data"]])))))

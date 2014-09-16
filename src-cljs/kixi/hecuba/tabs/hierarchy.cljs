@@ -89,7 +89,14 @@
         (om/update! data [:property-details :property_id] nil)
         (om/update! data [:properties :devices :data] [])
         (om/update! data [:properties :sensors :data] [])
-        (om/update! data [:properties :measurements :data] []))
+        (om/update! data [:properties :chart :measurements] []))
+
+      (when-not sensors
+        (log "Clearing measurements")
+        (om/update! data [:properties :chart :measurements] [])
+        (om/update! data [:properties :chart :sensors] #{})
+        (om/update! data [:properties :chart :units] {})
+        (om/update! data [:properties :sensors :selected] #{}))
 
       (when (and (not= programmes old-programmes)
                  programmes)
@@ -101,7 +108,7 @@
         (om/update! data [:properties :sensors :alert] {})
         (om/update! data [:properties :chart :sensors] #{})
         (om/update! data [:properties :chart :measurements] [])
-        (om/update! data [:properties :chart :unit] "")
+        (om/update! data [:properties :chart :units] {})
         (om/transact! data [:programmes :data] (fn [d] (mapv #(cond
                                                                (= old-programmes (:programme_id %)) (assoc % :selected false)
                                                                (= programmes (:programme_id %)) (assoc % :selected true)
@@ -118,7 +125,7 @@
         (om/update! data [:properties :sensors :alert] {})
         (om/update! data [:properties :chart :sensors] #{})
         (om/update! data [:properties :chart :measurements] [])
-        (om/update! data [:properties :chart :unit] "")
+        (om/update! data [:properties :chart :units] {})
         (om/update! data [:properties :editable] (-> @data :projects :editable))
         (om/transact! data [:projects :data] (fn [d] (mapv #(cond
                                                              (= old-projects (:project_id %)) (assoc % :selected false)
@@ -137,7 +144,7 @@
         (om/update! data [:properties :sensors :selected] #{})
         (om/update! data [:properties :sensors :alert] {})
         (om/update! data [:properties :chart :sensors] #{})
-        (om/update! data [:properties :chart :unit] "")
+        (om/update! data [:properties :chart :units] {})
         (om/update! data [:properties :chart :measurements] [])
         (om/transact! data [:properties :data] (fn [d] (mapv #(cond
                                                              (= old-properties (:entity_id %)) (assoc % :selected false)
@@ -147,7 +154,11 @@
 
       (when sensors
         (log "Setting selected sensors to: " sensors)
-        (om/update! data [:properties :sensors :selected] (into #{} (str/split sensors #";"))))
+        (let [sensors-hashmap (into #{} (str/split sensors #";"))]
+          (om/update! data [:properties :chart :sensors] sensors-hashmap)
+          (om/update! data [:properties :sensors :selected] sensors-hashmap)
+          (when (and sensors old-end-date old-start-date)
+            (data/fetch-measurements data properties sensors old-start-date old-end-date))))
 
       (when (or (not= start-date old-start-date)
                 (not= end-date old-end-date))
@@ -156,7 +167,6 @@
         (when (and (not (every? empty? [start-date end-date]))
                    sensors)
           (data/fetch-measurements data properties sensors start-date end-date)))
-
 
       ;; Update the new active components
       (om/update! data :active-components history-status))
@@ -191,9 +201,9 @@
           (recur))))
     om/IRender
     (render [_]
-
-      (html [:div
-             (om/build programmes/programmes-div (:programmes data))
-             (om/build projects/projects-div (:projects data))
-             (om/build properties/properties-div (:properties data))
-             (om/build property-details/property-details-div (:properties data))]))))
+      (html
+       [:div
+        (om/build programmes/programmes-div (:programmes data))
+        (om/build projects/projects-div (:projects data))
+        (om/build properties/properties-div (:properties data))
+        (om/build property-details/property-details-div (:properties data))]))))

@@ -13,7 +13,9 @@
    [kixi.hecuba.history :as history]
    [sablono.core :as html :refer-macros [html]]
    [kixi.hecuba.tabs.slugs :as slugs]
-   [cljs-time.format :as tf]))
+   [cljs-time.format :as tf]
+   [cljs-time.coerce :as tc]
+   [cljs-time.core :as t]))
 
 (def data-model
   (atom
@@ -23,75 +25,16 @@
                :selected-sensors #{}}
     :fetching {:entities false
                :measurements false}
-    :chart {:unit ""
-            :range {}
+    :chart {:range {}
             :sensors #{}
             :measurements []
-            :message ""}
+            :message ""
+            :units {}
+            :mouseover false}
     :stats {}}))
 
 (defn fetching-row []
   [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching data." ]]])
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Data fetchers
-
-(defn fetch-entities [data query]
-  (GET (str "/4/entities/?q=" query)
-       {:handler (fn [response]
-                   (om/update! data [:entities :searched-data] (take 20 (:entities response)))
-                   (om/update! data [:stats] {:total_hits (:total_hits response)
-                                              :page (:page response)})
-                   (om/update! data [:fetching :entities] false))
-        :headers {"Accept" "application/edn"}
-        :response-format :text}))
-
-
-(defn fetch-entity [data id]
-  (GET (str "/4/entities/" id)
-       {:handler (fn [response]
-                   (om/transact! data [:entities :selected-data] #(conj % response))
-                   (om/update! data [:fetching :entities] false))
-        :headers {"Accept" "application/edn"}
-        :response-format :text}))
-
-(defmulti url-str (fn [start end entity_id device_id type measurements-type] measurements-type))
-(defmethod url-str :raw [start end entity_id device_id type _]
-  (str "/4/entities/" entity_id "/devices/" device_id "/measurements/"
-       type "?startDate=" start "&endDate=" end))
-(defmethod url-str :hourly_rollups [start end entity_id device_id type _]
-  (str "/4/entities/" entity_id "/devices/" device_id "/hourly_rollups/"
-       type "?startDate=" start "&endDate=" end))
-(defmethod url-str :daily_rollups [start end entity_id device_id type _]
-  (str "/4/entities/" entity_id "/devices/" device_id "/daily_rollups/"
-       type "?startDate=" start "&endDate=" end))
-
-(defn date->amon-timestamp [date]
-  (->> date
-       (tf/parse (tf/formatter "yyyy-MM-dd"))
-       (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss"))))
-
-(defn fetch-measurements [data sensors start-date end-date]
-  (log "Fetching measurements for sensors: " sensors)
-  (doseq [sensor (str/split sensors #";")]
-    (let [[entity_id device_id type] (str/split sensor #"-" )
-          measurements-type (interval start-date end-date)
-          start-date (date->amon-timestamp start-date)
-          end-date (date->amon-timestamp end-date)
-          url (url-str start-date end-date entity_id device_id type measurements-type)]
-      (om/update! data [:chart :measurements] []) ;; TODO speed up deselection of sensors by not clearing measurements but by doing remove/concat
-      (om/update! data [:fetching :measurements] true)
-      (GET url {:handler (fn [response]
-                           (om/update! data [:chart :measurements]
-                                       (concat (:measurements (:chart @data))
-                                               (into []
-                                                     (map (fn [m]
-                                                            (assoc m "sensor" sensor))
-                                                          (:measurements response)))))
-                           (om/update! data [:fetching :measurements] false))
-                :headers {"Accept" "application/json"}
-                :response-format :json
-                :keywords? true}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Filtering sensors according to selected properties
@@ -118,6 +61,85 @@
   (let [properties (-> data :entities :selected-entities)]
     (log "Getting sensors for properties: " properties)
     (vec (mapcat #(sensors-for-property data %) properties))))
+
+(defn fetch-sensors-for-property [property]
+  (extract-sensors (:devices property)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Data fetchers
+
+(defn fetch-entities [data query]
+  (GET (str "/4/entities/?q=" query)
+       {:handler (fn [response]
+                   (om/update! data [:entities :searched-data] (take 20 (:entities response)))
+                   (om/update! data [:stats] {:total_hits (:total_hits response)
+                                              :page (:page response)})
+                   (om/update! data [:fetching :entities] false))
+        :headers {"Accept" "application/edn"}
+        :response-format :text}))
+
+(defn get-unit [property-id sensors property]
+  (let [sensors-for-property (fetch-sensors-for-property property)
+        selected-sensors     (filter (fn [sensor] (some #(= (:id sensor) %) sensors))
+                                     sensors-for-property)]
+    (into {} (map #(hash-map (:id %) (:unit %)) selected-sensors))))
+
+(defn fetch-entity [data id]
+  (log "Fetching entity: " id)
+  (let [sensors (-> @data :entities :selected-sensors)]
+    (GET (str "/4/entities/" id)
+         {:handler (fn [response]
+                     (om/transact! data [:entities :selected-data] #(conj % response))
+                     (when (seq sensors)
+                       (om/transact! data [:entities :chart :units] #(conj % (get-unit id sensors response))))
+                     (om/update! data [:fetching :entities] false))
+          :headers {"Accept" "application/edn"}
+          :response-format :text})))
+
+(defmulti url-str (fn [start end entity_id device_id type measurements-type] measurements-type))
+(defmethod url-str :raw [start end entity_id device_id type _]
+  (str "/4/entities/" entity_id "/devices/" device_id "/measurements/"
+       type "?startDate=" start "&endDate=" end))
+(defmethod url-str :hourly_rollups [start end entity_id device_id type _]
+  (str "/4/entities/" entity_id "/devices/" device_id "/hourly_rollups/"
+       type "?startDate=" start "&endDate=" end))
+(defmethod url-str :daily_rollups [start end entity_id device_id type _]
+  (str "/4/entities/" entity_id "/devices/" device_id "/daily_rollups/"
+       type "?startDate=" start "&endDate=" end))
+
+(defn date->amon-timestamp [date]
+  (->> date
+       (tf/parse (tf/formatter "yyyy-MM-dd"))
+       (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss"))))
+
+(defn pad-end-date [date]
+  (let [timestamp (tf/parse (tf/formatter "yyyy-MM-dd") date)
+        padded    (t/plus timestamp (t/days 1))]
+    (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss") padded)))
+
+(defn fetch-measurements [data sensors start-date end-date]
+  (log "Fetching measurements for sensors: " sensors)
+  (om/update! data [:fetching :measurements] true)
+  (om/update! data [:chart :measurements] [])
+  (doseq [sensor (str/split sensors #";")]
+    (let [[entity_id device_id type] (str/split sensor #"-" )
+          end (if (= start-date end-date) (pad-end-date end-date) (date->amon-timestamp end-date))
+          start-date (date->amon-timestamp start-date)
+          measurements-type (interval start-date end)
+          url (url-str start-date end entity_id device_id type measurements-type)]
+      (GET url {:handler (fn [response]
+                           (om/transact! data [:chart :measurements]
+                                         (fn [measurements]
+                                           (conj measurements
+                                                 (into []
+                                                       (map (fn [m]
+                                                              (assoc m :sensor sensor))
+                                                            (:measurements response))))))
+                           (when (= (-> (str/split sensors #";") last) sensor)
+                             (om/update! data [:fetching :measurements] false)))
+                :headers {"Accept" "application/json"}
+                :response-format :json
+                :keywords? true}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; History loop - this drives the fetches and clear downs
@@ -154,23 +176,22 @@
               (fetch-entity data entity)))
           (om/update! data [:sensors :data] (get-sensors @data))))
 
-      (when (and (not= sensors old-sensors)
-                 sensors)
+      (when sensors
         (log "Setting selected sensors to: " sensors)
         (let [selected-sensors (into #{} (str/split sensors #";"))]
           (om/update! data [:entities :selected-sensors] selected-sensors)
           (om/update! data [:chart :sensors] selected-sensors))
 
-        (when (and sensors start-date end-date) (fetch-measurements data sensors
-                                                                    start-date
-                                                                    end-date)))
+        (when (and sensors old-start-date old-end-date)
+          (fetch-measurements data sensors old-start-date old-end-date)))
 
       (when (and (or (not= start-date old-start-date)
-                     (not= end-date old-end-date))
-                 (not (every? empty? [start-date end-date])))
+                     (not= end-date old-end-date)))
         (log "Setting date range to: " start-date end-date)
         (om/update! data [:chart :range] {:start-date start-date :end-date end-date})
-        (fetch-measurements data sensors start-date end-date))
+        (when (and (not (every? empty? [start-date end-date]))
+                   sensors)
+          (fetch-measurements data sensors start-date end-date)))
 
       ;; Update the new active components
       (om/update! data :active-components history-status))
@@ -188,17 +209,49 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Sensors table
 
-(defn process-sensor-row-click [data history id selected? entity_id]
-  (let [selected-sensors ((if selected? disj conj) (-> @data :entities :selected-sensors) id)
+(defn allowed-unit? [existing-units new-unit]
+  (or (not (seq existing-units))
+      (< (count existing-units) 2)
+      (some #(= new-unit %) existing-units)))
+
+(defn update-sensor [id unit lower_ts upper_ts data history selected?]
+  (let [new-selected-sensors ((if selected? disj conj) (-> @data :entities :selected-sensors) id)
+        [entity_id type device_id] (str/split id #"-")
         device-entity-mapping (if selected?
                                 (dissoc (-> @data :entities :device-entity) id)
                                 (assoc (-> @data :entities :device-entity) id entity_id))]
-    (om/update! data [:entities :device-entity] device-entity-mapping)
-    (om/update! data [:entities :selected-sensors] selected-sensors)
+    ;; update history
     (history/update-token-ids! history
-                               :sensors (if (seq selected-sensors)
-                                          (str/join ";" selected-sensors)
-                                          nil))))
+                               :sensors (if (seq new-selected-sensors)
+                                          (str/join ";" new-selected-sensors)
+                                          nil))
+    ;; update chart default range
+    (when (and lower_ts upper_ts (not selected?))
+      (om/update! data [:chart :range] {:start-date (common/unparse-date lower_ts "yyyy-MM-dd")
+                                        :end-date (common/unparse-date upper_ts "yyyy-MM-dd")}))
+    ;; Update entities cursor with new selection
+    (om/update! data [:entities :device-entity] device-entity-mapping)
+    (om/update! data [:entities :selected-sensors] new-selected-sensors)
+    ;; update units in chart
+    (om/transact! data [:chart :units] (fn [units]
+                                         (if (seq new-selected-sensors)
+                                           (assoc units id unit)
+                                           {})))))
+
+(defn process-sensor-row-click [data history id unit lower_ts upper_ts selected? entity_id]
+  (let [selected-sensors ((if selected? disj conj) (-> @data :entities :selected-sensors) id)
+        device-entity-mapping (if selected?
+                                (dissoc (-> @data :entities :device-entity) id)
+                                (assoc (-> @data :entities :device-entity) id entity_id))
+        existing-units    (into #{} (vals (-> @data :chart :units)))]
+
+    (if-not selected?
+      (if (allowed-unit? existing-units unit)
+        (update-sensor id unit lower_ts upper_ts data history false)
+        (om/update! data [:alert] {:status true
+                                   :class "alert alert-danger"
+                                   :text "Please limit the number of different units to 2."}))
+      (update-sensor id unit lower_ts upper_ts  data history true))))
 
 (defn sensor-row [data]
   (fn [the-item owner]
@@ -211,11 +264,8 @@
        (html
         [:tr {:class (when selected? "success")
               :onClick (fn [_] (process-sensor-row-click data history
-                                                         id selected?
-                                                         entity_id)
-                         (when (and lower_ts upper_ts)
-                           (om/update! data [:chart :range] {:start-date (common/unparse-date lower_ts "yyyy-MM-dd")
-                                                             :end-date (common/unparse-date upper_ts "yyyy-MM-dd")})))}
+                                                         id unit lower_ts upper_ts selected?
+                                                         entity_id))}
          [:td type]
          [:td device_id]
          [:td entity_id]
@@ -343,10 +393,93 @@
                               {:key :entity_id})]]]])])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Chart summaries
+
+(defn chart-summary
+  "Show min, max, delta and average of chart data."
+  [cursor owner]
+  (reify
+    om/IInitState
+    (init-state [_]
+      {:value {}
+       :mouseover false})
+    om/IWillMount
+    (will-mount [_]
+      (go-loop []
+        (let [measurements       (-> cursor :measurements)
+              event-chan         (om/get-state owner :chan)
+              {:keys [event v]}  (<! event-chan)
+              bisect             (-> js/d3 (.bisector (fn [d] (aget d "timestamp"))) .-right)]
+          (cond
+           (= event :timestamp) (let [index  (bisect measurements v 1)
+                                      value  (js->clj (aget measurements index))]
+                                  (om/set-state! owner :value {:value (get value "value" "N/A")
+                                                               :timestamp (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm")
+                                                                                      (tc/from-date v))}))
+           (= event :mouseover) (om/set-state! owner :mouseover v)))
+        (recur)))
+    om/IRenderState
+    (render-state [_ state]
+      (let [{:keys [measurements]} cursor
+            mouseover (:mouseover state)
+            {:keys [value timestamp]} (:value state)
+            [type device_id] (-> measurements first (aget "sensor") (str/split #"-"))
+            description (-> measurements first (aget "description"))]
+        (html
+         [:div {:style {:font-size "80%"}}
+          (bootstrap/panel
+           [:div [:p {:style {:word-wrap "break-word" :font-size "80%"}} type]
+            [:p {:style {:word-wrap "break-word" :font-size "80%"}} description]]
+           [:div
+            (if mouseover
+              [:dl
+               [:dt "Timestamp:"] [:dd timestamp]
+               [:dt "Value:"] [:dd value]]
+              (let [unit               (-> measurements first (aget "unit"))
+                    series             (js->clj measurements)
+                    values             (keep #(let [v (get % "value")]
+                                                (cond (nil? v) nil
+                                                      (number? v) v
+                                                      (re-matches #"[-+]?\d+(\.\d+)?" v) (js/parseFloat v))) series)
+                    measurements-min   (apply min values)
+                    measurements-max   (apply max values)
+                    measurements-sum   (reduce + values)
+                    measurements-count (count values)
+                    measurements-mean  (if (not= 0 measurements-count) (/ measurements-sum measurements-count) "NA")]
+                [:table.table.table-hover.table-condensed
+                 [:tr [:td "Minimum"] [:td.number (str (.toFixed (js/Number. measurements-min) 3))] [:td unit]]
+                 [:tr [:td "Maximum"] [:td.number (str (.toFixed (js/Number. measurements-max) 3))] [:td unit]]
+                 [:tr [:td "Average (Mean)"] [:td.number (str (.toFixed (js/Number. measurements-mean) 3))] [:td unit]]
+                 [:tr [:td "Range"] [:td.number (str (.toFixed (js/Number. (- measurements-max measurements-min)) 3))] [:td unit]]]))])])))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Entire view
+
+(def amon-date (tf/formatter "yyyy-MM-dd'T'HH:mm:ssZ"))
+
+(defn fetch-sensors [property selected-sensors]
+  (let [editable (:editable property)
+        sensors  (extract-sensors (:devices property))]
+    (map #(assoc % :editable editable :selected (if (contains? selected-sensors (:id %)) true false)) sensors)))
+
+(defn get-description [sensors measurement]
+  (-> (filter #(= (:type measurement) (:type %)) sensors) first :parent-device :description))
+
+(defn parse
+  "Enriches measurements with unit and description of device and parses timestamp into a JavaScript Date object"
+  [measurements units sensors]
+  (map (fn [measurements-seq] (map #(assoc % :unit (get units (-> % :sensor))
+                                           :description (get-description sensors %)
+                                           :timestamp (tf/parse amon-date (:timestamp %))) measurements-seq)) measurements))
 
 (defn multiple-properties-chart [data owner]
   (reify
+    om/IInitState
+    (init-state [_]
+      (let [hovering-chan (chan 100)
+            m             (mult hovering-chan)]
+        {:hovering-chan hovering-chan
+         :mult-chan m}))
     om/IWillMount
     (will-mount [this]
       (let [clicked     (om/get-state owner [:chans :selection])
@@ -354,8 +487,8 @@
             m           (mult (history/set-chan! history (chan)))
             tap-history #(tap m (chan))]
         (history-loop (tap-history) data)))
-    om/IRender
-    (render [_]
+    om/IRenderState
+    (render-state [_ state]
       (html
        [:div.col-md-12 {:style {:padding-top "10px"}}
         [:div.panel-group {:id "accordion"}
@@ -370,13 +503,34 @@
           [:div.panel-heading
            [:h3.panel-title "Chart"]]
           [:div.panel-body
-           [:div {:id "date-picker" :class "col-md-4"}
+           [:div {:id "date-picker" :class "col-md-6 col-md-offset-3"}
             (om/build dtpicker/datetime-picker (-> data :chart :range))]
            (om/build chart-feedback-box (get-in data [:chart]))
-           (when (-> data :fetching :measurements) (fetching-row))
-           [:div.col-md-12.well
-            [:div#chart {:style {:width "100%" :height 600}}
-             (om/build chart/chart-figure (select-keys (:chart data) [:measurements :unit]))]]]]]]))))
+           (if (-> data :fetching :measurements)
+             (fetching-row)
+             ;; Chart and infoboxes
+             (let [{:keys [measurements units mouseover]} (:chart data)
+                   {:keys [hovering-chan mult-chan]} (om/get-state owner)]
+               (when (and (seq measurements) (seq units))
+                 (let [all-series    (parse measurements units (get-sensors data))
+                       unit-groups   (group-by #(-> % first :unit) all-series)
+                       all-groups    (vals unit-groups)
+                       left-group    (first all-groups)]
+                   [:div.col-md-12
+                    [:div.col-md-2
+                     (for [series left-group]
+                       (let [c (chan)]
+                         (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}})))]
+                    [:div.col-md-8
+                     [:div#chart {:style {:width "100%" :height 600}}
+                      (om/build chart/chart-figure {:measurements (mapv #(into [] (flatten %)) all-groups)}
+                                {:opts {:chan hovering-chan}})]]
+                    [:div.col-md-2
+                     (when (> (count all-groups) 1)
+                       ;; Always max 2 groups as max 2 units
+                       (for [series (last all-groups)]
+                         (let [c (chan)]
+                           (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}}))))]]))))]]]]))))
 
 (when-let [charting (.getElementById js/document "charting")]
   (om/root multiple-properties-chart
