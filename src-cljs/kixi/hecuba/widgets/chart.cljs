@@ -172,11 +172,11 @@
           (.text unit-left))
       (-> (.append "svg:g")
           (.attr "class" "y axis axisRight")
-          (.attr "transform" (str "translate(" width ",0)"))
+          (.attr "transform" (str "translate(" (+ 15 width) ",0)"))
           (.call y-axis-right)
           (.append "svg:text")
           (.attr "y" 20)
-          (.attr "dx" "1.5em")
+          (.attr "dx" ".5em")
           (.style "text-anchor" "start")
           (.text unit-right)))
 

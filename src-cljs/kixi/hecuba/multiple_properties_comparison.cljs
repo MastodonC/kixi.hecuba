@@ -210,10 +210,9 @@
 ;; Sensors table
 
 (defn allowed-unit? [existing-units new-unit]
-  (if (or (not (seq existing-units))
-          (< (count existing-units) 2)
-          (some #(= new-unit %) existing-units))
-    true false))
+  (or (not (seq existing-units))
+      (< (count existing-units) 2)
+      (some #(= new-unit %) existing-units)))
 
 (defn update-sensor [id unit lower_ts upper_ts data history selected?]
   (let [new-selected-sensors ((if selected? disj conj) (-> @data :entities :selected-sensors) id)

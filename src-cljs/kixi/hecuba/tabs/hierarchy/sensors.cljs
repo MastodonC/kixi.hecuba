@@ -84,10 +84,9 @@
     (map #(assoc % :editable editable :selected (if (contains? selected-sensors (:id %)) true false)) sensors)))
 
 (defn allowed-unit? [existing-units new-unit]
-  (if (or (not (seq existing-units))
-          (< (count existing-units) 2)
-          (some #(= new-unit %) existing-units))
-    true false))
+  (or (not (seq existing-units))
+      (< (count existing-units) 2)
+      (some #(= new-unit %) existing-units)))
 
 (defn update-sensor [click chart sensors property-details history selected?]
   (let [{:keys [id unit lower_ts upper_ts]} click
