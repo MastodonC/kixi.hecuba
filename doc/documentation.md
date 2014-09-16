@@ -20,6 +20,8 @@ below the job automatically creates a new reading type,
 e.g. oilConsumption -> oilConsumption_kWh and calculates measurements for that new
 sensor type (original measurements remain unchanged).
 
+The conversion factors are from SAP 2009.
+
 Conversions to kWh:
 * *gas consumption m3*
 
