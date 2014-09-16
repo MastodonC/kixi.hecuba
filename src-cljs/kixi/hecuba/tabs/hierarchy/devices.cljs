@@ -203,6 +203,7 @@
               (static-text cursor :device_id "Device ID")
               (text-input-control cursor owner [:device] :name "Parent Device Name")
               (location-input cursor owner)
+              (static-text cursor :metadata "API User Metadata")
               (bs/checkbox cursor owner :device :privacy "Private")
               [:h3 "Sensors"]
               (let [sensors (remove #(:synthetic %) (:readings cursor))]
@@ -258,7 +259,6 @@
               "Cancel"]]]
            (bs/text-input-control cursor owner :device :description "Description" true)
            (location-input cursor owner)
-           (bs/text-input-control cursor owner :device :metadata "Metadata")
            (bs/text-input-control cursor owner :device :name "Name")
            (bs/checkbox cursor owner :device :privacy "Private")]]])))))
 
