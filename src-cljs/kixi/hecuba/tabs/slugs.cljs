@@ -37,3 +37,6 @@
                             (if (empty? addr)
                               property_code
                               (str property_code  ", " addr))))))
+
+(defn slugify-whoami [m]
+  [:div.whoami (:identity m)])
