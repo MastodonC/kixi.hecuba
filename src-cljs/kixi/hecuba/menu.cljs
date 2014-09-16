@@ -20,7 +20,6 @@
   (reify
     om/IRenderState
     (render-state [_ {page-pathname :pathname}]
-      (println "page-pathname:" page-pathname)
       (html
        [:div
         [:ul {:class "nav navbar-nav"}
@@ -36,6 +35,6 @@
            {:target hecuba-menu
             :init-state {:pathname (-> js/window .-location .-pathname)}})
   (GET "/4/whoami"
-       {:handler (fn [x] (println "X:" x) (swap! menu-model assoc :whoami x))
+       {:handler (fn [x] (swap! menu-model assoc :whoami x))
         :response-format :json
         :keywords? true}))
