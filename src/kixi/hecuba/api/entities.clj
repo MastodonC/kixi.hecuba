@@ -102,11 +102,13 @@ their containing structures."
             :should shoulds
             :must_not (or must-not {})}}))
 
+(def default-page-size 50)
+
 (defn filter-entities
   ([params roles store]
      (let [query-string   (or (:q params) "*")
            page-number    (or (:page params) 0)
-           page-size      (or (:size params) 20)
+           page-size      (or (:size params) default-page-size)
            results        (search/search-entities query-string page-number page-size (:search-session store))
            total_hits     (esr/total-hits results)
            file-bucket    (-> store :s3 :file-bucket)
@@ -117,7 +119,7 @@ their containing structures."
   ([params allowed-programmes allowed-projects roles store]
      (let [query-string   (or (:q params) "*")
            page-number    (or (:page params) 0)
-           page-size      (or (:size params) 20)
+           page-size      (or (:size params) default-page-size)
            shoulds        (should-terms allowed-programmes allowed-projects)
            filter-terms   (search-filter nil shoulds nil)
            results        (search/search-entities query-string filter-terms page-number page-size (:search-session store))
@@ -130,7 +132,7 @@ their containing structures."
   ([project_id params allowed-programmes allowed-projects roles store]
      (let [query-string   (or (:q params) "*")
            page-number    (or (:page params) 0)
-           page-size      (or (:size params) 20)
+           page-size      (or (:size params) default-page-size)
            shoulds        (should-terms allowed-programmes allowed-projects)
            must           (must-term :project_id project_id)
            filter-terms   (search-filter must shoulds nil)

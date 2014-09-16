@@ -115,7 +115,7 @@
   ([query-string filter-map from size search-session]
      (let [query  {:query {:filtered {:query {:query_string {:query query-string}}
                                       :filter filter-map}}}]
-       (search/search search-session "entities" "entity" query :size size :from from)))
+       (search/search search-session "entities" "entity" (assoc query :size size :from from))))
   ([query-string from size search-session]
      (search/search search-session "entities" "entity" :query {:query_string {:query query-string}} :size size :from from))
   ([query-string filter-map search-session]
