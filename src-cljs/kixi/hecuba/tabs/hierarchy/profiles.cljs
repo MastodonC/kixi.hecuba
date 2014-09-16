@@ -337,7 +337,7 @@
                    position  (count (:conservatories profile))
                    key       [:conservatories position]]
                (bs/panel
-                (panel-heading property_details owner profile "Conservatories" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Conservatories" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/conservatory owner profile key)
                   (if-let [conservatories (seq (:conservatories profile))]
@@ -363,7 +363,7 @@
                    position  (count (:extensions profile))
                    key       [:extensions position]]
                (bs/panel
-                (panel-heading property_details owner profile "Extensions" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Extensions" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/extension owner profile key)
                   (if-let [extensions (seq (:extensions profile))]
@@ -389,7 +389,7 @@
                    position (count (:heating_systems profile))
                    key      [:heating_systems position]]
                (bs/panel
-                (panel-heading property_details owner profile "Heating Systems" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Heating Systems" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/heating-system owner profile key)
                   (if-let [heating-systems (seq (:heating_systems profile))]
@@ -415,7 +415,7 @@
                    position (count (:hot_water_systems profile))
                    key      [:hot_water_systems position]]
                (bs/panel
-                (panel-heading property_details owner profile "Hot Water Systems" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Hot Water Systems" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/hot-water-system owner profile key)
                   (if-let [hot-water-systems (seq (:hot_water_systems profile))]
@@ -441,7 +441,7 @@
                    position (count (:storeys profile))
                    key      [:storeys position]]
                (bs/panel
-                (panel-heading property_details owner profile "Storeys" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Storeys" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/storey owner profile key)
                   (if-let [storeys (seq (:storeys profile))]
@@ -467,7 +467,7 @@
                    position (count (:walls profile))
                    key      [:walls position]]
                (bs/panel
-                (panel-heading property_details owner profile "Walls" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Walls" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/wall owner profile key)
                   (if-let [walls   (seq (:walls profile))]
@@ -493,7 +493,7 @@
                    position (count (:roofs profile))
                    key      [:roofs position]]
                (bs/panel
-                (panel-heading property_details owner profile "Roofs" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Roofs" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/roof owner profile key)
                   (if-let [roofs (seq (:roofs profile))]
@@ -519,7 +519,7 @@
                    position (count (:window_sets profile))
                    key      [:window_sets position]]
                (bs/panel
-                (panel-heading property_details owner profile "Window Sets" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Window Sets" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/window owner profile key)
                   (if-let [window-sets (seq (:window_sets profile))]
@@ -545,7 +545,7 @@
                    position (count (:door_sets profile))
                    key [:door_sets position]]
                (bs/panel
-                (panel-heading property_details owner profile "Door Sets" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Door Sets" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/door owner profile key)
                   (if-let [door-sets (seq (:door_sets profile))]
@@ -571,7 +571,7 @@
                    position (count (:floors profile))
                    key      [:floors position]]
                (bs/panel
-                (panel-heading property_details owner profile "Floors" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Floors" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/floor owner profile key)
                   (if-let [floors (seq (:floors profile))]
@@ -597,7 +597,7 @@
                    position (count (:roof_rooms profile))
                    key      [:roof_rooms position]]
                (bs/panel
-                (panel-heading property_details owner profile "Roof Rooms" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Roof Rooms" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/roof-room owner profile key)
                   (if-let [roof-rooms (seq (:roof_rooms profile))]
@@ -623,7 +623,7 @@
                    position (count (:low_energy_lights profile))
                    key      [:low_energy_lights position]]
                (bs/panel
-                (panel-heading property_details owner profile "Low Energy Lights" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Low Energy Lights" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/low-energy-lights owner profile key)
                   (if-let [low-energy-lights (seq (:low_energy_lights profile))]
@@ -649,7 +649,7 @@
                    position (count (:ventilation_systems profile))
                    key      [:ventilation_systems position]]
                (bs/panel
-                (panel-heading property_details owner profile "Ventilation Systems" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Ventilation Systems" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/ventilation-system owner profile key)
                   (if-let [ventilation-systems (seq (:ventilation_systems profile))]
@@ -675,7 +675,7 @@
                    position (count (:airflow_measurements profile))
                    key      [:airflow_measurements position]]
                (bs/panel
-                (panel-heading property_details owner profile "Air Flow Measurements" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Air Flow Measurements" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/airflow-measurement owner profile key)
                   (if-let [airflow-measurements (seq (:airflow_measurements profile))]
@@ -701,7 +701,7 @@
                    position (count (:photovoltaics profile))
                    key      [:photovoltaics position]]
                (bs/panel
-                (panel-heading property_details owner profile "Photovoltaic Panels" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Photovoltaic Panels" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/photovoltaic-panel owner profile key)
                   (if-let [photovoltaic-panels (seq (:photovoltaics profile))]
@@ -727,7 +727,7 @@
                    position (count (:solar_thermals profile))
                    key      [:solar_thermals position]]
                (bs/panel
-                (panel-heading property_details owner profile "Solar Thermal Panels" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Solar Thermal Panels" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/solar-thermal-panel owner profile key)
                   (if-let [solar-thermal-panels (seq (:solar_thermals profile))]
@@ -753,7 +753,7 @@
                    position (count (:wind_turbines profile))
                    key      [:wind_turbines position]]
                (bs/panel
-                (panel-heading property_details owner profile "Wind Turbines" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Wind Turbines" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/wind-turbine owner profile key)
                   (if-let [wind-turbines (seq (:wind_turbines profile))]
@@ -779,7 +779,7 @@
                    position (count (:small_hydros profile))
                    key      [:small_hydros position]]
                (bs/panel
-                (panel-heading property_details owner profile "Small Hydro Plants" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Small Hydro Plants" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/small-hydros-plant owner profile key)
                   (if-let [small-hydro-plants (seq (:small_hydros profile))]
@@ -805,7 +805,7 @@
                    position (count (:heat_pumps profile))
                    key [:heat_pumps position]]
                (bs/panel
-                (panel-heading property_details owner profile "Heat Pumps" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Heat Pumps" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/heat-pump owner profile key)
                   (if-let [heat-pumps (seq (:heat_pumps profile))]
@@ -831,7 +831,7 @@
                    position (count (:biomasses profile))
                    key      [:biomasses position]]
                (bs/panel
-                (panel-heading property_details owner profile "Biomass Boilers" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All Biomass Boilers" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/biomass-boiler owner profile key)
                   (if-let [biomass-boilers (seq (:biomasses profile))]
@@ -857,7 +857,7 @@
                    position (count (:chps profile))
                    key [:chps position]]
                (bs/panel
-                (panel-heading property_details owner profile "mCHP Systems" {:add-btn true :edit-btn false} key)
+                (panel-heading property_details owner profile "All mCHP Systems" {:add-btn true :edit-btn false} key)
                 (if adding
                   (pf/mCHP-system owner profile key)
                   (if-let [mCHP-systems (seq (:chps profile))]
