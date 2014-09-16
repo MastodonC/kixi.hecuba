@@ -184,7 +184,9 @@
    (index-routes :username-index (users/index store))
    (resource-route :username-resource [:username] (users/resource store))
 
-   (index-routes :entity-property-having-locations (map/index store))))
+   (index-routes :entity-property-having-locations (map/index store))
+
+   (index-routes :whoami-resource (users/whoami store))))
 
 (defn all-routes [store s3 pipeline-head]
   (routes
