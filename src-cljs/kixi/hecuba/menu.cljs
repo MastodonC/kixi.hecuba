@@ -1,11 +1,9 @@
 (ns kixi.hecuba.menu
   (:require [ajax.core :refer (GET)]
-            [om.core :as om :include-macros true]
+            [kixi.hecuba.common :refer (log) :as common]
             [kixi.hecuba.tabs.slugs :as slugs]
+            [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]))
-
-
-(enable-console-print!)
 
 (def menu-model (atom {:menu [ {:pathname "/app" :text "Main"}
                                {:pathname "/search" :text "Search"}
@@ -36,5 +34,6 @@
             :init-state {:pathname (-> js/window .-location .-pathname)}})
   (GET "/4/whoami"
        {:handler (fn [x] (swap! menu-model assoc :whoami x))
+        :error-handler (fn [x] (log "Error retrieving whoami data."))
         :response-format :json
         :keywords? true}))
