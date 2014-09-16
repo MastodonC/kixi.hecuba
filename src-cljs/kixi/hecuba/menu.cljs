@@ -2,8 +2,6 @@
   (:require [ajax.core :refer (GET)]
             [om.core :as om :include-macros true]
             [kixi.hecuba.tabs.slugs :as slugs]
-            [clojure.string :as str]
-            [cljs-time.format :as tf]
             [sablono.core :as html :refer-macros [html]]))
 
 
