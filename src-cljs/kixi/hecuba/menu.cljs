@@ -22,8 +22,10 @@
        [:div
         [:ul {:class "nav navbar-nav"}
          (for [{:keys [pathname text roles]} menu
-               :let [href (if (= page-pathname pathname) "#" pathname)]]
-           [:li [:a {:href href} text]])]
+               :let [current-page? (= page-pathname pathname)
+                     href (if current-page? "#" pathname)
+                     opts (when current-page? {:class "active"})]]
+           [:li opts [:a {:href href} text]])]
         [:div.pull-right {:id :whoami} (slugs/slugify-whoami whoami)]]))))
 
 
