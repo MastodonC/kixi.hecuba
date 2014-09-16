@@ -86,7 +86,10 @@
 
    ;; Usernames
    :username-index "usernames"
-   :username-resource "usernames/%s"})
+   :username-resource "usernames/%s"
+
+   ;; User
+   :whoami-resource "whoami"})
 
 (defn compojure-route
   ([route keys]

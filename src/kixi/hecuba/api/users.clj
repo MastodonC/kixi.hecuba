@@ -54,6 +54,13 @@
       (when user
         (users/update session (:username user) user)))))
 
+(defn whoami-handle-ok [store ctx]
+  (let [request (:request ctx)
+        auth (sec/current-authentication (:session request))]
+    ;; If there's no auth return nothing.
+    (when (seq (:roles auth))
+      (util/render-item ctx (select-keys auth [:name :roles :identity]))) ))
+
 (defresource index [store]
   :allowed-methods #{:get}
   :available-media-types ["application/json" "application/edn"]
@@ -73,3 +80,9 @@
   :put! (partial resource-put! store)
   :handle-ok (partial resource-handle-ok)
   :handle-malformed resource-handle-malformed)
+
+(defresource whoami [store]
+  :allowed-methods #{:get}
+  :available-media-types ["application/json" "application/edn"]
+  :known-content-type? #{"application/json" "application/edn"}
+  :handle-ok (partial whoami-handle-ok store))
