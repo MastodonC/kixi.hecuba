@@ -19,18 +19,13 @@
             [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
             [kixi.hecuba.storage.db    :as db]
             [kixi.hecuba.webutil       :as util]
+            [kixi.hecuba.time          :as time]
             [kixipipe.ioplus           :as ioplus]
             [kixipipe.storage.s3       :as s3]
             [qbits.hayt                :as hayt]
             [schema.core               :as s]))
 
 (def full-header-row-count 12)
-
-(def valid-date-formatters
-  (concat [(tf/formatter "dd/MM/yyyy HH:mm")
-           (tf/formatter "dd/MM/yyyy HH:mm:ss")
-           ]
-          (vals tf/formatters)))
 
 (defmethod kixipipe.storage.s3/s3-key-from "uploads" uploads-s3-key-from [item]
   (let [suffix   (get item :suffix "data")
@@ -69,10 +64,7 @@
   (assoc x :user_id (:id auth)))
 
 (defn auto-date-parser [s]
-  (first
-   (for [f valid-date-formatters
-         :let [d (try (tf/parse f s) (catch Exception _ nil))]
-         :when d] d)))
+  (time/auto-parse s))
 
 (defmulti get-header #'identify-file-type)
 
