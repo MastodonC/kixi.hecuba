@@ -153,6 +153,7 @@
       (let [{:keys [sort-key sort-asc]} (:sort-spec state)
             selected-sensors  (-> property-details :sensors :selected)
             sensors-data      (fetch-sensors (:property-details property-details) selected-sensors)
+            sensors-with-data (filter #(every? seq [(:lower_ts %) (:upper_ts %)]) sensors-data)
             history           (om/get-shared owner :history)
             table-id          "sensors-table"]
         (html
@@ -172,8 +173,8 @@
              (sorting-th owner "Status" :status)]]
            [:tbody
             (for [sensor (if sort-asc
-                           (sort-by sort-key sensors-data)
-                           (reverse (sort-by sort-key sensors-data)))]
+                           (sort-by sort-key sensors-with-data)
+                           (reverse (sort-by sort-key sensors-with-data)))]
               (om/build (form-row (:sensors property-details)) sensor {:opts {:selected-chan (:selected-chan state)
                                                                               :table-id table-id}}))]]])))))
 
@@ -249,7 +250,7 @@
   (reify
     om/IInitState
     (init-state [_]
-      (let [hovering-chan (chan 100)
+      (let [hovering-chan (chan (sliding-buffer 100))
             m (mult hovering-chan)]
         {:hovering-chan hovering-chan
          :mult-chan m}))
@@ -260,7 +261,7 @@
             selected-sensors  (-> property-details :sensors :selected)]
         (html
          [:div.col-md-12
-          [:h3 "Sensors"]
+          [:h3 "Available sensor data"]
           [:div {:id "sensors-unit-alert"}
            (om/build bs/alert (-> property-details :sensors :alert))]
           [:div {:id "sensors-table"}
@@ -287,7 +288,7 @@
                    [:div.col-md-12
                     [:div.col-md-2
                      (for [series left-group]
-                       (let [c (chan)]
+                       (let [c (chan (sliding-buffer 100))]
                          (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}})))]
                     [:div.col-md-8
                      [:div#chart {:style {:width "100%" :height 600}}
@@ -297,7 +298,7 @@
                      (when (> (count all-groups) 1)
                        ;; Always max 2 groups as max 2 units
                        (for [series (last all-groups)]
-                         (let [c (chan)]
+                         (let [c (chan (sliding-buffer 100))]
                            (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}}))))]])))]
             [:div.col-md-12.text-center
              [:p.lead {:style {:padding-top 30}}

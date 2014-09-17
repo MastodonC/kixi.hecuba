@@ -43,8 +43,10 @@
   (let [device-keys   (->> device keys (remove #(= % :readings)))
         parent-device (select-keys device device-keys)
         readings      (:readings device)]
-    (map #(assoc % :parent-device parent-device
-                 :id (str (:type %) "-" (:device_id %))) readings)))
+    (->> readings
+         (map #(assoc % :parent-device parent-device
+                               :id (str (:type %) "-" (:device_id %))))
+         (filter #(every? seq [(:upper_ts %) (:lower_ts %)])))))
 
 (defn extract-sensors [devices]
   (vec (mapcat flatten-device devices)))
@@ -476,7 +478,7 @@
   (reify
     om/IInitState
     (init-state [_]
-      (let [hovering-chan (chan 100)
+      (let [hovering-chan (chan (sliding-buffer 100))
             m             (mult hovering-chan)]
         {:hovering-chan hovering-chan
          :mult-chan m}))
@@ -519,7 +521,7 @@
                    [:div.col-md-12
                     [:div.col-md-2
                      (for [series left-group]
-                       (let [c (chan)]
+                       (let [c (chan (sliding-buffer 100))]
                          (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}})))]
                     [:div.col-md-8
                      [:div#chart {:style {:width "100%" :height 600}}
@@ -529,7 +531,7 @@
                      (when (> (count all-groups) 1)
                        ;; Always max 2 groups as max 2 units
                        (for [series (last all-groups)]
-                         (let [c (chan)]
+                         (let [c (chan (sliding-buffer 100))]
                            (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}}))))]]))))]]]]))))
 
 (when-let [charting (.getElementById js/document "charting")]
