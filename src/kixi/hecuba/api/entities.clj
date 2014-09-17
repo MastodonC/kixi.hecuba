@@ -77,11 +77,15 @@ their containing structures."
       remove-private-data
       (dissoc :user_id)))
 
+(defn update-editable [e allowed-programmes allowed-projects roles]
+  (update-in e [:full_entity] assoc :editable (editable? (:programme_id e) (:project_id e) allowed-programmes allowed-projects roles)))
+
 (defn parse-entities [results allowed-programmes allowed-projects roles file-bucket]
   (->> results
        esr/hits-from
-       (map #(update-in % [:_source :full_entity] assoc :editable (editable? (:programme_id %) (:project_id %) allowed-programmes allowed-projects roles)))
-       (map #(-> % :_source :full_entity))
+       (map :_source)
+       (map #(update-editable %  allowed-programmes allowed-projects roles))
+       (map :full_entity)
        (map #(clean-entity %))
        (map #(util/enrich-media-uris % file-bucket :photos))
        (map #(util/enrich-media-uris % file-bucket :documents))))

@@ -168,6 +168,14 @@
                    sensors)
           (data/fetch-measurements data properties sensors start-date end-date)))
 
+      (when (and programmes (seq (-> @data :programmes :data)))
+        (let [selected-programme (first (filter #(= (:programme_id %) programmes) (-> @data :programmes :data)))]
+          (om/update! data [:projects :can-add-projects] (:editable selected-programme))))
+
+      (when (and projects (seq (-> @data :projects :data)))
+        (let [selected-project (first (filter #(= (:project_id %) projects) (-> @data :projects :data)))]
+          (om/update! data [:properties :can-add-properties] (:editable selected-project))))
+
       ;; Update the new active components
       (om/update! data :active-components history-status))
     (recur)))
