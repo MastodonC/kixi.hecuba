@@ -23,19 +23,20 @@
                            :class "alert alert-danger"
                            :text "End date must be later than start date."}))
 
-(defn- valid-dates [data history start end]
+(defn- valid-dates [data history start end date-range-chan]
+  (put! date-range-chan :new-range)
   (history/set-token-search! history [start end]))
 
 (defn evaluate-dates
-  [data history start-date end-date]
+  [data history start-date end-date date-range-chan]
   (let [formatter (tf/formatter "yyyy-MM-dd")
         start     (tf/parse formatter start-date)
         end       (tf/parse formatter end-date)]
 
     (cond
      (t/after? start end)       (invalid-dates data start-date end-date)
-     (= start-date end-date)    (valid-dates data history start-date end-date)
-     (not= start-date end-date) (valid-dates data history start-date end-date))))
+     (= start-date end-date)    (valid-dates data history start-date end-date date-range-chan)
+     (not= start-date end-date) (valid-dates data history start-date end-date date-range-chan))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -55,7 +56,7 @@
 (defn datetime-picker [data owner {:keys [div-id]}]
   (reify
     om/IRenderState
-    (render-state [_ state]
+    (render-state [_ {:keys [date-range-chan]}]
       (html
        (let [history (om/get-shared owner :history)]
          [:form.form-inline {:role "form"}
@@ -65,5 +66,5 @@
            {:type "button"
             :id div-id
             :on-click (fn [_ _] (let [{:keys [start-date end-date]} @data]
-                                  (evaluate-dates data history start-date end-date)))}
-           "Get Data"]])))))
+                                  (evaluate-dates data history start-date end-date date-range-chan)))}
+           "Chart Data"]])))))

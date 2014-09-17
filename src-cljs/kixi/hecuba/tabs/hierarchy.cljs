@@ -156,17 +156,12 @@
         (log "Setting selected sensors to: " sensors)
         (let [sensors-hashmap (into #{} (str/split sensors #";"))]
           (om/update! data [:properties :chart :sensors] sensors-hashmap)
-          (om/update! data [:properties :sensors :selected] sensors-hashmap)
-          (when (and sensors old-end-date old-start-date)
-            (data/fetch-measurements data properties sensors old-start-date old-end-date))))
+          (om/update! data [:properties :sensors :selected] sensors-hashmap)))
 
       (when (or (not= start-date old-start-date)
                 (not= end-date old-end-date))
         (log "Setting date range to: " start-date end-date)
-        (om/update! data [:properties :chart :range] {:start-date start-date :end-date end-date})
-        (when (and (not (every? empty? [start-date end-date]))
-                   sensors)
-          (data/fetch-measurements data properties sensors start-date end-date)))
+        (om/update! data [:properties :chart :range] {:start-date start-date :end-date end-date}))
 
       (when (and programmes (seq (-> @data :programmes :data)))
         (let [selected-programme (first (filter #(= (:programme_id %) programmes) (-> @data :programmes :data)))]
@@ -199,7 +194,6 @@
         ;; go loop listening for requests to refresh tables
         (go-loop []
           (let [{:keys [event id]}  (<! refresh)]
-
             (cond
              (= event :programmes)     (data/fetch-programmes data)
              (= event :projects)       (data/fetch-projects (-> @data :active-components :ids :programmes) data)

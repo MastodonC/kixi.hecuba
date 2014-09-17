@@ -45,6 +45,7 @@
     (-> entity
         (assoc :programme_id programme_id)
         (assoc-in [:full_entity :programme_id] programme_id)
+        (assoc-in [:full_entity :project_name] name)
         (assoc :type_of type_of)
         (assoc :project_name name)
         (assoc :project_organisation organisation))))

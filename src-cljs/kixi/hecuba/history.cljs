@@ -104,9 +104,9 @@
   [history ch]
   (add-navigation-chan! history ch token->historian))
 
-(defn update-token-ids! [history k v]
+(defn update-token-ids! [history k v & keep-all?]
   (let [{:keys [ids] :as tmap} (token-as-map history)
-        keep-keys              (take-while #(not (keyword-identical? % k)) key-order)
+        keep-keys              (if keep-all? key-order (take-while #(not (keyword-identical? % k)) key-order))
         new-ids                (assoc (select-keys ids keep-keys) k v)]
     (set-token! history (assoc tmap :ids new-ids) historian->token)))
 
