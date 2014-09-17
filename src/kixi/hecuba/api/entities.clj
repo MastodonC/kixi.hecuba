@@ -81,7 +81,6 @@ their containing structures."
   (update-in e [:full_entity] assoc :editable (editable? (:programme_id e) (:project_id e) allowed-programmes allowed-projects roles)))
 
 (defn parse-entities [results allowed-programmes allowed-projects roles file-bucket]
-  (log/infof "parsing entities!")
   (->> results
        esr/hits-from
        (map :_source)
