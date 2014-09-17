@@ -78,10 +78,11 @@
           entity         (search/get-by-id entity_id (:search-session store))]
       (case method
         :post (not (nil? entity))
-        :get (let [items (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
+        :get (let [items (profiles/get-profiles entity_id session)]
                (if (empty? items)
                  false
-                 [true {::items items}]))))))
+                 [true {::items items
+                        ::entity_id entity_id}]))))))
 
 (defn add-profile-keys [& pairs]
   (->> pairs
@@ -136,20 +137,30 @@
                 [false {:profiles (map sha1/add-profile-id body)}]))
       false)))
 
-(defn index-handle-ok [ctx]
+(defn index-handle-ok-text-csv* [ctx]
+  ;; serving tall csv style profiles
   (let [{items ::items
-         {mime :media-type} :representation} ctx
-         userless-items (->> items
-                             (map #(update-in % [:timestamp] str))
-                             (map #(dissoc % :user_id)))
-         formatted-items (if (= "text/csv" mime)
-                           ;; serving tall csv style profiles
-                           (let [exploded-items (map #(parser/explode-and-sort-by-schema % ps/profile-schema) userless-items)]
-                             (apply util/map-longest
-                                    add-profile-keys ["" ""] exploded-items))
-                           ;; serving json profiles
-                           userless-items)]
-    (util/render-items ctx formatted-items)))
+         entity_id ::entity_id} ctx
+         exploded-items         (map #(parser/explode-and-sort-by-schema % ps/profile-schema) items)]
+    (ring-response {:headers (util/headers-content-disposition
+                              (str entity_id "_all_profiles.csv"))
+                    :body    (util/render-items
+                              ctx
+                              (apply util/map-longest
+                                     add-profile-keys ["" ""] exploded-items))})))
+
+(defmulti index-handle-ok content-type-from-context)
+
+(defmethod index-handle-ok :default [ctx]
+  (if-let [ctx (util/maybe-representation-override-in-url ctx)]
+    (index-handle-ok-text-csv* ctx)
+    (let [{items ::items} ctx]
+      (util/render-items ctx (->> items
+                                  (map #(update-in % [:timestamp] str))
+                                  (map #(dissoc % :user_id)))))))
+
+(defmethod index-handle-ok "text/csv" [ctx]
+  (index-handle-ok-text-csv* ctx))
 
 (defn index-handle-created [ctx]
   (let [entity_id  (-> ctx :request :route-params :entity_id)
@@ -176,7 +187,8 @@
           profile_id (-> request :params :profile_id)
           item       (profiles/get-by-id session profile_id)]
       (if-not (empty? item)
-        {::item item}
+        {::item item
+         ::profile_id profile_id}
         false))))
 
 (defn resource-delete-enacted? [store ctx]
@@ -208,17 +220,26 @@
           {::item body})
         (ring-response {:status 404 :body "Please provide valid entity_id and timestamp"})))))
 
-(defn resource-handle-ok [store ctx]
-  (let [{item ::item
-        {mime :media-type} :representation} ctx
-        userless-item (-> item
-                          (update-in [:timestamp] str)
-                          (dissoc :user_id))
-        formatted-item (if (= "text/csv" mime)
-                         (let [exploded-item (parser/explode-and-sort-by-schema userless-item ps/profile-schema)]
-                           exploded-item)
-                         userless-item)]
-    (util/render-item ctx formatted-item)))
+(defn resource-handle-ok-text-csv* [store ctx]
+  (let [{:keys [::item ::profile_id]} ctx
+        exploded-item (parser/explode-and-sort-by-schema item ps/profile-schema)]
+    (ring-response {:headers (util/headers-content-disposition
+                              (str profile_id "_profile_data.csv"))
+                    :body (util/render-item
+                           ctx
+                           exploded-item)})))
+
+(defmulti resource-handle-ok content-type-from-context)
+
+(defmethod resource-handle-ok :default resource-handle-ok-default [store ctx]
+  (if-let [ctx (util/maybe-representation-override-in-url ctx)]
+    (resource-handle-ok-text-csv* store  ctx)
+    (util/render-item ctx (-> (::item ctx)
+                              (update-in [:timestamp] str)
+                              (dissoc :user_id)))))
+
+(defmethod resource-handle-ok "text/csv" resource-handle-text-csv [store ctx]
+  (resource-handle-ok-text-csv* store ctx))
 
 (defn store-profile [profile username store]
   (db/with-session [session (:hecuba-session store)]

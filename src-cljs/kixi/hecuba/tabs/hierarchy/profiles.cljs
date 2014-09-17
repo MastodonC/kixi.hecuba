@@ -48,9 +48,11 @@
        [:div
         (for [profile profiles]
           (let [category (get-in profile [:profile_data :event_type] "Intervention")
-                timestamp (common/unparse-date  (:timestamp profile) "yyyy-MM-dd")]
+                timestamp (common/unparse-date  (:timestamp profile) "yyyy-MM-dd")
+                download-href (str "/4/entities/" (:entity_id profile) "/profiles/" (:profile_id profile) "?type=csv")]
             [:div {:class (profile-column-width)}
-             [:h3.text-center category [:br ] [:small timestamp]]]))]))))
+             [:h3.text-center [:span category ]
+              [:br ] [:small timestamp]]]))]))))
 
 (defn panel-heading [property_details owner profile title {:keys [add-btn edit-btn]} keys]
   (let [{:keys [editing adding]} (om/get-state owner)
@@ -946,10 +948,15 @@
         (html
          [:div
           [:h3 "Profiles"]
-          [:div [:button {:type "button"
-                          :class (str "btn btn-primary " (if editable "" "hidden"))
-                          :onClick (fn [_]  (set! (.-location js/window) (str "/profile/" selected-property-id)))}
-                 "Add new profile"]]
+          [:div.btn-toolbar
+           [:button {:type "button"
+                     :class (str "btn btn-primary " (if editable "" "hidden"))
+                     :onClick (fn [_]  (set! (.-location js/window) (str "/profile/" selected-property-id)))}
+            "Add new profile"]
+           [:a {:role "button"
+                :class "btn btn-primary"
+                :href (str "/4/entities/" selected-property-id "/profiles/?type=csv")}
+            "Download Profiles"]]
           [:div {:id "alert"} (om/build bs/alert (:alert profiles))]
           [:div
            (if (seq profiles)

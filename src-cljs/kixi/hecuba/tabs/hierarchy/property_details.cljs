@@ -123,7 +123,9 @@
                                                                         owner selected-property-id project_id))} "Save"]
                 [:button.btn.btn-default {:type "button"
                                           :class (str "btn btn-danger " (if (om/get-state owner :editing) "" "hidden"))
-                                          :onClick (fn [_ _] (om/set-state! owner {:editing false}))} "Cancel"]]])
+                                          :onClick (fn [_ _] (om/set-state! owner {:editing false}))} "Cancel"]
+                [:a {:class "btn btn-primary" :role "button"
+                     :href (str "/4/entities/" selected-property-id "?type=csv")} "Download"]]])
             (bs/static-text property-details :property_code "Property Code")
             (address-control property_data owner state)
             (text-control property_data state owner :property_type "Property Type")

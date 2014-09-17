@@ -124,25 +124,27 @@
       (with-out-str
               (csv/write-csv *out* items :newline :cr+lf :separator \,)))))
 
-(defmulti render-item (comp :media-type :representation) :default :unknown)
-(defmethod render-item :unknown [ctx item]
+(defmulti render-item #(let [representation (get-in % [:representation :media-type])]
+                         (log/debug "Rendering " representation)
+                         representation) :default :unknown)
+(defmethod render-item :unknown render-item-unknown [ctx item]
    ;; If content type is unknown return it to liberator unchanged and
   ;; liberator may render it
   (log/error "RENDERING UNKNOWN!!!" ctx)
   item)
 
-(defmethod render-item "application/html" [_ item]
+(defmethod render-item "application/html" render-item-application-html [_ item]
   (html
    [:body
     [:h1 (:name item)]
     [:pre (with-out-str
             (pprint item))]]))
 
-(defmethod render-item "application/edn" [_ item] (pr-str item))
+(defmethod render-item "application/edn" render-item-application-edn [_ item] (pr-str item))
 
-(defmethod render-item "application/json" [_ item] (encode item))
+(defmethod render-item "application/json" render-item-application-json [_ item] (encode item))
 
-(defmethod render-item "text/csv" [_ item]
+(defmethod render-item "text/csv" render-item-text-csv [_ item]
   (let [headers ["name" "value"]]
     (with-out-str
       (csv/write-csv *out* [headers] :newline :cr+lf :separator \,)
@@ -242,3 +244,10 @@
                          (dissoc :path)
                          (assoc :uri (str "https://" file-bucket ".s3.amazonaws.com/" (:path x)))))]
     (update-in entity [key] #(mapv path->uri %))))
+
+(defn maybe-representation-override-in-url [ctx]
+  (when (= "csv" (get-in ctx [:request :query-params "type"]))
+    (assoc-in ctx [:representation :media-type] "text/csv")))
+
+(defn headers-content-disposition [filename]
+  {"Content-Disposition" (str "attachment; filename=" filename)})
