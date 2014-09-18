@@ -124,10 +124,10 @@
       (with-out-str
               (csv/write-csv *out* items :newline :cr+lf :separator \,)))))
 
-(defmulti render-item (fn [ctx & _] (get-in ctx [:representation :media]) :default :unknown))
+(defmulti render-item (fn [ctx & _] (get-in ctx [:representation :media-type])) :default :unknown)
 
 (defmethod render-item :unknown render-item-unknown [ctx item]
-   ;; If content type is unknown return it to liberator unchanged and
+  ;; If content type is unknown return it to liberator unchanged and
   ;; liberator may render it
   (log/error "RENDERING UNKNOWN!!!" ctx)
   item)
