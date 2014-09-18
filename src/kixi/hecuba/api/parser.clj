@@ -21,8 +21,6 @@
           association-schema (:schema association)]
       (map
        (fn [attr]
-         (log/info "item:" item)
-         (log/info "type:" (type item))
          [(str (name association-name) "_" (name attr)) (item (name attr))])
        association-schema))))
 
