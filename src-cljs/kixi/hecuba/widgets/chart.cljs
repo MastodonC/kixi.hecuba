@@ -88,7 +88,7 @@
 (defn y-scale-min-value [left-series right-series]
   (let [series1-min (let [m (apply min (map :value left-series))] (if (= 0 m) 1 m))
         series2-min (let [m (apply min (map :value right-series))] (if (= 0 m) 1 m))]
-    (or (min series1-min series2-min) 0)))
+    (min series1-min series2-min 0)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Draw chart
