@@ -330,7 +330,7 @@ their containing structures."
 
 (defmethod resource-handle-ok :default resource-handle-ok-default [store ctx]
   (if-let [ctx (util/maybe-representation-override-in-url ctx)]
-    (resource-handle-ok-text-csv* store (assoc-in ctx [:representation :media-type] "text/csv"))
+    (resource-handle-ok-text-csv* store ctx)
     (let [{:keys [request editable]} ctx]
       (util/render-item ctx (-> (::item ctx)
                                 (cond-> editable (assoc :editable editable))

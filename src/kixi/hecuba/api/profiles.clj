@@ -233,7 +233,7 @@
 
 (defmethod resource-handle-ok :default resource-handle-ok-default [store ctx]
   (if-let [ctx (util/maybe-representation-override-in-url ctx)]
-    (resource-handle-ok-text-csv* store  ctx)
+    (resource-handle-ok-text-csv* store ctx)
     (util/render-item ctx (-> (::item ctx)
                               (update-in [:timestamp] str)
                               (dissoc :user_id)))))
