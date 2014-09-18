@@ -51,7 +51,7 @@ their containing structures."
           (dissoc-in [:property_data :address_city])
           (dissoc-in [:property_data :address_code])
           (dissoc-in [:property_data :fuel_poverty])
-          (dissoc :documents)
+          (assoc-in [:documents] (filter :public? (:documents entity)))
           (dissoc :notes))
       entity))
 
@@ -72,10 +72,12 @@ their containing structures."
 
 (defn clean-entity
   "Get rid of the keys that we don't want the user to see."
-  [entity]
+  [entity file-bucket]
   (-> entity
       remove-private-data
-      (dissoc :user_id)))
+      (dissoc :user_id)
+      (util/enrich-media-uris file-bucket :photos)
+      (util/enrich-media-uris file-bucket :documents)))
 
 (defn update-editable [e allowed-programmes allowed-projects roles]
   (update-in e [:full_entity] assoc :editable (editable? (:programme_id e) (:project_id e) allowed-programmes allowed-projects roles)))
@@ -86,9 +88,7 @@ their containing structures."
        (map :_source)
        (map #(update-editable %  allowed-programmes allowed-projects roles))
        (map :full_entity)
-       (map #(clean-entity %))
-       (map #(util/enrich-media-uris % file-bucket :photos))
-       (map #(util/enrich-media-uris % file-bucket :documents))))
+       (map #(clean-entity % file-bucket))))
 
 (defn should-terms [allowed-programmes allowed-projects]
   (vec
@@ -317,13 +317,14 @@ their containing structures."
 
 
 (defn resource-handle-ok-text-csv* [store ctx]
-  (let [item (::item ctx)]
+  (let [item (::item ctx)
+        file-bucket    (-> store :s3 :file-bucket)]
     (ring-response {:headers (util/headers-content-disposition
                               (str (:entity_id item) "_overview.csv"))
                     :body (util/render-item
                            ctx
                            (-> item
-                               clean-entity
+                               (clean-entity file-bucket)
                                (parser/explode-and-sort-by-schema es/entity-schema)))})))
 
 (defmulti resource-handle-ok content-type-from-context)
@@ -331,10 +332,11 @@ their containing structures."
 (defmethod resource-handle-ok :default resource-handle-ok-default [store ctx]
   (if-let [ctx (util/maybe-representation-override-in-url ctx)]
     (resource-handle-ok-text-csv* store ctx)
-    (let [{:keys [request editable]} ctx]
+    (let [{:keys [request editable]} ctx
+          file-bucket    (-> store :s3 :file-bucket)]
       (util/render-item ctx (-> (::item ctx)
                                 (cond-> editable (assoc :editable editable))
-                                clean-entity)))))
+                                (clean-entity file-bucket))))))
 
 (defmethod resource-handle-ok "text/csv" resource-handle-ok-text-csv [store ctx]
   (resource-handle-ok-text-csv* store ctx))

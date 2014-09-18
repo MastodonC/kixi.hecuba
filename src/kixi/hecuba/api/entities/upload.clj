@@ -55,13 +55,14 @@
          [_ _ _ _ true true :get] true
          :else false))
 
-(defn upload->items [files feed-name entity_id username]
+(defn upload->items [files public? feed-name entity_id username]
   (let [timestamp (t/now)
         uuid      (uuid)]
     (map (fn [{:keys [tempfile content-type filename]}]
            {:dest      :upload
             :type      (keyword feed-name)
             :entity_id entity_id
+            :public?   public?
             :src-name  "media-resources"
             :feed-name feed-name
             :dir       (.getParent tempfile)
@@ -111,10 +112,13 @@
 (defmethod index-malformed? "multipart/form-data" [ctx]
   (let [request (:request ctx)
         feed-name (uri->feed-name (:uri request))
-        data (-> request :multipart-params (get "data")
-                 ensure-vector)]
-    (if (every? (partial has-correct-content-type? feed-name) data)
-      [false  {::file-data data ::feed-name feed-name}]
+        multipart-params (:multipart-params request)
+        {:strs [data public]} multipart-params
+        file-data (ensure-vector data)]
+    (if (every? (partial has-correct-content-type? feed-name) file-data)
+      [false  {::file-data file-data
+               ::public? (= "on" public)
+               ::feed-name feed-name}]
       true)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -124,13 +128,14 @@
 (defmethod index-post! "multipart/form-data" [store s3 pipe ctx]
   (let [file-data    (::file-data ctx)
         feed-name    (::feed-name ctx)
+        public?      (::public? ctx)
         request      (:request ctx)
         session      (:session request)
         username     (sec/session-username session)
-        route-params (:route-params (:request ctx))
+        route-params (:route-params request)
         entity_id    (:entity_id route-params)
         auth         (sec/current-authentication session)]
-        (doseq [item (upload->items file-data feed-name entity_id username)]
+        (doseq [item (upload->items file-data public? feed-name entity_id username)]
           (pipe/submit-item pipe item))
         {:response {:status  202
                     :headers {"Location" (format entity-resource-path entity_id)}

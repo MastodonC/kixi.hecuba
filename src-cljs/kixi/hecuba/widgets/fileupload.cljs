@@ -23,7 +23,7 @@
      [:span {:class "fa fa-times"}]]
     body]])
 
-(defn file-upload [url id]
+(defn file-upload [url id & extra-inputs]
   (fn [data owner {:keys [method]}]
     (reify
       om/IInitState
@@ -55,9 +55,10 @@
 
           [:div
            [:form {:role "form" :id id :enc-type "multipart/form-data"}
-            [:div.form-group
+            [:div {:class "form-group"}
              [:input {:type "file" :name "data"
-                      :title "Browse files"}]]
+                      :title "Browse files"}]
+             extra-inputs]
             [:button {:type "button"
                       :class "btn btn-primary"
                       :onClick (fn [_] (upload owner (.getElementById js/document id) url method))}

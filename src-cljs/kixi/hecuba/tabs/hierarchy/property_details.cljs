@@ -347,7 +347,10 @@
                     [:div
                      [:h4 "Upload a document"]
                      (let [div-id "document-upload-form"]
-                       (om/build (file/file-upload (str "/4/entities/" property-id "/documents/") div-id)
+                       (om/build (file/file-upload (str "/4/entities/" property-id "/documents/") div-id
+                                                   [:div {:class "checkbox"} [:label
+                                                                              [:input {:type "checkbox" :name "public"}]
+                                                                              "public?"]])
                                  nil {:opts {:method "POST"}}))]]]]
                  [:div.col-md-6
                   ;; Upload status
