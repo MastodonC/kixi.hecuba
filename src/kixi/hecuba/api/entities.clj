@@ -315,20 +315,29 @@ their containing structures."
     (when-let [item (search/get-by-id id (:search-session store))]
       {::item item})))
 
-(defn resource-handle-ok [store ctx]
-  (db/with-session [session (:hecuba-session store)]
-    (let [{item ::item
-           {mime :media-type} :representation} ctx
-           {:keys [request editable]} ctx
-           route-params (:route-params request)
-           clean-item   (-> item
-                            (cond-> editable (assoc :editable editable))
-                            clean-entity)
-           formatted-item (if (= "text/csv" mime)
-                            (let [exploded-item (parser/explode-and-sort-by-schema clean-item es/entity-schema)]
-                              exploded-item)
-                            clean-item)]
-      (util/render-item ctx formatted-item))))
+
+(defn resource-handle-ok-text-csv* [store ctx]
+  (let [item (::item ctx)]
+    (ring-response {:headers (util/headers-content-disposition
+                              (str (:entity_id item) "_overview.csv"))
+                    :body (util/render-item
+                           ctx
+                           (-> item
+                               clean-entity
+                               (parser/explode-and-sort-by-schema es/entity-schema)))})))
+
+(defmulti resource-handle-ok content-type-from-context)
+
+(defmethod resource-handle-ok :default resource-handle-ok-default [store ctx]
+  (if-let [ctx (util/maybe-representation-override-in-url ctx)]
+    (resource-handle-ok-text-csv* store ctx)
+    (let [{:keys [request editable]} ctx]
+      (util/render-item ctx (-> (::item ctx)
+                                (cond-> editable (assoc :editable editable))
+                                clean-entity)))))
+
+(defmethod resource-handle-ok "text/csv" resource-handle-ok-text-csv [store ctx]
+  (resource-handle-ok-text-csv* store ctx))
 
 (defn resource-put! [store ctx]
   (db/with-session [session (:hecuba-session store)]

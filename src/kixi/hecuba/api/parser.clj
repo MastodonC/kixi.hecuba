@@ -10,18 +10,19 @@
     :attribute
     (:type attr)))
 
-(defn explode-nested-item [association item-string]
+(defn explode-nested-item [association item]
   "Explodes a nested item, that is represented in the object coming from
   the datastore as a json encoded string. Returns a list of vectors of
   two elements, the first being the attribute key, and the second the value.
   The key is expanded to <nested item name>_<attribute name>"
-  (let [item (json/decode item-string)
-        association-name   (:name   association)
-        association-schema (:schema association)]
-    (map
-     (fn [attr]
-       [(str (name association-name) "_" (name attr)) (item (name attr))])
-     association-schema)))
+
+  (when item
+    (let [association-name   (:name   association)
+          association-schema (:schema association)]
+      (map
+       (fn [attr]
+         [(str (name association-name) "_" (name attr)) (item (name attr))])
+       association-schema))))
 
 (defn explode-associated-items [association items]
   "Explodes the elements of a (one to many) association, that is represented
@@ -32,13 +33,13 @@
   (let [association-name   (name (:name association))
         association-schema (:schema association)]
     (apply concat
-    (map-indexed
-      (fn [index item-string]
+    (keep-indexed
+      (fn [index item]
          (let [item-name         (str association-name "_" index)
                named-association (assoc association :name item-name)]
            (if (empty? association-schema)
-             [item-name item-string]
-             (explode-nested-item named-association item-string))))
+             [item-name item]
+             (explode-nested-item named-association item))))
       items))))
 
 (defn explode-and-sort-by-schema [item schema]
