@@ -11,7 +11,6 @@
   (db/with-session [session (:hecuba-session store)]
    (try
      (s3/store-file (:s3 store) item)
-     (log/info "item:" item)
      (update-fn session entity_id {:path (s3/s3-key-from item) :public? public?}) ;; TODO call to s3-key-from is an abstraction leak.
      (-> (search/searchable-entity-by-id entity_id session)
          (search/->elasticsearch (:search-session store)))
