@@ -88,7 +88,7 @@
 (defn y-scale-min-value [left-series right-series]
   (let [series1-min (let [m (apply min (map :value left-series))] (if (= 0 m) 1 m))
         series2-min (let [m (apply min (map :value right-series))] (if (= 0 m) 1 m))]
-    (or (min series1-min series2-min) 0)))
+    (min series1-min series2-min 0)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Draw chart
@@ -166,17 +166,17 @@
           (.attr "transform" "translate(-15,0)")
           (.call y-axis-left)
           (.append "svg:text")
-          (.attr "y" 20)
-          (.attr "dx" "-3em")
-          (.style "text-anchor" "start")
+          (.attr "y" 0)
+          (.attr "dx" "-.7em")
+          (.style "text-anchor" "end")
           (.text unit-left))
       (-> (.append "svg:g")
           (.attr "class" "y axis axisRight")
           (.attr "transform" (str "translate(" (+ 15 width) ",0)"))
           (.call y-axis-right)
           (.append "svg:text")
-          (.attr "y" 20)
-          (.attr "dx" ".5em")
+          (.attr "y" 0)
+          (.attr "dx" ".7em")
           (.style "text-anchor" "start")
           (.text unit-right)))
 
