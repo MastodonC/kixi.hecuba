@@ -102,9 +102,9 @@
                                 :end-date (common/unparse-date upper_ts "yyyy-MM-dd")}))
     ;; update units in chart
     (om/transact! chart :units (fn [units]
-                                 (if (seq new-selected-sensors)
-                                   (assoc units id unit)
-                                   {})))))
+                                 (if selected?
+                                   (dissoc units id)
+                                   (assoc units id unit))))))
 
 (defn process-click [click property-details history]
   (let [{:keys [id unit]} click
