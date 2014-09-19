@@ -46,7 +46,8 @@
                             :units {}
                             :range {}
                             :measurements []
-                            :message ""}
+                            :message ""
+                            :fetching false}
                  :raw-data {:name "Raw Data"
                             :data []
                             :selected nil

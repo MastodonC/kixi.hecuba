@@ -1,5 +1,6 @@
 (ns kixi.hecuba.tabs.hierarchy.property-details
   (:import goog.net.XhrIo)
+  (:require-macros [cljs.core.async.macros :refer [go-loop]])
   (:require [cljs.core.async :refer [<! >! chan put!]]
             [cljs.reader :as reader]
             [om.core :as om :include-macros true]
@@ -13,7 +14,7 @@
             [kixi.hecuba.tabs.hierarchy.profiles :as profiles]
             [kixi.hecuba.tabs.hierarchy.status :as status]
             [kixi.hecuba.common :refer (log) :as common]
-            [kixi.hecuba.tabs.hierarchy.data :refer (fetch-properties)]
+            [kixi.hecuba.tabs.hierarchy.data :refer (fetch-properties) :as data]
             [ajax.core :refer [GET PUT]]
             [kixi.hecuba.widgets.fileupload :as file]
             [kixi.hecuba.widgets.measurementsupload :as measurementsupload]))
@@ -241,16 +242,31 @@
   (reify
     om/IInitState
     (init-state [_]
-      {:active-tab :overview})
+      {:active-tab :overview
+       :datetimepicker-chan (chan)})
+    om/IWillMount
+    (will-mount [_]
+      (let [{:keys [datetimepicker-chan]} (om/get-state owner)]
+        ;; Chart data button
+        (go-loop []
+          (let [chart-data                    (<! datetimepicker-chan)
+                sensors                       (-> @properties :sensors :selected)
+                {:keys [start-date end-date]} (-> @properties :chart :range)
+                entity_id                     (-> @properties :selected)]
+            (log "Fetching for sensors: " sensors "start: " start-date "end: " end-date "id: " entity_id)
+            (when (and sensors end-date start-date)
+              (data/fetch-measurements properties entity_id sensors start-date end-date)))
+          (recur))))
     om/IRenderState
     (render-state [_ state]
-      (let [active-tab        (:active-tab state)
-            programme-id      (-> properties :programme_id)
-            project-id        (-> properties :project_id)
-            property-id       (-> properties :selected)
-            property-details  (get-property-details property-id properties)
-            {:keys [editable devices]}  property-details
-            property_data        (:property_data property-details)]
+       (let [active-tab                 (:active-tab state)
+             programme-id               (-> properties :programme_id)
+             project-id                 (-> properties :project_id)
+             property-id                (-> properties :selected)
+             property-details           (get-property-details property-id properties)
+             {:keys [editable devices]} property-details
+             property_data              (:property_data property-details)
+             datetimepicker-chan        (om/get-state owner :datetimepicker-chan)]
         (html
          [:div {:id "property-details-div"}
           (when (seq property-id)
@@ -287,7 +303,8 @@
               (when (= active-tab :sensors)
                 [:div.col-md-12 (om/build sensors/sensors-div {:property-details property-details
                                                                :sensors (:sensors properties)
-                                                               :chart (:chart properties)})])
+                                                               :chart (:chart properties)}
+                                          {:opts {:datetimepicker-chan datetimepicker-chan}})])
               ;; Raw Data
               (when (= active-tab :raw-data)
                 [:div.col-md-12 (om/build raw/raw-data-div properties)])

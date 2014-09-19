@@ -43,7 +43,8 @@
                             :unit ""
                             :range {}
                             :measurements []
-                            :message ""}
+                            :message ""
+                            :fetching false}
                  :raw-data {:name "Raw Data"
                             :data []
                             :selected nil
@@ -59,15 +60,26 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Data fetchers
 
+(defn get-units [property-id sensor-hashmap properties]
+  (let [sensors-for-property (data/extract-sensors (-> properties first :devices))
+        selected-sensors     (filter (fn [sensor] (some #(= (:id sensor) %) sensor-hashmap))
+                                     sensors-for-property)]
+    (into {} (map #(hash-map (:id %) (:unit %)) selected-sensors))))
+
 (defn fetch-properties [data query] ;; TOFIX rename to search-properties
-  (GET (str "/4/entities/?q=" query)
-       {:handler (fn [response]
-                   (om/update! data [:properties :data] (take 20 (:entities response)))
-                   (om/update! data [:stats] {:total_hits (:total_hits response)
-                                              :page (:page response)})
-                   (om/update! data [:fetching :entities] false))
-        :headers {"Accept" "application/edn"}
-        :response-format :text}))
+  (let [sensors (-> @data :properties :sensors :selected)]
+    (GET (str "/4/entities/?q=" query)
+         {:handler (fn [response]
+                     (let [entities (:entities response)]
+                       (om/update! data [:properties :data] (take 20 entities))
+                       (when (and (seq sensors) (= 1 (count entities))) ;; reloaded page and 1 property selected
+                         (let [units (get-units query sensors entities)]
+                           (om/update! data [:properties :chart :units] units)))
+                       (om/update! data [:stats] {:total_hits (:total_hits response)
+                                                  :page (:page response)})
+                       (om/update! data [:fetching :entities] false)))
+          :headers {"Accept" "application/edn"}
+          :response-format :text})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; History
@@ -95,11 +107,13 @@
         (om/update! data [:sensors :data] [])
         (om/update! data [:measurements :data] []))
 
-      ;; Fetch data
-      (when (and properties
-                 (empty? (-> @data :properties :data)))
-        (fetch-properties data properties))
+      (when-not sensors
+        (log "Clearing sensors")
+        (om/update! data [:properties :sensors :selected] #{})
+        (om/update! data [:properties :chart :sensors] #{})
+        (om/update! data [:measurements :data] []))
 
+      ;; Fetch data
       (when (and (not= properties old-properties)
                  properties)
         (log "Setting property details to: " properties)
@@ -111,18 +125,20 @@
                                                                (= properties (:entity_id %)) (assoc % :selected true)
                                                                :else %)
                                                              d))))
-
       (when sensors
-        (log "Setting selected sensors to: " sensors)
-        (om/update! data [:properties :sensors :selected] (into #{} (str/split sensors #";"))))
+        (let [sensors-hashmap (into #{} (str/split sensors #";"))]
+          (log "Setting selected sensors to: " sensors-hashmap)
+          (om/update! data [:properties :chart :sensors] sensors-hashmap)
+          (om/update! data [:properties :sensors :selected] sensors-hashmap))
+
+      (when (and properties
+                 (empty? (-> @data :properties :data)))
+        (fetch-properties data properties)))
 
       (when (and (not= range old-range)
                  (seq range))
         (log "Setting date range to: " start-date end-date)
         (om/update! data [:properties :chart :range] {:start-date start-date :end-date end-date}))
-
-      (when (and properties sensors start-date end-date)
-        (data/fetch-measurements data properties sensors start-date end-date))
 
       ;; Update the new active components
       (om/update! data :active-components history-status))

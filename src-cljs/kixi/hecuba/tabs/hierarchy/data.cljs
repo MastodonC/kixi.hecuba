@@ -219,25 +219,44 @@
         padded    (t/plus timestamp (t/days 1))]
     (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss") padded)))
 
-(defn fetch-measurements [data entity_id sensors start-date end-date]
+(def amon-date (tf/formatter "yyyy-MM-dd'T'HH:mm:ssZ"))
+
+(defn get-description [sensors measurement]
+  (-> (filter #(= (:sensor measurement) (:id %)) sensors) first :parent-device :description))
+
+(defn parse
+  "Enriches measurements with unit and description of device and parses timestamp into a JavaScript Date object"
+  [measurements units sensors]
+  (map (fn [measurements-seq] (map #(assoc % :unit (get units (-> % :sensor))
+                                           :description (get-description sensors %)
+                                           :timestamp (tf/parse amon-date (:timestamp %))) measurements-seq)) measurements))
+
+(defn fetch-measurements [properties entity_id sensors start-date end-date]
   (log "Fetching measurements for sensors: " sensors)
-  (om/update! data [:properties :chart :fetching] true)
-  (om/update! data [:properties :chart :measurements] [])
-  (doseq [sensor (str/split sensors #";")]
+  (om/update! properties [:chart :fetching] true)
+  (om/update! properties [:chart :measurements] [])
+  (doseq [sensor sensors]
     (let [[type device_id] (str/split sensor #"-")
           end (if (= start-date end-date) (pad-end-date end-date) (date->amon-timestamp end-date))
           start-date (date->amon-timestamp start-date)
           measurements-type (interval start-date end)
           url (url-str start-date end entity_id device_id type measurements-type)]
       (GET url {:handler (fn [response]
-                           (om/transact! data [:properties :chart :measurements]
+                           (om/transact! properties [:chart :measurements]
                                          (fn [measurements]
                                            (conj measurements
                                                  (into [] (map (fn [m]
                                                                  (assoc m :sensor sensor))
                                                                (:measurements response))))))
-                           (when (= (-> (str/split sensors #";") last) sensor)
-                             (om/update! data [:properties :chart :fetching] false)))
+                           (when (= (-> sensors last) sensor)
+                             (let [units          (-> @properties :chart :units)
+                                   sensors        (fetch-sensors entity_id @properties)
+                                   measurements   (-> @properties :chart :measurements)
+                                   all-series     (parse (filter seq measurements) units sensors)
+                                   unit-groups    (group-by #(-> % first :unit) all-series)
+                                   all-groups     (vals unit-groups)]
+                               (om/update! properties [:chart :all-groups] all-groups)
+                               (om/update! properties [:chart :fetching] false))))
                 :headers {"Accept" "application/json"}
                 :response-format :json
                 :keywords? true}))))

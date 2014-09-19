@@ -246,7 +246,7 @@
                                            :description (get-description sensors %)
                                            :timestamp (tf/parse amon-date (:timestamp %))) measurements-seq)) measurements))
 
-(defn sensors-div [property-details owner]
+(defn sensors-div [property-details owner opts]
   (reify
     om/IInitState
     (init-state [_]
@@ -275,31 +275,33 @@
               [:div {:id "picker-alert"}
                (om/build bs/alert (-> property-details :chart :range :alert))]]
              [:div.col-md-6.col-md-offset-3
-              (om/build dtpicker/datetime-picker (-> property-details :chart :range) {:opts {:div-id "chart-date-picker"}})]
+              (om/build dtpicker/datetime-picker (-> property-details :chart :range) {:opts {:div-id "chart-date-picker"}
+                                                                                      :init-state {:date-range-chan
+                                                                                                   (:datetimepicker-chan opts)}})]
 
-             ;; Chart and infoboxes
-             (let [{:keys [measurements units mouseover]} (get property-details :chart)
-                   {:keys [hovering-chan mult-chan]} (om/get-state owner)]
-               (when (and (seq measurements) (seq units))
-                 (let [all-series    (parse measurements units (fetch-sensors (:property-details property-details) selected-sensors))
-                       unit-groups   (group-by #(-> % first :unit) all-series)
-                       all-groups    (vals unit-groups)
-                       left-group    (first all-groups)]
-                   [:div.col-md-12
-                    [:div.col-md-2
-                     (for [series left-group]
-                       (let [c (chan (sliding-buffer 100))]
-                         (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}})))]
-                    [:div.col-md-8
-                     [:div#chart {:style {:width "100%" :height 600}}
-                      (om/build chart/chart-figure {:measurements (mapv #(into [] (flatten %)) all-groups)}
-                                {:opts {:chan hovering-chan}})]]
-                    [:div.col-md-2
-                     (when (> (count all-groups) 1)
-                       ;; Always max 2 groups as max 2 units
-                       (for [series (last all-groups)]
+             (if (-> property-details :chart :fetching)
+               [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching data."]]]
+               ;; Chart and infoboxes
+               (let [{:keys [all-groups units]} (get property-details :chart)
+                     {:keys [hovering-chan mult-chan]} (om/get-state owner)]
+                 (if (and (some seq all-groups) (seq units))
+                   (let [left-group    (first all-groups)]
+                     [:div.col-md-12
+                      [:div.col-md-2
+                       (for [series left-group]
                          (let [c (chan (sliding-buffer 100))]
-                           (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}}))))]])))]
+                           (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}})))]
+                      [:div.col-md-8
+                       [:div#chart {:style {:width "100%" :height 600}}
+                        (om/build chart/chart-figure {:measurements (mapv #(into [] (flatten %)) all-groups)}
+                                  {:opts {:chan hovering-chan}})]]
+                      [:div.col-md-2
+                       (when (> (count all-groups) 1)
+                         ;; Always max 2 groups as max 2 units
+                         (for [series (last all-groups)]
+                           (let [c (chan (sliding-buffer 100))]
+                             (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}}))))]])
+                   [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data."]]])))]
             [:div.col-md-12.text-center
              [:p.lead {:style {:padding-top 30}}
               "Charting in Internet Explorer version " agent/VERSION " coming soon."]])])))))
