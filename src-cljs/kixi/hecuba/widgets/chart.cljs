@@ -70,10 +70,17 @@
 ;; Min and max
 
 (defn min-max-dates
-  "Returns min and max timestamps assuming timeseries are returned from Cassandra in an ascending order."
   [measurements]
-  {:min-date (-> measurements first :timestamp)
-   :max-date (-> measurements last :timestamp)})
+  (reduce (fn [acc {:keys [timestamp]}]
+            (if (:min-date acc)
+              (assoc acc
+                :min-date (min timestamp (:min-date acc))
+                :max-date (max timestamp (:max-date acc)))
+              (assoc acc
+                :min-date timestamp
+                :max-date timestamp)))
+          {}
+          measurements))
 
 (defn min-max-timestamps [data1 data2]
   (if (every? seq [data1 data2])
