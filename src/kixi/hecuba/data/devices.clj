@@ -30,8 +30,8 @@
   ([device remove-pk?]
                 (-> device
                     (select-keys user-editable-keys)
-                    (update-in [:location] json/encode)
-                    (update-in [:metadata] json/encode)
+                    (cond-> (:location device) (update-in [:location] json/encode))
+                    (cond-> (:metadata device) (update-in [:metadata] json/encode))
                     (assoc :id (:device_id device))
                     (dissoc :device_id)
                     (cond-> remove-pk? (dissoc :id))
@@ -65,12 +65,13 @@
   ([session entity_id id device]
      (let [encoded-device (encode device :remove-pk)
            entity_id (or entity_id (:entity_id (get-by-id session id)))]
-       (db/execute session (hayt/update :devices
-                                        (hayt/set-columns encoded-device)
-                                        (hayt/where [[= :id id]])))
-       (db/execute session (hayt/update :entities
-                                        (hayt/set-columns {:devices [+ {id (str encoded-device)}]})
-                                        (hayt/where [[= :id entity_id]]))))))
+       (when (seq encoded-device)
+         (db/execute session (hayt/update :devices
+                                          (hayt/set-columns encoded-device)
+                                          (hayt/where [[= :id id]])))
+         (db/execute session (hayt/update :entities
+                                          (hayt/set-columns {:devices [+ {id (str encoded-device)}]})
+                                          (hayt/where [[= :id entity_id]])))))))
 
 (defn delete-measurements [session device_id]
   (doall (->> (sensors/get-sensors device_id session)
