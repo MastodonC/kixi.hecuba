@@ -181,7 +181,7 @@
 
 (defn chart-summary
   "Show min, max, delta and average of chart data."
-  [cursor owner]
+  [cursor owner {:keys [border]}]
   (reify
     om/IInitState
     (init-state [_]
@@ -204,14 +204,14 @@
         (recur)))
     om/IRenderState
     (render-state [_ state]
-      (let [{:keys [measurements]} cursor
-            mouseover (:mouseover state)
+      (let [{:keys [measurements]}     cursor
+            mouseover                 (:mouseover state)
             {:keys [value timestamp]} (:value state)
-            [type device_id] (-> measurements first (aget "sensor") (string/split #"-"))
-            description (-> measurements first (aget "description"))]
+            [type device_id]          (-> measurements first (aget "sensor") (string/split #"-"))
+            description               (-> measurements first (aget "description"))]
         (html
          [:div {:style {:font-size "80%"}}
-          (bs/panel
+          (bs/panel border "panel-info"
            [:div [:p {:style {:word-wrap "break-word" :font-size "80%"}} type]
             [:p {:style {:word-wrap "break-word" :font-size "80%"}} description]]
            [:div
@@ -245,6 +245,17 @@
   (map (fn [measurements-seq] (map #(assoc % :unit (get units (-> % :sensor))
                                            :description (get-description sensors %)
                                            :timestamp (tf/parse amon-date (:timestamp %))) measurements-seq)) measurements))
+
+(defn create-colours-vec
+  "Loops over a sequence of items and creates a colour for each item by concatenating the same
+  sequence of colours (the same way d3 pads colours)."
+  [items colours]
+  (let [items-cnt (count items)
+        colours-vec (loop [border colours]
+                      (if (>= (count border) items-cnt)
+                        border
+                        (recur (concat border colours))))]
+       (take items-cnt colours-vec)))
 
 (defn sensors-div [property-details owner opts]
   (reify
@@ -283,14 +294,18 @@
                [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching data."]]]
                ;; Chart and infoboxes
                (let [{:keys [all-groups units]} (get property-details :chart)
-                     {:keys [hovering-chan mult-chan]} (om/get-state owner)]
+                     {:keys [hovering-chan mult-chan]} (om/get-state owner)
+                     left-border-colours       ["#6baed6" "#4292c6" "#2171b5" "#08519c" "#08306b"]
+                     right-border-colours      ["#fd8d3c" "#f16913" "#d94801" "#a63603" "#7f2704"]]
                  (if (and (some seq all-groups) (seq units))
-                   (let [left-group    (first all-groups)]
+                   (let [left-group        (first all-groups)
+                         left-with-colours (zipmap left-group (create-colours-vec left-group left-border-colours))]
                      [:div.col-md-12
                       [:div.col-md-2
-                       (for [series left-group]
+                       (for [[series colours] left-with-colours]
                          (let [c (chan (sliding-buffer 100))]
-                           (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}})))]
+                           (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}
+                                                                                     :opts {:border colours}})))]
                       [:div.col-md-8
                        [:div#chart {:style {:width "100%" :height 600}}
                         (om/build chart/chart-figure {:measurements (mapv #(into [] (flatten %)) all-groups)}
@@ -298,9 +313,12 @@
                       [:div.col-md-2
                        (when (> (count all-groups) 1)
                          ;; Always max 2 groups as max 2 units
-                         (for [series (last all-groups)]
-                           (let [c (chan (sliding-buffer 100))]
-                             (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}}))))]])
+                         (let [right-group        (last all-groups)
+                               right-with-colours (zipmap right-group (create-colours-vec right-group right-border-colours))]
+                           (for [[series colours] right-with-colours]
+                             (let [c (chan (sliding-buffer 100))]
+                               (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}
+                                                                                         :opts {:border colours}})))))]])
                    [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data."]]])))]
             [:div.col-md-12.text-center
              [:p.lead {:style {:padding-top 30}}
