@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASE_URL="http://www.getembed.com"
+BASE_URL="https://www.getembed.com"
 TARGET_URL="${BASE_URL}/4/measurements/for-entity"
 
 usage() { echo -e \
