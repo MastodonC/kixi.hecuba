@@ -246,17 +246,6 @@
                                            :description (get-description sensors %)
                                            :timestamp (tf/parse amon-date (:timestamp %))) measurements-seq)) measurements))
 
-(defn create-colours-vec
-  "Loops over a sequence of items and creates a colour for each item by concatenating the same
-  sequence of colours (the same way d3 pads colours)."
-  [items colours]
-  (let [items-cnt (count items)
-        colours-vec (loop [border colours]
-                      (if (>= (count border) items-cnt)
-                        border
-                        (recur (concat border colours))))]
-       (take items-cnt colours-vec)))
-
 (defn sensors-div [property-details owner opts]
   (reify
     om/IInitState
@@ -299,7 +288,7 @@
                      right-border-colours      ["#fd8d3c" "#f16913" "#d94801" "#a63603" "#7f2704"]]
                  (if (and (some seq all-groups) (seq units))
                    (let [left-group        (first all-groups)
-                         left-with-colours (zipmap left-group (create-colours-vec left-group left-border-colours))]
+                         left-with-colours (zipmap left-group (cycle left-border-colours))]
                      [:div.col-md-12
                       [:div.col-md-2
                        (for [[series colours] left-with-colours]
@@ -314,7 +303,7 @@
                        (when (> (count all-groups) 1)
                          ;; Always max 2 groups as max 2 units
                          (let [right-group        (last all-groups)
-                               right-with-colours (zipmap right-group (create-colours-vec right-group right-border-colours))]
+                               right-with-colours (zipmap right-group (cycle right-border-colours))]
                            (for [[series colours] right-with-colours]
                              (let [c (chan (sliding-buffer 100))]
                                (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}
