@@ -82,6 +82,13 @@
               (hayt/select :sensors
                            (hayt/where [[:in :device_id device_ids]]))))
 
+(defn get-by-id
+  ([session device_id type]
+     (db/execute session
+                 (hayt/select :sensors
+                              (hayt/where [[= :type type]
+                                           [= :device_id device_id]])))))
+
 (defn insert [session sensor]
   (s/validate Sensor sensor)
   (let [encoded-sensor (encode sensor)]

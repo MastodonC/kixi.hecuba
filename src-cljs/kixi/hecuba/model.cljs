@@ -41,6 +41,11 @@
                                       :sort [:name]}
                            :selected nil
                            :alert {}}
+                 :datasets {:sensors []
+                            :datasets []
+                            :property-id nil
+                            :alert {}
+                            :edited-dataset {}}
                  :chart    {:property ""
                             :sensors #{}
                             :units {}
