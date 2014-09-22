@@ -96,6 +96,12 @@
 
 (defn panel
   "A bootstrap panel"
+  ([background class title data]
+     [:div {:class (str  "panel " class)}
+      [:div {:class "panel-heading" :style {:background-color background :color "black"}}
+       [:div {:class "panel-title"}
+        title]]
+      [:div {:class "panel-body"} data]])
   ([class title data]
      [:div {:class (str  "panel " class)}
       [:div {:class "panel-heading"}
