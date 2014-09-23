@@ -79,9 +79,9 @@
 
 (defn error-handler [event-chan]
   (fn [{:keys [status status-text]}]
-    (put! event-chan {:path :event :value {:status true
-                                           :class "alert alert-danger"
-                                           :text status-text}})))
+    (put! event-chan {:event :alert :value {:status true
+                                            :class "alert alert-danger"
+                                            :text status-text}})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Adding new sensor
@@ -212,9 +212,9 @@
                                      (put! event-chan {:event :editing :value false}))} "Cancel"]]]
               [:h3 "Device"]
               (static-text cursor :device_id "Device ID")
-              (text-input-control cursor owner [:device] :name "Parent Device Name")
+              (static-text cursor :description "Unique Description")
+              (text-input-control cursor owner [:device] :name "Further Description")
               (location-input cursor owner)
-              (static-text cursor :metadata "API User Metadata")
               (bs/checkbox cursor owner :device :privacy "Private")
               [:h3 "Sensors"]
               (let [sensors (remove #(:synthetic %) (:readings cursor))]
@@ -281,9 +281,9 @@
                         :onClick (fn [_]
                                    (put! event-chan {:event :adding-device :value false}))}
                "Cancel"]]]
-            (bs/text-input-control cursor owner :device :description "Description" true)
+            (bs/text-input-control cursor owner :device :description "Unique Description" true)
+            (bs/text-input-control cursor owner :device :name "Further Description")
             (location-input cursor owner)
-            (bs/text-input-control cursor owner :device :name "Name")
             (bs/checkbox cursor owner :device :privacy "Private")]]]
          [:div.col-md-12
           [:h3 "Create sensor:"]
@@ -306,19 +306,19 @@
       (render [_]
         (html
          (let [{:keys [description privacy location name
-                       device_id editable metadata privacy]} cursor
+                       device_id editable privacy]} cursor
                        devices   (:devices properties)
                        selected? (= (:selected devices) device_id)]
            [:tr {:onClick (fn [_] (om/update! devices :selected (if selected? nil device_id)))
                  :class (when selected? "success")
                  :id (str table-id "-selected")}
             [:td description]
-            [:td device_id]
-            [:td (common/location-col location)]
-            [:td metadata]
             [:td name]
+            [:td (common/location-col location)]
             [:td (privacy-label privacy)]
-            [:td (count (filter #(not (:synthetic %)) (:readings cursor)))]]))))))
+            [:td (count (filter #(not (:synthetic %)) (:readings cursor)))]
+            [:td (string/join ", " (mapv :type (filter #(not (:synthetic %)) (:readings cursor))))]
+            [:td device_id]]))))))
 
 
 (defn devices-table [editing-chan properties]
@@ -353,13 +353,13 @@
             [:table {:class "table table-hover table-condensed"}
              [:thead
               [:tr
-               (sorting-th owner "Description" :description)
-               (sorting-th owner "Device ID" :device_id)
+               (sorting-th owner "Unique Description" :description)
+               (sorting-th owner "Further Description" :name)
                (sorting-th owner "Location" :location)
-               (sorting-th owner "Metadata" :metadata)
-               (sorting-th owner "Name" :name)
                (sorting-th owner "Privacy" :privacy)
-               (sorting-th owner "No. of Sensors" :count)]]
+               (sorting-th owner "No. of Sensors" :count)
+               (sorting-th owner "Sensor Types" :sensor_types)
+               (sorting-th owner "Device ID" :device_id)]]
              [:tbody
               (for [row (if sort-asc
                           (sort-by sort-key devices)
@@ -406,13 +406,14 @@
           [:div.btn-toolbar
            ;; Add new device
            [:button {:type "button"
-                     :class (str "btn btn-primary " (when-not (and (not adding-sensor)
-                                                                   (not adding-device)
-                                                                   (not editing)
-                                                                   (:editable property))))
+                     :class (str "btn btn-primary " (when (or adding-sensor
+                                                              adding-device
+                                                              editing
+                                                              (not (:editable property)))
+                                                      "hidden"))
                      :onClick (fn [_]
                                 (om/update! properties [:devices :adding-device] true))}
-            "Add new device"]
+            [:div {:class "fa fa-plus"} " Add device"]]
            ;; Edit device
            [:button {:type "button"
                      :class (str "btn btn-primary " (when-not (and (not adding-sensor)
