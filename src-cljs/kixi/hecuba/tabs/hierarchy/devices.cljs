@@ -4,10 +4,9 @@
             [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]
             [kixi.hecuba.bootstrap :refer (static-text) :as bs]
-            [ajax.core :refer [GET POST PUT]]
             [kixi.hecuba.tabs.hierarchy.data :refer (fetch-property fetch-devices fetch-sensors)]
             [clojure.string :as string]
-            [kixi.hecuba.common :refer (log) :as common]))
+            [kixi.hecuba.common :refer (log delete-resource) :as common]))
 
 (defn sorting-th [owner label header-key]
   (let [{:keys [sort-spec th-chan]} (om/get-state owner)
@@ -175,6 +174,14 @@
                        property_id device_id)
     (put! event-chan {:event :editing :value false})))
 
+(defn delete-device [entity_id device_id event-chan refresh-chan]
+  (delete-resource (str "/4/entities/" entity_id "/devices/" device_id)
+                   #(log "Deleted " entity_id ":" device_id))
+  (js/alert (str "Deleted! " device_id))
+  (put! refresh-chan {:event :property})
+  (put! event-chan {:event :editing :value false})
+  (put! event-chan {:event :selected :value nil}))
+
 (defn sensor-edit-div [cursor owner]
   (let [sensor-type (:type cursor)]
     [:li.list-group-item
@@ -209,7 +216,12 @@
                 [:button {:type "button"
                           :class (str "btn btn-danger")
                           :onClick (fn [_]
-                                     (put! event-chan {:event :editing :value false}))} "Cancel"]]]
+                                     (put! event-chan {:event :editing :value false}))} "Cancel"]
+                [:button {:type "button"
+                          :class "btn btn-danger"
+                          :onClick (fn [_]
+                                     (delete-device property_id device_id event-chan refresh-chan))}
+                 "Delete Device"]]]
               [:h3 "Device"]
               (static-text cursor :device_id "Device ID")
               (static-text cursor :description "Unique Description")
@@ -413,7 +425,7 @@
                                                       "hidden"))
                      :onClick (fn [_]
                                 (om/update! properties [:devices :adding-device] true))}
-            [:div {:class "fa fa-plus"} " Add device"]]
+            [:div {:class "fa fa-plus"}] " Add device"]
            ;; Edit device
            [:button {:type "button"
                      :class (str "btn btn-primary " (when-not (and (not adding-sensor)
@@ -425,7 +437,7 @@
                                 (let [device (first (filter #(= (:device_id %) device_id) (fetch-devices property_id @properties)))]
                                   (om/update! properties [:devices :edited-device] device)
                                   (om/update! properties [:devices :editing] true)))}
-            [:div {:class  "fa fa-pencil-square-o"} " Edit device"]]
+            [:div {:class "fa fa-pencil-square-o"}]  " Edit device"]
            ;; Add sensor
            [:button {:type "button"
                      :class (str  "btn btn-primary " (when-not (and (not adding-sensor)
@@ -434,7 +446,7 @@
                                                                     (:editable property)
                                                                     device_id) "hidden"))
                      :onClick (fn [_] (om/update! properties [:devices :adding-sensor] true))}
-            [:div {:class  "fa fa-plus"} " Add sensor"]]]
+            [:div {:class "fa fa-plus"}]  " Add sensor"]]
           [:div {:id "alert-div" :style {:padding-top "10px"}}
            (om/build bs/alert (:alert devices))]
           [:div {:id "devices-div"
