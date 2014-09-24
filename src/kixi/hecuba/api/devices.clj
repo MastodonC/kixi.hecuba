@@ -183,10 +183,12 @@
 ;; that should put something in the context which is then checked here.
 (defn resource-delete-enacted? [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [{item ::item} ctx
-          device_id (:device_id item)
-          entity_id (:entity_id item)
-          response  (devices/delete device_id false session)]
+    (let [{item ::item}   ctx
+          device_id       (:device_id item)
+          entity_id       (:entity_id item)
+          response        (devices/delete device_id false session)
+          search-response (-> (search/searchable-entity-by-id entity_id session)
+                              (search/->elasticsearch (:search-session store)))]
       "Delete Accepted")))
 
 (defn resource-put! [store ctx]

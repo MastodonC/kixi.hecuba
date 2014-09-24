@@ -5,7 +5,7 @@
             [cljs-time.coerce :as tc]
             [goog.userAgent :as agent]
             [om.core :as om :include-macros true]
-            [ajax.core :refer (POST PUT)]))
+            [ajax.core :refer (POST PUT transform-opts ajax-request edn-format)]))
 
 (when (not agent/IE)
   (enable-console-print!))
@@ -123,6 +123,32 @@
                 :handler handler
                 :error-handler error-handler
                 :params resource}))))
+
+;; FIXME: Our own version until we migrate to the latest cljs-ajax
+(defn DELETE
+  "accepts the URI and an optional map of options, options include:
+  :handler - the handler function for successful operation
+             should accept a single parameter which is the deserialized
+             response
+  :error-handler - the handler function for errors, should accept a map
+                   with keys :status and :status-text
+  :format - the format for the request
+  :response-format - the format for the response
+  :params - a map of parameters that will be sent with the request"
+  [uri & [opts]]
+  (ajax-request uri "DELETE" (transform-opts opts)))
+
+(defn delete-resource
+  ([url handler]
+     (delete-resource url handler
+                      (fn [{:keys [status status-text]}]
+                        (log "status: " status "status-text: " status-text))))
+  ([url handler error-handler]
+     (when (seq url)
+       (DELETE url {:content-type "application/edn"
+                    :format (edn-format)
+                    :handler handler
+                    :error-handler error-handler}))))
 
 (defn location-col [location]
   (let [{:keys [name longitude latitude]} location]
