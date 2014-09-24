@@ -176,11 +176,12 @@
 
 (defn delete-device [entity_id device_id event-chan refresh-chan]
   (delete-resource (str "/4/entities/" entity_id "/devices/" device_id)
-                   #(log "Deleted " entity_id ":" device_id))
-  (js/alert (str "Deleted! " device_id))
-  (put! refresh-chan {:event :property})
-  (put! event-chan {:event :editing :value false})
-  (put! event-chan {:event :selected :value nil}))
+                   (fn []
+                     (js/alert (str "Device " device_id " deleted!"))
+                     (put! refresh-chan {:event :property})
+                     (put! event-chan {:event :editing :value false})
+                     (put! event-chan {:event :selected :value nil}))
+                   #(js/alert (str "Unable to delete " device_id))))
 
 (defn sensor-edit-div [cursor owner]
   (let [sensor-type (:type cursor)]
