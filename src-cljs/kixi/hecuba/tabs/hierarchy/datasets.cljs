@@ -208,7 +208,7 @@
   [:div
    (for [member members]
      (let [[type device_id] (string/split member #"-")]
-       [:div.col-md-7
+       [:div.row {:style {:min-height "100%"}}
         [:div.col-md-3 type]
         [:div.col-md-4 device_id]]))])
 
