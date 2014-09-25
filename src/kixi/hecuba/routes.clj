@@ -123,6 +123,7 @@
    ;; Programmes/Projects
    (index-routes :programme-projects-index [:programme_id] (projects/index store))
    (resource-route :programme-projects-resource [:programme_id :project_id] (projects/resource store))
+   (index-routes :projects-index (projects/index store))
 
    ;; Projects/Properties
    (index-routes :project-entities-index [:project_id] (entities/index store))
@@ -241,7 +242,7 @@
    (GET (compojure-route :user-management) []
         (friend/wrap-authorize
          user-management
-         #{:kixi.hecuba.security/user}))
+         #{:kixi.hecuba.security/project-manager}))
 
    ;; New profile
    (GET "/profile/:entity_id" [entity_id]
@@ -260,7 +261,7 @@
 
 (defrecord Routes [context]
   component/Lifecycle
-  (start [this]
+  (start [this]4
     (let [store         (:store this)
           s3            (:s3 this)
           pipeline-head (:head (:pipeline this))

@@ -253,27 +253,25 @@
                           m))]
     (assoc header :sensors (mapv add-programme sensors))))
 
-(defn allowed? [{:keys [programme-id project-id]} programmes projects roles]
-  (log/infof "allowed?* programme-id: %s project-id: %s programmes: %s projects: %s roles: %s"
-             programme-id project-id programmes projects roles)
-  (match [(sec/has-admin? roles)
-          (sec/has-programme-manager? roles)
-          (some #(= % programme-id) programmes)
-          (sec/has-project-manager? roles)
-          (some #(= % project-id) projects)]
-         ;; super-admin - do everything
-         [true _ _ _ _] (do (log/info "Admin") true)
-         ;; programme-manager for this programme - do everything
-         [_ true true _ _] (do (log/info "programme manager") true)
-         ;; project-manager for this project - do everything
-         [_ _ _ true true] (do (log/info "project manager") true)
-         :else (do (log/info "Not a manager") false)))
+(defn allowed? [{:keys [programme_id project_id]} programmes projects role]
+  (log/infof "allowed? programme_id: %s project_id: %s programmes: %s projects: %s roles: %s"
+             programme_id project_id programmes projects role)
+  (match  [(has-admin? role)
+           (has-programme-manager? programme_id programmes)
+           (has-project-manager? project_id projects)]
+          ;; super-admin - do everything
+          [true _ _] true
+          ;; programme-manager for this programme - do everything
+          [_ true _] true
+          ;; project-manager for this project - do everything
+          [_ _ true] true
+          :else false))
 
-(defn- enrich-with-authz [header store {:keys [projects programmes roles]}]
+(defn- enrich-with-authz [header store {:keys [projects programmes role]}]
   (let [sensors (:sensors header)
         add-allowed (fn [m]
                       (if (get-in m [:metadata :exists?])
-                        (assoc-in m [:metadata :allowed?] (allowed? m programmes projects roles))
+                        (assoc-in m [:metadata :allowed?] (allowed? m programmes projects role))
                         m))]
     (assoc header :sensors (map #(add-allowed %) (:sensors header)))))
 

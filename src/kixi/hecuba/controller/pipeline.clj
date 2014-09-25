@@ -14,6 +14,7 @@
             [clj-time.core                          :as t]
             [clj-time.coerce                        :as tc]
             [com.stuartsierra.component             :as component]
+            [kixi.hecuba.data.datasets              :as dd]
             [kixi.hecuba.api.datasets               :as datasets]
             [kixi.hecuba.storage.db                 :as db]
             [kixi.hecuba.data.devices               :as devices]
@@ -219,15 +220,16 @@
 
     (defnconsumer synthetic-readings-q [item]
       (log/info "Starting synthetic readings job.")
-      (let [datasets (datasets/all-datasets store)]
-        (doseq [ds datasets]
-          (let [sensors (datasets/sensors-for-dataset ds store)
-                [min-date max-date] (misc/range-for-all-sensors sensors)]
-            (when (and min-date max-date)
-              (synthetic-readings store (assoc item
-                                          :range {:start-date min-date
-                                                  :end-date max-date}
-                                          :ds ds :sensors sensors))))))
+      (db/with-session [session (:hecuba-session store)]
+        (let [datasets (dd/get-all session)]
+          (doseq [ds datasets]
+            (let [sensors (datasets/sensors-for-dataset ds store)
+                  [min-date max-date] (misc/range-for-all-sensors sensors)]
+              (when (and min-date max-date)
+                (synthetic-readings store (assoc item
+                                            :range {:start-date min-date
+                                                    :end-date max-date}
+                                            :ds ds :sensors sensors)))))))
       (log/info "Finished synthetic readings job."))
 
     (defn actual-annual [store item]
@@ -309,13 +311,14 @@
             calculation (:type item)]
         (log/infof "Starting recalculation of: %s" calculation)
         (condp = calculation
-          :synthetic-readings (let [datasets (datasets/all-datasets store)]
-                                (doseq [ds datasets]
-                                  (let [sensors (datasets/sensors-for-dataset ds store)
-                                        [min-date max-date] (misc/range-for-all-sensors sensors)
-                                        new-item (assoc item :sensors sensors :ds ds :range {:start-date min-date :max-date max-date})]
-                                    (when (and min-date max-date)
-                                      (synthetic-readings store new-item)))))
+          :synthetic-readings (db/with-session [session (:hecuba-session store)]
+                                (let [datasets (dd/get-all session)]
+                                  (doseq [ds datasets]
+                                    (let [sensors (datasets/sensors-for-dataset ds store)
+                                          [min-date max-date] (misc/range-for-all-sensors sensors)
+                                          new-item (assoc item :sensors sensors :ds ds :range {:start-date min-date :max-date max-date})]
+                                      (when (and min-date max-date)
+                                        (synthetic-readings store new-item))))))
           :rollups (calculate-over-all-sensors
                     store item rollups)
           :difference-series (calculate-over-all-sensors

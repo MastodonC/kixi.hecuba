@@ -15,7 +15,8 @@
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
    [schema.core :as s]
-   [kixi.hecuba.web-paths :as p]))
+   [kixi.hecuba.web-paths :as p]
+   [kixi.hecuba.data.entities.search :as search]))
 
 (def Measurement
   "A schema for a sensor measurements."
@@ -164,11 +165,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; index-post!
 
-(defn allowed?* [roles request-method]
-  (match [(has-admin? roles)
-          (has-programme-manager? roles)
-          (has-project-manager? roles)
-          (has-user? roles)
+(defn allowed?* [programme_id project_id programmes projects role request-method]
+  (match [(has-admin? role)
+          (has-programme-manager? programme_id programmes)
+          (has-project-manager? project_id projects)
+          (has-user? programme_id project_id programmes projects)
           request-method]
 
          [true _ _ _ _    ] true
@@ -178,8 +179,12 @@
          :else false))
 
 (defn index-allowed? [store ctx]
-  (allowed?* (:roles (sec/current-authentication (-> ctx :request :session)))
-             (request-method-from-context ctx)))
+  (let [{:keys [request-method session params]} (:request ctx)
+        {:keys [projects programmes role]}     (sec/current-authentication session)
+        entity_id (:entity_id params)
+        {:keys [project_id programme_id]} (when entity_id
+                                              (search/get-by-id entity_id (:search-session store)))]
+    (allowed?* programme_id project_id programmes projects role request-method)))
 
 (defmulti index-post! content-type-from-context)
 

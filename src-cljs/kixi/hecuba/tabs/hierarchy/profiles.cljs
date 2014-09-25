@@ -1082,15 +1082,17 @@
         (html
          [:div
           [:h3 "Profiles"
-           [:div.btn-toolbar.pull-right
-            [:button {:type "button"
-                      :title "Add new profile"
-                      :class (str "btn btn-primary fa fa-plus" (if editable "" "hidden"))
-                      :onClick (fn [_]  (set! (.-location js/window) (str "/profile/" selected-property-id)))}]
-            [:a {:role "button"
-                 :class "btn btn-primary fa fa-download"
-                 :title "Download Profiles"
-                 :href (str "/4/entities/" selected-property-id "/profiles/?type=csv")}]]]
+           (when editable
+             [:div.btn-toolbar.pull-right
+              [:button {:type "button"
+                        :title "Add new profile"
+                        :class (str "btn btn-primary fa fa-plus")
+                        :onClick (fn [_]  (set! (.-location js/window) (str "/profile/" selected-property-id)))}]
+              (when (seq profiles)
+                [:a {:role "button"
+                     :class "btn btn-primary fa fa-download"
+                     :title "Download Profiles"
+                     :href (str "/4/entities/" selected-property-id "/profiles/?type=csv")}])])]
           [:div {:id "alert"} (om/build bs/alert (:alert profiles))]
           [:div
            (if (seq profiles)

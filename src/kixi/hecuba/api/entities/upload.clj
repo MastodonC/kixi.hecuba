@@ -33,27 +33,20 @@
      :metadata {:filename filename}
      :entity_id entity_id}))
 
-(defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
+(defn allowed?* [programme-id project-id allowed-programmes allowed-projects role request-method]
   (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
-             programme-id project-id allowed-programmes allowed-projects roles request-method)
-  (match [(has-admin? roles)
-          (has-programme-manager? roles)
-          (some #(= % programme-id) allowed-programmes)
-          (has-project-manager? roles)
-          (some #(= % project-id) allowed-projects)
-          (has-user? roles)
-          request-method]
-         ;; super-admin - do everything
-         [true _ _ _ _ _ _] true
-         ;; programme-manager for this programme - do everything
-         [_ true true _ _ _ _] true
-         ;; project-manager for this project - do everything
-         [_ _ _ true true _ _] true
-         ;; user with this programme - get allowed
-         [_ _ true _ _ true :get] true
-         ;; user with this project - get allowed
-         [_ _ _ _ true true :get] true
-         :else false))
+             programme-id project-id allowed-programmes allowed-projects role request-method)
+  (match  [(has-admin? role)
+           (has-programme-manager? programme-id allowed-programmes)
+           (has-project-manager? project-id allowed-projects)
+           (has-user? programme-id allowed-programmes project-id allowed-projects)
+           request-method]
+
+          [true _ _ _ _]    true
+          [_ true _ _ _]    true
+          [_ _ true _ _]    true
+          [_ _ _ true :get] true
+          :else false))
 
 (defn upload->items [files public? feed-name entity_id username]
   (let [timestamp (t/now)

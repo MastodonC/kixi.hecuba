@@ -3,7 +3,7 @@
    [clojure.core.match :refer (match)]
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
-   [kixi.hecuba.security :as sec]
+   [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
    [kixi.hecuba.webutil :as util]
    [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values update-stringified-lists sha1-regex content-type-from-context)]
    [liberator.core :refer (defresource)]
@@ -24,50 +24,35 @@
 
 (def ^:private entity-profiles-resource (p/resource-path-string :entity-profiles-resource))
 
-(defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
-  (match [(some #(isa? % :kixi.hecuba.security/admin) roles)
-          (some #(isa? % :kixi.hecuba.security/programme-manager) roles)
-          (some #(= % programme-id) allowed-programmes)
-          (some #(isa? % :kixi.hecuba.security/project-manager) roles)
-          (some #(= % project-id) allowed-projects)
-          (some #(isa? % :kixi.hecuba.security/user) roles)
-          request-method]
-         ;; super-admin - do everything
-         [true _ _ _ _ _ _] true
-         ;; programme-manager for this programme - do everything
-         [_ true true _ _ _ _] true
-         ;; project-manager for this project - do everything
-         [_ _ _ true true _ _] true
-         ;; user with this programme - get allowed
-         [_ _ true _ _ true :get] true
-         ;; user with this project - get allowed
-         [_ _ _ _ true true :get] true
-         :else false))
+(defn allowed?* [programme-id project-id allowed-programmes allowed-projects role request-method]
+  (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
+             programme-id project-id allowed-programmes allowed-projects role request-method)
+  (match  [(has-admin? role)
+           (has-programme-manager? programme-id allowed-programmes)
+           (has-project-manager? project-id allowed-projects)
+           (has-user? programme-id allowed-programmes project-id allowed-projects)
+           request-method]
+
+          [true _ _ _ _]    true
+          [_ true _ _ _]    true
+          [_ _ true _ _]    true
+          [_ _ _ true :get] true
+          :else false))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; INDEX
 
 (defn index-allowed? [store]
   (fn [ctx]
-    (let [{:keys [body request-method session params route-params]} (:request ctx)
-          {:keys [projects programmes roles]} (sec/current-authentication session)
+    (let [request (:request ctx)
+          {:keys [body request-method session params route-params]} request
+          {:keys [projects programmes role]} (sec/current-authentication session)
           entity_id (:entity_id route-params)
-          entity (entities/get-by-id (:hecuba-session store) entity_id)
-          project_id (:project_id entity)
-          programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
+          {:keys [project_id programme_id]} (search/get-by-id entity_id (:search-session store))]
       (if (and project_id programme_id)
-        (allowed?* programme_id project_id programmes projects roles request-method)
+        [(allowed?* programme_id project_id programmes projects role request-method)
+         {:request request}]
         true))))
-
-(defn resource-allowed? [store]
-  (fn [ctx]
-    (let [{:keys [request-method session params route-params]} (:request ctx)
-          {:keys [projects programmes roles]}     (sec/current-authentication session)
-          entity_id (:entity_id route-params)
-          entity (entities/get-by-id (:hecuba-session store) entity_id)
-          project_id (:project_id entity)
-          programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
-      (if (and project_id programme_id)
-        (allowed?* programme_id project_id programmes projects roles request-method)
-        true))))
-
 
 (defn index-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -75,9 +60,9 @@
           method         (:request-method request)
           route-params   (:route-params request)
           entity_id      (:entity_id route-params)
-          entity         (search/get-by-id entity_id (:search-session store))]
+          entity         (:entity ctx)]
       (case method
-        :post (not (nil? entity))
+        :post (seq entity)
         :get (let [items (profiles/get-profiles entity_id session)]
                (if (empty? items)
                  false
@@ -179,6 +164,36 @@
       (ring-response {:status 422
                       :body "Provide valid entity_id and timestamp."}))))
 
+(defn store-profile [profile username store]
+  (db/with-session [session (:hecuba-session store)]
+    (let [{:keys [entity_id]} profile]
+      (when entity_id
+        (profiles/insert session (assoc profile :user_id username))
+        (-> (search/searchable-entity-by-id entity_id session)
+            (search/->elasticsearch (:search-session store)))
+        {:profile_id (:profile_id profile)}))))
+
+(defn index-post! [store ctx]
+  (let [{:keys [request profiles]} ctx
+        username (sec/session-username (:session request))]
+    (doall (map #(store-profile % username store) profiles))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; RESOURCE
+
+(defn resource-allowed? [store]
+  (fn [ctx]
+    (let [request (:request ctx)
+          {:keys [request-method session params route-params]} request
+          {:keys [projects programmes role]}     (sec/current-authentication session)
+          entity_id (:entity_id route-params)
+          entity (search/get-by-id entity_id (:search-session store))
+          {:keys [project_id programme_id]} entity]
+      (if (and project_id programme_id)
+        [(allowed?* programme_id project_id programmes projects role request-method)
+         {:entity entity :request request}]
+        true))))
+
 (defn resource-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request    (:request ctx)
@@ -240,20 +255,6 @@
 
 (defmethod resource-handle-ok "text/csv" resource-handle-text-csv [store ctx]
   (resource-handle-ok-text-csv* store ctx))
-
-(defn store-profile [profile username store]
-  (db/with-session [session (:hecuba-session store)]
-    (let [{:keys [entity_id]} profile]
-      (when entity_id
-        (profiles/insert session (assoc profile :user_id username))
-        (-> (search/searchable-entity-by-id entity_id session)
-            (search/->elasticsearch (:search-session store)))
-        {:profile_id (:profile_id profile)}))))
-
-(defn index-post! [store ctx]
-  (let [{:keys [request profiles]} ctx
-        username (sec/session-username (:session request))]
-    (doall (map #(store-profile % username store) profiles))))
 
 (defresource index [store]
   :allowed-methods #{:get :post}

@@ -23,14 +23,46 @@
 (derive ::admin ::programme-manager)
 (derive ::super-admin ::admin)
 
-(defn has-super-admin? [roles] (some #(isa? % ::super-admin) roles))
-(defn has-admin? [roles] (some #(isa? % ::admin) roles))
-(defn has-programme-manager? [roles] (some #(isa? % ::project-manager) roles))
-(defn has-project-manager? [roles] (some #(isa? % ::project-manager) roles))
-(defn has-user? [roles] (some #(isa? % ::user) roles))
+(comment
+
+  ;; below are examples for what the data in the users table will look
+  ;; like for an admin and a user who has programme-manager on one
+  ;; programme, user on a project and project-manager on a different
+  ;; project in a different programme.
+
+  ;; an example admin
+  {:role :kixi.hecuba.security/admin,
+   :programmes {},
+   :projects {}}
+
+  ;; an example user
+  {:role :kixi.hecuba.security/user,
+   :programmes {"bfb6e716f87d4f1a333fd37d5c3679b2b4b6d87f" :kixi.hecuba.security/programme-manager},
+   :projects {"01f6a45fc620c7f6347bf1995f8eb96d45f66df3" :kixi.hecuba.security/user
+              "032b8c0ae96805375c1c7779ab01639ce3ad6156" :kixi.hecuba.security/project-manager}}
+  )
+
+(defn has-super-admin? [role] (isa? role ::super-admin))
+(defn has-admin? [role] (isa? role ::admin))
+
+(defn has-programme-manager? [programme_id programmes]
+  (when-let [programme-role (get programmes programme_id)]
+    (isa? programme-role ::programme-manager)))
+
+(defn has-project-manager? [project_id projects]
+  (when-let [project-role (get projects project_id)]
+    (isa? project-role ::project-manager)))
+
+(defn has-user?
+  ([id permissions]
+     (when-let [permission-role (get permissions id)]
+       (isa? permission-role ::user)))
+  ([programme_id programmes project_id projects]
+     (or (has-user? programme_id programmes)
+         (has-user? project_id projects))))
 
 (defn add-user!
-  ([store name username password roles programmes projects]
+  ([store name username password role programmes projects]
      (db/with-session [session (:hecuba-session store)]
        (db/execute
         session
@@ -39,13 +71,12 @@
                       {:username username
                        :password (creds/hash-bcrypt password)
                        :data     (pr-str {:name       name
-                                          :roles      (set roles)
-                                          :programmes (set programmes)
-                                          :projects   (set projects)})})
+                                          :role       role
+                                          :programmes programmes
+                                          :projects   projects})})
                      (hayt/where [[= :id username]])))))
-  ([store name username password roles]
-     (add-user! store name username password roles #{} #{})))
-;; (kixi.hecuba.security/add-user! (:store system) "<YOUR NAME>" "support@example.com" "<password>" #{:kixi.hecuba.security/super-admin})
+  ([store name username password role]
+     (add-user! store name username password role {} {})))
 
 ;; FIXME We should be using k.h.d.users for queries now
 (defn get-user [store]
@@ -64,54 +95,10 @@
               (merge {:username (:username user)
                       :id       (:id user)
                       :password (:password user)}
-                     (edn/read-string (:data user)))
+                     (let [perms (edn/read-string (:data user))]
+                       (assoc perms :roles (set (conj (concat (vals (:programmes perms)) (vals (:projects perms))) (:role perms))))))
               nil)))
         (log/warn "Get user called empty username.")))))
-
-(defn update-user-data! [store username user-data]
-  (db/with-session [session (:hecuba-session store)]
-    (db/execute
-     session
-     (hayt/update :users
-                  (hayt/set-columns
-                   {:data (pr-str user-data)})
-                  (hayt/where [[= :id username]])))))
-
-(defn add-programme! [store username programme_id]
-  (let [{:keys [projects programmes roles]} ((get-user store) username)]
-    (update-user-data! store username {:roles      roles
-                                       :programmes (conj programmes programme_id)
-                                       :projects   projects})))
-
-(defn remove-programme! [store username programme_id]
-  (let [{:keys [projects programmes roles]} ((get-user store) username)]
-    (update-user-data! store username {:roles      roles
-                                       :programmes (set (remove #(= programme_id %) programmes))
-                                       :projects   projects})))
-
-(defn add-project! [store username project_id]
-  (let [{:keys [projects programmes roles]} ((get-user store) username)]
-    (update-user-data! store username {:roles      roles
-                                       :programmes programmes
-                                       :projects   (conj projects project_id)})))
-
-(defn remove-project! [store username project_id]
-  (let [{:keys [projects programmes roles]} ((get-user store) username)]
-    (update-user-data! store username {:roles      roles
-                                       :programmes programmes
-                                       :projects   (set (remove #(= project_id %) projects))})))
-
-(defn friend-middleware
-  "Returns a middleware that enables authentication via Friend."
-  [handler store]
-  (let [friend-m {:credential-fn (partial creds/bcrypt-credential-fn (get-user store))
-                  :default-landing-uri "/app"
-                  :workflows
-                  ;; Note that ordering matters here. Basic first.
-                  [(workflows/http-basic :realm "/")
-                   (workflows/interactive-form :login-uri "/login")]}]
-    (-> handler
-        (friend/authenticate friend-m))))
 
 (defn session-username [session]
   (-> session :cemerick.friend/identity :current))
@@ -124,7 +111,7 @@
     (-> identity-map
         :authentications
         (get (:current identity-map)))
-    {:projects #{} :programmes #{} :roles #{}}))
+    {:projects {} :programmes {}}))
 
 (defn not-registered? [username store]
   (db/with-session [session (:hecuba-session store)]
@@ -139,16 +126,16 @@
     (if (and (= password confirm_password)
              (every? identity [name email password confirm_password])
              (not-registered? email store))
-      (do (add-user! store name email password #{::user} #{} #{})
+      (do (add-user! store name email password #{::user})
           (assoc-in (redirect-after-post "/app")
                     [:session ::friend/identity]
                     {:current email
                      :authentications {email
                                        {:identity email
                                         :name name
-                                        :projects #{}
-                                        :programmes #{}
-                                        :roles #{::user}
+                                        :projects {}
+                                        :programmes {}
+                                        :role ::user
                                         :username email
                                         :id email}}}))
       (redirect-after-post "/registration-error"))))

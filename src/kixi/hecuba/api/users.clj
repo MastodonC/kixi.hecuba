@@ -7,14 +7,15 @@
             [kixi.hecuba.webutil :refer (decode-body authorized?) :as util]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.data.users :as users]
-            [kixi.hecuba.security :refer (has-admin?) :as sec]))
+            [kixi.hecuba.security :as sec]))
 
 (defn allowed? [ctx]
   (let [request (:request ctx)
         {:keys [request-method session]} request
-        {:keys [roles]} (sec/current-authentication session)]
-    (log/infof "roles: %s request-method: %s" roles request-method)
-    (has-admin? roles)))
+        {:keys [role]}  (sec/current-authentication session)]
+    (log/infof "roles: %s request-method: %s" role request-method)
+    (some #{role} #{:kixi.hecuba.security/super-admin :kixi.hecuba.security/admin
+                    :kixi.hecuba.security/programme-manager :kixi.hecuba.security/project-manager})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Index
@@ -58,8 +59,8 @@
   (let [request (:request ctx)
         auth (sec/current-authentication (:session request))]
     ;; If there's no auth return nothing.
-    (when (seq (:roles auth))
-      (util/render-item ctx (select-keys auth [:name :roles :identity]))) ))
+    (when-not (nil? (:role auth))
+      (util/render-item ctx (select-keys auth [:name :role :identity]))) ))
 
 (defresource index [store]
   :allowed-methods #{:get}
