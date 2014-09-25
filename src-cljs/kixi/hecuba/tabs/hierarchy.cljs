@@ -141,6 +141,7 @@
                  properties)
         (log "Setting property details to: " properties)
         (om/update! data [:properties :selected] properties)
+        (om/update! data [:properties :datasets :property-id] properties)
         (om/update! data [:properties :sensors :selected] #{})
         (om/update! data [:properties :sensors :alert] {})
         (om/update! data [:properties :chart :sensors] #{})
@@ -199,7 +200,9 @@
              (= event :projects)       (data/fetch-projects (-> @data :active-components :ids :programmes) data)
              (= event :properties)     (data/fetch-properties (-> @data :active-components :ids :projects) data)
              (= event :property)       (data/fetch-property (-> @data :active-components :ids :properties) data)
-             (= event :new-property)   (data/fetch-new-property id data)))
+             (= event :new-property)   (data/fetch-new-property id data)
+             (= event :datasets)       (data/fetch-datasets (-> @data :active-components :ids :properties)
+                                                            [:properties :datasets :datasets] data)))
           (recur))))
     om/IRender
     (render [_]

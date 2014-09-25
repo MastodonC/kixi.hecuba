@@ -2,25 +2,28 @@
   (:require
    [clojure.string :as string]
    [clojure.tools.logging :as log]
-   [qbits.hayt :as hayt]
-   [kixi.hecuba.queue :as q]
+   [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.webutil :as util]
    [kixi.hecuba.data.misc :as misc]
    [kixi.hecuba.webutil :refer (decode-body authorized? uuid)]
-   [kixi.hecuba.storage.db :as db]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.api.devices :as d]
-   [kixi.hecuba.web-paths :as p]))
+   [kixi.hecuba.web-paths :as p]
+   [cheshire.core :as json]
+   [kixi.hecuba.data.entities :as entities]
+   [kixi.hecuba.data.devices :as devices]
+   [kixi.hecuba.data.sensors :as sensors]
+   [kixi.hecuba.data.datasets :as datasets]
+   [kixi.hecuba.data.entities.search :as search]))
 
 (def ^:private entity-dataset-resource (p/resource-path-string :entity-dataset-resource))
 
 (defn all-datasets [store]
   (db/with-session [session (:hecuba-session store)]
-    (db/execute session
-                (hayt/select :datasets))))
+    (datasets/get-all session)))
 
 (defn sensors-for-dataset
   "Returns all the sensors for the given dataset."
@@ -28,10 +31,7 @@
   (db/with-session [session (:hecuba-session store)]
     (let [parsed-sensors (map (fn [s] (into [] (next (re-matches #"(\w+)-(\w+)" s)))) members)
           sensor (fn [[type device_id]]
-                   (db/execute session
-                               (hayt/select :sensors
-                                            (hayt/where [[= :type type]
-                                                         [= :device_id device_id]]))))]
+                   (sensors/get-by-id {:device_id device_id :type type} session))]
       (->> (mapcat sensor parsed-sensors)
            (map #(misc/merge-sensor-metadata store %))))))
 
@@ -73,59 +73,56 @@
 (defmethod create-output-sensors :subtract [store device_id unit type operation range]
   (db/with-session [session (:hecuba-session store)]
     (let [synthetic (synthetic-sensor operation type device_id unit)]
-      (db/execute session (hayt/insert :sensors (hayt/values synthetic)))
-      (db/execute session (hayt/insert :sensor_metadata (hayt/values (synthetic-sensor-metadata type device_id range))))
+      (datasets/insert-sensor synthetic (synthetic-sensor-metadata type device_id range) session)
 
       (when-let [default  (d/calculated-sensor synthetic)]
-        (db/execute session (hayt/insert :sensors (hayt/values default)))
-        (db/execute session (hayt/insert :sensor_metadata (hayt/values (synthetic-sensor-metadata (:type default) device_id))))))))
+        (datasets/insert-sensor default (synthetic-sensor-metadata (:type default) device_id) session)))))
 
 (defmethod create-output-sensors :divide [store device_id unit type operation range]
   (db/with-session [session (:hecuba-session store)]
     (let [synthetic (synthetic-sensor operation type device_id unit)]
-      (db/execute session (hayt/insert :sensors (hayt/values synthetic)))
-      (db/execute session (hayt/insert :sensor_metadata (hayt/values (synthetic-sensor-metadata type device_id range))))
+      (datasets/insert-sensor synthetic (synthetic-sensor-metadata type device_id range) session)
 
       (when-let [default  (d/calculated-sensor synthetic)]
-        (db/execute session (hayt/insert :sensors (hayt/values default)))
-        (db/execute session (hayt/insert :sensor_metadata (hayt/values (synthetic-sensor-metadata (:type default) device_id))))))))
+        (datasets/insert-sensor default (synthetic-sensor-metadata (:type default) device_id) session)))))
 
 (defmethod create-output-sensors :sum [store device_id unit type operation range]
   (db/with-session [session (:hecuba-session store)]
     (let [synthetic (synthetic-sensor operation type device_id unit)]
-      (db/execute session (hayt/insert :sensors (hayt/values synthetic)))
-      (db/execute session (hayt/insert :sensor_metadata (hayt/values (synthetic-sensor-metadata type device_id range))))
+      (datasets/insert-sensor synthetic (synthetic-sensor-metadata type device_id range) session)
 
       (when-let [default  (d/calculated-sensor synthetic)]
-        (db/execute session (hayt/insert :sensors (hayt/values default)))
-        (db/execute session (hayt/insert :sensor_metadata (hayt/values (synthetic-sensor-metadata (:type default) device_id))))))))
+        (datasets/insert-sensor default (synthetic-sensor-metadata (:type default) device_id) session)))))
 
 (defn index-malformed? [ctx]
   (let [request (:request ctx)
-        method  (:request-method request)]
+        method  (:request-method request)
+        {:keys [route-params request-method]} request
+        entity_id (:entity_id route-params)]
     (case method
       :post (let [body (decode-body request)
                   {:keys [operation]} body]
               (if (some #{operation} ["divide" "sum" "subtract"])
                 [false {:body body}]
                 true))
+      :get (if (seq entity_id) false true)
       false)))
 
 (defn index-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [request body]} ctx
-          method       (:request-method request)
-          {:keys [entity_id name operation members]} body
-          entity       (-> (db/execute session (hayt/select :entities (hayt/where [[= :id entity_id]]))) first)
-          op           (keyword (.toLowerCase operation))
-          members      (into #{} members)
-          sensors      (sensors-for-dataset body store)]
-      (case method
-        :post (when (and (not (nil? entity))
-                         (= (count members) (count sensors)))
-                {::items {:entity_id entity_id :sensors sensors :operation op :members members :name name}})
-        :get (let [items (db/execute session (hayt/select :datasets (hayt/where [[= :entity_id entity_id]
-                                                                                 [= :name name]])))]
+          {:keys [route-params request-method]} request
+          entity_id (:entity_id route-params)
+          entity    (entities/get-by-id session entity_id)]
+      (case request-method
+        :post (let [{:keys [name operation members]} body
+                    op           (keyword (.toLowerCase operation))
+                    members      (into #{} members)
+                    sensors      (sensors-for-dataset body store)]
+                (when (and (not (nil? entity))
+                           (= (count members) (count sensors)))
+                  {::items {:entity_id entity_id :sensors sensors :operation op :members members :name name}}))
+        :get (let [items (datasets/get-by-id entity_id session)]
                {::items items})))))
 
 (defn stringify [k] (name k))
@@ -138,36 +135,42 @@
                           :subtract (:unit (first sensors))
                           :divide  (str (:unit (first sensors)) "/" (:unit (last sensors))))
            device        (synthetic-device entity_id "Synthetic")
-           device_id     (sha1/gen-key :device device)
+           device_id     (sha1/gen-key :device (assoc device :description name))
            operation-str (stringify operation)
-           [start end]   (misc/range-for-all-sensors sensors)
-           range         {:start-date start :end-date end}]
-       (db/execute session (hayt/insert :devices (hayt/values (assoc device :id device_id))))
+           range         (when-let [[start end] (misc/range-for-all-sensors sensors)]
+                           {:start-date start :end-date end})]
+       (devices/insert session entity_id (assoc device :device_id device_id))
        (create-output-sensors store device_id unit name operation range)
-       (db/execute session (hayt/insert :datasets (hayt/values {:entity_id entity_id
-                                                                :name      name
-                                                                :members   members
-                                                                :operation operation-str
-                                                                :device_id device_id})))
+       (datasets/insert {:entity_id entity_id
+                         :name      name
+                         :members   members
+                         :operation operation-str
+                         :device_id device_id} session)
+       (-> (search/searchable-entity-by-id entity_id session)
+           (search/->elasticsearch (:search-session store)))
        (hash-map ::name name
                  ::entity_id entity_id))))
 
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [entity_id   (entity_id-from ctx)]
-      (util/render-items (:request ctx) (db/execute session (hayt/select :dataset (hayt/where [[= :entity_id entity_id]])))))))
+    (let [items (::items ctx)]
+      (util/render-items (:request ctx) items))))
 
 (defn index-handle-created [ctx]
   (let [entity_id   (::entity_id ctx)
         name        (::name ctx)]
     (if (and entity_id name)
       (let [location (format entity-dataset-resource entity_id name)]
-        (ring-response {:headers {"Location" location}}))
-      (ring-response {:status 400 :body "Provide valid entity_id, sensors and operation."}))))
+        (ring-response {:headers {"Location" location}
+                        :body (json/encode {:location location
+                                            :status "OK"
+                                            :version "4"})}))
+      (ring-response {:status 400 :body (json/encode "Provide valid entity_id, sensors and operation.")}))))
 
 (defresource index [store]
   :allowed-methods       #{:get :post}
-  :available-media-types #{"application/edn" "text/html"}
+  :available-media-types #{"application/edn" "application/json"}
+  :known-content-type?   #{"application/edn" "application/json"}
   :authorized?           (authorized? store)
   :malformed?            index-malformed?
   :exists?               (partial index-exists? store)
@@ -183,8 +186,7 @@
           {:keys [entity_id name]} route-params]
       (log/infof "resource-exists? :%s:%s" entity_id name)
 
-      (when-let [item (first (db/execute session (hayt/select :datasets (hayt/where [[= :entity_id entity_id]
-                                                                                     [= :name name]]))))]
+      (when-let [item (datasets/get-by-id name entity_id session)]
         {::item item}
         #_(throw (ex-info (format "Cannot find item of id %s")))))))
 
@@ -192,12 +194,12 @@
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
           {:keys [members name operation]} (decode-body request)
-          converted-type              (misc/output-type-for operation)]
+          converted-type (misc/output-type-for operation)]
 
-      (db/execute session (hayt/insert :datasets (hayt/values {:entity_id (entity_id-from ctx)
-                                                               :name      (name-from ctx)
-                                                               :members   members
-                                                               :operation operation}))))))
+      (datasets/insert {:entity_id (entity_id-from ctx)
+                        :name      (name-from ctx)
+                        :members   members
+                        :operation operation} session))))
 
 (defn resource-handle-ok [ctx]
   (let [item (::item ctx)]
@@ -205,7 +207,8 @@
 
 (defresource resource [store]
   :allowed-methods       #{:get :post}
-  :available-media-types #{"application/edn" "text/html"}
+  :available-media-types #{"application/edn" "application/json"}
+  :known-content-type?   #{"application/edn" "application/json"}
   :authorized?           (authorized? store :datasets)
   :exists?               (partial resource-exists? store)
   :post!                 (partial resource-post! store)

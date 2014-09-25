@@ -260,3 +260,12 @@
                 :headers {"Accept" "application/json"}
                 :response-format :json
                 :keywords? true}))))
+
+(defn fetch-datasets [property-id path data]
+  (log "Fetching datasets for property: " property-id)
+  (GET (str "/4/entities/" property-id "/datasets/")
+       {:handler (fn [response]
+                   (om/update! data path (into [] response)))
+        :headers {"Accept" "application/edn"}
+        :response-format :edn
+        :keywords? true}))

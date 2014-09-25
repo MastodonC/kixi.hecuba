@@ -10,6 +10,7 @@
             [kixi.hecuba.tabs.slugs :as slugs]
             [kixi.hecuba.tabs.hierarchy.sensors :as sensors]
             [kixi.hecuba.tabs.hierarchy.devices :as devices]
+            [kixi.hecuba.tabs.hierarchy.datasets :as datasets]
             [kixi.hecuba.tabs.hierarchy.raw-data :as raw]
             [kixi.hecuba.tabs.hierarchy.profiles :as profiles]
             [kixi.hecuba.tabs.hierarchy.status :as status]
@@ -283,6 +284,12 @@
                [:li {:class (if (= active-tab :devices) "active" nil)}
                 [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :devices))}
                  "Devices"]]
+               [:li {:class (if (= active-tab :datasets) "active" nil)}
+                [:a {:onClick (fn [_ _]
+                                (om/update! properties [:datasets :sensors] (data/fetch-sensors property-id @properties))
+                                (data/fetch-datasets property-id [:datasets :datasets] properties)
+                                (om/set-state! owner :active-tab :datasets))}
+                 "Datasets"]]
                [:li {:class (if (= active-tab :sensors) "active" nil)}
                 [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :sensors))}
                  "Sensor Charts"]]
@@ -299,6 +306,9 @@
               ;; Devices
               (when (= active-tab :devices)
                 [:div.col-md-12 (om/build devices/devices-div properties)])
+              ;; Datasets
+              (when (= active-tab :datasets)
+                [:div.col-md-12 (om/build datasets/datasets-div (:datasets properties))])
               ;; Sensors
               (when (= active-tab :sensors)
                 [:div.col-md-12 (om/build sensors/sensors-div {:property-details property-details

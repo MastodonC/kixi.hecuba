@@ -108,11 +108,12 @@
   "Takes a sequence of sensors and returns min and max dates from their lower_ts and upper_ts"
   [sensors]
   (assert (not (empty? sensors)) "Sensors passed to range-for-all-sensors are empty.")
-  (let [all-starts (map #(tc/from-date (:lower_ts %)) sensors)
-        all-ends   (map #(tc/from-date (:upper_ts %)) sensors)
-        min-date   (tc/to-date-time (apply min (map tc/to-long all-starts)))
-        max-date   (tc/to-date-time (apply max (map tc/to-long all-ends)))]
-    [min-date max-date]))
+  (when (every? #(not (nil? %)) (map :lower_ts sensors))
+    (let [all-starts (map #(tc/from-date (:lower_ts %)) sensors)
+          all-ends   (map #(tc/from-date (:upper_ts %)) sensors)
+          min-date   (tc/to-date-time (apply min (map tc/to-long all-starts)))
+          max-date   (tc/to-date-time (apply max (map tc/to-long all-ends)))]
+      [min-date max-date])))
 
 (defn dates-overlap?
   "Takes a start/end range from sensor_metadata \"dirty dates\" and a period,
