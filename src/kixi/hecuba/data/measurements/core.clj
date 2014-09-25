@@ -9,6 +9,7 @@
                        :customer_ref
                        :description
                        :location
+                       :unit
                        :accuracy
                        :resolution
                        :frequency
@@ -27,6 +28,7 @@
                        "Customer Ref"
                        "Description"
                        "Location"
+                       "Unit"
                        "Accuracy (percent)"
                        "Sample Interval (seconds)"
                        "Frequency"
@@ -47,7 +49,7 @@
     (try
       (spit status-file (json/generate-string (select-keys item [:status :data])))
       (s3/store-file (:s3 store) (-> item
-                                     (assoc 
+                                     (assoc
                                          :dir (.getParent status-file)
                                          :filename (.getName status-file)
                                          :suffix "status"

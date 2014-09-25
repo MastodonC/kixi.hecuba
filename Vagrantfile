@@ -23,7 +23,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
     # Use VBoxManage to customize the VM.
     # See http://www.virtualbox.org/manual/ch08.html#idp56624480
-    vb.customize ["modifyvm", :id, "--memory", "1024"]
+    vb.customize ["modifyvm", :id, "--memory", "2048"]
     vb.customize ["modifyvm", :id, "--cpus", "2"]
     config.vm.network "private_network", ip: "192.168.50.4", virtualbox__intnet: "kixi"
     override.vm.network :forwarded_port, guest: 9092, host: 9092 #Kafka

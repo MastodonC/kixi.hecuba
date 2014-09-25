@@ -57,7 +57,7 @@
                                           goog.string/urlDecode
                                           match-token)]
      (hash-map
-      :ids    (ids->map (str/split ids #","))
+      :ids    (ids->map (str/split (goog.string/urlDecode ids) #","))
       :search (str/split search-terms #"@@@"))))
 
 (defn- historian->token [{:keys [ids search]}]
@@ -107,7 +107,7 @@
 (defn update-token-ids! [history k v & keep-all?]
   (let [{:keys [ids] :as tmap} (token-as-map history)
         keep-keys              (if keep-all? key-order (take-while #(not (keyword-identical? % k)) key-order))
-        new-ids                (assoc (select-keys ids keep-keys) k v)]
+        new-ids                (assoc (select-keys ids keep-keys) k (goog.string/urlEncode v))]
     (set-token! history (assoc tmap :ids new-ids) historian->token)))
 
 (defn set-token-search! [history xs]
