@@ -83,7 +83,7 @@
                            (hayt/where [[:in :device_id device_ids]]))))
 
 (defn get-by-id
-  ([session device_id type]
+  ([{:keys [device_id type]} session]
      (db/execute session
                  (hayt/select :sensors
                               (hayt/where [[= :type type]
