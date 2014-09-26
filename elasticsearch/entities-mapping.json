@@ -1,5 +1,8 @@
 {
     "entity" : {
+        "date_detection" : false,
+        "numeric_detection" : true,
+        "dynamic" : false,
         "properties" : {
             "address" : {
                 "type" : "string"
