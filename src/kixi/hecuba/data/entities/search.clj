@@ -81,7 +81,7 @@
 
 (defn entity-devices [entity db-session]
   (let [devices (devices/get-devices db-session (:entity_id entity))]
-    (assoc-in entity [:full_entity :devices] devices)))
+    (assoc-in entity [:full_entity :devices] (into [] devices))))
 
 (defn searchable-entity [entity db-session]
   (-> entity
