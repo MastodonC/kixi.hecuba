@@ -234,18 +234,26 @@
       (let [{:keys [sensor range]} item]
         (when (and (= (:actual_annual sensor) true)
                    (not= (:period sensor) "CUMULATIVE"))
-          (when-let [new-range (misc/dates-overlap? range (t/months 12))]
+          (log/info "Calculating actual annual for sensor: " (:device_id sensor) (:type sensor))
+          (when-let [new-range (misc/calculate-range range (t/months 12))]
+            (log/info "Calculating actual annual value for last 12 months for sensor: " (:device_id sensor) (:type sensor))
             (fields/calculate store sensor :actual-annual
                               "actual_annual_12months"
                               new-range))
-          (when-let [new-range (misc/dates-overlap? range (t/months 1))]
+          (when-let [new-range (misc/calculate-range range (t/months 1))]
+            (log/info "Calculating actual annual value for last 1 month for sensor: " (:device_id sensor) (:type sensor))
             (fields/calculate store sensor :actual-annual
                               "actual_annual_1month"
                               new-range))
 
           (misc/reset-date-range store sensor :actual_annual_calculation
                                  (:start-date range)
-                                 (:end-date range)))))
+                                 (:end-date range))
+          (db/with-session [session (:hecuba-session store)]
+              (let [{:keys [device_id]} sensor
+                    {:keys [entity_id]} (devices/get-by-id session device_id)]
+                (-> (search/searchable-entity-by-id entity_id session)
+                    (search/->elasticsearch (:search-session store))))))))
 
     (defnconsumer actual-annual-q [item]
       (log/info "Starting calculation of actual annual use.")
