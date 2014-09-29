@@ -73,7 +73,7 @@
      [:p {:class "form-control-static col-md-10"} (slugs/postal-address-html property_data)]]))
 
 (defn parse-label [label]
-  (zipmap [:device_id :type :name] (clojure.string/split (name label) #":")))
+  (zipmap [:name :device_id :type] (clojure.string/split (name label) #":")))
 
 (defn extract-calcs [property_details]
   (into [] (map (fn [[k v]] (merge (parse-label k)
