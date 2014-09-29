@@ -72,12 +72,15 @@
      [:label.control-label.col-md-2 {:for "address"} "Address"]
      [:p {:class "form-control-static col-md-10"} (slugs/postal-address-html property_data)]]))
 
-(defn parse-label [label] (zipmap [:device_id :type :name] (clojure.string/split label #":")))
+(defn parse-label [label]
+  (zipmap [:device_id :type :name] (clojure.string/split (name label) #":")))
 
 (defn extract-calcs [property_details]
   (into [] (map (fn [[k v]] (merge (parse-label k)
                                    {:label (get (:calculated_fields_labels property_details) k "No Label")
-                                    :last-calc (get (:calculated_fields_last_calc property_details) k "No date")
+                                    :last-calc (if-let [timestamp (get (:calculated_fields_last_calc property_details) k)]
+                                                 (common/unparse-date timestamp "yyyy-MM-dd")
+                                                 "No date.")
                                     :value v}))
                 (:calculated_fields_values property_details))))
 

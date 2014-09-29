@@ -115,14 +115,12 @@
           max-date   (tc/to-date-time (apply max (map tc/to-long all-ends)))]
       [min-date max-date])))
 
-(defn dates-overlap?
+(defn calculate-range
   "Takes a start/end range from sensor_metadata \"dirty dates\" and a period,
-  and returns range to calculate if it overlaps. Otherwise it returns nil."
+  and returns range (number of months from end-date) to calculate."
   [{:keys [start-date end-date]} period]
-  (let [end   (t/now)
-        start (t/minus end period)]
-    (when (t/overlaps? (t/interval start end) (t/interval start-date end-date))
-      {:start-date start :end-date end})))
+  (let [start (t/minus end-date period)]
+    {:start-date start :end-date end-date}))
 
 ;;;;; Parsing of measurements ;;;;;
 
