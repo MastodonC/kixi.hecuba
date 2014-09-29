@@ -86,6 +86,12 @@
                              (om/set-state! owner :editing false)
                              (om/set-state! owner :adding false)))} "Save"]]))
 
+(defn should-show? [owner profiles keys]
+  (or
+   (om/get-state owner :editing)
+   (om/get-state owner :adding)
+   (some (fn [profile] (some #(seq (str (val %))) (select-keys profile keys))) profiles)))
+
 (defn description-row [property_details]
   (fn [profiles owner]
     (reify
@@ -93,12 +99,17 @@
       (render-state [_ state]
         (html
          [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [keys [:profile_data]]
-               (bs/panel
-                (panel-heading property_details owner profile "Description" {:add-btn false :edit-btn true} keys)
-                (pf/description owner profile keys)))])])))))
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:intervention_start_date
+                                        :intervention_completion_date
+                                        :intervention_description])]
+            (for [profile profiles]
+              [:div {:class (profile-column-width)}
+               (let [keys [:profile_data]]
+                 (bs/panel
+                  (panel-heading property_details owner profile "Description" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                      (pf/description owner profile keys))))]))])))))
 
 (defn occupancy-row [property_details]
   (fn [profiles owner]
@@ -107,12 +118,19 @@
       (render-state [_ state]
         (html
          [:div.col-md-12
-          (for [profile profiles]
-            (let [keys [:profile_data]]
-              [:div {:class (profile-column-width)}
-               (bs/panel
-                (panel-heading property_details owner profile "Occupancy" {:add-btn false :edit-btn true} keys)
-                (pf/occupancy owner profile keys))]))])))))
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:occupancy_total
+                                        :occupancy_under_18
+                                        :occupancy_18_to_60
+                                        :occupancy_over_60
+                                        :occupant_change])]
+            (for [profile profiles]
+              (let [keys [:profile_data]]
+                [:div {:class (profile-column-width)}
+                 (bs/panel
+                  (panel-heading property_details owner profile "Occupancy" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                      (pf/occupancy owner profile keys)))])))])))))
 
 (defn measurements-row [property_details]
   (fn [profiles owner]
@@ -121,12 +139,19 @@
       (render-state [_ state]
         (html
          [:div.col-md-12
-          (for [profile profiles]
-            (let [keys [:profile_data]]
-              [:div {:class (profile-column-width)}
-               (bs/panel
-                (panel-heading property_details owner profile "Measurements" {:add-btn false :edit-btn true} keys)
-                (pf/measurements owner profile keys))]))])))))
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:footprint :external_perimeter
+                                        :gross_internal_area :number_of_storeys
+                                        :total_volume :total_rooms
+                                        :bedroom_count :habitable_rooms
+                                        :inadequate_heating :heated_habitable_rooms])]
+            (for [profile profiles]
+              (let [keys [:profile_data]]
+                [:div {:class (profile-column-width)}
+                 (bs/panel
+                  (panel-heading property_details owner profile "Measurements" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                    (pf/measurements owner profile keys)))])))])))))
 
 (defn energy-row [property_details]
   (fn [profiles owner]
@@ -135,12 +160,22 @@
       (render-state [_ state]
         (html
          [:div.col-md-12
-          (for [profile profiles]
-            (let [keys [:profile_data]]
-              [:div {:class (profile-column-width)}
-               (bs/panel
-                (panel-heading property_details owner profile "Energy" {:add-btn false :edit-btn true} keys)
-                (pf/energy owner profile keys))]))])))))
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:ber :ter :primary_energy_requirement
+                                        :space_heating_requirement
+                                        :annual_space_heating_requirement
+                                        :renewable_contribution_heat
+                                        :renewable_contribution_elec
+                                        :electricity_meter_type :mains_gas
+                                        :electricity_storage_present
+                                        :heat_storage_present])]
+            (for [profile profiles]
+              (let [keys [:profile_data]]
+                [:div {:class (profile-column-width)}
+                 (bs/panel
+                  (panel-heading property_details owner profile "Energy" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                    (pf/energy owner profile keys)))])))])))))
 
 (defn passivhaus-row [property_details]
   (fn [profiles owner]
@@ -149,12 +184,16 @@
       (render-state [_ state]
         (html
          [:div.col-md-12
-          (for [profile profiles]
-            (let [keys [:profile_data]]
-              [:div {:class (profile-column-width)}
-               (bs/panel
-                (panel-heading property_details owner profile "PassivHaus" {:add-btn false :edit-btn true} keys)
-               (pf/passivhaus owner profile keys))]))])))))
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:passive_solar_strategy
+                                        :used_passivehaus_principles])]
+            (for [profile profiles]
+              (let [keys [:profile_data]]
+                [:div {:class (profile-column-width)}
+                 (bs/panel
+                  (panel-heading property_details owner profile "PassivHaus" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                    (pf/passivhaus owner profile keys)))])))])))))
 
 (defn efficiency-row [property_details]
   (fn [profiles owner]
@@ -163,12 +202,16 @@
       (render-state [_ state]
         (html
          [:div.col-md-12
-          (for [profile profiles]
-            (let [keys [:profile_data]]
-              [:div {:class (profile-column-width)}
-               (bs/panel
-                (panel-heading property_details owner profile "Efficiency" {:add-btn false :edit-btn true} keys)
-                (pf/efficiency owner profile keys))]))])))))
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:pipe_lagging :draught_proofing
+                                        :draught_proofing_location])]
+            (for [profile profiles]
+              (let [keys [:profile_data]]
+                [:div {:class (profile-column-width)}
+                 (bs/panel
+                  (panel-heading property_details owner profile "Efficiency" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                    (pf/efficiency owner profile keys)))])))])))))
 
 (defn flats-row [property_details]
   (fn [profiles owner]
@@ -177,12 +220,19 @@
       (render-state [_ state]
         (html
          [:div.col-md-12
-          (for [profile profiles]
-            (let [keys [:profile_data]]
-              [:div {:class (profile-column-width)}
-               (bs/panel
-                (panel-heading property_details owner profile "Flats" {:add-btn false :edit-btn true} keys)
-                (pf/flats owner profile keys))]))])))))
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:flat_floors_in_block
+                                        :flat_floor_position :flat_heat_loss_corridor
+                                        :flat_heat_loss_corridor_other
+                                        :flat_length_sheltered_wall
+                                        :flat_floor_heat_loss_type])]
+            (for [profile profiles]
+              (let [keys [:profile_data]]
+                [:div {:class (profile-column-width)}
+                 (bs/panel
+                  (panel-heading property_details owner profile "Flats" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                    (pf/flats owner profile keys)))])))])))))
 
 (defn fireplaces-row [property_details]
   (fn [profiles owner]
@@ -191,12 +241,15 @@
       (render-state [_ state]
         (html
          [:div.col-md-12
-          (for [profile profiles]
-            (let [keys [:profile_data]]
-              [:div {:class (profile-column-width)}
-               (bs/panel
-                (panel-heading property_details owner profile "Fireplaces" {:add-btn false :edit-btn true} keys)
-               (pf/fireplaces owner profile keys))]))])))))
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:open_fireplaces :sealed_fireplaces])]
+            (for [profile profiles]
+              (let [keys [:profile_data]]
+                [:div {:class (profile-column-width)}
+                 (bs/panel
+                  (panel-heading property_details owner profile "Fireplaces" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                    (pf/fireplaces owner profile keys)))])))])))))
 
 (defn glazing-row [property_details]
   (fn [profiles owner]
@@ -205,12 +258,21 @@
       (render-state [_ state]
         (html
          [:div.col-md-12
-          (for [profile profiles]
-            (let [keys [:profile_data]]
-              [:div {:class (profile-column-width)}
-               (bs/panel
-                (panel-heading property_details owner profile "Glazing" {:add-btn false :edit-btn true} keys)
-                (pf/glazing owner profile keys))]))])))))
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:glazing_area_glass_only
+                                        :glazing_area_percentage
+                                        :multiple_glazing_type
+                                        :multiple_glazing_area_percentage
+                                        :multiple_glazing_u_value
+                                        :multiple_glazing_type_other
+                                        :frame_type :frame_type_other])]
+            (for [profile profiles]
+              (let [keys [:profile_data]]
+                [:div {:class (profile-column-width)}
+                 (bs/panel
+                  (panel-heading property_details owner profile "Glazing" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                    (pf/glazing owner profile keys)))])))])))))
 
 (defn issues-row [property_details]
   (fn [profiles owner]
@@ -219,12 +281,17 @@
       (render-state [_ state]
         (html
          [:div.col-md-12
-          (for [profile profiles]
-            (let [keys [:profile_data]]
-              [:div {:class (profile-column-width)}
-               (bs/panel
-                (panel-heading property_details owner profile "Issues" {:add-btn false :edit-btn true} keys)
-                (pf/issues owner profile keys))]))])))))
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:moisture_condensation_mould_strategy
+                                        :appliances_strategy
+                                        :cellar_basement_issues])]
+            (for [profile profiles]
+              (let [keys [:profile_data]]
+                [:div {:class (profile-column-width)}
+                 (bs/panel
+                  (panel-heading property_details owner profile "Issues" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                    (pf/issues owner profile keys)))])))])))))
 
 (defn lessons-learnt-row [property_details]
   (fn [profiles owner]
@@ -233,12 +300,21 @@
       (render-state [_ state]
         (html
          [:div.col-md-12
-          (for [profile profiles]
-            (let [keys [:profile_data]]
-              [:div {:class (profile-column-width)}
-               (bs/panel
-                (panel-heading property_details owner profile "Lesson Learnt" {:add-btn false :edit-btn true} keys)
-                (pf/lessons-learnt owner profile keys))]))])))))
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:thermal_bridging_strategy
+                                        :airtightness_and_ventilation_strategy
+                                        :overheating_cooling_strategy
+                                        :controls_strategy
+                                        :lighting_strategy
+                                        :water_saving_strategy
+                                        :innovation_approaches])]
+            (for [profile profiles]
+              (let [keys [:profile_data]]
+                [:div {:class (profile-column-width)}
+                 (bs/panel
+                  (panel-heading property_details owner profile "Lesson Learnt" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                    (pf/lessons-learnt owner profile keys)))])))])))))
 
 (defn project-details-row [property_details]
   (fn [profiles owner]
@@ -247,12 +323,21 @@
       (render-state [_ state]
         (html
          [:div.col-md-12
-          (for [profile profiles]
-            (let [keys [:profile_data]]
-              [:div {:class (profile-column-width)}
-               (bs/panel
-                (panel-heading property_details owner profile "Project Details" {:add-btn false :edit-btn true} keys)
-                (pf/project-details owner profile keys))]))])))))
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:total_budget_new_build
+                                        :estimated_cost_new_build
+                                        :final_cost_new_build
+                                        :construction_time_new_build
+                                        :design_guidance
+                                        :planning_considerations
+                                        :total_budget])]
+            (for [profile profiles]
+              (let [keys [:profile_data]]
+                [:div {:class (profile-column-width)}
+                 (bs/panel
+                  (panel-heading property_details owner profile "Project Details" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                    (pf/project-details owner profile keys)))])))])))))
 
 (defn coheating-test-row [property_details]
   (fn [profiles owner]
@@ -261,12 +346,18 @@
       (render-state [_ state]
         (html
          [:div.col-md-12
-          (for [profile profiles]
-            (let [keys [:profile_data]]
-              [:div {:class (profile-column-width)}
-               (bs/panel
-                (panel-heading property_details owner profile "Coheating Test" {:add-btn false :edit-btn true} keys)
-                (pf/coheating-test owner profile keys))]))])))))
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:co_heating_loss
+                                        :co_heating_performed_on
+                                        :co_heating_assessor
+                                        :co_heating_equipment])]
+            (for [profile profiles]
+              (let [keys [:profile_data]]
+                [:div {:class (profile-column-width)}
+                 (bs/panel
+                  (panel-heading property_details owner profile "Coheating Test" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                    (pf/coheating-test owner profile keys)))])))])))))
 
 (defn dwelling-u-values-summary-row [property_details]
   (fn [profiles owner]
@@ -275,12 +366,22 @@
       (render-state [_ state]
         (html
          [:div.col-md-12
-          (for [profile profiles]
-            (let [keys [:profile_data]]
-              [:div {:class (profile-column-width)}
-               (bs/panel
-                (panel-heading property_details owner profile "Dwelling U-values Summary" {:add-btn false :edit-btn true} keys)
-                (pf/dwelling-u-values-summary owner profile keys))]))])))))
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:best_u_value_for_doors
+                                        :best_u_value_for_floors
+                                        :best_u_value_for_other
+                                        :best_u_value_for_roof
+                                        :best_u_value_for_walls
+                                        :best_u_value_for_windows
+                                        :best_u_value_party_walls
+                                        :dwelling_u_value_other])]
+            (for [profile profiles]
+              (let [keys [:profile_data]]
+                [:div {:class (profile-column-width)}
+                 (bs/panel
+                  (panel-heading property_details owner profile "Dwelling U-values Summary" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                    (pf/dwelling-u-values-summary owner profile keys)))])))])))))
 
 (defn air-tightness-test-row [property_details]
   (fn [profiles owner]
@@ -289,12 +390,18 @@
       (render-state [_ state]
         (html
          [:div.col-md-12
-          (for [profile profiles]
-            (let [keys [:profile_data]]
-              [:div {:class (profile-column-width)}
-               (bs/panel
-                (panel-heading property_details owner profile "Air Tightness Test" {:add-btn false :edit-btn true} keys)
-                (pf/air-tightness-test owner profile keys))]))])))))
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:air_tightness_assessor
+                                        :air_tightness_equipment
+                                        :air_tightness_performed_on
+                                        :air_tightness_rate])]
+            (for [profile profiles]
+              (let [keys [:profile_data]]
+                [:div {:class (profile-column-width)}
+                 (bs/panel
+                  (panel-heading property_details owner profile "Air Tightness Test" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                    (pf/air-tightness-test owner profile keys)))])))])))))
 
 (defn bus-survey-information-row [property_details]
   (fn [profiles owner]
@@ -303,12 +410,28 @@
       (render-state [_ state]
         (html
          [:div.col-md-12
-          (for [profile profiles]
-            (let [keys [:profile_data]]
-              [:div {:class (profile-column-width)}
-               (bs/panel
-                (panel-heading property_details owner profile "BUS Survey Information" {:add-btn false :edit-btn true} keys)
-                (pf/bus-survey-information owner profile keys))]))])))))
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:profile_temperature_in_summer
+                                        :profile_temperature_in_winter
+                                        :profile_air_in_summer
+                                        :profile_air_in_winter
+                                        :profile_lightning
+                                        :profile_noise
+                                        :profile_comfort
+                                        :profile_design
+                                        :profile_needs
+                                        :profile_health
+                                        :profile_image_to_visitors
+                                        :profile_productivity
+                                        :profile_bus_summary_index
+                                        :profile_bus_report_url])]
+            (for [profile profiles]
+              (let [keys [:profile_data]]
+                [:div {:class (profile-column-width)}
+                 (bs/panel
+                  (panel-heading property_details owner profile "BUS Survey Information" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                    (pf/bus-survey-information owner profile keys)))])))])))))
 
 (defn sap-results-row [property_details]
   (fn [profiles owner]
@@ -317,12 +440,21 @@
       (render-state [_ state]
         (html
          [:div.col-md-12
-          (for [profile profiles]
-            (let [keys [:profile_data]]
-              [:div {:class (profile-column-width)}
-               (bs/panel
-                (panel-heading property_details owner profile "SAP Results" {:add-btn false :edit-btn true} keys)
-                (pf/sap-results owner profile keys))]))])))))
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:sap_rating
+                                        :sap_performed_on
+                                        :sap_assessor
+                                        :sap_version_issue
+                                        :sap_version_year
+                                        :sap_regulations_date
+                                        :sap_software])]
+            (for [profile profiles]
+              (let [keys [:profile_data]]
+                [:div {:class (profile-column-width)}
+                 (bs/panel
+                  (panel-heading property_details owner profile "SAP Results" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                    (pf/sap-results owner profile keys)))])))])))))
 
 ;; Fields containing lists
 
@@ -346,10 +478,11 @@
                     (let [profile (assoc profile :conservatories (vec conservatories))]
                       :div
                       (for [c conservatories]
-                        (let [keys [:conservatories (.indexOf (to-array conservatories) c)]]
-                          (bs/panel
-                           (panel-heading property_details owner profile "Conservatory" {:add-btn false :edit-btn true} keys)
-                           (pf/conservatory owner profile keys)))))
+                        (when (seq c)
+                          (let [keys [:conservatories (.indexOf (to-array conservatories) c)]]
+                            (bs/panel
+                             (panel-heading property_details owner profile "Conservatory" {:add-btn false :edit-btn true} keys)
+                             (pf/conservatory owner profile keys))))))
                     [:p "No conservatories."]))))])])))))
 
 (defn extensions-row [property_details]
@@ -372,10 +505,11 @@
                     (let [profile (assoc profile :extensions (vec extensions))]
                       [:div
                        (for [item extensions]
-                         (let [keys [:extensions (.indexOf (to-array extensions) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Extension" {:add-btn false :edit-btn true} keys)
-                            (pf/extension owner profile keys))))])
+                         (when (seq item)
+                           (let [keys [:extensions (.indexOf (to-array extensions) item)]]
+                             (bs/panel
+                              (panel-heading property_details owner profile "Extension" {:add-btn false :edit-btn true} keys)
+                              (pf/extension owner profile keys)))))])
                     [:p "No extensions."]))))])])))))
 
 (defn heating-systems-row [property_details]
