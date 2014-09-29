@@ -29,7 +29,7 @@
             {:keys [entity_id name]} (first (db/execute session (hayt/select :devices (hayt/where [[= :id device_id]]))))
             value                    (calculate-field store device_id type period filtered operation)
             timestamp                (tc/to-date (t/now))
-            field                    (str device_id ":" type ":" calculation-name)]
+            field                    (str calculation-name ":" device_id ":" type)]
 
         (db/execute session (hayt/update :entities
                                          (hayt/set-columns {:calculated_fields_values [+ {field (str value)}]
