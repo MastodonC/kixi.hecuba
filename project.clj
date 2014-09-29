@@ -30,7 +30,7 @@
                  ;; tools.trace for liberator
                  [org.clojure/tools.trace "0.7.8"]
 
-                 [org.clojure/clojurescript "0.0-2322"]
+                 [org.clojure/clojurescript "0.0-2356"]
                  [org.clojure/core.async "0.1.267.0-0d7780-alpha" :scope "provided"]
 
                  [compojure "1.1.8"]
