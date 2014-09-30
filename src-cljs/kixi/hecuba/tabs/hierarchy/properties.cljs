@@ -168,16 +168,14 @@
         (html
          [:div.row#properties-div
           [:div {:class (str "col-md-12 " (if project_id "" "hidden"))}
-           [:h2 "Properties"]
-           (when (and (not adding-property)
-                      can-add-properties)
-             [:div.form-group
-              [:div.btn-toolbar
-               [:button {:type "button"
-                         :class "btn btn-primary"
-                         :onClick (fn [_]
-                                    (om/update! properties :adding-property true))}
-                "Add new"]]])
+           [:h1 "Properties"
+            (when (and (not adding-property)
+                       can-add-properties)
+              [:button.btn.btn-primary.pull-right.fa.fa-plus
+               {:type "button"
+                :title "Add new"
+                :onClick (fn [_]
+                           (om/update! properties :adding-property true))}])]
            [:div {:id "property-add-div" :class (if adding-property "" "hidden")}
             (om/build (property-add-form properties refresh-chan project_id) nil)]
            [:div {:id "property-div" :class (if adding-property "hidden" "")}

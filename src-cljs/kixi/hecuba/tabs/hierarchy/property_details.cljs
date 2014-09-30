@@ -113,24 +113,29 @@
                     editable]} property-details]
         (html
          [:div
-          [:h3 "Overview"]
+
           [:form.form-horizontal {:role "form"}
+           [:h3 "Overview"
+             (when editable
+               [:div.form-group.pull-right
+                [:div.btn-toolbar
+                 [:button.btn.btn-default.fa.fa-pencil-square-o
+                  {:type "button"
+                   :title "Edit"
+                   :class (str "btn btn-primary " (if (om/get-state owner :editing) "hidden" ""))
+                   :onClick (fn [_ _] (om/set-state! owner {:editing true}))}]
+                 [:button.btn.btn-default {:type "button"
+                                           :class (str "btn btn-success " (if (om/get-state owner :editing) "" "hidden"))
+                                           :onClick (fn [_ _] (save-form refresh-chan property-details
+                                                                         owner selected-property-id project_id))} "Save"]
+                 [:button.btn.btn-default {:type "button"
+                                           :class (str "btn btn-danger " (if (om/get-state owner :editing) "" "hidden"))
+                                           :onClick (fn [_ _] (om/set-state! owner {:editing false}))} "Cancel"]
+                 [:a {:class "btn btn-primary fa fa-download"
+                      :title "Download"
+                      :role "button"
+                      :href (str "/4/entities/" selected-property-id "?type=csv")}]]])]
            [:div.col-md-6
-            (when editable
-              [:div.form-group
-               [:div.btn-toolbar
-                [:button.btn.btn-default {:type "button"
-                                          :class (str "btn btn-primary " (if (om/get-state owner :editing) "hidden" ""))
-                                          :onClick (fn [_ _] (om/set-state! owner {:editing true}))} "Edit"]
-                [:button.btn.btn-default {:type "button"
-                                          :class (str "btn btn-success " (if (om/get-state owner :editing) "" "hidden"))
-                                          :onClick (fn [_ _] (save-form refresh-chan property-details
-                                                                        owner selected-property-id project_id))} "Save"]
-                [:button.btn.btn-default {:type "button"
-                                          :class (str "btn btn-danger " (if (om/get-state owner :editing) "" "hidden"))
-                                          :onClick (fn [_ _] (om/set-state! owner {:editing false}))} "Cancel"]
-                [:a {:class "btn btn-primary" :role "button"
-                     :href (str "/4/entities/" selected-property-id "?type=csv")} "Download"]]])
             (bs/static-text property-details :property_code "Property Code")
             (address-control property_data owner state)
             (text-control property_data state owner :property_type "Property Type")

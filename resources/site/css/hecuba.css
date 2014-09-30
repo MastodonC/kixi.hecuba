@@ -150,3 +150,7 @@ td.number {
     margin: 7.5px 7.5px;
     padding-top: 7.5px;
 }
+
+div.last {
+    min-height: 1000px;
+}

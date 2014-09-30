@@ -163,6 +163,11 @@
    [:label.control-label.col-md-2 {:for (name key)} label]
    [:p {:class "form-control-static col-md-10"} (get data key "")]])
 
+(defn static-text-vertical [data key label]
+  [:div.form-group
+   [:label.control-label {:for (name key)} label]
+   [:p {:class "form-control-static"} (get data key "")]])
+
 (defn checkbox [data owner table key label]
   [:div.form-group
    [:label.control-label.col-md-2 {:for (str key)} label]

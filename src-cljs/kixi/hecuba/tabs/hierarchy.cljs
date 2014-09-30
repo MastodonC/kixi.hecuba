@@ -211,4 +211,5 @@
         (om/build programmes/programmes-div (:programmes data))
         (om/build projects/projects-div (:projects data))
         (om/build properties/properties-div (:properties data))
-        (om/build property-details/property-details-div (:properties data))]))))
+        [:div.col-md-12.last
+         (om/build property-details/property-details-div (:properties data))]]))))
