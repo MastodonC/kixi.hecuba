@@ -13,7 +13,8 @@
 (defn- postal-address-filter [property_data]
   (filter #(when %
              (re-seq #"[A-Za-z0-9]" %))
-          [(:address_street_two property_data)
+          [(:address_street property_data)
+           (:address_street_two property_data)
            (:address_city property_data)
            (:address_code property_data)
            (:address_country property_data)]))
