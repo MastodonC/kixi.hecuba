@@ -103,8 +103,9 @@
 ;; This should allow for a whole project of entities and profiles to
 ;; be uploaded at once
 (defn entity? [m]
-  (or (nil? (:profile_data_event_type m))
-      (= (.toLowerCase (:profile_data_event_type m)) "create")))
+  (and (seq (vals m)) ;; must have data
+       (or (nil? (:profile_data_event_type m))
+           (= (.toLowerCase (:profile_data_event_type m)) "create"))))
 
 (defn profile? [m]
   (let [event_type (get-in m [:profile_data :event_type])]
