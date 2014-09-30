@@ -173,7 +173,15 @@
 (defn address-control [data owner table]
   [:div
    [:div.form-group
-    [:label.control-label.col-md-2 {:for "address_street_two"} "Street Address"]
+    [:label.control-label.col-md-2 {:for "address_street"} "Street Address"]
+    [:div.col-md-10
+     [:input {:defaultValue (get data :address_street "")
+              :on-change #(handle-change owner table :address_street %1)
+              :class "form-control"
+              :type "text"
+              :id "address_street"}]]]
+   [:div.form-group
+    [:label.control-label.col-md-2 {:for "address_street_two"} "Street Address 2"]
     [:div.col-md-10
      [:input {:defaultValue (get data :address_street_two "")
               :on-change #(handle-change owner table :address_street_two %1)
