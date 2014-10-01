@@ -219,7 +219,7 @@
                           :onClick (fn [_]
                                      (put! event-chan {:event :editing :value false}))} "Cancel"]
                 [:button {:type "button"
-                          :class "btn btn-danger"
+                          :class "btn btn-danger pull-right"
                           :onClick (fn [_]
                                      (delete-device property_id device_id event-chan refresh-chan))}
                  "Delete Device"]]]
@@ -414,40 +414,40 @@
                                first)]
         (html
          [:div.col-md-12
-          [:h3 "Devices"]
-          ;; Buttons
-          [:div.btn-toolbar
-           ;; Add new device
-           [:button {:type "button"
-                     :class (str "btn btn-primary " (when (or adding-sensor
-                                                              adding-device
-                                                              editing
-                                                              (not (:editable property)))
-                                                      "hidden"))
-                     :onClick (fn [_]
-                                (om/update! properties [:devices :adding-device] true))}
-            [:div {:class "fa fa-plus"}] " Add device"]
-           ;; Edit device
-           [:button {:type "button"
-                     :class (str "btn btn-primary " (when-not (and (not adding-sensor)
-                                                                   (not adding-device)
-                                                                   (not editing)
-                                                                   (:editable property)
-                                                                   device_id) "hidden"))
-                     :onClick (fn [_]
-                                (let [device (first (filter #(= (:device_id %) device_id) (fetch-devices property_id @properties)))]
-                                  (om/update! properties [:devices :edited-device] device)
-                                  (om/update! properties [:devices :editing] true)))}
-            [:div {:class "fa fa-pencil-square-o"}]  " Edit device"]
-           ;; Add sensor
-           [:button {:type "button"
-                     :class (str  "btn btn-primary " (when-not (and (not adding-sensor)
+          [:h3 "Devices"
+           [:div.btn-toolbar.pull-right
+            ;; Add new device
+            [:button {:type "button"
+                      :class (str "btn btn-primary " (when (or adding-sensor
+                                                               adding-device
+                                                               editing
+                                                               (not (:editable property)))
+                                                       "hidden"))
+                      :onClick (fn [_]
+                                 (om/update! properties [:devices :adding-device] true))}
+             [:div {:class "fa fa-plus"}] " Add device"]
+            ;; Edit device
+            [:button {:type "button"
+                      :class (str "btn btn-primary " (when-not (and (not adding-sensor)
                                                                     (not adding-device)
                                                                     (not editing)
                                                                     (:editable property)
                                                                     device_id) "hidden"))
-                     :onClick (fn [_] (om/update! properties [:devices :adding-sensor] true))}
-            [:div {:class "fa fa-plus"}]  " Add sensor"]]
+                      :onClick (fn [_]
+                                 (let [device (first (filter #(= (:device_id %) device_id) (fetch-devices property_id @properties)))]
+                                   (om/update! properties [:devices :edited-device] device)
+                                   (om/update! properties [:devices :editing] true)))}
+             [:div {:class "fa fa-pencil-square-o"}]  " Edit device"]
+            ;; Add sensor
+            [:button {:type "button"
+                      :class (str  "btn btn-primary " (when-not (and (not adding-sensor)
+                                                                     (not adding-device)
+                                                                     (not editing)
+                                                                     (:editable property)
+                                                                     device_id) "hidden"))
+                      :onClick (fn [_] (om/update! properties [:devices :adding-sensor] true))}
+             [:div {:class "fa fa-plus"}]  " Add sensor"]]]
+
           [:div {:id "alert-div" :style {:padding-top "10px"}}
            (om/build bs/alert (:alert devices))]
           [:div {:id "devices-div"

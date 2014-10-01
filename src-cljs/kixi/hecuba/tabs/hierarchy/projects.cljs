@@ -6,7 +6,7 @@
    [clojure.string :as str]
    [kixi.hecuba.history :as history]
    [kixi.hecuba.tabs.slugs :as slugs]
-   [kixi.hecuba.bootstrap :as bs]
+   [kixi.hecuba.bootstrap :refer (text-area-control static-text static-text-vertical) :as bs]
    [kixi.hecuba.common :refer (log) :as common]
    [kixi.hecuba.tabs.hierarchy.data :refer (fetch-projects)]
    [sablono.core :as html :refer-macros [html]]))
@@ -79,9 +79,9 @@
      (let [{:keys [project_id programme_id]} cursor]
        (html
         [:div
-         [:h3 "Editing Project"]
+         [:h3 (:name cursor)]
          [:form.form-horizontal {:role "form"}
-          [:div.col-md-6
+          [:div.col-md-12
            [:div.form-group
             [:div.btn-toolbar
              [:button {:type "button"
@@ -95,14 +95,39 @@
                        :class "btn btn-danger"
                        :onClick (fn [_] (om/update! projects-data :editing false))} "Cancel"]]]
            (om/build bs/alert (-> projects-data :alert))
-           (bs/static-text cursor :project_id "Project ID")
-           (bs/static-text cursor :programme_id "Programme ID")
-           (bs/static-text cursor :created_at "Created At")
-           (bs/text-input-control cursor owner :project :description "Description")
-           (bs/text-input-control cursor owner :project :organisation "Organisation")
-           (bs/text-input-control cursor owner :project :project_code "Project Code")
-           (bs/text-input-control cursor owner :project :project_type "Project Type")
-           (bs/text-input-control cursor owner :project :type_of "Type Of")]]])))))
+           [:div.col-md-4
+            (bs/text-input-control cursor owner :project :organisation "Organisation")
+            (bs/text-input-control cursor owner :project :project_code "Project Code")
+            (bs/text-input-control cursor owner :project :project_type "Project Type")
+            (bs/text-input-control cursor owner :project :type_of "Type Of")
+            (bs/static-text cursor :created_at "Created At")]
+           [:div.col-md-8
+            (bs/text-area-control cursor owner :project :description "Description")
+            (bs/static-text cursor :project_id "API Project ID")]]]])))))
+
+(defn project-detail [projects-data editing-chan]
+  (fn [cursor owner]
+    (om/component
+     (let [{:keys [project_id programme_id]} cursor]
+       (html
+        [:div.col-md-12
+         [:h1 (:name cursor)
+          (when (:editable cursor)
+            [:button {:type "button"
+                      :title "Edit"
+                      :class "btn btn-primary pull-right fa fa-pencil-square-o"
+                      :onClick (fn [_] (put! editing-chan cursor))}])]
+         (om/build bs/alert (-> projects-data :alert))
+         [:div.row
+          [:div.col-md-4
+           (static-text-vertical cursor :organisation "Organisation")
+           (static-text-vertical cursor :project_code "Project Code")
+           (static-text-vertical cursor :project_type "Project Type")
+           (static-text-vertical cursor :type_of "Type Of")
+           (static-text-vertical cursor :created_at "Created At")]
+          [:div.col-md-8
+           (static-text-vertical cursor :description "Description")
+           (static-text-vertical cursor :project_id "API Project ID")]]])))))
 
 (defn project-row [project owner {:keys [table-id editing-chan]}]
   (reify
@@ -116,18 +141,11 @@
                           (let [div-id (.-id (.-target e))]
                             (when-not (= div-id (str project_id "-edit"))
                               (history/update-token-ids! history :projects project_id)
-                              (common/fixed-scroll-to-element "properties-div"))))
+                              (common/fixed-scroll-to-element "project-detail-div"))))
                :class (when selected "success")
                :id (str table-id "-selected")}
-          [:td [:div (when editable {:class "fa fa-pencil-square-o"
-                                     :id (str project_id "-edit")
-                                     :onClick (fn [_]
-                                                (when selected
-                                                  (put! editing-chan project)))})]]
           [:td name]
           [:td type_of]
-          [:td description]
-          [:td created_at]
           [:td organisation]
           [:td project_code]])))))
 
@@ -152,7 +170,7 @@
      [:div.col-md-12
       [:table {:className "table table-hover"}
        [:thead
-        [:tr [:th ""] [:th "Name"] [:th "Type"] [:th "Description"] [:th "Created At"] [:th "Organisation"] [:th "Project Code"]]]
+        [:tr [:th "Name"] [:th "Type"] [:th "Organisation"] [:th "Project Code"]]]
        [:tbody
         (om/build-all project-row (sort-by :project_id (:data projects))
                       {:opts {:table-id table-id
@@ -181,7 +199,7 @@
               edited-row             (<! editing-chan)]
           (om/update! projects :editing true)
           (om/update! projects :edited-row edited-row)
-          (common/fixed-scroll-to-element "projects-edit-div"))
+          (common/fixed-scroll-to-element "projects-div"))
         (recur)))
     om/IRenderState
     (render-state [_ {:keys [editing-chan]}]
@@ -189,28 +207,32 @@
             adding-project   (-> projects :adding-project)
             programme_id     (-> projects :programme_id)
             can-add-projects (-> projects :can-add-projects)
-            refresh-chan     (om/get-shared owner :refresh)]
+            refresh-chan     (om/get-shared owner :refresh)
+            selected         (:selected projects)
+            selected-project (first (filter #(= (:project_id %) selected) (:data projects)))]
         (html
          [:div.row#projects-div
           [:div {:class (str "col-md-12 " (if programme_id "" "hidden"))}
-           [:h2 "Projects"]
-           (when (and
+           [:h1 "Projects"
+            (when (and
                   (not editing)
                   (not adding-project)
                   can-add-projects) ;; programme is editable so allow to add new projects
-             [:div.form-group
-              [:div.btn-toolbar
-               [:button {:type "button"
-                         :class "btn btn-primary"
-                         :onClick (fn [_]
-                                    (om/update! projects :adding-project true))}
-                "Add new"]]])
-           (when adding-project
-             [:div#projects-add-div
-              (om/build (project-add-form projects programme_id refresh-chan) nil)])
-           (when editing
-             [:div#projects-edit-div
-              (om/build (project-edit-form projects refresh-chan) (-> projects :edited-row))])
-           (when-not (or editing adding-project)
-             [:div#projects-div
-              (om/build (projects-table editing-chan) projects)])]])))))
+             [:button.btn.pull-right.fa.fa-plus
+              {:type "button"
+               :title "Add new"
+               :class (str "btn btn-primary " (if editing "hidden" ""))
+               :onClick (fn [_]
+                          (om/update! projects :adding-project true))}])]
+           [:div#projects-add-div
+            (when adding-project
+              (om/build (project-add-form projects programme_id refresh-chan) nil))]
+           [:div#projects-edit-div
+            (when editing
+              (om/build (project-edit-form projects refresh-chan) (-> projects :edited-row)))]
+           [:div#projects-div
+            (when-not (or editing adding-project)
+              (om/build (projects-table editing-chan) projects))]
+           [:div#project-detail-div
+            (when (and selected (not (or adding-project editing)))
+              (om/build (project-detail projects editing-chan) selected-project))]]])))))

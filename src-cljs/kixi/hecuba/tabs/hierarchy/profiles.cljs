@@ -1081,16 +1081,16 @@
                                       (sort profile-comparator (:profiles property-details)))]
         (html
          [:div
-          [:h3 "Profiles"]
-          [:div.btn-toolbar
-           [:button {:type "button"
-                     :class (str "btn btn-primary " (if editable "" "hidden"))
-                     :onClick (fn [_]  (set! (.-location js/window) (str "/profile/" selected-property-id)))}
-            "Add new profile"]
-           [:a {:role "button"
-                :class "btn btn-primary"
-                :href (str "/4/entities/" selected-property-id "/profiles/?type=csv")}
-            "Download Profiles"]]
+          [:h3 "Profiles"
+           [:div.btn-toolbar.pull-right
+            [:button {:type "button"
+                      :title "Add new profile"
+                      :class (str "btn btn-primary fa fa-plus" (if editable "" "hidden"))
+                      :onClick (fn [_]  (set! (.-location js/window) (str "/profile/" selected-property-id)))}]
+            [:a {:role "button"
+                 :class "btn btn-primary fa fa-download"
+                 :title "Download Profiles"
+                 :href (str "/4/entities/" selected-property-id "/profiles/?type=csv")}]]]
           [:div {:id "alert"} (om/build bs/alert (:alert profiles))]
           [:div
            (if (seq profiles)
