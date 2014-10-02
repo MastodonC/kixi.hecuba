@@ -92,10 +92,14 @@
     (let [{:keys [min-date max-date]} (min-max-dates data1)]
       [min-date max-date])))
 
-(defn y-scale-min-value [left-series right-series]
-  (let [series1-min (let [m (apply min (map :value left-series))] (if (= 0 m) 1 m))
-        series2-min (let [m (apply min (map :value right-series))] (if (= 0 m) 1 m))]
-    (min series1-min series2-min 0)))
+(defn min-max-values [series]
+  (if (seq series)
+    (reduce (fn [{:keys [minimum maximum]} new]
+              {:minimum (min minimum (:value new))
+               :maximum (max maximum (:value new))})
+            {:minimum 0 :maximum 2}
+            series)
+    {:minimum 0 :maximum 0}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Draw chart
@@ -135,22 +139,22 @@
         unit-right      (-> series-right first :unit)
         ;; Min and max for all scales
         [min-date max-date]   (min-max-timestamps series-left series-right)
-        series1-max     (let [m (apply max (map :value series-left))] (if (< m 2) 2 m))
-        series2-max     (let [m (apply max (map :value series-right))] (if (< m 2) 2 m))
-        y-scale-min     (y-scale-min-value series-left series-right)
+        series1-min-max (min-max-values series-left)
+        series2-min-max (min-max-values series-right)
+
         ;; X
         x-scale         (-> js/d3 .-time (.scale) (.domain (to-array [min-date max-date])) (.range (to-array [0 width])))
         x-axis          (-> js/d3 (.-svg) (.axis) (.scale x-scale) (.orient "bottom")
                             (.ticks 10) (.tickFormat (.format js/d3.time "%Y-%m-%d %H:%M:%S")))
         ;; Left
         color-left      (color-scale series-left (to-array ["#6baed6" "#4292c6" "#2171b5" "#08519c" "#08306b"]))
-        y1-scale        (y-scale y-scale-min series1-max height)
+        y1-scale        (y-scale (:minimum series1-min-max) (:maximum series1-min-max) height)
         line1           (line-fn x-scale y1-scale)
         y-axis-left     (-> js/d3 (.-svg) (.axis) (.scale y1-scale) (.ticks 8) (.orient "left"))
         sensors-left    (color-domain series-left color-left)
         ;; Right
         color-right     (color-scale series-right (to-array ["#fd8d3c" "#f16913" "#d94801" "#a63603" "#7f2704"]))
-        y2-scale        (y-scale y-scale-min series2-max height)
+        y2-scale        (y-scale (:minimum series2-min-max) (:maximum series2-min-max) height)
         line2           (line-fn x-scale y2-scale)
         y-axis-right    (-> js/d3 (.-svg) (.axis) (.scale y2-scale) (.ticks 8) (.orient "right"))
         sensors-right   (color-domain series-right color-right)
