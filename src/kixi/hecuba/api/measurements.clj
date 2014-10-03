@@ -69,22 +69,32 @@
      :month            (util/get-month-partition-key t)
      :reading_metadata {}}))
 
-(defn template-upload->item [entity_id username date-format {:keys [size tempfile content-type filename]}]
-  (assert (= content-type "text/csv") (str  "Must be text/csv, not " content-type))
-  (let [timestamp (t/now)]
-    {:dest        :upload
-     :type        :measurements
-     :entity_id   entity_id
-     :src-name    "uploads"
-     :feed-name   "measurements"
-     :dir         (.getParent tempfile)
-     :date        timestamp
-     :date-format date-format
-     :filename    (.getName tempfile)
-     :metadata    {:timestamp    timestamp
-                   :content-type "text/csv"
-                   :username         username
-                   :filename     filename}}))
+(def csv-mime-type #{"text/comma-separated-values"
+                     "text/csv"
+                     "application/csv"
+                     "application/excel"
+                     "application/vnd.ms-excel"
+                     "application/vnd.msexcel"})
+
+(defn template-upload->item [entity_id ^String username date-format aliases? {:keys [size tempfile content-type filename]}]
+  (if (and (csv-mime-type content-type)
+           (.endsWith filename ".csv"))
+    (let [timestamp (t/now)]
+      {:dest        :upload
+       :type        :measurements
+       :entity_id   entity_id
+       :src-name    "uploads"
+       :feed-name   "measurements"
+       :dir         (.getParent tempfile)
+       :date        timestamp
+       :date-format date-format
+       :aliases?    aliases?
+       :filename    (.getName tempfile)
+       :metadata    {:timestamp    timestamp
+                     :content-type "text/csv"
+                     :username     username
+                     :filename     filename}})
+    (throw (Exception. (str  "Must be text/csv or other csv type and end with .csv, not " content-type " " filename)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; index-malformed?
@@ -97,12 +107,14 @@
 (defmethod index-malformed? "multipart/form-data" [ctx]
   (let [multipart-params (-> ctx :request :multipart-params)
         file-data        (some-> multipart-params (get "data") ensure-vector)
-        date-format      (get multipart-params "dateformat")]
+        date-format      (get multipart-params "dateformat")
+        aliases?         (get multipart-params "aliases")]
     (log/info "date-format:" date-format)
     (log/info "file-data:" file-data)
     (if (and file-data date-format)
       [false  {::file-data   file-data
-               ::date-format date-format}]
+               ::date-format date-format
+               ::aliases? (= "on" aliases?)}]
       true)))
 
 (defmethod index-malformed? :default [ctx]
@@ -174,12 +186,13 @@
 (defmethod index-post! "multipart/form-data" [store pipe ctx]
   (let [file-data    (::file-data ctx)
         date-format  (::date-format ctx)
+        aliases?     (::aliases? ctx)
         session      (-> ctx :request :session)
         username     (sec/session-username session)
         route-params (:route-params (:request ctx))
         entity_id    (:entity_id route-params)
         auth         (sec/current-authentication session)
-        items        (map (partial template-upload->item entity_id username date-format) file-data)]
+        items        (map (partial template-upload->item entity_id username date-format aliases?) file-data)]
     (doseq [item items]
       (pipe/submit-item pipe (assoc item :auth auth)))
     ;; We don't have emough info to return a Location header here. So

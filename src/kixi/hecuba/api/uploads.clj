@@ -1,21 +1,14 @@
 (ns kixi.hecuba.api.uploads
-  (:require [clojure.tools.logging :as log]
-            [liberator.core :refer (defresource)]
+  (:require [cheshire.core :as json]
+            [clj-time.coerce :as tc]
+            [clojure.core.match :refer (match)]
+            [clojure.tools.logging :as log]
+            [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
+            [kixi.hecuba.web-paths :as p]
+            [kixi.hecuba.webutil :as util]
             [kixi.hecuba.webutil :refer (authorized?)]
             [kixipipe.storage.s3 :as s3]
-            [kixi.hecuba.web-paths :as p]
-            [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-            [kixi.hecuba.data.projects :as projects]
-            [kixi.hecuba.data.entities :as entities]
-            [kixi.hecuba.data.measurements.core :as mc]
-            [clojure.core.match :refer (match)]
-            [clojure.string :as str]
-            [cheshire.core :as json]
-            [aws.sdk.s3 :as aws]
-            [clj-time.coerce :as tc]
-            [kixi.hecuba.webutil :as util]
-            [kixipipe.storage.s3 :as s3]
-            [liberator.representation :refer (ring-response)]))
+            [liberator.core :refer (defresource)]))
 
 (def ^:private uploads-status-path (p/resource-path-string :uploads-status-resource))
 (def ^:private uploads-data-path (p/resource-path-string :uploads-data-resource))

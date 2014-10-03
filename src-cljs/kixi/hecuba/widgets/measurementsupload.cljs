@@ -69,8 +69,12 @@
                  [:option {:value (:format item)}
                   (:display item)])]]
              [:div.form-group
-              [:label {:for "file"} "File Input"]
-              [:input {:type "file" :id "file" :name "data" :title "Browse files"}]]
+              [:div
+               [:label {:for "file"} "File Input"]
+               [:input {:type "file" :id "file" :name "data" :title "Browse files"}]]
+              [:div {:class "checkbox"} [:label
+                                         [:input {:type "checkbox" :name "aliases"}]
+                                         "Assume Aliases?"]]]
              [:button {:type "button"
                        :class "btn btn-primary"
                        :onClick (fn [_] (validate-size-and-upload uploads owner id url method))}

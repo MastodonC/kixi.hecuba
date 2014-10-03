@@ -31,12 +31,12 @@
 (defn daily-timestamp [t]
   (tc/to-date (tf/unparse (tf/formatters :date) (tc/from-date t))))
 
-(defn get-year-partition-key [timestamp] (Long/parseLong (format "%4d" (t/year timestamp))))
+(defn get-year-partition-key [timestamp] (Long/parseLong (format "%04d" (t/year timestamp))))
 
 (defmulti get-month-partition-key type)
 (defmethod get-month-partition-key java.util.Date [t]
-  (let [timestamp (tc/from-date t)] (Long/parseLong (format "%4d%02d" (t/year timestamp) (t/month timestamp)))))
-(defmethod get-month-partition-key org.joda.time.DateTime [t] (Long/parseLong (format "%4d%02d" (t/year t) (t/month t))))
+  (let [timestamp (tc/from-date t)] (Long/parseLong (format "%04d%02d" (t/year timestamp) (t/month timestamp)))))
+(defmethod get-month-partition-key org.joda.time.DateTime [t] (Long/parseLong (format "%04d%02d" (t/year t) (t/month t))))
 
 (defmulti truncate-seconds type)
 (defmethod truncate-seconds java.util.Date [t]

@@ -8,6 +8,7 @@
             [clojure.set               :as set]
             [clojure.string            :as str]
             [clojure.tools.logging     :as log]
+            [kixi.hecuba.parser        :as parser]
             [kixi.hecuba.api.templates :as templates]
             [kixi.hecuba.data.devices  :as devices]
             [kixi.hecuba.data.measurements.core :refer (headers-in-order columns-in-order write-status transpose)]
@@ -25,7 +26,7 @@
             [qbits.hayt                :as hayt]
             [schema.core               :as s]))
 
-(def full-header-row-count 12)
+(def full-header-row-count (count headers-in-order))
 
 (defmethod kixipipe.storage.s3/s3-key-from "uploads" uploads-s3-key-from [item]
   (let [suffix   (get item :suffix "data")
@@ -46,19 +47,11 @@
   (map (partial zipmap columns-in-order) xs))
 
 (defn identify-file-type
-  "Assumption is that if cell r0,c0 doesn't have the name of the first
-  header and cell r1,c0 has a date then we've got a file with aliases,
-  otherwise it's a full header."
-  [_ {:keys [dir filename]}]
-  (let [[r0 r1] (with-open [in (io/reader (io/file dir filename))]
-                  (->> in
-                       (csv/read-csv)
-                       (take 2)
-                       (doall)))
-        r0c0 (get r0 0 ::dummy-value)]
-    (if-not (= (first headers-in-order) r0c0)
-      :with-aliases
-      :full)))
+  "Check if alias processing has been requested."
+  [_ {:keys [aliases?]}]
+  (if aliases?
+    :with-aliases
+    :full))
 
 (defn relocate-user-id [{:keys [auth] :as item} x]
   (assoc x :user_id (:id auth)))
@@ -111,13 +104,13 @@
                                            d devices
                                            :when (= (:device_id d) (:device_id s))]
                                        (merge d s))
-            header (map relocate-user-id item ds-and-ss-in-alias-order)]
+            header (map (partial relocate-user-id item) ds-and-ss-in-alias-order)
+            _ (log/infof "%s sensors in header %s" (count header) (vec header))]
         (with-meta
           header
           {::row-count (count header-rows)
            ::update-devices-and-sensors? false
-           ::date-parser date-parser
-           })))))
+           ::date-parser date-parser})))))
 
 (defn seq-of-seq-of-seqs->seq-of-seq-of-maps [header xs]
   (map #(map (partial zipmap header) %) xs))
@@ -257,6 +250,7 @@
                (update-device-data store (prepare-device device))
                (update-sensor-data store (prepare-sensor sensor))))
 
+    (log/infof  "Inserting measurements for Sensor: %s:%s" (:device_id sensor) (:type sensor) )
     (misc/insert-measurements store device-and-sensor page-size validated-measurements)))
 
 (defn- get-data [header-row-count in]
@@ -280,7 +274,10 @@
     (let [{:keys [::row-count ::update-devices-and-sensors? ::date-parser]} (meta header)
           data      (get-data row-count in)
           page-size 10]
+      (log/info "Processing " (count header) " data columns")
       (dorun (map (partial process-column store page-size update-devices-and-sensors? date-parser) header data))
+      (log/info "Finished Processing " (count header) " data columns")
+
       (when-let [errors (not-empty (parse-errors header))]
         (throw (ex-info "Errors found" errors))))))
 
@@ -349,9 +346,16 @@
 (defn upload-item [store item]
   (let [username (-> item :metadata :user)]
     (s3/store-file (:s3 store) item)
-    (try
-      (db-store store item)
-      (write-status store (assoc item :status "SUCCESS"))
-      (catch Throwable t
-        (log/error t "failed")
-        (write-status store (assoc item :status "FAILURE" :data (str (ex-data t))))))))
+    (let [tmpfile (ioplus/mk-temp-file! "hecuba" "measurements")
+          newitem (assoc item
+                    :dir      (.getParent tmpfile)
+                    :filename (.getName tmpfile))]
+      (try
+        (parser/normalize-line-endings! (io/file (:dir item)
+                                                 (:filename item)) tmpfile)
+        (.delete (io/file (:dir item) (:filename item)))
+        (db-store store newitem)
+        (write-status store (assoc newitem :status "SUCCESS"))
+        (catch Throwable t
+          (log/error t "failed")
+          (write-status store (assoc newitem :status "FAILURE" :data (str (ex-data t)))))))))

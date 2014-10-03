@@ -121,7 +121,9 @@
                                    :frequency "frequency3000/2"
                                    :period "CUMULATIVE"
                                    :max "200"
-                                   :min "10"}
+                                   :min "10"
+                                   :unit "kWh"
+                                   }
                                   {:device_id 3000
                                    :type "CO2"
                                    :accuracy "0"
@@ -129,7 +131,9 @@
                                    :frequency "frequency3000/1"
                                    :period "INSTANT"
                                    :max "100"
-                                   :min "0"}
+                                   :min "0"
+                                   :unit "m^3"
+                                   }
                                   {:device_id 3000
                                    :type "solarRadiation"
                                    :accuracy "10"
@@ -137,7 +141,9 @@
                                    :frequency "frequency3000/3"
                                    :period "PULSE"
                                    :max "450"
-                                   :min "100"}
+                                   :min "100"
+                                   :unit "J/m^2"
+                                   }
                                   {:device_id 3001
                                    :type "CO2"
                                    :accuracy "5"
@@ -145,7 +151,8 @@
                                    :frequency "frequency3001/1"
                                    :period "INSTANT"
                                    :max "10"
-                                   :min "5"}])
+                                   :min "5"
+                                   :unit "m^3"}])
         pipeline                   nil
         result   (entity-resource-handle-ok store pipeline
                                             {:request {:params {:entity_id 1000}}
@@ -166,6 +173,7 @@
                 "description"
                 "description2"]
                ["Location" "Bedroom" "Bedroom" "Bedroom" "Lounge"]
+               ["Unit" "m^3" "kWh" "J/m^2" "m^3"]
                ["Accuracy (percent)" "0" "5" "10" "5"]
                ["Sample Interval (seconds)" "60" "30" "40" "6"]
                ["Frequency"
