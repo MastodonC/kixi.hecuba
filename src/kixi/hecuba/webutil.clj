@@ -7,6 +7,7 @@
    [cheshire.generate :refer (add-encoder)]
    [hiccup.core :refer (html)]
    [kixi.hecuba.data.misc :as misc]
+   [kixi.hecuba.time :as time]
    [clojure.string :as string]
    [clj-time.coerce :as tc]
    [clj-time.format :as tf]
@@ -172,11 +173,11 @@
 
 (defn get-month-partition-key
   "Returns integer representation of year and month from java.util.Date"
-  [t] (Integer/parseInt (.format (java.text.SimpleDateFormat. "yyyyMM") t)))
+  [t] (time/get-month-partition-key t))
 
 (defn get-year-partition-key
   "Returns integer representation of year from java.util.Date"
-  [t] (Integer/parseInt (.format (java.text.SimpleDateFormat. "yyyy") t)))
+  [t] (time/get-year-partition-key t))
 
 ;; FIXME: These should all move to kixi.hecuba.time
 (defn db-timestamp

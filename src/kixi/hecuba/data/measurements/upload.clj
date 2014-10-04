@@ -1,25 +1,21 @@
 (ns kixi.hecuba.data.measurements.upload
-  (:require [cheshire.core             :as json]
-            [clj-time.coerce           :as tc]
-            [clj-time.format           :as tf]
+  (:require [clj-time.format           :as tf]
             [clojure.core.match        :refer (match)]
             [clojure.data.csv          :as csv]
             [clojure.java.io           :as io]
-            [clojure.set               :as set]
             [clojure.string            :as str]
             [clojure.tools.logging     :as log]
+            [kixi.hecuba.logging       :as hl]
             [kixi.hecuba.parser        :as parser]
-            [kixi.hecuba.api.templates :as templates]
             [kixi.hecuba.data.devices  :as devices]
-            [kixi.hecuba.data.measurements.core :refer (headers-in-order columns-in-order write-status transpose)]
+            [kixi.hecuba.data.measurements.core :refer (prepare-measurement headers-in-order columns-in-order write-status transpose)]
             [kixi.hecuba.data.misc     :as misc]
-            [kixi.hecuba.data.entities :as entities]
             [kixi.hecuba.data.devices  :as devices]
+            [kixi.hecuba.data.parents  :as parents]
             [kixi.hecuba.data.sensors  :as sensors]
             [kixi.hecuba.data.validate :as v]
-            [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
+            [kixi.hecuba.security      :as sec]
             [kixi.hecuba.storage.db    :as db]
-            [kixi.hecuba.webutil       :as util]
             [kixi.hecuba.time          :as time]
             [kixipipe.ioplus           :as ioplus]
             [kixipipe.storage.s3       :as s3]
@@ -40,11 +36,32 @@
      :entity_id entity_id
      :uuid uuid}))
 
-(defn merge-meta [obj meta]
-  (with-meta obj (merge (meta obj) meta)))
-
 (defn convert-to-maps [xs]
   (map (partial zipmap columns-in-order) xs))
+
+(defn relocate-user-id [{:keys [auth] :as item} x]
+  (assoc x :user_id (:id auth)))
+
+(defn date-parser [date-format]
+  (if (not-empty date-format)
+    (partial tf/parse (tf/formatter date-format))
+    time/auto-parse))
+
+(defn devices-exist?
+  "Assoc the parent entity_id and update :metadata with existence."
+  [store devices]
+  (let [db-devices (->> (keep :device_id devices) (parents/devices store))
+        add-exists (fn [m]
+                     (log/infof "Checking exists %s" m)
+                     ;; if it exists then just assoc the entity_id as
+                     ;; we might be trying to update the device and
+                     ;; sensor and don't want to overwrite that with
+                     ;; what is from the database
+                     (if-let [entity_id (db-devices (:device_id m))]
+                       (-> (assoc-in m [:metadata :exists?] true)
+                           (assoc :entity_id entity_id))
+                       (assoc-in m [:metadata :exists?] false)))]
+    (map add-exists devices)))
 
 (defn identify-file-type
   "Check if alias processing has been requested."
@@ -53,40 +70,29 @@
     :with-aliases
     :full))
 
-(defn relocate-user-id [{:keys [auth] :as item} x]
-  (assoc x :user_id (:id auth)))
-
-(defn auto-date-parser [s]
-  (time/auto-parse s))
-
 (defmulti get-header #'identify-file-type)
 
-(defmethod get-header :full [_ item]
-  (let [{:keys [dir filename date-format]} item
-        date-parser                        (if (not-empty date-format)
-                                             (partial tf/parse (tf/formatter date-format))
-                                             auto-date-parser)]
-    (with-meta
-      (with-open [in (io/reader (io/file dir filename))]
-        (->> in
-             (csv/read-csv)
-             (take full-header-row-count)
-             (map (partial drop 1)) ;; first column is header headings ;-/
-             (transpose)
-             (convert-to-maps)
-             (map (partial relocate-user-id item))
-             (doall)))
-      {::row-count full-header-row-count
-       ::update-devices-and-sensors? true
-       ::date-parser date-parser})))
+(defmethod get-header :full [store {:keys [dir filename date-format] :as item}]
+  (let [date-parser (date-parser date-format)
+        header      (with-open [in (io/reader (io/file dir filename))]
+                      (->> in
+                           (csv/read-csv)
+                           (take full-header-row-count)
+                           (map (partial drop 1)) ;; first column is header headings ;-/
+                           (transpose)
+                           (convert-to-maps)
+                           (devices-exist? store)
+                           (map (partial relocate-user-id item))
+                           (doall)))]
+    {:metadata {:row-count full-header-row-count
+                :update-devices-and-sensors? true
+                :date-parser date-parser}
+     :sensors header}))
 
 (defmethod get-header :with-aliases [store item]
   (let [{:keys [dir filename entity_id date-format]} item
         blank-row?                       (fn [cells] (every? #(re-matches #"\s*" %) cells))
-        date-parser                      (if (not-empty date-format)
-                                           (let [formatter (tf/formatter date-format)]
-                                             (fn [s] (try (tf/parse formatter s) (catch Exception _ nil))))
-                                           auto-date-parser)
+        date-parser                      (fn [d] (try ((date-parser date-format) d) (catch Throwable t nil)))
         invalid-date?                    (complement date-parser)
         header-rows                      (with-open [in (io/reader (io/file dir filename))]
                                            (->> in
@@ -95,22 +101,24 @@
                                                 (remove blank-row?)
                                                 (doall)))]
     (db/with-session [session (:hecuba-session store)]
-      (let [entity                   (entities/get-by-id session entity_id)
-            devices                  (devices/get-devices session entity_id)
-            sensors                  (sensors/get-sensors-by-device_ids (map :device_id devices) session)
-            aliases                  (map (partial str/join \|) (rest (transpose header-rows)))
-            sensors-in-alias-order   (for [a aliases s sensors :when (= a (:alias s))] s)
-            ds-and-ss-in-alias-order (for [s sensors-in-alias-order
-                                           d devices
-                                           :when (= (:device_id d) (:device_id s))]
-                                       (merge d s))
-            header (map (partial relocate-user-id item) ds-and-ss-in-alias-order)
-            _ (log/infof "%s sensors in header %s" (count header) (vec header))]
-        (with-meta
-          header
-          {::row-count (count header-rows)
-           ::update-devices-and-sensors? false
-           ::date-parser date-parser})))))
+      (let [devices (->> (devices/get-devices session entity_id)
+                         (map #(vector (:device_id %) (identity %)))
+                         (into {}))
+            sensors (->> (sensors/get-sensors-by-device_ids (keys devices) session)
+                         (map #(vector (:alias %) (identity %)))
+                         (into {}))
+            header  (->> (map (partial str/join \|) (rest (transpose header-rows)))
+                         (map #(if-let [s (get sensors %)]
+                                 (assoc-in s [:metadata :exists?] true) {:alias % :metadata {:exists? false}}))
+                         (map #(if-let [d (get devices (:device_id %))]
+                                 (do (log/infof "merging device %s onto header slug %s" d %) (merge d %))
+                                 %))
+                         (map (partial relocate-user-id item)))
+            _       (log/infof "%s sensors in header %s" (count header) (vec header))]
+        {:metadata {:row-count (count header-rows)
+                    :update-devices-and-sensors? false
+                    :date-parser date-parser}
+         :sensors header}))))
 
 (defn seq-of-seq-of-seqs->seq-of-seq-of-maps [header xs]
   (map #(map (partial zipmap header) %) xs))
@@ -119,25 +127,6 @@
   (map (comp transpose vector)
        (repeat (map first xs))
        (transpose (map rest xs))))
-
-;; TODO - this is copied from api.measurements.
-(defn prepare-measurement [m sensor date-parser]
-  (let [t  (tc/to-date (date-parser (:timestamp m)))]
-    {:device_id        (:device_id sensor)
-     :type             (:type sensor)
-     :timestamp        t
-     :value            (str (:value m))
-     :error            (str (:error m))
-     :month            (util/get-month-partition-key t)
-     :reading_metadata {}}))
-
-(defn prepare-sensor [sensor]
-  ;;TODO - what preparation should we do?
-  sensor)
-
-(defn prepare-device [device]
-  ;;TODO - what preparation should we do?
-  device)
 
 (defn update-sensor-data [store sensor]
   (log/info "Updating sensor " (str (:device_id sensor) "-" (:type sensor)))
@@ -158,38 +147,12 @@
                    :errors :events :frequency :max :median :min :period
                    :resolution :status :synthetic :unit :user_id])])
 
-(defn- get-ids->parent [store table key ids]
-    (let [result
-        (->> (db/with-session [session (:hecuba-session store)]
-               (db/execute session (hayt/select table
-                                                (hayt/columns :id key)
-                                                (hayt/where [[:in :id (vec ids)]]))))
-             (keep #(when-let [v (not-empty (get % key))] [(:id %) v]))
-             (into {}))]
-    result))
-
-
-(defn projects-to-programme
-  "For the given project ids returns a map {<project-id> <programme_id>}"
-  [store project-ids]
-  (get-ids->parent store :projects :programme_id project-ids))
-
-(defn properties-to-project
-  "For the given device ids returns a map {<property_id> <project-id>}"
-  [store entity-ids]
-  (get-ids->parent store :entities :project_id entity-ids))
-
-(defn devices-to-property
-  "For the given device ids returns a map {<device-id> <property_id>} (property_id is really entity_id"
-  [store device-ids]
-  (get-ids->parent store :devices :entity_id device-ids))
-
 (def Device {(s/required-key :device_id) s/Str
              (s/optional-key :description)                (s/maybe s/Str)
              (s/optional-key :parent_id)                  (s/maybe s/Str)
              (s/optional-key :entity_id)                  (s/maybe s/Str)
-             (s/optional-key :location)                   (s/maybe s/Str) ;; TODO - is really a nested map
-             (s/optional-key :metadata)                   (s/maybe s/Str)
+             (s/optional-key :location)                   (s/maybe s/Any)
+             (s/optional-key :metadata)                   (s/maybe s/Any)
              (s/optional-key :privacy)                    (s/maybe s/Str)
              (s/optional-key :metering_point_id)          (s/maybe s/Str)})
 
@@ -221,37 +184,47 @@
 
 (defn validate-header
   "Takes a header and returns a vector of [device sensor] after splitting.
-   meta data will be attached to the vector indicating
-   whether the device/sensor is valid" [header]
+  meta data will be attached to the vector indicating whether the
+  device/sensor is valid"
+  [header]
+  (let [validated-sensors
+        (mapv (fn [device-and-sensor]
+                (let [[device sensor] (split-device-and-sensor device-and-sensor)
+                      invalid-device? (s/check Device device)
+                      invalid-sensor? (s/check Sensor sensor)]
+                  (-> device-and-sensor
+                      (cond-> invalid-device? (assoc-in [:metadata :device-error] invalid-device?))
+                      (cond-> invalid-sensor? (assoc-in [:metadata :sensor-error] invalid-sensor?)))))
+              (:sensors header))]
+    (assoc header :sensors validated-sensors)))
 
-   (map (fn [device-and-sensor]
-          (let [[device sensor] (split-device-and-sensor device-and-sensor)
-                invalid-device? (s/check Device device)
-                invalid-sensor? (s/check Sensor sensor)]
-            (-> device-and-sensor
-                (cond-> invalid-device? (merge-meta {:device-error invalid-device?}))
-                (cond-> invalid-sensor? (merge-meta {:sensor-error invalid-sensor?}))))) header))
+(defn- valid-header? [{:keys [metadata] :as sensor}]
+  (and (:exists? metadata)
+       (:allowed? metadata)
+       (not (contains? metadata :device-error))
+       (not (contains? metadata :sensor-error))))
 
-(defn- valid-header? [x]
-  (let [m (meta x)]
-    (not (or (:non-existent? x)
-             (:not-allowed? x)
-             (contains? x :device-error)
-             (contains? x :sensor-error)))))
-
-(defn process-column [store page-size update-devices-and-sensors? date-parser device-and-sensor measurements]
-  (let [[device sensor :as ds] (split-device-and-sensor device-and-sensor)
+(defn process-column [store update-devices-and-sensors? date-parser device-and-sensor measurements]
+  (log/infof "Attempting to insert: %s" device-and-sensor)
+  (let [page-size 10
+        [device sensor :as ds] (split-device-and-sensor device-and-sensor)
         validated-measurements (map #(-> %
                                          (prepare-measurement sensor date-parser)
                                          (v/validate sensor))
                                     measurements)]
 
-    (when (and update-devices-and-sensors? (valid-header? device-and-sensor)
-               (update-device-data store (prepare-device device))
-               (update-sensor-data store (prepare-sensor sensor))))
+    ;; Leaving this out for now. We can update via the UI
+    ;; (when (and update-devices-and-sensors?
+    ;;            (valid-header? device-and-sensor))
+    ;;   (update-device-data store device)
+    ;;   (update-sensor-data store sensor))
 
-    (log/infof  "Inserting measurements for Sensor: %s:%s" (:device_id sensor) (:type sensor) )
-    (misc/insert-measurements store device-and-sensor page-size validated-measurements)))
+    (if (valid-header? device-and-sensor)
+      (do
+        (log/infof "Inserting measurements for Sensor: %s:%s metadata: %s" (:device_id sensor) (:type sensor) (:metadata device-and-sensor))
+        (misc/insert-measurements store device-and-sensor page-size validated-measurements))
+      (log/infof "Skipping insert for: %s metadata %s" device-and-sensor (:metadata device-and-sensor)))
+    device-and-sensor))
 
 (defn- get-data [header-row-count in]
   (->> in
@@ -260,102 +233,91 @@
        (vertical-csv->sanity)
        (seq-of-seq-of-seqs->seq-of-seq-of-maps [:timestamp :value])))
 
-(defn parse-errors
-  "Returns a map of device_id-type -> errors"
-  [header]
-  (into {} (for [{:keys [device_id type] :as x} header
-                 :let [m  (meta x)
-                       id (str device_id "-" type)]
-                 :when (::update-devices-and-sensors? m)]
-             [id m])))
+(defn add-projects [header store]
+  (let [sensors (:sensors header)
+        entity_ids (set (keep :entity_id sensors))
+        properties-to-project (parents/entities store entity_ids)
+        add-project (fn [m]
+                      (if-let [project_id (properties-to-project (:entity_id m))]
+                        (assoc m :project_id project_id)
+                        m))]
+    (assoc header :sensors (mapv add-project sensors))))
 
-(defn- parse-file-to-db [store header in-file ]
-  (with-open [in (io/reader in-file)]
-    (let [{:keys [::row-count ::update-devices-and-sensors? ::date-parser]} (meta header)
-          data      (get-data row-count in)
-          page-size 10]
-      (log/info "Processing " (count header) " data columns")
-      (dorun (map (partial process-column store page-size update-devices-and-sensors? date-parser) header data))
-      (log/info "Finished Processing " (count header) " data columns")
+(defn add-programmes [header store]
+  (let [sensors (:sensors header)
+        project_ids (set (keep :project_id sensors))
+        projects-to-programme (parents/projects store project_ids)
+        add-programme (fn [m]
+                        (if-let [programme_id (projects-to-programme (:project_id m))]
+                          (assoc m :programme_id programme_id)
+                          m))]
+    (assoc header :sensors (mapv add-programme sensors))))
 
-      (when-let [errors (not-empty (parse-errors header))]
-        (throw (ex-info "Errors found" errors))))))
-
-(defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
-  (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
-             programme-id project-id allowed-programmes allowed-projects roles request-method)
-  (match [(has-admin? roles)
-          (has-programme-manager? roles)
-          (some #(= % programme-id) allowed-programmes)
-          (has-project-manager? roles)
-          (some #(= % project-id) allowed-projects)
-          (has-user? roles)
-          request-method]
+(defn allowed? [{:keys [programme-id project-id]} programmes projects roles]
+  (log/infof "allowed?* programme-id: %s project-id: %s programmes: %s projects: %s roles: %s"
+             programme-id project-id programmes projects roles)
+  (match [(sec/has-admin? roles)
+          (sec/has-programme-manager? roles)
+          (some #(= % programme-id) programmes)
+          (sec/has-project-manager? roles)
+          (some #(= % project-id) projects)]
          ;; super-admin - do everything
-         [true _ _ _ _ _ _] true
+         [true _ _ _ _] (do (log/info "Admin") true)
          ;; programme-manager for this programme - do everything
-         [_ true true _ _ _ _] true
+         [_ true true _ _] (do (log/info "programme manager") true)
          ;; project-manager for this project - do everything
-         [_ _ _ true true _ _] true
-         ;; user with this programme - get allowed
-         [_ _ true _ _ true :get] true
-         ;; user with this project - get allowed
-         [_ _ _ _ true true :get] true
-         :else false))
-
-(defn devices-exist? [store header]
-  (let [header-device-ids (map :device_id header)
-        db-devices        (devices-to-property store header-device-ids)
-        add-non-existent  (fn [m]
-                            (cond-> m
-                                    (not (contains? db-devices (:device_id m))) (merge-meta {:non-existent? true})))]
-    (map add-non-existent header)))
+         [_ _ _ true true] (do (log/info "project manager") true)
+         :else (do (log/info "Not a manager") false)))
 
 (defn- enrich-with-authz [header store {:keys [projects programmes roles]}]
-  (let [header                (devices-exist? store header)
-        device-ids            (keep #(when-not (:non-existent? (meta %))
-                                       (:device_id %)) header)
-        devices-to-property   (devices-to-property store device-ids)
-        properties-to-project (properties-to-project store (set (vals devices-to-property)))
-        projects-to-programme (projects-to-programme store (set (vals properties-to-project)))
-        devices-to-project    (reduce (fn [a [k v]] (assoc a k (get properties-to-project v))) {} devices-to-property)
-        devices-to-programme  (reduce (fn [a [k v]] (assoc a k (get projects-to-programme v))) {} devices-to-project)
-        not-allowed?          #(not (allowed?* (get devices-to-programme %)
-                                               (get devices-to-project %)
-                                               programmes
-                                               projects-to-programme
-                                               roles
-                                               nil))
-        add-not-allowed       (fn [m]
-                                (cond-> m (not-allowed? (:device_id m))
-                                        (merge-meta {:not-allowed? true})))]
-    (map add-not-allowed
-         header)))
+  (let [sensors (:sensors header)
+        add-allowed (fn [m]
+                      (if (get-in m [:metadata :exists?])
+                        (assoc-in m [:metadata :allowed?] (allowed? m programmes projects roles))
+                        m))]
+    (assoc header :sensors (map #(add-allowed %) (:sensors header)))))
+
+(defn- parse-file-to-db [store header in-file]
+  (with-open [in (io/reader in-file)]
+    (log/info "Processing " (count (:sensors header)) " data columns")
+    (let [{:keys [row-count update-devices-and-sensors? date-parser]} (:metadata header)
+          data   (get-data row-count in)
+          report (mapv
+                  (partial process-column store update-devices-and-sensors? date-parser)
+                  (:sensors header) data)]
+      (log/info "Finished Processing " (count (:sensors header)) " data columns")
+      report)))
 
 (defn db-store [store item]
-  (let [raw-header (get-header store item)
-        header     (with-meta  (-> raw-header
-                                   (validate-header)
-                                   (enrich-with-authz store (:auth item)))
-                     (meta raw-header))
-        in-file    (io/file (:dir item) (:filename item))]
+  (let [header  (-> (get-header store item)
+                    (validate-header)
+                    (add-projects store)
+                    (add-programmes store)
+                    (enrich-with-authz store (:auth item)))
+        in-file (io/file (:dir item) (:filename item))]
     (try
       (parse-file-to-db store header in-file)
       (finally (ioplus/delete! in-file)))))
 
 (defn upload-item [store item]
-  (let [username (-> item :metadata :user)]
-    (s3/store-file (:s3 store) item)
-    (let [tmpfile (ioplus/mk-temp-file! "hecuba" "measurements")
-          newitem (assoc item
-                    :dir      (.getParent tmpfile)
-                    :filename (.getName tmpfile))]
-      (try
-        (parser/normalize-line-endings! (io/file (:dir item)
-                                                 (:filename item)) tmpfile)
-        (.delete (io/file (:dir item) (:filename item)))
-        (db-store store newitem)
-        (write-status store (assoc newitem :status "SUCCESS"))
-        (catch Throwable t
-          (log/error t "failed")
-          (write-status store (assoc newitem :status "FAILURE" :data (str (ex-data t)))))))))
+  (log/infof "Accepted upload: %s" item)
+  (write-status store (assoc item :status "ACCEPTED"))
+  (s3/store-file (:s3 store) item)
+  (write-status store (assoc item :status "STORED"))
+  (log/infof "Stored upload: %s" item)
+  (let [tmpfile (ioplus/mk-temp-file! "hecuba" "measurements")
+        newitem (assoc item
+                  :dir      (.getParent tmpfile)
+                  :filename (.getName tmpfile))]
+    (try
+      (log/infof "Processing upload: %s" newitem)
+      (write-status store (assoc newitem :status "PROCESSING"))
+      (parser/normalize-line-endings! (io/file (:dir item)
+                                               (:filename item)) tmpfile)
+      (.delete (io/file (:dir item) (:filename item)))
+      (let [report (db-store store newitem)]
+        (log/infof "Processing upload COMPLETE: %s" newitem)
+        (write-status store (assoc newitem :status "COMPLETE" :report report)))
+      (catch Throwable t
+        (log/errorf t "Uploading item %s failed." newitem)
+        (write-status store (assoc newitem :status "FAILURE" :report (str (ex-data t))))))))
