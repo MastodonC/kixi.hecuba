@@ -1,0 +1,1 @@
+ALTER TABLE datasets ADD operands list<text>;

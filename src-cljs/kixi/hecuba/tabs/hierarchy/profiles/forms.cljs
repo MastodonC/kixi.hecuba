@@ -202,6 +202,11 @@
    (text-control profile owner (conj keys :co_heating_assessor) "Assessor Used")
    (text-control profile owner (conj keys :co_heating_equipment) "Equipment")])
 
+(defn energy-costs [owner profile keys]
+  [:div
+   (text-control profile owner (conj keys :gas_cost) "Gas Cost")
+   (text-control profile owner (conj keys :electricity_cost) "Electricity Cost")])
+
 (defn conservatory [owner profile keys]
   [:div
    (text-control profile owner (conj keys :conservatory_type) "Conservatory Type")

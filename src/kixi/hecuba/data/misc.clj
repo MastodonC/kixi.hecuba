@@ -274,3 +274,10 @@
       (let [{:keys [min-date max-date]} (min-max-dates batch)]
         (insert-batch session batch)
         (update-sensor-metadata session sensor min-date max-date)))))
+
+(defn deep-merge
+  "Recursively merges maps. If keys are not maps, the last value wins."
+  [& vals]
+  (if (every? map? vals)
+    (apply merge-with deep-merge vals)
+    (last vals)))

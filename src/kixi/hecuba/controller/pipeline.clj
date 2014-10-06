@@ -18,7 +18,9 @@
             [kixi.hecuba.api.datasets               :as datasets]
             [kixi.hecuba.storage.db                 :as db]
             [kixi.hecuba.data.devices               :as devices]
-            [kixi.hecuba.data.entities.search       :as search]))
+            [kixi.hecuba.data.entities.search       :as search]
+            [clojure.string                         :as string]
+            [clojure.edn                            :as edn]))
 
 (defn build-pipeline [store]
   (let [fanout-q                (new-queue {:name "fanout-q" :queue-size 50})
@@ -214,22 +216,57 @@
             (misc/reset-date-range store s :spike_check (:start-date range) (:end-date range)))))
       (log/info "Finished median spike check."))
 
-    (defn synthetic-readings [store item]
-      (let [{:keys [ds sensors range]} item]
-        (calculate/calculate-dataset store ds sensors range)))
+    (defmulti synthetic-readings (fn [store {:keys [ds sensors range]}] (keyword (:operation ds))))
+
+    (defmethod synthetic-readings :sum [store {:keys [ds sensors range]}]
+      (calculate/calculate-dataset store ds sensors range))
+    (defmethod synthetic-readings :subtract [store {:keys [ds sensors range]}]
+      (calculate/calculate-dataset store ds sensors range))
+    (defmethod synthetic-readings :divide [store {:keys [ds sensors range]}]
+      (calculate/calculate-dataset store ds sensors range))
+    (defmethod synthetic-readings :multiply-series-by-field [store {:keys [ds sensors range]}]
+      (let [{:keys [operands]} ds
+            [field unit] (string/split (last operands) #"-")]
+        (calculate/calculate-dataset store ds sensors range (edn/read-string field))))
+    (defmethod synthetic-readings :divide-series-by-field [store {:keys [ds sensors range]}]
+      (let [{:keys [operands]} ds
+            [field unit] (string/split (last operands) #"-")]
+        (calculate/calculate-dataset store ds sensors range (edn/read-string field))))
+
+    (defmulti sensors-for-dataset (fn [ds store] (keyword (:operation ds))))
+    (defmethod sensors-for-dataset :sum [ds store]
+      (datasets/sensors-for-dataset ds store))
+    (defmethod sensors-for-dataset :subtract [ds store]
+      (datasets/sensors-for-dataset ds store))
+    (defmethod sensors-for-dataset :divide [ds store]
+      (datasets/sensors-for-dataset ds store))
+    (defmethod sensors-for-dataset :multiply-series-by-field [ds store]
+      (let [{:keys [operands]} ds]
+        (datasets/sensors-for-dataset {:operands (take 1 operands)} store)))
+    (defmethod sensors-for-dataset :divide-series-by-field [ds store]
+      (let [{:keys [operands]} ds]
+        (datasets/sensors-for-dataset {:operands (take 1 operands)} store)))
 
     (defnconsumer synthetic-readings-q [item]
       (log/info "Starting synthetic readings job.")
       (db/with-session [session (:hecuba-session store)]
         (let [datasets (dd/get-all session)]
           (doseq [ds datasets]
-            (let [sensors (datasets/sensors-for-dataset ds store)
-                  [min-date max-date] (misc/range-for-all-sensors sensors)]
-              (when (and min-date max-date)
+            (let [sensors (sensors-for-dataset ds store)
+                  {:keys [device_id name]} ds
+                  synthetic-sensor (misc/all-sensor-information store device_id name)]
+              (when-let [range (misc/start-end-dates :calculated_datasets synthetic-sensor)]
                 (synthetic-readings store (assoc item
-                                            :range {:start-date min-date
-                                                    :end-date max-date}
-                                            :ds ds :sensors sensors)))))))
+                                            :range range
+                                            :ds ds :sensors sensors))
+                (misc/reset-date-range store {:device_id device_id :type name} :calculated_datasets
+                                       (:start-date range)
+                                       (:end-date range))
+                (db/with-session [session (:hecuba-session store)]
+                  (let [{:keys [device_id]} ds
+                        {:keys [entity_id]} (devices/get-by-id session device_id)]
+                    (-> (search/searchable-entity-by-id entity_id session)
+                        (search/->elasticsearch (:search-session store))))))))))
       (log/info "Finished synthetic readings job."))
 
     (defn actual-annual [store item]
@@ -314,7 +351,7 @@
           :synthetic-readings (db/with-session [session (:hecuba-session store)]
                                 (let [datasets (dd/get-all session)]
                                   (doseq [ds datasets]
-                                    (let [sensors (datasets/sensors-for-dataset ds store)
+                                    (let [sensors (sensors-for-dataset ds store)
                                           [min-date max-date] (misc/range-for-all-sensors sensors)
                                           new-item (assoc item :sensors sensors :ds ds :range {:start-date min-date :max-date max-date})]
                                       (when (and min-date max-date)

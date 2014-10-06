@@ -174,6 +174,11 @@
    (om/build text-control (:co_heating_assessor cursor) {:opts {:label "Assessor Used"}})
    (om/build text-control (:co_heating_equipment cursor) {:opts {:label "Equipment"}})])
 
+(defn energy-costs [cursor]
+  [:div
+   (om/build text-control (:gas_cost cursor) {:opts {:label "Gas Cost"}})
+   (om/build text-control (:electricity_cost cursor) {:opts {:label "Electricity Cost"}})])
+
 ;;;;;;;;;;;;;;;;;;;;;;;;; Lists ;;;;;;;;;;;;;;;;;;;;
 
 (defn conservatory [cursors]

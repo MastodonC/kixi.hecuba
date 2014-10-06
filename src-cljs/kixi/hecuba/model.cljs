@@ -45,6 +45,7 @@
                             :datasets []
                             :property-id nil
                             :alert {}
+                            :new-dataset {:operation nil :series []}
                             :editable false
                             :edited-dataset {}}
                  :chart    {:property ""
