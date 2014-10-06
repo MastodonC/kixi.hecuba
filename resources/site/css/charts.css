@@ -29,7 +29,7 @@ path {
 }
 
 .x.axis text {
-    font-size: 12px;
+    font-size: 14px;
 }
 
 .y.axis line, .y.axis path {
@@ -38,7 +38,7 @@ path {
 }
 
 .y.axis text {
-    font-size: 12px;
+    font-size: 14px;
 }
 
 .y.axisRight text {
