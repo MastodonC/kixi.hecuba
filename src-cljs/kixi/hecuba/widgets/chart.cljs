@@ -126,6 +126,20 @@
       (.attr "d" (fn [d] (line-fn (aget d "values"))))
       (.style "stroke" (fn [d] (color-fn (aget d "sensor"))))))
 
+(def time-format (-> js/d3
+                     (.-time)
+                     (.-format)
+                     (.multi (to-array
+                              [(to-array [".%L" (fn [d] (.getMilliseconds d))])
+                               (to-array [":%S" (fn [d] (.getSeconds d))])
+                               (to-array ["%I:%M" (fn [d] (.getMinutes d))])
+                               (to-array ["%H:00" (fn [d] (.getHours d))])
+                               (to-array ["%a %d %b" (fn [d] (and (.getDay d)
+                                                               (not= 1 (.getDate d))))])
+                               (to-array ["%d %b" (fn [d] (not= 1 (.getDate d)))])
+                               (to-array ["%B %Y" (fn [d] (.getMonth d))])
+                               (to-array ["%Y" (fn [d] true)])]))))
+
 (defn- draw-chart [measurements infobox-chan]
   (let [margin          {:top 10 :right 90 :bottom 100 :left 90}
         width           (-> (.getElementById js/document "chart") .-clientWidth (- (:left margin) (:right margin)))
@@ -145,7 +159,10 @@
         ;; X
         x-scale         (-> js/d3 .-time (.scale) (.domain (to-array [min-date max-date])) (.range (to-array [0 width])))
         x-axis          (-> js/d3 (.-svg) (.axis) (.scale x-scale) (.orient "bottom")
-                            (.ticks 10) (.tickFormat (.format js/d3.time "%Y-%m-%d %H:%M:%S")))
+                            (.ticks 10) (.tickFormat time-format))
+
+        ;; let's try friendly formats for a while
+        ;; (.tickFormat (.format js/d3.time "%Y-%m-%d %H:%M:%S"))
         ;; Left
         color-left      (color-scale series-left (to-array ["#6baed6" "#4292c6" "#2171b5" "#08519c" "#08306b"]))
         y1-scale        (y-scale (:minimum series1-min-max) (:maximum series1-min-max) height)
@@ -170,7 +187,7 @@
           (.style "text-anchor" "start")
           (.attr "class" "x axis text")
           (.attr "dx" ".5em")
-          (.attr "dy" ".20em")
+          (.attr "dy" ".2em")
           (.attr "transform" (fn [d] "rotate(45)")))
       (-> (.append "svg:g")
           (.attr "class" "y axis axisLeft")
