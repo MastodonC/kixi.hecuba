@@ -1,7 +1,9 @@
 (ns kixi.hecuba.data.measurements.core
   (:require [cheshire.core         :as json]
+            [clj-time.coerce       :as tc]
             [clojure.tools.logging :as log]
             [kixipipe.ioplus       :as ioplus]
+            [kixi.hecuba.time      :as time]
             [kixipipe.storage.s3   :as s3]))
 
 (def columns-in-order [:device_id
@@ -61,3 +63,13 @@
   (if (seq xs)
     (apply map vector xs)
     []))
+
+(defn prepare-measurement [m sensor date-parser]
+  (let [t  (tc/to-date (date-parser (:timestamp m)))]
+    {:device_id        (:device_id sensor)
+     :type             (:type sensor)
+     :timestamp        t
+     :value            (str (:value m))
+     :error            (str (:error m))
+     :month            (time/get-month-partition-key t)
+     :reading_metadata {}}))

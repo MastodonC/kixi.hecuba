@@ -10,7 +10,6 @@
             [kixi.hecuba.api.datasets :as datasets]
             [kixi.hecuba.data.measurements :as measurements]
             [kixi.hecuba.data.misc :as m]
-            [kixi.hecuba.data.validate :as v]
             [kixi.hecuba.storage.db :as db]
             [qbits.hayt :as hayt]))
 

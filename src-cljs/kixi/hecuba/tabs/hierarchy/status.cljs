@@ -29,9 +29,12 @@
                  [:tr
                   [:td (:filename item)]
                   [:td (common/unparse-date-str (:timestamp item) "yyyy-MM-dd HH:mm:ss")]
-                  [:td (if (= status "SUCCESS")
-                         [:span {:class "label label-success"} status]
-                         [:span {:class "label label-danger"} status])]]))]]]])))))
+                  [:td (cond (or (= status "COMPLETE") (= status "SUCCESS"))
+                             [:span {:class "label label-success"} status]
+                             (= status "FAILURE")
+                             [:span {:class "label label-danger"} status]
+                             :else
+                             [:span {:class "label label-info"} status])]]))]]]])))))
 
 (defn download-status [cursor owner]
   (reify
