@@ -295,6 +295,7 @@
                [:li {:class (if (= active-tab :datasets) "active" nil)}
                 [:a {:onClick (fn [_ _]
                                 (om/update! properties [:datasets :sensors] (data/fetch-sensors property-id @properties))
+                                (om/update! properties [:datasets :editable] editable)
                                 (data/fetch-datasets property-id [:datasets :datasets] properties)
                                 (om/set-state! owner :active-tab :datasets))}
                  "Datasets"]]

@@ -7,7 +7,7 @@
             [kixi.hecuba.api.entities :as entities]
             [kixi.hecuba.data.measurements.core :refer (get-status write-status)]
             [kixi.hecuba.data.measurements.download :as measurements-download]
-            [kixi.hecuba.security :as sec]
+            [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.storage.sha1 :as sha1]
             [kixi.hecuba.web-paths :as p]
@@ -17,7 +17,9 @@
             [kixipipe.storage.s3 :as s3]
             [liberator.core :refer (defresource)]
             [liberator.representation :refer (ring-response)]
-            [qbits.hayt :as hayt]))
+            [qbits.hayt :as hayt]
+            [clojure.core.match :refer (match)]
+            [kixi.hecuba.data.entities.search :as search]))
 
 (def ^:private templates-resource (p/resource-path-string :templates-resource))
 (def ^:private entity-templates-resource (p/resource-path-string :entity-templates-resource))
@@ -49,12 +51,35 @@
        filename
        name))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; RESOURCE FUNCTIONS
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn allowed?* [programme-id project-id allowed-programmes allowed-projects role request-method]
+  (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
+             programme-id project-id allowed-programmes allowed-projects role request-method)
+  (match  [(has-admin? role)
+           (has-programme-manager? programme-id allowed-programmes)
+           (has-project-manager? project-id allowed-projects)
+           (has-user? programme-id allowed-programmes project-id allowed-projects)
+           request-method]
+
+          [true _ _ _ _]    true
+          [_ true _ _ _]    true
+          [_ _ true _ _]    true
+          [_ _ _ true :get] true
+          :else false))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; index-exists?
+;; INDEX FUNCTIONS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn index-allowed? [store]
+  (fn [ctx]
+    (let [request (:request ctx)
+          {:keys [request-method session params]} request
+          {:keys [projects programmes role]} (sec/current-authentication session)
+          {:keys [programme_id project_id entity_id]} params]
+      (if (and project_id programme_id)
+        [(allowed?* programme_id project_id programmes projects role request-method)
+         {:request request}]
+        true))))
 
 (defmulti index-exists? request-method-from-context)
 
@@ -64,10 +89,6 @@
 
 (defmethod index-exists? :default [store ctx] true)
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; malformed?
-
 (defmulti malformed? request-method-from-context :default :default)
 
 (defmethod malformed? :post [ctx]
@@ -75,9 +96,6 @@
     (not (valid-template-request? name template))))
 
 (defmethod malformed? :default [_] false)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; index-post!
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -88,15 +106,9 @@
       (log/info "Created new template with name " (:name result))
       {::location (format templates-resource (:id result))})))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; index-handle-ok?
-
 (defn index-handle-ok [ctx]
     (let [items (::items ctx)]
     (util/render-items ctx items)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; index-handle-created?
 
 (defn index-handle-created [ctx]
   (let [location (:location_id ctx)]
@@ -106,7 +118,19 @@
                             :version "4"})}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; resource-exists?
+;; RESOURCE FUNCTIONS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn resource-allowed? [store]
+  (fn [ctx]
+    (let [request (:request ctx)
+          {:keys [request-method session params]} request
+          {:keys [projects programmes role]} (sec/current-authentication session)
+          {:keys [programme_id project_id entity_id]} params]
+      (if (and project_id programme_id)
+        [(allowed?* programme_id project_id programmes projects role request-method)
+         {:request request}]
+        true))))
 
 (defmulti resource-exists? request-method-from-context)
 
@@ -121,16 +145,10 @@
 
 (defmethod resource-exists? :default [_ _] true)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; resource-respond-with-entity?
-
 (defmulti resource-respond-with-entity? request-method-from-context)
 
 (defmethod resource-respond-with-entity? :default [_] true)
 (defmethod resource-respond-with-entity? :delete [_] false)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; resource-put!
 
 (defn resource-put! [store {request :request}]
   (db/with-session [session (:hecuba-session store)]
@@ -143,16 +161,30 @@
         {::location (format templates-resource (:id result))}))))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; resource-handle-ok
-
 (defn resource-handle-ok [ctx]
   (let [{:keys [filename name template]} (::item ctx)]
     (ring-response {:headers {"Content-Disposition" (str "attachment; filename=" filename)}
                     :body template})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; entity-resource-handle-ok
+;; ENTITY RESOURCE FUNCTIONS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn entity-resource-allowed? [store]
+  (fn [ctx]
+    (let [request (:request ctx)
+          {:keys [request-method session params]} request
+          {:keys [projects programmes role]} (sec/current-authentication session)
+          {:keys [entity_id]} params
+          entity (search/get-by-id entity_id (:search-session store))
+          {:keys [project_id programme_id]} entity]
+      (when (and project_id programme_id)
+        [(allowed?* programme_id project_id programmes projects role request-method)
+         {:request request :entity entity}]))))
+
+(defn entity-resource-exists? [store ctx]
+  (when-let [entity (seq (:entity ctx))]
+    {:request (:request ctx)}))
 
 (defn queue-data-generation [store pipe username item]
   (let [entity_id (:entity_id item)
@@ -187,15 +219,13 @@
         (ring-response {:headers {"Content-Disposition" (str "attachment; filename=" entity_id "_template.csv")}
                         :body (util/render-items ctx (measurements-download/get-header store entity_id))})))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; RESOURCES
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defresource index [store]
   :allowed-methods #{:get :post}
   :available-media-types #{"text/csv"}
   :known-content-type? #{"text/csv"}
   :authorized? (authorized? store)
+  :allowed? (index-allowed? store)
   :exists? (partial index-exists? store)
   :malformed? malformed?
   :post! (partial index-post! store)
@@ -206,6 +236,7 @@
   :allowed-methods #{:get :delete :put}
   :available-media-types #{"text/csv"}
   :authorized? (authorized? store)
+  :allowed? (resource-allowed? store)
   :exists? (partial resource-exists? store)
   :new? (constantly false)
   :malformed? malformed?
@@ -218,5 +249,6 @@
   :available-media-types #{"text/csv" "application/edn"}
   :known-content-type? #{"text/csv"}
   :authorized? (authorized? store)
-  :exists? (partial entities/resource-exists? store)
+  :allowed? (entity-resource-allowed? store)
+  :exists? (partial entity-resource-exists? store)
   :handle-ok (partial entity-resource-handle-ok store pipeline))

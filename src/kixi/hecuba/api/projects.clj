@@ -28,24 +28,95 @@
 (defn- project_id-from [ctx]
   (get-in ctx [:request :route-params :project_id]))
 
-(defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
-    (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
-               programme-id project-id allowed-programmes allowed-projects roles request-method)
+(defn filter-by-allowed-ids [allowed-programme-ids allowed-project-ids projects]
+  (filter #(or (some #{(:programme_id %)} allowed-programme-ids)
+               (some #{(:project_id %)} allowed-project-ids)) projects))
 
-  (match [(has-admin? roles)
-          (has-programme-manager? roles)
-          (some #(= % programme-id) allowed-programmes)
-          (has-project-manager? roles)
-          (some #(= % project-id) allowed-projects)
-          (has-user? roles)
-          request-method]
+(defmulti enrich-by-role (fn [role resource] role))
+(defmethod enrich-by-role :kixi.hecuba.security/user [_ resource]
+  (assoc resource :editable false))
+(defmethod enrich-by-role :kixi.hecuba.security/programme-manager [_ resource]
+  (assoc resource :editable true))
+(defmethod enrich-by-role :kixi.hecuba.security/project-manager [_ resource]
+  (assoc resource :editable true))
 
-         [true _ _ _ _ _ _] true
-         [_ true true _ _ _ _] true
-         [_ _ _ true true _ _] true
-         [_ _ true _ _ true :get] true
-         [_ _ _ _ true true :get] true
-         :else false))
+(defn filter-by-ids-and-roles
+  ([allowed-programmes allowed-projects projects]
+     (let [allowed-programme-ids (into #{} (keys allowed-programmes))
+           allowed-project-ids   (into #{} (keys allowed-projects))]
+       (->> projects
+            (map (fn [project]
+                   (let [programme-id (:programme_id project)
+                         project-id   (:project_id project)]
+                     (cond
+                      (some #{programme-id} allowed-programme-ids) (enrich-by-role (get allowed-programmes programme-id) project)
+                      (some #{project-id} allowed-project-ids) (enrich-by-role (get allowed-projects project-id) project)))))
+            (remove nil?))))
+  ([allowed-programmes allowed-projects projects store]
+     (db/with-session [session (:hecuba-session store)]
+       (let [allowed-programme-ids (into #{} (keys allowed-programmes))
+             allowed-project-ids   (into #{} (keys allowed-projects))
+             all-programmes        (programmes/get-all session)]
+         (->> projects
+              (map (fn [project]
+                     (let [programme-id (:programme_id project)
+                           project-id   (:project_id project)]
+                       (cond
+                        (some #{programme-id} allowed-programme-ids) (enrich-by-role (get allowed-programmes programme-id) project)
+                        (some #{project-id} allowed-project-ids) (enrich-by-role (get allowed-projects project-id) project)
+                        (-> (filter #(= programme-id (:programme_id %)) all-programmes) first :public_access) (assoc project :editable false)))))
+              (remove nil?))))))
+
+(defn allowed?*
+  ([programme-id project-id allowed-programmes allowed-projects role request-method store]
+     ;; Specific project
+     (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s role: %s request-method: %s"
+                programme-id project-id allowed-programmes allowed-projects role request-method)
+     (db/with-session [session (:hecuba-session store)]
+       (let [programme    (programmes/get-by-id session programme-id)
+             project      (projects/get-by-id session project-id)]
+         (match [(has-admin? role)
+                 (has-programme-manager? programme-id allowed-programmes)
+                 (has-project-manager? project-id allowed-projects)
+                 (has-user? programme-id allowed-programmes project-id allowed-projects)
+                 request-method]
+
+                [true _ _ _ _]   [true {::item (assoc project :editable true)}]
+                [_ true _ _ _]   [true {::item (assoc project :editable true)}]
+                [_ _ true _ _]   [true {::item (assoc project :editable true)}]
+                [_ _ _ true :get][true {::item (if (:public_access programme)
+                                                 project
+                                                 (filter-by-ids-and-roles allowed-programmes allowed-projects [project] store))}]
+                :else false))))
+  ([programme-id allowed-programmes allowed-projects role request-method store]
+     ;; All projects for a programme-id
+     (log/infof "allowed?* programme-id: %s allowed-programmes: %s allowed-projects: %s role: %s request-method: %s"
+                programme-id allowed-programmes allowed-projects role request-method)
+     (db/with-session [session (:hecuba-session store)]
+       (let [programme    (programmes/get-by-id session programme-id)
+             all-projects (projects/get-all session programme-id)]
+         (match [(has-admin? role)
+                 (has-programme-manager? programme-id allowed-programmes)
+                 request-method]
+
+                [true _ _]    [true {::items (mapv #(assoc % :editable true) all-projects)}]
+                [_ true _]    [true {::items (mapv #(assoc % :editable true) all-projects)}]
+                [_ _ :get]    [true {::items (if (:public_access programme)
+                                               all-projects
+                                               (filter-by-ids-and-roles allowed-programmes allowed-projects all-projects store))}]
+                :else false))))
+  ([allowed-programmes allowed-projects role request-method store]
+     ;; All projects
+     (log/infof "allowed?* allowed-programmes: %s allowed-projects: %s role: %s request-method: %s"
+                allowed-programmes allowed-projects role request-method)
+     (db/with-session [session (:hecuba-session store)]
+       (let [all-projects (projects/get-all session)]
+         (match [(has-admin? role)
+                 request-method]
+
+                [true _]   [true {::items (mapv #(assoc % :editable true) all-projects)}]
+                [_ :get]   [true {::items (filter-by-ids-and-roles allowed-programmes allowed-projects all-projects store)}]
+                :else false)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Index
@@ -53,30 +124,11 @@
 (defn index-allowed? [store]
   (fn [ctx]
     (let [{:keys [request-method session params]} (:request ctx)
-          {:keys [programmes projects roles]} (sec/current-authentication session)
-          programme_id (:programme_id (:project ctx))]
+          {:keys [programmes projects role]} (sec/current-authentication session)
+          programme_id (programme_id-from ctx)]
       (if programme_id
-        (allowed?* programme_id nil programmes projects roles request-method)
-        true))))
-
-(defn editable-projects [projects allowed-programmes allowed-projects roles]
-  (map #(let [editable (allowed?* (:programme_id %) (:project_id %)
-                                  allowed-programmes allowed-projects roles
-                                  :put)]
-          (if editable
-            (assoc % :editable editable)
-            %)) projects))
-
-(defn items->authz-items [session programme items]
-  (let [{:keys [roles programmes projects]} (sec/current-authentication session)
-        public_access (= "true" (:public_access programme))]
-    (log/debugf "Roles: %s Programmes: %s Projects: %s" roles programmes projects)
-    (if (some #(isa? % ::sec/admin) roles)
-      (map #(assoc % :editable true) items)
-      (editable-projects (filter #(or public_access
-                                      (programmes (:programme_id %))
-                                      (projects (:project_id %)))
-                                 items) programmes projects roles))))
+        (allowed?* programme_id programmes projects role request-method store)
+        (allowed?* programmes projects role request-method store)))))
 
 (defn index-malformed? [ctx]
   (let [request (:request ctx)
@@ -93,10 +145,8 @@
     (let [request      (:request ctx)
           web-session  (-> ctx :request :session)
           programme_id (-> (:route-params request) :programme_id)
-          programme (programmes/get-by-id session programme_id)
-          items        (projects/get-all session programme_id)]
+          items        (::items ctx)]
       (->> items
-           (items->authz-items web-session programme)
            (map #(-> %
                      (assoc :href (format programme-projects-resource (:programme_id %) (:project_id %))
                             :properties (format project-properties-index (:project_id %)))))
@@ -125,12 +175,11 @@
 
 (defn resource-allowed? [store ctx]
   (let [{:keys [body request-method session params]} (:request ctx)
-        {:keys [programmes projects roles]} (sec/current-authentication session)
+        {:keys [programmes projects role]} (sec/current-authentication session)
         programme_id (programme_id-from ctx)
         project_id (project_id-from ctx)]
-    (if programme_id
-      [(allowed?* programme_id project_id programmes projects roles request-method)
-       {:editable (allowed?* programme_id project_id programmes projects roles :put)}]
+    (if (and programme_id project_id)
+      (allowed?* programme_id project_id programmes projects role request-method store)
       true)))
 
 (defn resource-malformed? [ctx]

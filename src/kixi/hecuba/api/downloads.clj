@@ -18,23 +18,21 @@
             [ring.util.response :refer (redirect)]))
 
 ;; List of files is retrieved for a username (read from the current session) so only users who can upload files can also GET those files. Other users will get an empty list.
-(defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
-  (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
-             programme-id project-id allowed-programmes allowed-projects roles request-method)
-  (match [(has-admin? roles)
-          (has-programme-manager? roles)
-          (some #(= % programme-id) allowed-programmes)
-          (has-project-manager? roles)
-          (some #(= % project-id) allowed-projects)
-          (has-user? roles)
-          request-method]
 
-         [true _ _ _ _ _ _] true
-         [_ true true _ _ _ _] true
-         [_ _ _ true true _ _] true
-         [_ _ true _ _ true :get] true
-         [_ _ _ _ true true :get] true
-         :else false))
+(defn allowed?* [programme-id project-id allowed-programmes allowed-projects role request-method]
+  (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
+             programme-id project-id allowed-programmes allowed-projects role request-method)
+  (match  [(has-admin? role)
+           (has-programme-manager? programme-id allowed-programmes)
+           (has-project-manager? project-id allowed-projects)
+           (has-user? programme-id allowed-programmes project-id allowed-projects)
+           request-method]
+
+          [true _ _ _ _]    true
+          [_ true _ _ _]    true
+          [_ _ true _ _]    true
+          [_ _ _ true :get] true
+          :else false))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Downloads for entity
@@ -42,10 +40,10 @@
 (defn downloads-for-entity-allowed? [store]
   (fn [ctx]
     (let [{:keys [request-method session params]} (:request ctx)
-          {:keys [projects programmes roles]}     (sec/current-authentication session)
+          {:keys [projects programmes role]}     (sec/current-authentication session)
           {:keys [programme_id project_id]} params]
       (if (and project_id programme_id)
-        (allowed?* programme_id project_id programmes projects roles request-method)
+        (allowed?* programme_id project_id programmes projects role request-method)
         true))))
 
 (defn status-from-object [store s3-key]

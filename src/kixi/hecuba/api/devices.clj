@@ -3,7 +3,7 @@
    [clojure.core.match :refer (match)]
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
-   [kixi.hecuba.security :as sec]
+   [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
    [kixi.hecuba.webutil :as util]
    [kixi.hecuba.data.misc :as m]
    [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex)]
@@ -24,47 +24,33 @@
 
 (def ^:private device-resource (p/resource-path-string :entity-device-resource))
 
-(defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
-  (match [(some #(isa? % :kixi.hecuba.security/admin) roles)
-          (some #(isa? % :kixi.hecuba.security/programme-manager) roles)
-          (some #(= % programme-id) allowed-programmes)
-          (some #(isa? % :kixi.hecuba.security/project-manager) roles)
-          (some #(= % project-id) allowed-projects)
-          (some #(isa? % :kixi.hecuba.security/user) roles)
-          request-method]
-         ;; super-admin - do everything
-         [true _ _ _ _ _ _] true
-         ;; programme-manager for this programme - do everything
-         [_ true true _ _ _ _] true
-         ;; project-manager for this project - do everything
-         [_ _ _ true true _ _] true
-         ;; user with this programme - get allowed
-         [_ _ true _ _ true :get] true
-         ;; user with this project - get allowed
-         [_ _ _ _ true true :get] true
-         :else false))
+(defn allowed?* [programme-id project-id allowed-programmes allowed-projects role request-method]
+  (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s role: %s request-method: %s"
+             programme-id project-id allowed-programmes allowed-projects role request-method)
+  (match  [(has-admin? role)
+           (has-programme-manager? programme-id allowed-programmes)
+           (has-project-manager? project-id allowed-projects)
+           (has-user? programme-id allowed-programmes project-id allowed-projects)
+           request-method]
+
+          [true _ _ _ _]    [true {:editable true}]
+          [_ true _ _ _]    [true {:editable true}]
+          [_ _ true _ _]    [true {:editable true}]
+          [_ _ _ true :get] true
+          :else false))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; INDEX
 
 (defn index-allowed? [store]
   (fn [ctx]
     (let [{:keys [body request-method session params]} (:request ctx)
-          {:keys [projects programmes roles]} (sec/current-authentication session)
-          project_id (:project_id body)
-          programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
-      (if (and project_id programme_id)
-        (allowed?* programme_id project_id programmes projects roles request-method)
-        true))))
-
-(defn resource-allowed? [store]
-  (fn [ctx]
-    (let [{:keys [request-method session params]} (:request ctx)
-          {:keys [projects programmes roles]}     (sec/current-authentication session)
+          {:keys [projects programmes role]} (sec/current-authentication session)
           entity_id (:entity_id params)
-          project_id (when entity_id
-                       (:project_id (search/get-by-id entity_id (:search-session store))))
-          programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
-      (if (and project_id programme_id)
-        (allowed?* programme_id project_id programmes projects roles request-method)
-        true))))
+          {:keys [project_id programme_id]} (when entity_id
+                                              (search/get-by-id entity_id (:search-session store)))]
+      (when (and project_id programme_id)
+        (allowed?* programme_id project_id programmes projects role request-method)))))
 
 (defn index-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -74,9 +60,10 @@
           entity_id      (:entity_id route-params)
           entity         (search/get-by-id entity_id (:search-session store))]
       (case method
-        :post (not (nil? entity))
-        :get (let [items (devices/get-devices session entity_id)]
-               {::items items})))))
+        :post (seq entity)
+        :get (let [items (devices/get-devices session entity_id)
+                   editable (:editable ctx)]
+               {::items (mapv #(assoc % :editable editable) items)})))))
 
 (defn should-calculate-fields? [sensors]
   (not (some #(and (= (:period %) "CUMULATIVE")
@@ -170,6 +157,19 @@
                     :body (json/encode {:location location
                                         :status "OK"
                                         :version "4"})})))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; RESOURCE
+
+(defn resource-allowed? [store]
+  (fn [ctx]
+    (let [{:keys [request-method session params]} (:request ctx)
+          {:keys [projects programmes role]}     (sec/current-authentication session)
+          entity_id (:entity_id params)
+          {:keys [project_id programme_id]} (when entity_id
+                                              (search/get-by-id entity_id (:search-session store)))]
+      (when (and project_id programme_id)
+        (allowed?* programme_id project_id programmes projects role request-method)))))
 
 (defn resource-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]

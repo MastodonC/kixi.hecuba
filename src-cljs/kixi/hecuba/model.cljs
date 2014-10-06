@@ -45,6 +45,7 @@
                             :datasets []
                             :property-id nil
                             :alert {}
+                            :editable false
                             :edited-dataset {}}
                  :chart    {:property ""
                             :sensors #{}

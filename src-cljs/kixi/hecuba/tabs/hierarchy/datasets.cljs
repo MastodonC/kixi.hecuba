@@ -302,24 +302,25 @@
           (recur))))
     om/IRenderState
     (render-state [_ state]
-      (let [{:keys [adding-dataset editing-dataset edited-dataset]} datasets
+      (let [{:keys [adding-dataset editing-dataset edited-dataset editable]} datasets
             {:keys [event-chan edited-dataset-chan]} (om/get-state owner)]
         (html
          [:div.col-md-12
           [:h3 "Datasets"
-           ;; Buttons
-           [:div.btn-toolbar.pull-right
-            ;; Add new dataset
-            [:button {:type "button"
-                      :title "Add Dataset"
-                      :class (str "btn btn-primary fa fa-plus " (when (or adding-dataset editing-dataset) "hidden"))
-                      :onClick (fn [_] (om/update! datasets :adding-dataset true))}]
-            ;; Edit dataset
-            [:button {:type "button"
-                      :title "Edit Dataset"
-                      :class (str "btn btn-primary fa fa-pencil-square-o "
-                                  (when (or adding-dataset editing-dataset (not (seq edited-dataset))) "hidden"))
-                      :onClick (fn [_] (om/update! datasets :editing-dataset true))}]]]
+           (when editable
+             ;; Buttons
+             [:div.btn-toolbar.pull-right
+              ;; Add new dataset
+              [:button {:type "button"
+                        :title "Add Dataset"
+                        :class (str "btn btn-primary fa fa-plus " (when (or adding-dataset editing-dataset) "hidden"))
+                        :onClick (fn [_] (om/update! datasets :adding-dataset true))}]
+              ;; Edit dataset
+              [:button {:type "button"
+                        :title "Edit Dataset"
+                        :class (str "btn btn-primary fa fa-pencil-square-o "
+                                    (when (or adding-dataset editing-dataset (not (seq edited-dataset))) "hidden"))
+                        :onClick (fn [_] (om/update! datasets :editing-dataset true))}]])]
 
           ;; Alert
           [:div {:id "alert-div" :style {:padding-top "10px"}}

@@ -151,6 +151,10 @@ td.number {
     padding-top: 7.5px;
 }
 
+.borderless tbody tr td, .borderless thead tr th {
+    border: none;
+    word-wrap: break-word;
+}
 div.last {
     min-height: 1000px;
 }

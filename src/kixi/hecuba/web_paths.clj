@@ -34,6 +34,9 @@
    ;; all properties
    :properties "properties"
 
+   ;; allprojects
+   :projects "projects"
+
    ;; datasets
    :entity-datasets-index "entities/%s/datasets"
    :entity-dataset-resource "entities/%s/datasets/%s"

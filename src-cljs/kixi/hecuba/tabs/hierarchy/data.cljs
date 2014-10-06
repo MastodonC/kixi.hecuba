@@ -141,19 +141,19 @@
 
 (defn fetch-usernames
   ([data error-handler]
-     (om/update! data [:users :fetching] :fetching)
+     (om/update! data [:user :fetching] :fetching)
      (GET (str "/4/usernames/")
           {:handler  (fn [x]
-                       (om/update! data [:users :data] x)
-                       (om/update! data [:users :fetching] (if (empty? x) :no-data :has-data)))
+                       (om/update! data [:user :data] x)
+                       (om/update! data [:user :fetching] (if (empty? x) :no-data :has-data)))
            :error-handler error-handler
            :headers {"Accept" "application/edn"}
            :response-format :text}))
   ([data]
      (fetch-usernames data (fn [{:keys [status status-text]}]
-                             (om/update! data [:users :fetching] :error)
-                             (om/update! data [:users :error-status] status)
-                             (om/update! data [:users :error-text] status-text)))))
+                             (om/update! data [:user :fetching] :error)
+                             (om/update! data [:user :error-status] status)
+                             (om/update! data [:user :error-text] status-text)))))
 
 
 (defn update-entity [entity refreshed-entity entity_id]

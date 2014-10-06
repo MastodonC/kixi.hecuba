@@ -13,17 +13,35 @@
    [kixi.hecuba.api.devices :as d]
    [kixi.hecuba.web-paths :as p]
    [cheshire.core :as json]
+   [kixi.hecuba.data.programmes :as programmes]
    [kixi.hecuba.data.entities :as entities]
    [kixi.hecuba.data.devices :as devices]
    [kixi.hecuba.data.sensors :as sensors]
    [kixi.hecuba.data.datasets :as datasets]
-   [kixi.hecuba.data.entities.search :as search]))
+   [kixi.hecuba.data.entities.search :as search]
+   [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
+   [clojure.core.match :refer (match)]))
 
 (def ^:private entity-dataset-resource (p/resource-path-string :entity-dataset-resource))
 
-(defn all-datasets [store]
+(defn allowed?* [entity-id programme-id project-id allowed-programmes allowed-projects role request-method store]
+  (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s role: %s request-method: %s"
+             programme-id project-id allowed-programmes allowed-projects role request-method)
   (db/with-session [session (:hecuba-session store)]
-    (datasets/get-all session)))
+    (let [all-datasets (datasets/get-all session)
+          public?      (-> (search/get-by-id entity-id (:search-session store)) :public_access)]
+      (match  [(has-admin? role)
+               (has-programme-manager? programme-id allowed-programmes)
+               (has-project-manager? project-id allowed-projects)
+               (has-user? programme-id allowed-programmes project-id allowed-projects)
+               request-method]
+
+              [true _ _ _ _]    [true {::items all-datasets}]
+              [_ true _ _ _]    [true {::items all-datasets}]
+              [_ _ true _ _]    [true {::items all-datasets}]
+              [_ _ _ true :get] [true {::items all-datasets}]
+              [_ _ _ _ :get]    [true {::items (when public? all-datasets)}]
+              :else false))))
 
 (defn sensors-for-dataset
   "Returns all the sensors for the given dataset."
@@ -94,6 +112,16 @@
       (when-let [default  (d/calculated-sensor synthetic)]
         (datasets/insert-sensor default (synthetic-sensor-metadata (:type default) device_id) session)))))
 
+(defn index-allowed? [store]
+  (fn [ctx]
+    (let [{:keys [body request-method session params]} (:request ctx)
+          {:keys [projects programmes role]} (sec/current-authentication session)
+          entity_id (:entity_id params)
+          {:keys [project_id programme_id]} (when entity_id
+                                              (search/get-by-id entity_id (:search-session store)))]
+      (when (and project_id programme_id)
+        (allowed?* entity_id programme_id project_id programmes projects role request-method store)))))
+
 (defn index-malformed? [ctx]
   (let [request (:request ctx)
         method  (:request-method request)
@@ -113,17 +141,18 @@
     (let [{:keys [request body]} ctx
           {:keys [route-params request-method]} request
           entity_id (:entity_id route-params)
-          entity    (entities/get-by-id session entity_id)]
+          entity    (search/get-by-id entity_id (:search-session store))
+          editable? (:public_access entity)]
       (case request-method
         :post (let [{:keys [name operation members]} body
                     op           (keyword (.toLowerCase operation))
                     members      (into #{} members)
                     sensors      (sensors-for-dataset body store)]
-                (when (and (not (nil? entity))
+                (when (and (seq entity)
                            (= (count members) (count sensors)))
                   {::items {:entity_id entity_id :sensors sensors :operation op :members members :name name}}))
         :get (let [items (datasets/get-by-id entity_id session)]
-               {::items items})))))
+               {::items (mapv #(assoc % :edibale editable?) items)})))))
 
 (defn stringify [k] (name k))
 
@@ -172,12 +201,27 @@
   :available-media-types #{"application/edn" "application/json"}
   :known-content-type?   #{"application/edn" "application/json"}
   :authorized?           (authorized? store)
+  :allowed?              (index-allowed? store)
   :malformed?            index-malformed?
   :exists?               (partial index-exists? store)
   :post-to-missing?      (constantly false)
   :post!                 (partial index-post! store)
   :handle-ok             (partial index-handle-ok store)
   :handle-created        index-handle-created)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Resource
+
+(defn resource-allowed? [store]
+  (fn [ctx]
+    (let [{:keys [request-method session params]} (:request ctx)
+          {:keys [projects programmes role]} (sec/current-authentication session)
+          entity_id (:entity_id params)
+          {:keys [project_id programme_id]} (when entity_id
+                                              (search/get-by-id entity_id (:search-session store)))]
+      (if (and project_id programme_id)
+        (allowed?* programme_id project_id programmes projects role request-method)
+        true))))
 
 (defn resource-exists? [store ctx]
   (db/with-session [session [:hecuba-session store]]
@@ -210,6 +254,7 @@
   :available-media-types #{"application/edn" "application/json"}
   :known-content-type?   #{"application/edn" "application/json"}
   :authorized?           (authorized? store :datasets)
+  :allowed?              (resource-allowed? store)
   :exists?               (partial resource-exists? store)
   :post!                 (partial resource-post! store)
   :handle-ok             resource-handle-ok)
