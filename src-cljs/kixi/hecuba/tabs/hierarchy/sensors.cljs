@@ -307,7 +307,7 @@
                              (let [c (chan (sliding-buffer 100))]
                                (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}
                                                                                          :opts {:border colours}})))))]])
-                   [:div.last [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data."]]])))]
+                   [:div [:div.col-md-12.text-center.last [:p.lead {:style {:padding-top 30}} "No data."]]])))]
             [:div.col-md-12.text-center
              [:p.lead {:style {:padding-top 30}}
               "Charting in Internet Explorer version " agent/VERSION " coming soon."]])])))))
