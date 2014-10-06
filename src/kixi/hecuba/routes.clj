@@ -261,7 +261,7 @@
 
 (defrecord Routes [context]
   component/Lifecycle
-  (start [this]4
+  (start [this]
     (let [store         (:store this)
           s3            (:s3 this)
           pipeline-head (:head (:pipeline this))
