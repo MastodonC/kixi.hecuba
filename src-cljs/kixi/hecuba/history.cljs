@@ -11,7 +11,7 @@
 ;; (enable-console-print!)
 
 (defn match-token [s]
-  (re-matches #"((?:[A-Za-z0-9-_;]+)(?:,(?:[A-Za-z0-9-_;]+))*)(?:/search/(.*))?" s))
+  (re-matches #"((?:[A-Za-z0-9-_; ]+)(?:,(?:[A-Za-z0-9-_; ]+))*)(?:/search/(.*))?" s))
 
 ;; TODO let's not use an atom for this.
 (def ^:private key-order (atom []))
@@ -107,7 +107,7 @@
 (defn update-token-ids! [history k v & keep-all?]
   (let [{:keys [ids] :as tmap} (token-as-map history)
         keep-keys              (if keep-all? key-order (take-while #(not (keyword-identical? % k)) key-order))
-        new-ids                (assoc (select-keys ids keep-keys) k (goog.string/urlEncode v))]
+        new-ids                (assoc (select-keys ids keep-keys) k (when v (goog.string/urlEncode v)))]
     (set-token! history (assoc tmap :ids new-ids) historian->token)))
 
 (defn set-token-search! [history xs]

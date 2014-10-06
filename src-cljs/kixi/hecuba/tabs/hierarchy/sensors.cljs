@@ -49,8 +49,7 @@
                        parent-device lower_ts upper_ts actual_annual selected]} sensor
                        {:keys [description privacy location]} parent-device
                        id (str type "-" device_id)
-                       selected? (contains? (:selected sensors) id)
-                       history (om/get-shared owner :history)]
+                       selected? (contains? (:selected sensors) id)]
            [:tr {:onClick (fn [e] (put! selected-chan {:id id
                                                        :unit unit
                                                        :upper_ts upper_ts
