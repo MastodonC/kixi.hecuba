@@ -89,11 +89,17 @@
         (om/update! data [:property-details :property_id] nil)
         (om/update! data [:properties :devices :data] [])
         (om/update! data [:properties :sensors :data] [])
-        (om/update! data [:properties :chart :measurements] []))
+        (om/update! data [:properties :sensors :selected] #{})
+        (om/update! data [:properties :sensors :alert] {})
+        (om/update! data [:properties :chart :sensors] #{})
+        (om/update! data [:properties :chart :measurements] [])
+        (om/update! data [:properties :chart :all-groups] [])
+        (om/update! data [:properties :chart :units] {}))
 
       (when-not sensors
         (log "Clearing measurements")
         (om/update! data [:properties :chart :measurements] [])
+        (om/update! data [:properties :chart :all-groups] [])
         (om/update! data [:properties :chart :sensors] #{})
         (om/update! data [:properties :chart :units] {})
         (om/update! data [:properties :sensors :selected] #{}))
@@ -108,6 +114,7 @@
         (om/update! data [:properties :sensors :alert] {})
         (om/update! data [:properties :chart :sensors] #{})
         (om/update! data [:properties :chart :measurements] [])
+        (om/update! data [:properties :chart :all-groups] [])
         (om/update! data [:properties :chart :units] {})
         (om/transact! data [:programmes :data] (fn [d] (mapv #(cond
                                                                (= old-programmes (:programme_id %)) (assoc % :selected false)
@@ -125,6 +132,7 @@
         (om/update! data [:properties :sensors :alert] {})
         (om/update! data [:properties :chart :sensors] #{})
         (om/update! data [:properties :chart :measurements] [])
+        (om/update! data [:properties :chart :all-groups] [])
         (om/update! data [:properties :chart :units] {})
         (om/update! data [:properties :editable] (-> @data :projects :editable))
         (om/transact! data [:projects :data] (fn [d] (mapv #(cond
@@ -147,6 +155,7 @@
         (om/update! data [:properties :chart :sensors] #{})
         (om/update! data [:properties :chart :units] {})
         (om/update! data [:properties :chart :measurements] [])
+        (om/update! data [:properties :chart :all-groups] [])
         (om/transact! data [:properties :data] (fn [d] (mapv #(cond
                                                              (= old-properties (:entity_id %)) (assoc % :selected false)
                                                              (= properties (:entity_id %)) (assoc % :selected true)

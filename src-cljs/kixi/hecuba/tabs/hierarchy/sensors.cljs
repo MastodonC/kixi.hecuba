@@ -288,7 +288,7 @@
                  (if (and (some seq all-groups) (seq units))
                    (let [left-group        (first all-groups)
                          left-with-colours (zipmap left-group (cycle left-border-colours))]
-                     [:div.col-md-12
+                     [:div.col-md-12.last
                       [:div.col-md-2
                        (for [[series colours] left-with-colours]
                          (let [c (chan (sliding-buffer 100))]
@@ -307,7 +307,7 @@
                              (let [c (chan (sliding-buffer 100))]
                                (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}
                                                                                          :opts {:border colours}})))))]])
-                   [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data."]]])))]
+                   [:div.last [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No data."]]])))]
             [:div.col-md-12.text-center
              [:p.lead {:style {:padding-top 30}}
               "Charting in Internet Explorer version " agent/VERSION " coming soon."]])])))))
