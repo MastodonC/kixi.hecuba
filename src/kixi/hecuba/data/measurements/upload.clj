@@ -14,7 +14,7 @@
             [kixi.hecuba.data.parents  :as parents]
             [kixi.hecuba.data.sensors  :as sensors]
             [kixi.hecuba.data.validate :as v]
-            [kixi.hecuba.security      :as sec]
+            [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
             [kixi.hecuba.storage.db    :as db]
             [kixi.hecuba.time          :as time]
             [kixipipe.ioplus           :as ioplus]
