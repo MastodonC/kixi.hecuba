@@ -203,15 +203,17 @@
 
         ;; go loop listening for requests to refresh tables
         (go-loop []
-          (let [{:keys [event id]}  (<! refresh)]
+          (let [{:keys [event id]}  (<! refresh)
+                {:keys [programmes projects properties]} (-> @data :active-components :ids)]
+            (log "Event received! " event)
             (cond
              (= event :programmes)     (data/fetch-programmes data)
-             (= event :projects)       (data/fetch-projects (-> @data :active-components :ids :programmes) data)
-             (= event :properties)     (data/fetch-properties (-> @data :active-components :ids :projects) data)
-             (= event :property)       (data/fetch-property (-> @data :active-components :ids :properties) data)
+             (= event :projects)       (data/fetch-projects programmes data)
+             (= event :properties)     (data/fetch-properties projects data)
+             (= event :property)       (data/fetch-property properties data)
              (= event :new-property)   (data/fetch-new-property id data)
-             (= event :datasets)       (data/fetch-datasets (-> @data :active-components :ids :properties)
-                                                            [:properties :datasets :datasets] data)))
+             (= event :datasets)       (data/fetch-datasets properties [:properties :datasets :datasets] data)
+             (= event :upload-status)  (data/fetch-upload-status programmes projects properties data)))
           (recur))))
     om/IRender
     (render [_]
