@@ -52,6 +52,7 @@
                             :units {}
                             :range {}
                             :measurements []
+                            :all-groups []
                             :message ""
                             :fetching false}
                  :raw-data {:name "Raw Data"

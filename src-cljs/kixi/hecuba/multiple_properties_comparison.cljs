@@ -199,6 +199,7 @@
       ;; Clear down
       (when-not entities
         (om/update! data [:chart :measurements] [])
+        (om/update! data [:chart :all-groups] [])
         (om/update! data [:sensors :data] [])
         (om/update! data [:sensors :selected] #{}))
 

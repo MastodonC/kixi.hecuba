@@ -43,6 +43,7 @@
                             :unit ""
                             :range {}
                             :measurements []
+                            :all-groups []
                             :message ""
                             :fetching false}
                  :raw-data {:name "Raw Data"
@@ -105,13 +106,14 @@
         (om/update! data [:property-details :property_id] nil)
         (om/update! data [:devices :data] [])
         (om/update! data [:sensors :data] [])
-        (om/update! data [:measurements :data] []))
+        (om/update! data [:properties :chart :all-groups] []))
 
       (when-not sensors
         (log "Clearing sensors")
         (om/update! data [:properties :sensors :selected] #{})
         (om/update! data [:properties :chart :sensors] #{})
-        (om/update! data [:measurements :data] []))
+        (om/update! data [:properties :chart :measurements] [])
+        (om/update! data [:properties :chart :all-groups] []))
 
       ;; Fetch data
       (when (and (not= properties old-properties)
@@ -120,6 +122,7 @@
         (om/update! data [:properties :selected] properties)
         (om/update! data [:properties :sensors :selected] #{})
         (om/update! data [:properties :chart :measurements] [])
+        (om/update! data [:properties :chart :all-groups] [])
         (om/transact! data [:properties :data] (fn [d] (mapv #(cond
                                                                (= old-properties (:entity_id %)) (assoc % :selected false)
                                                                (= properties (:entity_id %)) (assoc % :selected true)
