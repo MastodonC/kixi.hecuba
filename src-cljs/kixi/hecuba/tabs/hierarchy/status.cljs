@@ -1,18 +1,21 @@
 (ns kixi.hecuba.tabs.hierarchy.status
   (:require [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]
-            [ajax.core :refer (GET)]
-            [kixi.hecuba.common :as common]))
+            [cljs.core.async :refer [chan put!]]
+            [kixi.hecuba.common :refer (log) :as common]))
 
 (defn upload-status [programme_id project_id entity_id]
   (fn [cursor owner]
     (reify
+      om/IDisplayName
+      (display-name [_]
+        "Measurement Upload Status")
       om/IWillMount
       (will-mount [_]
-        (when (and programme_id project_id entity_id)
-          (let [url (str "/4/uploads/for-username/programme/" programme_id "/project/" project_id "/entity/" entity_id "/status")]
-            (GET url {:handler #(om/update! cursor  %)
-                      :headers {"Accept" "application/edn"}}))))
+        (let [refresh-chan (om/get-shared owner :refresh)]
+          (put! refresh-chan {:event :upload-status})
+          ;; (js/setInterval (fn [] (put! refresh-chan {:event :upload-status})) 60000)
+          ))
       om/IRender
       (render [_]
         (html
@@ -38,6 +41,9 @@
 
 (defn download-status [cursor owner]
   (reify
+    om/IDisplayName
+      (display-name [_]
+        "Download Status")
     om/IRender
     (render [_]
       (html
