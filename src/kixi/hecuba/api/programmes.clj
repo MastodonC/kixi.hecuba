@@ -57,17 +57,18 @@
      (log/infof "allowed?* programme_id: %s allowed-programmes: %s allowed-projects: %s role: %s request-method: %s"
                 programme_id allowed-programmes allowed-projects role request-method)
      (db/with-session [session (:hecuba-session store)]
-       (match [(has-admin? role)
-               (has-programme-manager? programme_id allowed-programmes)
-               (has-user? programme_id allowed-programmes nil nil)
-               request-method]
+       (let [programme-ids-for-projects (into #{} (map #(-> (projects/get-by-id session %) :programme_id) (keys allowed-projects)))]
+         (match [(has-admin? role)
+                 (has-programme-manager? programme_id allowed-programmes)
+                 (has-user? programme_id allowed-programmes nil nil)
+                 request-method]
 
-              [true _ _ _]    [true {::item (assoc (programmes/get-by-id session programme_id) :editable true :admin true)}]
-              [_ true _ _]    [true {::item (filter-programmes allowed-programmes allowed-projects
-                                                               [(programmes/get-by-id session programme_id)])}]
-              [_ _ true :get] [true {::item (filter-programmes allowed-programmes allowed-projects
-                                                               [(programmes/get-by-id session programme_id)])}]
-              :else false))))
+                [true _ _ _]    [true {::item (assoc (programmes/get-by-id session programme_id) :editable true :admin true)}]
+                [_ true _ _]    [true {::item (filter-programmes allowed-programmes allowed-projects programme-ids-for-projects
+                                                                 [(programmes/get-by-id session programme_id)])}]
+                [_ _ true :get] [true {::item (filter-programmes allowed-programmes allowed-projects programme-ids-for-projects
+                                                                 [(programmes/get-by-id session programme_id)])}]
+                :else false)))))
 
 (defn index-allowed? [store]
   (fn [ctx]
