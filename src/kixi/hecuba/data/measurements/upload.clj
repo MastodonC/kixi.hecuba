@@ -102,16 +102,18 @@
                                                 (doall)))]
     (db/with-session [session (:hecuba-session store)]
       (let [devices (->> (devices/get-devices session entity_id)
-                         (map #(vector (:device_id %) (identity %)))
+                         (map #(vector (:device_id %) %))
                          (into {}))
             sensors (->> (sensors/get-sensors-by-device_ids (keys devices) session)
-                         (map #(vector (:alias %) (identity %)))
+                         (remove :synthetic)
+                         (map #(vector (:alias %) %))
                          (into {}))
             header  (->> (map (partial str/join \|) (rest (transpose header-rows)))
                          (map #(if-let [s (get sensors %)]
-                                 (assoc-in s [:metadata :exists?] true) {:alias % :metadata {:exists? false}}))
+                                 (assoc-in s [:metadata :exists?] true)
+                                 {:alias % :metadata {:exists? false}}))
                          (map #(if-let [d (get devices (:device_id %))]
-                                 (do (log/infof "merging device %s onto header slug %s" d %) (merge d %))
+                                 (do (log/infof "merging device %s onto header sensor %s" d %) (merge d %))
                                  %))
                          (map (partial relocate-user-id item)))
             _       (log/infof "%s sensors in header %s" (count header) (vec header))]
