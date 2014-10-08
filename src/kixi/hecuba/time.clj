@@ -101,7 +101,15 @@
            (tf/formatter "yyyy/MM/dd HH:mm:ss.SSS")
            (tf/formatter "yyyy/MM/dd HH:mm:ss")
            (tf/formatter "yyyy/MM/dd HH:mm")
-           (tf/formatter "yyyy/MM/dd")]
+           (tf/formatter "yyyy/MM/dd")
+           (tf/formatter "dd-MM-yyyy")
+           (tf/formatter "dd-MM-yyyy HH:mm")
+           (tf/formatter "dd-MM-yyyy HH:mm:ss")
+           (tf/formatter "dd-MM-yyyy HH:mm:ss.SSS")
+           (tf/formatter "yyyy-MM-dd HH:mm:ss.SSS")
+           (tf/formatter "yyyy-MM-dd HH:mm:ss")
+           (tf/formatter "yyyy-MM-dd HH:mm")
+           (tf/formatter "yyyy-MM-dd")]
           (vals tf/formatters)))
 
 (defn auto-parse
