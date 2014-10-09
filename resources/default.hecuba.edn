@@ -22,6 +22,7 @@
               ;; "0 15,45 *  *  * ?" {:dest :calculated-datasets :type :rollups}
               ;; "0 18    *  *  * ?" {:dest :calculated-datasets :type :convert-to-co2}
               ;; "0 20    *  *  * ?" {:dest :calculated-datasets :type :convert-to-kwh}
+              ;; "0 55    *  *  * ?" {:dest :calculated-datasets :type :synthetic-readings}
               ;; "0 10   13  *  * ?" {:dest :data-quality        :type :mislabelled-sensors}
               ;; "0 10   14  *  * ?" {:dest :data-quality        :type :spike-check}
               ;; "0 10   15  *  * ?" {:dest :data-quality        :type :sensor-status}

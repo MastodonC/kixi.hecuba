@@ -8,7 +8,8 @@
             [kixi.hecuba.bootstrap :as bs]
             [kixi.hecuba.profiles.app-model :as model]
             [kixi.hecuba.profiles.panels :as panels]
-            [kixi.hecuba.widgets.datetimepicker :as dtpicker]))
+            [kixi.hecuba.widgets.datetimepicker :as dtpicker]
+            [kixi.hecuba.number :as n]))
 
 (defn panel-heading [cursor title key]
   [:div.btn-toolbar
@@ -64,12 +65,20 @@
                                                        :class "alert alert-danger"
                                                        :text status-text})))))
 
+
+
+(defn valid? [profile]
+  (let [profile_data (:profile_data profile)]
+    (and (-> profile_data :event_type seq)
+         (-> profile_data :gas_cost n/valid-number?)
+         (-> profile_data :electricity_cost n/valid-number?))))
+
 (defn post-if-valid [cursor profile]
-  (if (-> profile :profile_data :event_type seq)
+  (if (valid? profile)
     (post-new-profile cursor profile)
     (om/update! cursor :alert {:status true
                                :class "alert alert-danger"
-                               :text "Please enter event type."})))
+                               :text "Please enter event type and make sure energy values are valid numbers."})))
 
 (defn new-profile-form [cursor owner]
   (reify
@@ -87,7 +96,6 @@
             [:button {:type "button"
                       :class "btn btn-success"
                       :onClick (fn [_] (let [profile (parse @cursor)]
-                                         (log profile)
                                          (post-if-valid cursor profile)))}
              "Save"]
             [:button {:type "button"
@@ -165,6 +173,9 @@
              [:a {:on-click (fn [_] (om/set-state! owner :active-item :sap))
                   :class (str "list-group-item " (when (= active-item :sap) "active"))}
               "SAP Results"]
+             [:a {:on-click (fn [_] (om/set-state! owner :active-item :energy-costs))
+                  :class (str "list-group-item " (when (= active-item :energy-costs) "active"))}
+              "Energy Costs"]
              [:a {:on-click (fn [_] (om/set-state! owner :active-item :conservatory))
                   :class (str "list-group-item " (when (= active-item :conservatory) "active"))}
               "Conservatories"]
@@ -279,6 +290,9 @@
 
             (when (= active-item :sap)
               (bs/panel "SAP Results" (panels/sap-results (:profile_data cursor))))
+
+            (when (= active-item :energy-costs)
+              (bs/panel "Energy Costs" (panels/energy-costs (:profile_data cursor))))
 
             (when (= active-item :conservatory)
               (bs/panel (panel-heading cursor "Conservatories" :conservatories)

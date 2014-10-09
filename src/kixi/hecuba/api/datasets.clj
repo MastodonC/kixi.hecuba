@@ -45,9 +45,9 @@
 
 (defn sensors-for-dataset
   "Returns all the sensors for the given dataset."
-  [{:keys [members]} store]
+  [{:keys [operands]} store]
   (db/with-session [session (:hecuba-session store)]
-    (let [parsed-sensors (map (fn [s] (into [] (next (re-matches #"(\w+)-(\w+)" s)))) members)
+    (let [parsed-sensors (map (fn [s] (into [] (next (re-matches #"(\w+)-(\w+)" s)))) operands)
           sensor (fn [[type device_id]]
                    (sensors/get-by-id {:device_id device_id :type type} session))]
       (->> (mapcat sensor parsed-sensors)
@@ -66,7 +66,9 @@
   (let [period (case operation
                  :sum "PULSE"
                  :subtract "PULSE"
-                 :divide "INSTANT")]
+                 :divide "INSTANT"
+                 :multiply-series-by-field "INSTANT"
+                 :divide-series-by-field "INSTANT")]
     {:device_id  device_id
      :type       type
      :unit       unit
@@ -86,30 +88,12 @@
 (defn- name-from [ctx]
   (get-in ctx [:request :route-params :name]))
 
-(defmulti create-output-sensors (fn [store device_id unit members operation range] operation))
-
-(defmethod create-output-sensors :subtract [store device_id unit type operation range]
+(defn create-output-sensors [store device_id unit type operation range]
   (db/with-session [session (:hecuba-session store)]
     (let [synthetic (synthetic-sensor operation type device_id unit)]
       (datasets/insert-sensor synthetic (synthetic-sensor-metadata type device_id range) session)
 
-      (when-let [default  (d/calculated-sensor synthetic)]
-        (datasets/insert-sensor default (synthetic-sensor-metadata (:type default) device_id) session)))))
-
-(defmethod create-output-sensors :divide [store device_id unit type operation range]
-  (db/with-session [session (:hecuba-session store)]
-    (let [synthetic (synthetic-sensor operation type device_id unit)]
-      (datasets/insert-sensor synthetic (synthetic-sensor-metadata type device_id range) session)
-
-      (when-let [default  (d/calculated-sensor synthetic)]
-        (datasets/insert-sensor default (synthetic-sensor-metadata (:type default) device_id) session)))))
-
-(defmethod create-output-sensors :sum [store device_id unit type operation range]
-  (db/with-session [session (:hecuba-session store)]
-    (let [synthetic (synthetic-sensor operation type device_id unit)]
-      (datasets/insert-sensor synthetic (synthetic-sensor-metadata type device_id range) session)
-
-      (when-let [default  (d/calculated-sensor synthetic)]
+      (when-let [default (d/calculated-sensor synthetic)]
         (datasets/insert-sensor default (synthetic-sensor-metadata (:type default) device_id) session)))))
 
 (defn index-allowed? [store]
@@ -130,39 +114,87 @@
     (case method
       :post (let [body (decode-body request)
                   {:keys [operation]} body]
-              (if (some #{operation} ["divide" "sum" "subtract"])
-                [false {:body body}]
+              (if (some #{operation} ["divide" "sum" "subtract" "multiply-series-by-field"
+                                      "divide-series-by-field"])
+                [false {:dataset body}]
                 true))
       :get (if (seq entity_id) false true)
       false)))
 
+(defn all-sensors-exist? [entity body store]
+  (let [{:keys [operation operands name]} body
+        sensors  (sensors-for-dataset body store)]
+    (when (and (seq entity)
+               (= (count operands) (count sensors)))
+      {::item {:entity_id (:entity_id entity) :sensors sensors :operation operation :operands operands :name name}})))
+
+(defn sensor-and-field-exist? [entity body store]
+  (let [{:keys [operation operands name]} body
+        sensors  (sensors-for-dataset {:operands (take 1 operands)} store)]
+    (when (and (seq entity)
+               (pos? (count sensors)))
+      {::item {:entity_id (:entity_id entity) :sensors sensors :operation operation :operands operands :name name}})))
+
+(defmulti exists? (fn [entity body store] (:operation body)))
+
+(defmethod exists? :sum [entity body store]
+  (all-sensors-exist? entity body store))
+
+(defmethod exists? :divide [entity body store]
+  (all-sensors-exist? entity body store))
+
+(defmethod exists? :subtract [entity body store]
+  (all-sensors-exist? entity body store))
+
+(defmethod exists? :multiply [entity body store]
+  (all-sensors-exist? entity body store))
+
+(defmethod exists? :multiply-series-by-field [entity body store]
+  (sensor-and-field-exist? entity body store))
+
+(defmethod exists? :divide-series-by-field [entity body store]
+  (sensor-and-field-exist? entity body store))
+
+(defmethod exists? :default [entity body store] false)
+
 (defn index-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [{:keys [request body]} ctx
+    (let [{:keys [request dataset]} ctx
           {:keys [route-params request-method]} request
           entity_id (:entity_id route-params)
           entity    (search/get-by-id entity_id (:search-session store))
           editable? (:public_access entity)]
       (case request-method
-        :post (let [{:keys [name operation members]} body
-                    op           (keyword (.toLowerCase operation))
-                    members      (into #{} members)
-                    sensors      (sensors-for-dataset body store)]
-                (when (and (seq entity)
-                           (= (count members) (count sensors)))
-                  {::items {:entity_id entity_id :sensors sensors :operation op :members members :name name}}))
+        :post (let [{:keys [operation]} dataset]
+                (exists? entity (assoc dataset :operation (keyword (.toLowerCase operation))) store))
         :get (let [items (datasets/get-by-id entity_id session)]
-               {::items (mapv #(assoc % :edibale editable?) items)})))))
+               {::items (mapv #(assoc % :editable editable?) items)})))))
 
 (defn stringify [k] (name k))
 
+(defmulti get-unit (fn [item] (:operation item)))
+(defmethod get-unit :sum [item]
+  (let [{:keys [sensors]} item]
+    (:unit (first sensors))))
+(defmethod get-unit :subtract [item]
+  (let [{:keys [sensors]} item]
+    (:unit (first sensors))))
+(defmethod get-unit :divide [item]
+  (let [{:keys [sensors]} item]
+    (str (:unit (first sensors)) "/" (:unit (last sensors)))))
+(defmethod get-unit :multiply-series-by-field [item]
+  (let [{:keys [sensors operands]} item
+        [field unit] (string/split (last operands) #"-")]
+    (str (:unit (first sensors)) "/" unit)))
+(defmethod get-unit :divide-series-by-field [item]
+  (let [{:keys [sensors operands]} item
+        [field unit] (string/split (last operands) #"-")]
+    (str (:unit (first sensors)) "/" unit)))
+
 (defn index-post! [store ctx]
    (db/with-session [session (:hecuba-session store)]
-     (let [{:keys [sensors operation members entity_id name]} (::items ctx)
-           unit         (case operation
-                          :sum (:unit (first sensors))
-                          :subtract (:unit (first sensors))
-                          :divide  (str (:unit (first sensors)) "/" (:unit (last sensors))))
+     (let [{:keys [sensors operation operands entity_id name] :as item} (::item ctx)
+           unit          (get-unit item)
            device        (synthetic-device entity_id "Synthetic")
            device_id     (sha1/gen-key :device (assoc device :description name))
            operation-str (stringify operation)
@@ -172,7 +204,7 @@
        (create-output-sensors store device_id unit name operation range)
        (datasets/insert {:entity_id entity_id
                          :name      name
-                         :members   members
+                         :operands  operands
                          :operation operation-str
                          :device_id device_id} session)
        (-> (search/searchable-entity-by-id entity_id session)
@@ -237,12 +269,12 @@
 (defn resource-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
-          {:keys [members name operation]} (decode-body request)
+          {:keys [operands name operation]} (decode-body request)
           converted-type (misc/output-type-for operation)]
 
       (datasets/insert {:entity_id (entity_id-from ctx)
                         :name      (name-from ctx)
-                        :members   members
+                        :operands  operands
                         :operation operation} session))))
 
 (defn resource-handle-ok [ctx]

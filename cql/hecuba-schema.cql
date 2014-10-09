@@ -57,6 +57,7 @@ CREATE TABLE datasets (
   device_id text,
   members set<text>,
   operation text,
+  operands list<text>,
   PRIMARY KEY (entity_id, name)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND

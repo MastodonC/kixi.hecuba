@@ -456,6 +456,24 @@
                   (when display?
                     (pf/sap-results owner profile keys)))])))])))))
 
+(defn energy-costs-row [property_details]
+  (fn [profiles owner]
+    (reify
+      om/IRenderState
+      (render-state [_ state]
+        (html
+         [:div.col-md-12
+          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
+                                       [:gas_cost
+                                        :electricity_cost])]
+            (for [profile profiles]
+              (let [keys [:profile_data]]
+                [:div {:class (profile-column-width)}
+                 (bs/panel
+                  (panel-heading property_details owner profile "Energy Costs" {:add-btn false :edit-btn true} keys)
+                  (when display?
+                    (pf/energy-costs owner profile keys)))])))])))))
+
 ;; Fields containing lists
 
 (defn conservatories-row [property_details]
@@ -1032,6 +1050,7 @@
            (om/build (air-tightness-test-row property_details) profiles)
            (om/build (bus-survey-information-row property_details) profiles)
            (om/build (project-details-row property_details) profiles)
+           (om/build (energy-costs-row property_details) profiles)
            ;; (om/build documents profiles)
 
            ;; dwelling details

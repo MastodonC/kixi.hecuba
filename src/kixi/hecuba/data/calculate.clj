@@ -9,6 +9,7 @@
             [clojure.tools.logging :as log]
             [kixi.hecuba.api.datasets :as datasets]
             [kixi.hecuba.data.measurements :as measurements]
+            [kixi.hecuba.data.profiles :as profiles]
             [kixi.hecuba.data.misc :as m]
             [kixi.hecuba.storage.db :as db]
             [qbits.hayt :as hayt]))
@@ -25,9 +26,9 @@
                                                                 [= :type (:type sensor)]])))) sensor)))
 (defn sensors-for-dataset
   "Returns all the sensors for the given dataset."
-  [{:keys [members]} store]
+  [{:keys [operands]} store]
   (db/with-session [session (:hecuba-session store)]
-    (let [parsed-sensors (map (fn [s] (into [] (next (re-matches #"(\w+)-(\w+)" s)))) members)
+    (let [parsed-sensors (map (fn [s] (into [] (next (re-matches #"(\w+)-(\w+)" s)))) operands)
           sensor (fn [[type device_id]]
                    (db/execute session
                                (hayt/select :sensors
@@ -57,20 +58,18 @@
 
 (defmethod quantize-timestamp 60
   [m resolution]
-  (let [t       (:timestamp m)
-        rounded (m/truncate-seconds t)]
-    (assoc-in m [:timestamp] rounded)))
+  (let [round-fn (fn [t] (m/truncate-seconds t))]
+    (update-in m [:timestamp] round-fn)))
 
 (defmethod quantize-timestamp 300
   [m resolution]
-  (let [t       (:timestamp m)
-        round-fn (fn [t] (tc/to-date (tc/from-long (long (* (quot (+ (tc/to-long t) 150000) 300000) 300000)))))]
+  (let [round-fn (fn [t] (tc/to-date (tc/from-long (long (* (quot (+ (tc/to-long (m/truncate-seconds t)) 150000) 300000) 300000)))))]
     (update-in m [:timestamp] round-fn)))
 
 (defmethod quantize-timestamp 1800
   [m resolution]
-  (let [t       (:timestamp m)
-        round-fn (fn [t] (tc/to-date (tc/from-long (long (* (quot (+ (tc/to-long t) 300000) (* 6 300000)) (* 6 300000))))))]
+  (let [round-fn (fn [t] (tc/to-date (tc/from-long
+                                      (long (* (quot (+ (tc/to-long (m/truncate-seconds t)) 300000) (* 6 300000)) (* 6 300000))))))]
     (update-in m [:timestamp] round-fn)))
 
 (defn timestamp-seq-inclusive
@@ -334,6 +333,33 @@
         (round (apply * m)))
       "N/A")))
 
+(defmethod calculation :multiply-series-by-field [_ & datasets]
+  (let [m (:value (first datasets))
+        f (last datasets)]
+    (if (number? m)
+      (if (= 0 m)
+        0
+        (round (* m f)))
+      "N/A")))
+
+(defmethod calculation :divide-series-by-field [_ & datasets]
+  (let [m (:value (first datasets))
+        f (last datasets)]
+    (if (number? m)
+      (round (/ m f))
+      "N/A")))
+
+(defn compute-datasets-using-field [operation device_id type dataset field]
+  (map (fn [m]
+         (let [value (calculation operation m field)]
+           (hash-map :value (str value)
+                     :device_id device_id
+                     :type type
+                     :reading_metadata {"is-number" (str (number? value)) "median-spike" "n/a"}
+                     :timestamp (:timestamp m)
+                     :month (:month m))))
+       dataset))
+
 (defn compute-datasets [operation device_id type & datasets]
   (apply map (fn [& args]
                (let [value (apply calculation operation args)]
@@ -358,7 +384,9 @@
    and makes them of even length by padding."
   [sensors measurements-seq resolution]
   (let [[start end]  (m/range-for-all-sensors sensors)
-        expected-ts  (all-timestamps-for-range start end resolution)]
+        expected-ts  (all-timestamps-for-range (tc/from-date (:timestamp (quantize-timestamp {:timestamp start} resolution)))
+                                               (tc/from-date (:timestamp (quantize-timestamp {:timestamp end} resolution)))
+                                               resolution)]
      (even-all-collections measurements-seq expected-ts resolution)))
 
 ;;; Decisions around sensors ;;;
@@ -379,35 +407,67 @@
   (let [{:keys [period]} (first sensors)]
     (every? #(= period (:period %)) sensors)))
 
-(defn calculate-dataset [store ds sensors range]
+(defn profile-comparator [x y]
+  (let [order (zipmap ["pre-retrofit" "planned retrofit" "post retrofit" ;; R4F
+                       "as designed" "as built" ;; BPE
+                       "intervention"] (range))
+        x-ind (order (-> x (get-in [:profile_data :event_type] "") str/lower-case))
+        y-ind (order (-> y (get-in [:profile_data :event_type] "") str/lower-case))]
+    (if (and x-ind y-ind)
+      (if (zero? (compare x-ind y-ind))
+        (compare (:timestamp x) (:timestamp y))
+        (compare x-ind y-ind))
+      (compare (:timestamp x) (:timestamp y)))))
 
-  (let [{:keys [operation members device_id]} ds
-        operation (keyword operation)]
+(defn get-field-value
+  "Retrieves all profiles for given enity-id, sorts them and returns the latest value for
+   requested field name."
+  [entity-id field-name store]
+  (db/with-session [session (:hecuba-session store)]
+    (when-let [profiles (seq (profiles/get-profiles entity-id session))]
+      (let [sorted       (sort profile-comparator profiles)
+            merged       (apply m/deep-merge sorted)
+            latest-value (-> merged :profile_data field-name)]
+        latest-value))))
 
-    (log/info "Calculating datasets for sensors: " members "and operation: " operation "and range: " range)
+(defn calculate-dataset
+  ([store ds sensors range field]
+     (let [{:keys [operation operands device_id entity_id]} ds
+           operation   (keyword operation)
+           field-value (edn/read-string (get-field-value entity_id (keyword field) store))]
+       (log/info "Calculating datasets for operands: " operands "and operation: " operation "and range: " range)
+       (let [measurements (mapcat #(m/parse-measurements (measurements/measurements-for-range store % range (t/hours 1))) sensors)]
+         (if (and (> (count (take 2 measurements)) 0) (not (nil? field-value)))
+           (let [new-type                      (:name ds)
+                 sensor                        {:device_id device_id :type new-type}
+                 calculated                    (compute-datasets-using-field operation device_id new-type measurements field-value)
+                 {:keys [start-date end-date]} range
+                 page-size                     10]
+             (m/insert-measurements store sensor page-size calculated)
+             (log/info "Finished calculation for operands: " operands "and operation: " operation))
+           (log/info "There are not enough data to calculate.")))))
+  ([store ds sensors range]
+     (let [{:keys [operation operands device_id]} ds
+           operation (keyword operation)]
+       (log/info "Calculating datasets for operands: " operands "and operation: " operation "and range: " range)
+       (if (and (> (count sensors) 1)
+                (should-calculate? ds sensors))
+         (let [measurements (into [] (map #(m/parse-measurements
+                                            (measurements/measurements-for-range store % range (t/hours 1)))
+                                          sensors))]
+           (if (every? #(> (count (take 2 %)) 1) measurements)
+             (let [all-resolutions (map #(get-resolution store %1 (take 100 %2)) sensors measurements)
+                   resolution      (first all-resolutions)]
 
-    (if (and (> (count sensors) 1)
-             (should-calculate? ds sensors))
-
-      (let [measurements (into [] (map #(m/parse-measurements
-                                         (measurements/measurements-for-range store % range (t/hours 1)))
-                                       sensors))]
-
-        (if (every? #(> (count (take 2 %)) 1) measurements)
-          (let [all-resolutions (map #(get-resolution store %1 (take 100 %2)) sensors measurements)
-                resolution      (first all-resolutions)]
-
-            (if (every? #(= resolution %) all-resolutions)
-              (let [padded                        (padded-measurements sensors measurements resolution)
-                    new-type                      (:name ds)
-                    sensor                        {:device_id device_id :type new-type}
-                    calculated                    (apply compute-datasets operation device_id new-type padded)
-                    {:keys [start-date end-date]} range
-                    page-size                     10]
-
-                (m/insert-measurements store sensor page-size calculated)
-                (m/reset-date-range store sensor :calculated_datasets start-date end-date)
-                (log/info "Finished calculation for sensors: " (:members ds) "and operation: " operation))
-              (log/info "Sensors are not of the same resolution.")))
-          (log/info "Sensors do not have enough measurements to calculate.")))
-      (log/info "Sensors do not meet requirements for calculation."))))
+               (if (every? #(= resolution %) all-resolutions)
+                 (let [padded                        (padded-measurements sensors measurements resolution)
+                       new-type                      (:name ds)
+                       sensor                        {:device_id device_id :type new-type}
+                       calculated                    (apply compute-datasets operation device_id new-type padded)
+                       {:keys [start-date end-date]} range
+                       page-size                     10]
+                   (m/insert-measurements store sensor page-size calculated)
+                   (log/info "Finished calculation for operands: " operands "and operation: " operation))
+                 (log/info "Sensors are not of the same resolution.")))
+             (log/info "Sensors do not have enough measurements to calculate.")))
+         (log/info "Sensors do not meet requirements for calculation.")))))

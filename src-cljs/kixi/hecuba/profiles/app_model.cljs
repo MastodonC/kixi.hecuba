@@ -121,7 +121,10 @@
                                     :co_heating_loss {}
                                     :co_heating_performed_on {}
                                     :co_heating_assessor {}
-                                    :co_heating_equipment {}}
+                                    :co_heating_equipment {}
+                                    ;; Energy costs
+                                    :electricity_cost {}
+                                    :gas_cost {}}
                      :conservatories [{:conservatory_type {}
                                        :area {}
                                        :double_glazed {}
