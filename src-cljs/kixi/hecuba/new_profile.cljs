@@ -8,7 +8,8 @@
             [kixi.hecuba.bootstrap :as bs]
             [kixi.hecuba.profiles.app-model :as model]
             [kixi.hecuba.profiles.panels :as panels]
-            [kixi.hecuba.widgets.datetimepicker :as dtpicker]))
+            [kixi.hecuba.widgets.datetimepicker :as dtpicker]
+            [kixi.hecuba.number :as n]))
 
 (defn panel-heading [cursor title key]
   [:div.btn-toolbar
@@ -64,19 +65,13 @@
                                                        :class "alert alert-danger"
                                                        :text status-text})))))
 
-(defn numbers-as-strings? [& strings]
-  (every? #(re-find #"^-?\d+(?:\.\d+)?$" %) strings))
 
-(defn valid-number? [x]
-  (if x
-    (numbers-as-strings? x)
-    true))
 
 (defn valid? [profile]
   (let [profile_data (:profile_data profile)]
     (and (-> profile_data :event_type seq)
-         (-> profile_data :gas_cost valid-number?)
-         (-> profile_data :electricity_cost valid-number?))))
+         (-> profile_data :gas_cost n/valid-number?)
+         (-> profile_data :electricity_cost n/valid-number?))))
 
 (defn post-if-valid [cursor profile]
   (if (valid? profile)
