@@ -9,7 +9,8 @@
             [schema.core :as s]))
 
 (def Sensor {(s/required-key :device_id)                   s/Str
-             (s/required-key :type)                        s/Str
+             (s/required-key :sensor_id)                   s/Str
+             (s/optional-key :type)                        (s/maybe s/Str)
              (s/optional-key :alias)                       (s/maybe s/Str)
              (s/optional-key :accuracy)                    (s/maybe s/Str)
              (s/optional-key :actual_annual)               (s/maybe s/Bool)
@@ -46,22 +47,22 @@
   ([sensor remove-pk?]
      (-> sensor
          (cond-> (seq (:user-metadata sensor)) (user-metadata (:synthetic sensor)))
-         (cond-> remove-pk? (dissoc :device_id :type)))))
+         (cond-> remove-pk? (dissoc :device_id :sensor_id)))))
+
 
 (defn sensor-time-range [sensor session]
   (s/validate Sensor sensor)
-  (let [{:keys [device_id type]} sensor]
+  (let [{:keys [device_id sensor_id]} sensor]
     (first
      (db/execute session
                  (hayt/select :sensor_metadata
                               (hayt/columns :lower_ts :upper_ts)
                               (hayt/where [[= :device_id device_id]
-                                           [= :type type]]))))))
+                                           [= :sensor_id sensor_id]]))))))
 
 (defn add-metadata [sensor session]
   (s/validate Sensor sensor)
-  (let [{:keys [device_id type]}    sensor
-        {:keys [lower_ts upper_ts]} (sensor-time-range sensor session)]
+  (let [{:keys [lower_ts upper_ts]} (sensor-time-range sensor session)]
     (-> sensor
         (assoc :lower_ts lower_ts)
         (assoc :upper_ts upper_ts))))
@@ -83,10 +84,10 @@
                            (hayt/where [[:in :device_id device_ids]]))))
 
 (defn get-by-id
-  ([{:keys [device_id type]} session]
+  ([{:keys [device_id sensor_id]} session]
      (db/execute session
                  (hayt/select :sensors
-                              (hayt/where [[= :type type]
+                              (hayt/where [[= :sensor_id sensor_id]
                                            [= :device_id device_id]])))))
 
 (defn insert [session sensor]
@@ -96,7 +97,7 @@
     (db/execute session (hayt/insert :sensors
                                      (hayt/values encoded-sensor)))
     (db/execute session (hayt/insert :sensor_metadata
-                                     (hayt/values {:device_id (:device_id sensor) :type (:type sensor)})))))
+                                     (hayt/values {:device_id (:device_id sensor) :sensor_id (:sensor_id sensor)})))))
 
 (defn update-user-metadata [sensor]
   ;; sensor has primary keys removed by now
@@ -115,7 +116,7 @@
                                                             (encode :remove-pk)
                                                             update-user-metadata))
                                       (hayt/where [[= :device_id device_id]
-                                                   [= :type (:type sensor)]])))))
+                                                   [= :sensor_id (:sensor_id sensor)]])))))
 
 (defn ->clojure
   "Sensors are called readings in the API."
@@ -134,15 +135,15 @@
 (defn delete
   ([sensor session]
      (s/validate Sensor sensor)
-     (let [{:keys [device_id type]} sensor
+     (let [{:keys [device_id sensor_id]} sensor
            sensor-response
            (db/execute session (hayt/delete :sensors
                                             (hayt/where [[= :device_id device_id]
-                                                         [= :type type]])))
+                                                         [= :sensor_id sensor_id]])))
            sensor_metadata-response
            (db/execute session (hayt/delete :sensor_metadata
                                             (hayt/where [[= :device_id device_id]
-                                                         [= :type type]])))]
+                                                         [= :sensor_id sensor_id]])))]
        {:sensors sensor-response
         :sensor_metadata sensor_metadata-response}))
   ([sensor measurements? session]

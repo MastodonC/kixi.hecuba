@@ -97,8 +97,8 @@
 (defmethod generate-measurements "NEG"
   [sensor]
   (let [timestamps (timestamps (t/minutes 1))
-        type       (:type sensor)]
-    (map-indexed (fn [i t] (hash-map :type type
+        sensor_id  (:sensor_id sensor)]
+    (map-indexed (fn [i t] (hash-map :sensor_id sensor_id
                                      :timestamp (tc/to-date t)
                                      :value (str (if (= 0 (mod i 50)) (- (rand 50) 70) (rand 50)))
                                      :error nil)) timestamps)))
@@ -106,8 +106,8 @@
 (defmethod generate-measurements "INSTANT"
   [sensor]
   (let [timestamps (timestamps (t/minutes 1))
-        type       (:type sensor)]
-    (map #(hash-map :type type
+        sensor_id  (:sensor_id sensor)]
+    (map #(hash-map :sensor_id sensor_id
                     :timestamp (tc/to-date %)
                     :value (str (rand 50))
                     :reading_metadata {"is-number" "true"}
@@ -116,8 +116,8 @@
 (defmethod generate-measurements "PULSE"
   [sensor]
   (let [timestamps (timestamps (t/minutes 5))
-        type       (:type sensor)]
-    (map #(hash-map :type type
+        sensor_id  (:sensor_id sensor)]
+    (map #(hash-map :sensor_id sensor_id
                     :timestamp (tc/to-date %)
                     :value (str (rand-int 100))
                     :reading_metadata {"is-number" "true"}
@@ -126,8 +126,8 @@
 (defmethod generate-measurements "CUMULATIVE"
   [sensor]
    (let [timestamps (timestamps (t/minutes 1))
-         type       (:type sensor)]
-     (map-indexed (fn [i t] (hash-map :type type
+         sensor_id  (:sensor_id sensor)]
+     (map-indexed (fn [i t] (hash-map :sensor_id sensor_id
                                       :timestamp (tc/to-date t)
                                       :value (str i)
                                       :reading_metadata {"is-number" "true"}
@@ -137,8 +137,8 @@
   "Takes a sensor and n (number of seconds) and generates measurements with this interval."
   [sensor n]
    (let [timestamps (timestamps (t/seconds n))
-         type       (:type sensor)]
-     (map-indexed (fn [i t] (hash-map :type type
+         sensor_id  (:sensor_id sensor)]
+     (map-indexed (fn [i t] (hash-map :sensor_id sensor_id
                                       :timestamp (tc/to-date t)
                                       :value (str i)
                                       :reading_metadata {"is-number" "true"}
@@ -156,8 +156,8 @@
   "Generates measurements that contain readings 200 x median."
   [sensor]
   (let [timestamps (timestamps (t/minutes 15))
-        type       (:type sensor)]
-    (map-indexed (fn [i t] (hash-map :type type
+        sensor_id  (:sensor_id sensor)]
+    (map-indexed (fn [i t] (hash-map :sensor_id sensor_id
                                      :timestamp (tc/to-date t)
                                      :reading_metadata {"is-number" "true"}
                                      :value (str (if (= 0 (mod i 50)) (* 300 (rand 50)) (rand 50)))
@@ -167,8 +167,8 @@
   "Generates measurements that contain invalid readings."
   [sensor]
   (let [timestamps (timestamps (t/minutes 15))
-        type       (:type sensor)]
-    (map-indexed (fn [i t] (merge {:type type
+        sensor_id  (:sensor_id sensor)]
+    (map-indexed (fn [i t] (merge {:sensor_id sensor_id
                                    :timestamp (tc/to-date t)}
                                   (if (= 0 (mod i 5))
                                     {:value "Invalid reading"

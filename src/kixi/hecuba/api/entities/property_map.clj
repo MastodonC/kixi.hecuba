@@ -1,24 +1,15 @@
 (ns kixi.hecuba.api.entities.property-map
     (:require
    [clojure.core.match :refer (match)]
-   [cheshire.core :as json]
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
    [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values sha1-regex update-stringified-lists content-type-from-context)]
+   [kixi.hecuba.webutil :refer (authorized?)]
    [liberator.core :refer (defresource)]
-   [liberator.representation :refer (ring-response)]
-   [qbits.hayt :as hayt]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.data.programmes :as programmes]
    [kixi.hecuba.data.projects :as projects]
-   [kixi.hecuba.data.entities :as entities]
-   [kixi.hecuba.data.users :as users]
-   [kixi.hecuba.storage.sha1 :as sha1]
-   [kixi.hecuba.web-paths :as p]
-   [clojure.java.io :as io]
-   [clojure.data.csv :as csv])
-  )
+   [kixi.hecuba.data.entities :as entities]))
 
 (defn allowed?* [programme-id project-id allowed-programmes allowed-projects roles request-method]
   (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"

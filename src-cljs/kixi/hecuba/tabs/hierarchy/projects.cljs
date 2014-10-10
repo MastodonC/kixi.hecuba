@@ -19,8 +19,9 @@
     (om/update! projects :alert {:status true
                                  :class "alert alert-danger"
                                  :text status-text})))
-(defn valid-project? [project]
-  (seq(:name project)))
+(defn valid-project? [project projects]
+  (let [project-name (:name project)]
+    (and (seq project-name) (empty? (filter #(= (:name %) project-name) projects)))))
 
 (defn post-new-project [projects-data refresh-chan owner project programme_id]
   (let [url  (str "/4/programmes/" programme_id "/projects/")]
@@ -62,11 +63,11 @@
            [:button {:class "btn btn-success"
                      :type "button"
                      :onClick (fn [_] (let [project (om/get-state owner [:project])]
-                                        (if (valid-project? project)
+                                        (if (valid-project? project (:data @projects))
                                           (post-new-project projects refresh-chan owner project programme_id)
                                           (om/update! projects :alert {:status true
                                                                             :class "alert alert-danger"
-                                                                            :text "Please enter name of the project."}))))}
+                                                                            :text "Please enter unique name of the project."}))))}
             "Save"]
            [:button {:type "button"
                      :class "btn btn-danger"
@@ -109,6 +110,7 @@
                  "Delete Project"]]]
            (om/build bs/alert (-> projects-data :alert))
            [:div.col-md-4
+            (bs/text-input-control cursor owner :project :name "Project Name")
             (bs/text-input-control cursor owner :project :organisation "Organisation")
             (bs/text-input-control cursor owner :project :project_code "Project Code")
             (bs/text-input-control cursor owner :project :project_type "Project Type")

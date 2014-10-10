@@ -6,12 +6,11 @@
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
    [kixi.hecuba.webutil :as util]
    [kixi.hecuba.data.misc :as m]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex)]
+   [kixi.hecuba.webutil :refer (decode-body authorized?)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
-   [qbits.hayt :as hayt]
    [kixi.hecuba.storage.db :as db]
-   [kixi.hecuba.storage.sha1 :as sha1]
+   [kixi.hecuba.storage.uuid :refer (uuid)]
    [kixi.hecuba.web-paths :as p]
    [kixi.hecuba.data.users :as users]
    [kixi.hecuba.data.projects :as projects]
@@ -20,7 +19,8 @@
    [kixi.hecuba.data.sensors :as sensors]
    [kixi.hecuba.data.entities.search :as search]
    [schema.core :as s]
-   [kixi.amon-schema :as schema]))
+   [kixi.amon-schema :as schema]
+   [clojure.data :refer (diff)]))
 
 (def ^:private device-resource (p/resource-path-string :entity-device-resource))
 
@@ -70,7 +70,7 @@
                    (or (= (:actual_annual_calculation %) true)
                        (= (:normalised_annual_calculation %) true))) sensors)))
 
-(def user-editable-keys [:device_id :type :accuracy :alias :actual_annual
+(def user-editable-keys [:device_id :type :sensor_id :accuracy :alias :actual_annual
                          :corrected_unit :correction
                          :correction_factor :correction_factor_breakdown
                          :frequency :max :min :period
@@ -93,7 +93,8 @@
       false)))
 (defn- ext-type [sensor type-ext]
   (-> sensor
-      (update-in [:type] #(str % "_" type-ext))
+      (update-in [:sensor_id] #(str % "_" type-ext))
+      (assoc :type (str (:type sensor) "_" type-ext))
       (assoc :period "PULSE" :synthetic true)))
 
 (defmulti calculated-sensor (fn [sensor] (when-let [unit (:unit sensor)]
@@ -102,18 +103,21 @@
 (defmethod calculated-sensor "KWH" [sensor]
   (-> sensor
       (assoc :unit "co2" :synthetic true)
-      (update-in [:type] #(m/output-type-for % "KWH2CO2"))))
+      (update-in [:sensor_id] #(str % "_" "KWH2CO2"))
+      (assoc :type (str (:type sensor) "_" "KWH2CO2"))))
 
 (defmethod calculated-sensor "M^3" [sensor]
   (let [kwh-sensor (-> sensor
                        (assoc :unit "kWh" :synthetic true)
-                       (update-in [:type] #(m/output-type-for % "VOL2KWH")))]
+                       (update-in [:sensor_id] #(m/output-type-for % "VOL2KWH"))
+                       (assoc :type (str (:type sensor) "_" "VOL2KWH")))]
     [kwh-sensor (calculated-sensor kwh-sensor)]))
 
 (defmethod calculated-sensor "FT^3" [sensor]
   (let [kwh-sensor (-> sensor
                        (assoc :unit "kWh" :synthetic true)
-                       (update-in [:type] #(m/output-type-for % "VOL2KWH")))]
+                       (update-in [:sensor_id] #(m/output-type-for % "VOL2KWH"))
+                       (assoc :type (str (:type sensor) "_" "VOL2KWH")))]
     [kwh-sensor (calculated-sensor kwh-sensor)]))
 
 (defmethod calculated-sensor :default [sensor])
@@ -137,14 +141,14 @@
           username               (sec/session-username (-> ctx :request :session))
           user_id                (:id (users/get-by-username session username))]
 
-      (let [device_id    (sha1/gen-key :device body)
-            new-body     (create-default-sensors body)]
+      (let [device_id    (uuid)
+            new-body     (create-default-sensors (assoc body :readings (mapv #(assoc % :sensor_id (uuid)) (:readings body))))]
         (devices/insert session entity_id (assoc new-body :device_id device_id :user_id user_id))
         (doseq [reading (:readings new-body)]
           (sensors/insert session (assoc reading :device_id device_id :user_id user_id)))
         (-> (search/searchable-entity-by-id entity_id session)
             (search/->elasticsearch (:search-session store)))
-        {:device_id device_id :entity_id entity_id}))))
+        {:device_id device_id :entity_id entity_id :readings (:readings new-body)}))))
 
 (defn index-handle-ok [ctx]
   (util/render-items ctx (::items ctx)))
@@ -152,11 +156,13 @@
 (defn index-handle-created [ctx]
   (let [entity_id (-> ctx :entity_id)
         device_id (-> ctx :device_id)
+        readings  (remove #(:synthetic %) (:readings ctx)) ;; Don't return synthetic sensor_ids to the user
         location  (format device-resource entity_id device_id)]
     (ring-response {:headers {"Location" location}
                     :body (json/encode {:location location
                                         :status "OK"
-                                        :version "4"})})))
+                                        :version "4"
+                                        :readings (into {} (mapv #(hash-map (:type %) (:sensor_id %)) readings))})})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; RESOURCE
@@ -191,6 +197,17 @@
                               (search/->elasticsearch (:search-session store)))]
       "Delete Accepted")))
 
+(defn recreate-sensor [device_id user_id old-sensor new-sensor session]
+  ;; Deleting old
+  (let [old-synthetic-sensors (create-default-sensors {:readings [old-sensor]})]
+    (doseq [s (:readings old-synthetic-sensors)]
+      (sensors/delete s session)))
+  ;; Inserting new
+  (let [new-sensors (create-default-sensors {:readings [(dissoc (m/deep-merge old-sensor new-sensor)
+                                                                              :lower_ts :upper_ts :median :status)]})]
+    (doseq [s (:readings new-sensors)]
+      (sensors/insert session (assoc s :device_id device_id :user_id user_id)))))
+
 (defn resource-put! [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [{request :request} ctx]
@@ -200,13 +217,25 @@
               username      (sec/session-username (-> ctx :request :session))
               user_id       (:id (users/get-by-username session username))
               device_id     (-> item :device_id)
-              new-body      (create-default-sensors body)]
+              readings      (map #(assoc % :sensor_id (or (:sensor_id %) (uuid))) (:readings body))
+              new-body      (create-default-sensors (assoc body :readings readings))]
           (devices/update session entity_id device_id (assoc new-body :user_id user_id))
-          ;; TODO when new sensors are created they do not necessarilly overwrite old sensors (unless their type is the same)
-          ;; We should probably allow to delete sensors through the API/UI
-          (doseq [reading (:readings new-body)]
-            (sensors/update session (assoc reading :device_id device_id
-                                           :user_id user_id)))
+          (doseq [new-sensor   (:readings body)]
+            (let [old-sensor   (first (filter #(= (:sensor_id %) (:sensor_id new-sensor)) (:readings item)))
+                  updated-keys (keys new-sensor)]
+              (if (and old-sensor (some (into #{} updated-keys) #{:unit :period :type}))
+                ;; sensor already exists - need to update and recreate synthetic sensors
+                (recreate-sensor device_id user_id old-sensor new-sensor session)
+                ;; sensor doesn't exist - adding new sensor, or sensor exists but doesn't need to be recreated
+                (let [merged      (m/deep-merge old-sensor new-sensor)
+                      new-sensors (create-default-sensors
+                                   {:readings [(-> merged
+                                                   (dissoc :lower_ts :upper_ts
+                                                           :median :status)
+                                                   (cond-> (nil? (:sensor_id merged))
+                                                           (assoc :sensor_id (uuid))))]})]
+                  (doseq [s (:readings new-sensors)]
+                    (sensors/insert session (assoc s :device_id device_id :user_id user_id)))))))
           (-> (search/searchable-entity-by-id entity_id session)
               (search/->elasticsearch (:search-session store)))
           (ring-response {:status 404 :body "Please provide valid entity_id and device_id"}))))))

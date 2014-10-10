@@ -21,8 +21,9 @@
     (om/update! properties :alert {:status true
                                    :class "alert alert-danger"
                                    :text status-text})))
-(defn valid-property? [property]
-  (not (nil? (:property_code property)))) ;; project_id comes from the selection above
+(defn valid-property? [property properties]
+  (let [property_code (:property_code property)]
+    (and (seq property_code) (empty? (filter #(= (:property_code %) property_code) properties)))))
 
 (defn post-new-property [properties refresh-chan owner property project_id]
   (common/post-resource "/4/entities/"
@@ -54,13 +55,13 @@
                      :type "button"
                      :onClick (fn [_] (let [property      (om/get-state owner :property)
                                             property_data (om/get-state owner :property_data)]
-                                        (if (valid-property? property)
+                                        (if (valid-property? property (:data @properties))
                                           (post-new-property properties refresh-chan owner (-> (assoc property :project_id project_id)
                                                                                   (assoc-if :property_data property_data))
                                                              project_id)
                                           (om/update! properties :alert {:status true
                                                                          :class "alert alert-danger"
-                                                                         :text "Please enter property code"}))))}
+                                                                         :text "Please enter unique property code."}))))}
             "Save"]
            [:button {:type "button"
                      :class "btn btn-danger"

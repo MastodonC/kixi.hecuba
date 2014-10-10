@@ -3,7 +3,7 @@
             [schema.core :as s]
             [schema.utils :as su]
             [kixi.amon-schema :as schema]
-            [kixi.hecuba.storage.sha1 :as sha1]
+            [kixi.hecuba.storage.uuid :as uuid]
             [kixi.hecuba.time :as ht]
             [kixi.hecuba.api.parser :as parser]
             [kixi.hecuba.api.profiles.schema :as ps]))
@@ -151,12 +151,12 @@
 
 (defn add-entity-id [entity project_id]
   (-> (assoc entity :project_id project_id)
-      (sha1/add-entity-id)))
+      (uuid/add-entity-id)))
 
 (defn add-profile-ids [profile project_id]
   (-> (assoc profile :project_id project_id)
-      sha1/add-entity-id
-      sha1/add-profile-id))
+      uuid/add-entity-id
+      uuid/add-profile-id))
 
 (defn malformed-data? [rows project_id]
   (let [{:keys [entities profiles]} (extract-entities-and-profiles rows)

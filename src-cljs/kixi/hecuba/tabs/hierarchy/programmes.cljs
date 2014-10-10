@@ -35,6 +35,10 @@
                          (om/update! programmes :editing false))
                        (error-handler programmes)))
 
+(defn valid-programme? [programme programmes]
+  (let [programme-name (:name programme)]
+    (and (seq programme-name) (empty? (filter #(= (:name %) programme-name) programmes)))))
+
 (defn programme-add-form [programmes refresh-chan]
   (fn [cursor owner]
     (om/component
@@ -47,11 +51,11 @@
           [:div.btn-toolbar
            [:button.btn.btn-success {:type "button"
                                      :onClick (fn [_] (let [programme (om/get-state owner [:programme])]
-                                                        (if (seq (:name programme))
+                                                        (if (valid-programme? programme (:data @programmes))
                                                           (post-new-programme programmes refresh-chan owner programme)
                                                           (om/update! programmes :alert {:status true
                                                                                          :class "alert alert-danger"
-                                                                                         :text "Please enter name of the programme"}))))}
+                                                                                         :text "Please enter unique name of the programme"}))))}
             "Save"]
            [:button.btn.btn-danger {:type "button"
                                     :onClick (fn [_] (om/update! programmes :adding-programme false))}
@@ -85,6 +89,7 @@
           [:div.row
            [:div.col-md-4
             (static-text cursor :programme_id "Programme ID")
+            (text-input-control cursor owner :programme :name "Programme Name")
             (text-input-control cursor owner :programme :created_at "Created At")
             (text-input-control cursor owner :programme :leaders "Leaders")
             (text-input-control cursor owner :programme :lead_organisations "Lead Organisations")

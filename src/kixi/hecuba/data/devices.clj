@@ -22,7 +22,7 @@
 
 (def user-editable-keys [:device_id :description :entity_id
                          :location :metadata :metering_point_id
-                         :name :parent_id :privacy])
+                         :name :parent_id :privacy :synthetic])
 
 (defn encode
   ([device]
@@ -35,7 +35,7 @@
                     (assoc :id (:device_id device))
                     (dissoc :device_id)
                     (cond-> remove-pk? (dissoc :id))
-                    stringify-values)))
+                    (merge (stringify-values (dissoc (select-keys device user-editable-keys) :device_id :synthetic))))))
 
 (defn decode [device session]
   (-> device
@@ -75,13 +75,13 @@
 
 (defn delete-measurements [session device_id]
   (doall (->> (sensors/get-sensors device_id session)
-              (map :type)
-              (map #(sensors/delete-measurements {:device_id device_id :type %} session)))))
+              (map :sensor_id)
+              (map #(sensors/delete-measurements {:device_id device_id :sensor_id %} session)))))
 
 (defn delete-sensors [device_id measurements? session]
   (let [sensors         (sensors/get-sensors device_id session)
-        sensor-types    (map :type sensors)
-        deleted-sensors (doall (map #(sensors/delete {:device_id device_id :type %} measurements? session) sensor-types))]
+        sensor-ids      (map :sensor_id sensors)
+        deleted-sensors (doall (map #(sensors/delete {:device_id device_id :sensor_id %} measurements? session) sensor-ids))]
     {:sensors deleted-sensors}))
 
 (defn delete

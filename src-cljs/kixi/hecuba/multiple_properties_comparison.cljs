@@ -50,7 +50,7 @@
         readings      (:readings device)]
     (->> readings
          (map #(assoc % :parent-device parent-device
-                      :id (str (:entity_id parent-device) "-" (:device_id %) "-"(:type %))))
+                      :id (str (:entity_id parent-device) "~" (:device_id %) "~"(:sensor_id %))))
          (filter #(every? seq [(:upper_ts %) (:lower_ts %)])))))
 
 (defn extract-sensors [devices]
@@ -121,7 +121,7 @@
 (def amon-date (tf/formatter "yyyy-MM-dd'T'HH:mm:ssZ"))
 
 (defn get-description [sensors measurement]
-  (-> (filter #(= (:type measurement) (:type %)) sensors) first :parent-device :description))
+  (-> (filter #(= (:sensor_id measurement) (:sensor_id %)) sensors) first :parent-device :description))
 
 (defn parse
   "Enriches measurements with unit and description of device and parses timestamp into a JavaScript Date object"
@@ -130,16 +130,16 @@
                                            :description (get-description sensors %)
                                            :timestamp (tf/parse amon-date (:timestamp %))) measurements-seq)) measurements))
 
-(defmulti url-str (fn [start end entity_id device_id type measurements-type] measurements-type))
-(defmethod url-str :raw [start end entity_id device_id type _]
+(defmulti url-str (fn [start end entity_id device_id sensor_id measurements-type] measurements-type))
+(defmethod url-str :raw [start end entity_id device_id sensor_id _]
   (str "/4/entities/" entity_id "/devices/" device_id "/measurements/"
-       type "?startDate=" start "&endDate=" end))
-(defmethod url-str :hourly_rollups [start end entity_id device_id type _]
+       sensor_id "?startDate=" start "&endDate=" end))
+(defmethod url-str :hourly_rollups [start end entity_id device_id sensor_id _]
   (str "/4/entities/" entity_id "/devices/" device_id "/hourly_rollups/"
-       type "?startDate=" start "&endDate=" end))
-(defmethod url-str :daily_rollups [start end entity_id device_id type _]
+       sensor_id "?startDate=" start "&endDate=" end))
+(defmethod url-str :daily_rollups [start end entity_id device_id sensor_id _]
   (str "/4/entities/" entity_id "/devices/" device_id "/daily_rollups/"
-       type "?startDate=" start "&endDate=" end))
+       sensor_id "?startDate=" start "&endDate=" end))
 
 (defn date->amon-timestamp [date]
   (->> date
@@ -156,11 +156,11 @@
   (om/update! data [:chart :measurements] [])
   (doseq [sensor sensors]
     (log "Fetching measurements for sensor: " sensor)
-    (let [[entity_id device_id type] (str/split sensor #"-")
+    (let [[entity_id device_id sensor_id] (str/split sensor #"~")
           end (if (= start-date end-date) (pad-end-date end-date) (date->amon-timestamp end-date))
           start-date (date->amon-timestamp start-date)
           measurements-type (interval start-date end)
-          url (url-str start-date end entity_id device_id type measurements-type)]
+          url (url-str start-date end entity_id device_id sensor_id measurements-type)]
       (GET url {:handler (fn [response]
                            (om/transact! data [:chart :measurements]
                                          (fn [measurements]
@@ -245,11 +245,11 @@
   (reify
     om/IRenderState
     (render-state [_ {:keys [selected-chan]}]
-      (let [{:keys [type device_id parent-device unit lower_ts upper_ts selected
+      (let [{:keys [type device_id sensor_id parent-device unit lower_ts upper_ts selected
                     property-data]} sensor
             history   (om/get-shared owner :history)
             entity_id (:entity_id parent-device)
-            id        (str entity_id "-" device_id "-" type)]
+            id        (str entity_id "~" device_id "~" sensor_id)]
         (html
          [:tr {:class (when selected "success")
                :onClick (fn [_]
@@ -268,7 +268,7 @@
 
 (defn update-sensor [history sensors sensor-row selected id unit lower_ts upper_ts chart-range-chan]
   (let [selected-sensors ((if selected conj disj) (-> @sensors :selected) id)
-        [entity_id type device_id] (str/split id #"-")]
+        [entity_id device_id sensor_id] (str/split id #"~")]
     ;; update history
     (history/update-token-ids! history
                                :sensors (if (seq selected-sensors)
@@ -491,11 +491,12 @@
         (recur)))
     om/IRenderState
     (render-state [_ state]
-      (let [{:keys [measurements]}     cursor
-            mouseover                  (:mouseover state)
-            {:keys [value timestamp]}  (:value state)
-            [entity_id device_id type] (-> measurements first (aget "sensor") (str/split #"-"))
-            description                (-> measurements first (aget "description"))]
+      (let [{:keys [measurements]}          cursor
+            mouseover                       (:mouseover state)
+            {:keys [value timestamp]}       (:value state)
+            [entity_id device_id sensor_id] (-> measurements first (aget "sensor") (str/split #"~"))
+            description                     (-> measurements first (aget "description"))
+            type                            (-> measurements first (aget "type"))]
         (html
          [:div {:style {:font-size "80%"}}
           (bootstrap/panel border "panel-info"

@@ -1,7 +1,5 @@
 (ns kixi.hecuba.api.entities
   (:require
-   [clojure.java.io :as io]
-   [clojure.data.csv :as csv]
    [clojure.string :as string]
    [clojure.core.match :refer (match)]
    [clojure.tools.logging :as log]
@@ -13,7 +11,7 @@
    [kixi.hecuba.webutil :refer (decode-body authorized? content-type-from-context) :as util]
    [kixi.hecuba.web-paths :as p]
    [kixi.hecuba.storage.db :as db]
-   [kixi.hecuba.storage.sha1 :as sha1]
+   [kixi.hecuba.storage.uuid :refer (uuid)]
    [kixi.hecuba.data.programmes :as programmes]
    [kixi.hecuba.data.projects :as projects]
    [kixi.hecuba.data.entities :as entities]
@@ -250,8 +248,7 @@ their containing structures."
     (-> query-entity
         (search/searchable-entity (:hecuba-session store))
         (search/->elasticsearch (:search-session store)))
-    (log/info "updated elastic search")
-    (:entity_id entity)))
+    (log/info "updated elastic search")))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -339,8 +336,9 @@ their containing structures."
 (defn resource-put! [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [request entity]} ctx
-          username  (sec/session-username (-> ctx :request :session))]
-      (if-let [entity_id (:entity_id (::item ctx))] ;; item is the existing entity in the db. we've read the request in resource-allowed and put the enitity into ctx.
+          username  (sec/session-username (-> ctx :request :session))
+          _ (log/info "entity: " entity)]
+      (if-let [entity_id (:entity_id (::item ctx))]
         (do (entities/update session entity_id (assoc entity :user_id username))
             (-> (entities/get-by-id session entity_id)
                 (search/searchable-entity session)

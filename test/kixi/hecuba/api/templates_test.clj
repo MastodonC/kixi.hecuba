@@ -115,6 +115,7 @@
                                    :location {:name "Bedroom"} :entity_id 1000}
                                   ]
                                  [{:device_id 3000
+                                   :sensor_id 30001
                                    :type "electricityConsumption"
                                    :accuracy "5"
                                    :resolution "30"
@@ -125,6 +126,7 @@
                                    :unit "kWh"
                                    }
                                   {:device_id 3000
+                                   :sensor_id 30002
                                    :type "CO2"
                                    :accuracy "0"
                                    :resolution "60"
@@ -135,6 +137,7 @@
                                    :unit "m^3"
                                    }
                                   {:device_id 3000
+                                   :sensor_id 30003
                                    :type "solarRadiation"
                                    :accuracy "10"
                                    :resolution "40"
@@ -145,6 +148,7 @@
                                    :unit "J/m^2"
                                    }
                                   {:device_id 3001
+                                   :sensor_id 30011
                                    :type "CO2"
                                    :accuracy "5"
                                    :resolution "6"
@@ -162,6 +166,7 @@
             (get-in result [:response :headers])))
 
     (is (= '(["Device UUID" 3000 3000 3000 3001]
+               ["Sensor UUID" 30002 30001 30003 30011]
                ["Reading Type"
                 "CO2"
                 "electricityConsumption"
