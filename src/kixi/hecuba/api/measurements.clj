@@ -5,6 +5,7 @@
    [clojure.tools.logging :as log]
    [kixipipe.pipeline :as pipe]
    [kixi.hecuba.data.measurements :as measurements]
+   [kixi.hecuba.data.measurements.core :as mc]
    [kixi.hecuba.data.misc :as misc]
    [kixi.hecuba.data.validate :as v]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
@@ -199,6 +200,8 @@
         auth         (sec/current-authentication session)
         items        (map (partial template-upload->item entity_id username date-format aliases?) file-data)]
     (doseq [item items]
+      (log/infof "Accepted upload: %s" item)
+      (mc/write-status store (assoc item :status "ACCEPTED"))
       (pipe/submit-item pipe (assoc item :auth auth)))
     ;; We don't have emough info to return a Location header here. So
     ;; we return nothing. This seems to be in line with the HTTP spec.

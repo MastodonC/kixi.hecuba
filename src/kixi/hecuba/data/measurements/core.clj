@@ -65,11 +65,15 @@
     []))
 
 (defn prepare-measurement [m sensor date-parser]
-  (let [t  (tc/to-date (date-parser (:timestamp m)))]
-    {:device_id        (:device_id sensor)
-     :type             (:type sensor)
-     :timestamp        t
-     :value            (str (:value m))
-     :error            (str (:error m))
-     :month            (time/get-month-partition-key t)
-     :reading_metadata {}}))
+  (try
+    (let [t  (tc/to-date (date-parser (:timestamp m)))]
+      {:device_id        (:device_id sensor)
+       :type             (:type sensor)
+       :timestamp        t
+       :value            (str (:value m))
+       :error            (str (:error m))
+       :month            (time/get-month-partition-key t)
+       :reading_metadata {}})
+    (catch Throwable t
+      (log/errorf t "For sensor %s Unable to prepare measurement: %s" sensor m)
+      (throw t))))

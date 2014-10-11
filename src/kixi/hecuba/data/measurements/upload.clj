@@ -300,8 +300,8 @@
       (finally (ioplus/delete! in-file)))))
 
 (defn upload-item [store item]
-  (log/infof "Accepted upload: %s" item)
-  (write-status store (assoc item :status "ACCEPTED"))
+  (log/infof "Storing upload: %s" item)
+  (write-status store (assoc item :status "STORING"))
   (s3/store-file (:s3 store) item)
   (write-status store (assoc item :status "STORED"))
   (log/infof "Stored upload: %s" item)
