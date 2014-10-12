@@ -37,10 +37,10 @@
         sensor-status-q         (new-queue {:name "sensor-status" :queue-size 50})
         actual-annual-q         (new-queue {:name "actual-annual-q" :queue-size 50})
         store-upload-s3-q       (new-queue {:name "store-upload-s3-q" :queue-size 50})
-        upload-measurements-q   (new-queue {:name "upload-measurements-q" :queue-size 10})
+        upload-measurements-q   (new-queue {:name "upload-measurements-q" :queue-size 50 :number-of-consumer-threads 4})
         upload-images-q         (new-queue {:name "image-upload-q" :queue-size 10})
         upload-documents-q      (new-queue {:name "document-upload-q" :queue-size 10})
-        download-measurements-q (new-queue {:name "download-measurements-q" :queue-size 50 :number-of-consumer-threads 4})
+        download-measurements-q (new-queue {:name "download-measurements-q" :queue-size 50 :number-of-consumer-threads 2})
         recalculate-q           (new-queue {:name "recalculate-q" :queue-size 10})]
 
     (defnconsumer fanout-q [{:keys [dest type] :as item}]
