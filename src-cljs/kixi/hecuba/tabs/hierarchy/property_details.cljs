@@ -352,23 +352,6 @@
                        (om/build (measurementsupload/measurements-upload (str "/4/measurements/for-entity/" property-id "/")
                                                                          div-id)
                                  (-> properties :uploads) {:opts {:method "POST"}}))]]]
-                  ;; Upload profile data
-                  [:div.panel.panel-default
-                   [:div.panel-body
-                    [:div
-                     [:h4 "Upload CSV profile data"]
-                     (let [div-id "file-form"]
-                       (om/build (file/file-upload (str "/4/entities/" property-id "/profiles/")
-                                                   div-id)
-                                 nil {:opts {:method "POST"}}))]]]
-                  ;; Upload property details
-                  [:div.panel.panel-default
-                   [:div.panel-body
-                    [:div
-                     [:h4 "Upload CSV property details"]
-                     (let [div-id "property-details-form"]
-                       (om/build (file/file-upload (str "/4/entities/" property-id) div-id)
-                                 nil {:opts {:method "PUT"}}))]]]
                   ;; Upload image
                   [:div.panel.panel-default
                    [:div.panel-body
