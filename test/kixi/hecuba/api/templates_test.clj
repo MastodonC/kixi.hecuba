@@ -155,7 +155,8 @@
                                    :unit "m^3"}])
         pipeline                   nil
         result   (entity-resource-handle-ok store pipeline
-                                            {:request {:params {:entity_id 1000}}
+                                            {:request {:params {:entity_id 1000}
+                                                       :query-params {"data" "false"}}
                                              :content-type "text/csv"})]
     (is (=  {"Content-Disposition" "attachment; filename=1000_template.csv"}
             (get-in result [:response :headers])))
