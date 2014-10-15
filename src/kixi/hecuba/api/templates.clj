@@ -209,7 +209,7 @@
 (defn entity-resource-handle-ok [store pipe ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [entity_id (-> ctx :request :params :entity_id)
-          data?     (-> ctx :request :query-params (get "data"))
+          data?     (= "true" (-> ctx :request :query-params (get "data")))
           session   (-> ctx :request :session)
           username  (sec/session-username session)
           auth      (sec/current-authentication session)
@@ -246,7 +246,7 @@
 
 (defresource entity-resource [store pipeline]
   :allowed-methods #{:get}
-  :available-media-types #{"text/csv" "application/edn"}
+  :available-media-types #{"text/csv"}
   :known-content-type? #{"text/csv"}
   :authorized? (authorized? store)
   :allowed? (entity-resource-allowed? store)
