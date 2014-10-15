@@ -8,7 +8,7 @@
             [kixi.hecuba.logging       :as hl]
             [kixi.hecuba.parser        :as parser]
             [kixi.hecuba.data.devices  :as devices]
-            [kixi.hecuba.data.measurements.core :refer (prepare-measurement headers-in-order columns-in-order write-status transpose)]
+            [kixi.hecuba.data.measurements.core :refer (prepare-measurement headers-in-order columns-in-order write-status transpose keywordise)]
             [kixi.hecuba.data.misc     :as misc]
             [kixi.hecuba.data.devices  :as devices]
             [kixi.hecuba.data.parents  :as parents]
@@ -36,15 +36,12 @@
      :entity_id entity_id
      :uuid uuid}))
 
-(defn convert-to-maps [xs]
-  (map (partial zipmap columns-in-order) xs))
-
 (defn relocate-user-id [{:keys [auth] :as item} x]
   (assoc x :user_id (:id auth)))
 
-(defn date-parser [date-format]
+(defn date-parser-fn [date-format]
   (if (not-empty date-format)
-    (partial tf/parse (tf/formatter date-format))
+    (fn [d] (try (tf/parse (tf/formatter date-format) d) (catch Throwable t nil)))
     time/auto-parse))
 
 (defn devices-exist?
@@ -63,6 +60,20 @@
                        (assoc-in m [:metadata :exists?] false)))]
     (map add-exists devices)))
 
+(defn blank-row? [cells]
+  (every? #(re-matches #"\s*" %) cells))
+
+(defn parse-header-rows [date-parser-fn rows]
+  (let [invalid-date? (complement date-parser-fn)]
+    (->> rows
+         (take-while (comp invalid-date? first))
+         (remove blank-row?))))
+
+(defn parse-full-header [header-rows]
+  (let [[field-labels & devices] (transpose header-rows)
+        keywords (mapv keywordise field-labels)]
+    (map #(zipmap keywords %) devices)))
+
 (defn identify-file-type
   "Check if alias processing has been requested."
   [_ {:keys [aliases?]}]
@@ -73,32 +84,27 @@
 (defmulti get-header #'identify-file-type)
 
 (defmethod get-header :full [store {:keys [dir filename date-format] :as item}]
-  (let [date-parser (date-parser date-format)
-        header      (with-open [in (io/reader (io/file dir filename))]
+  (let [date-parser (date-parser-fn date-format)
+        header-rows (with-open [in (io/reader (io/file dir filename))]
                       (->> in
                            (csv/read-csv)
-                           (take full-header-row-count)
-                           (map (partial drop 1)) ;; first column is header headings ;-/
-                           (transpose)
-                           (convert-to-maps)
-                           (devices-exist? store)
-                           (map (partial relocate-user-id item))
-                           (doall)))]
-    {:metadata {:row-count full-header-row-count
+                           (parse-header-rows date-parser)
+                           (doall)))
+        header      (->> (parse-full-header header-rows)
+                         (devices-exist? store)
+                         (map (partial relocate-user-id item)))]
+    {:metadata {:row-count (count header-rows)
                 :update-devices-and-sensors? true
                 :date-parser date-parser}
      :sensors header}))
 
 (defmethod get-header :with-aliases [store item]
   (let [{:keys [dir filename entity_id date-format]} item
-        blank-row?                       (fn [cells] (every? #(re-matches #"\s*" %) cells))
-        date-parser                      (fn [d] (try ((date-parser date-format) d) (catch Throwable t nil)))
-        invalid-date?                    (complement date-parser)
+        date-parser                      (date-parser-fn date-format)
         header-rows                      (with-open [in (io/reader (io/file dir filename))]
                                            (->> in
                                                 (csv/read-csv)
-                                                (take-while (comp invalid-date? first))
-                                                (remove blank-row?)
+                                                (parse-header-rows date-parser)
                                                 (doall)))]
     (db/with-session [session (:hecuba-session store)]
       (let [devices (->> (devices/get-devices session entity_id)
@@ -210,10 +216,11 @@
   (log/infof "Attempting to insert: %s" device-and-sensor)
   (let [page-size 10
         [device sensor :as ds] (split-device-and-sensor device-and-sensor)
-        validated-measurements (map #(-> %
-                                         (prepare-measurement sensor date-parser)
-                                         (v/validate sensor))
-                                    measurements)]
+        validated-measurements (->> measurements
+                                    (remove #(nil? (:timestamp %)))
+                                    (map #(-> %
+                                              (prepare-measurement sensor date-parser)
+                                              (v/validate sensor))))]
 
     ;; Leaving this out for now. We can update via the UI
     ;; (when (and update-devices-and-sensors?
@@ -224,9 +231,11 @@
     (if (valid-header? device-and-sensor)
       (do
         (log/infof "Inserting measurements for Sensor: %s:%s metadata: %s" (:device_id sensor) (:type sensor) (:metadata device-and-sensor))
-        (misc/insert-measurements store device-and-sensor page-size validated-measurements))
-      (log/infof "Skipping insert for: %s metadata %s" device-and-sensor (:metadata device-and-sensor)))
-    device-and-sensor))
+        (misc/insert-measurements store device-and-sensor page-size validated-measurements)
+        (assoc-in device-and-sensor [:metadata :inserted] true))
+      (do
+        (log/infof "Skipping insert for: %s metadata %s" device-and-sensor (:metadata device-and-sensor))
+        (assoc-in device-and-sensor [:metadata :inserted] false)))))
 
 (defn- get-data [header-row-count in]
   (->> in
@@ -237,7 +246,10 @@
 
 (defn add-projects [header store]
   (let [sensors (:sensors header)
-        entity_ids (set (keep :entity_id sensors))
+        entity_ids (set (keep
+                         #(when-let [id (:entity_id %)]
+                            (-> id str/trim not-empty))
+                         sensors))
         properties-to-project (parents/entities store entity_ids)
         add-project (fn [m]
                       (if-let [project_id (properties-to-project (:entity_id m))]
@@ -247,7 +259,10 @@
 
 (defn add-programmes [header store]
   (let [sensors (:sensors header)
-        project_ids (set (keep :project_id sensors))
+        project_ids (set (keep
+                          #(when-let [id (:project_id %)]
+                             (-> id str/trim not-empty))
+                          sensors))
         projects-to-programme (parents/projects store project_ids)
         add-programme (fn [m]
                         (if-let [programme_id (projects-to-programme (:project_id m))]

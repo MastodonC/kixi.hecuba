@@ -16,10 +16,7 @@
                        :resolution
                        :frequency
                        :period
-                       :entity_id ;; NOTE: This is shown as "Parent
-                                  ;; UUID" in the samples. Assuming
-                                  ;; parent_id column is old API and
-                                  ;; using entity_id instead
+                       :entity_id ; labelled as Parent UUID
                        :max
                        :min])
 
@@ -38,6 +35,23 @@
                        "Parent UUID"
                        "Sensor Range Max"
                        "Sensor Range Min"])
+
+(defn keywordise [label]
+  (get
+   {"Unit" :unit
+    "Period" :period
+    "Sample Interval (seconds)" :resolution
+    "Customer Ref" :customer_ref
+    "Sensor Range Max" :max
+    "Parent UUID" :entity_id
+    "Location" :location
+    "Description" :description
+    "Reading Type" :type
+    "Device UUID" :device_id
+    "Accuracy (percent)" :accuracy
+    "Frequency" :frequency
+    "Sensor Range Min" :min}
+   label))
 
 (defn get-status [{:keys [s3]} item]
   ;; TODO there should be a better way to do this in s3 ns.
