@@ -272,8 +272,9 @@
 
 (defn fetch-upload-status [programme_id project_id entity_id data]
   (log "Fetching upload status for entity: " entity_id)
+  (om/update! data [:properties :uploads :fetching] :fetching)
   (GET (str "/4/uploads/for-username/programme/" programme_id "/project/" project_id "/entity/" entity_id "/status")
        {:handler (fn [d]
-                   (log "Received: " d)
+                   (om/update! data [:properties :uploads :fetching] (if (seq d) :has-data :no-data))
                    (om/update! data [:properties :uploads :files] d))
         :headers {"Accept" "application/edn"}}))
