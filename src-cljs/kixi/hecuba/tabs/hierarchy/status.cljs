@@ -45,7 +45,7 @@
                      [:tr [:th "Uploaded by"] [:th "Timestamp"] [:th "Inserted"]]]
                     [:tbody
                      [:tr [:td (:username item)]
-                      [:td (common/unparse-date (:event_time item) "yyyy-MM-dd hh:mm")]
+                      [:td (common/unparse-date (:event_time item) "yyyy-MM-dd HH:mm")]
                       [:td (str inserted-sensor-count "/" total-sensor-count)]]]]
                    (when (< inserted-sensor-count total-sensor-count)
                      [:div.col-md-12
