@@ -59,10 +59,6 @@ p#footer {
     margin-bottom: 0px;
 }
 
-.row {
-    min-height: 200px;
-}
-
 #summary-stats {
     min-height: 100px;
 }

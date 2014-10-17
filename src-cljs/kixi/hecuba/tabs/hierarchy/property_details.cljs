@@ -268,14 +268,15 @@
           (recur))))
     om/IRenderState
     (render-state [_ state]
-       (let [active-tab                 (:active-tab state)
-             programme-id               (-> properties :programme_id)
-             project-id                 (-> properties :project_id)
-             property-id                (-> properties :selected)
-             property-details           (get-property-details property-id properties)
-             {:keys [editable devices]} property-details
-             property_data              (:property_data property-details)
-             datetimepicker-chan        (om/get-state owner :datetimepicker-chan)]
+      (let [active-tab                 (:active-tab state)
+            programme-id               (-> properties :programme_id)
+            project-id                 (-> properties :project_id)
+            property-id                (-> properties :selected)
+            property-details           (get-property-details property-id properties)
+            {:keys [editable devices]} property-details
+            property_data              (:property_data property-details)
+            datetimepicker-chan        (om/get-state owner :datetimepicker-chan)
+            refresh-chan               (om/get-shared owner :refresh)]
         (html
          [:div {:id "property-details-div"}
           (when (seq property-id)
@@ -307,7 +308,10 @@
                  "Raw Sensor Data"]]
                (when editable
                  [:li {:class (if (= active-tab :upload) "active" nil)}
-                  [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :upload))}
+                  [:a {:onClick (fn [_ _]
+                                  (let [refresh-chan (om/get-shared owner :refresh)]
+                                    (put! refresh-chan {:event :upload-status})
+                                    (om/set-state! owner :active-tab :upload)))}
                    "Uploads"]])]
               ;; Overview
               (when (= active-tab :overview)
@@ -377,5 +381,10 @@
                    [:div.panel.panel-default
                     [:div.panel-body
                      [:div
-                      [:h4 "Upload status"]
+                      [:h4 "Upload status" [:div.pull-right
+                                            [:i {:onClick (fn [d] (put! refresh-chan {:event :upload-status}))
+                                                 :class (str "fa fa-refresh"
+                                                             (if (= :fetching (-> properties :uploads :fetching))
+                                                               " fa-spin"
+                                                               ""))}]]]
                       (om/build (status/upload-status programme-id project-id property-id) (:files (:uploads properties)))]]]]]])]])])))))

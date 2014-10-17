@@ -8,7 +8,8 @@
             [kixi.hecuba.logging       :as hl]
             [kixi.hecuba.parser        :as parser]
             [kixi.hecuba.data.devices  :as devices]
-            [kixi.hecuba.data.measurements.core :refer (prepare-measurement headers-in-order columns-in-order write-status transpose keywordise)]
+            [kixi.hecuba.data.measurements.core :refer (prepare-measurement headers-in-order columns-in-order transpose keywordise)]
+            [kixi.hecuba.data.measurements.upload.status :as us]
             [kixi.hecuba.data.misc     :as misc]
             [kixi.hecuba.data.devices  :as devices]
             [kixi.hecuba.data.parents  :as parents]
@@ -314,11 +315,22 @@
       (parse-file-to-db store header in-file)
       (finally (ioplus/delete! in-file)))))
 
+(defn write-status [item store]
+  (let [{:keys [metadata entity_id date-format date status report]} item
+        {:keys [username filename]} metadata]
+    (us/insert {:entity_id entity_id
+                :event_time date
+                :filename filename
+                :status status
+                :username username
+                :report (or report {})}
+               store)))
+
 (defn upload-item [store item]
   (log/infof "Storing upload: %s" item)
-  (write-status store (assoc item :status "STORING"))
+  (write-status (assoc item :status "STORING") store)
   (s3/store-file (:s3 store) item)
-  (write-status store (assoc item :status "STORED"))
+  (write-status (assoc item :status "STORED") store)
   (log/infof "Stored upload: %s" item)
   (let [tmpfile (ioplus/mk-temp-file! "hecuba" "measurements")
         newitem (assoc item
@@ -326,13 +338,13 @@
                   :filename (.getName tmpfile))]
     (try
       (log/infof "Processing upload: %s" newitem)
-      (write-status store (assoc newitem :status "PROCESSING"))
+      (write-status (assoc newitem :status "PROCESSING") store)
       (parser/normalize-line-endings! (io/file (:dir item)
                                                (:filename item)) tmpfile)
       (.delete (io/file (:dir item) (:filename item)))
       (let [report (db-store store newitem)]
         (log/infof "Processing upload COMPLETE: %s" newitem)
-        (write-status store (assoc newitem :status "COMPLETE" :report report)))
+        (write-status (assoc newitem :status "COMPLETE" :report report) store))
       (catch Throwable t
         (log/errorf t "Uploading item %s failed." newitem)
-        (write-status store (assoc newitem :status "FAILURE" :report (str (ex-data t))))))))
+        (write-status (assoc newitem :status "FAILURE" :report (str (ex-data t))) store)))))

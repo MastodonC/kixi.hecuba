@@ -44,8 +44,7 @@
            [:div
             (alert "alert alert-info "
                    [:div
-                    [:div {:class "fa fa-spinner fa-spin"}] ;; needs to be separate as otherwise it spins the text as well
-                    [:p "Upload in progress"]]
+                    [:p [:div {:class "fa fa-spinner fa-spin"}] "Upload in progress"]]
                    (= :uploading status)
                    (str id "-uploading"))
 
@@ -57,7 +56,7 @@
 
             (alert "alert alert-danger "
                    [:div
-                    [:div {:class "fa fa-exclamation-triangle"} " Failed to parse CSV."]]
+                    [:div {:class "fa fa-exclamation-triangle"} " Failed to upload CSV."]]
                    (= :failure status)
                    (str id "-failure"))
 

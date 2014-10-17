@@ -7,6 +7,7 @@
             [kixi.hecuba.web-paths :as p]
             [kixi.hecuba.webutil :as util]
             [kixi.hecuba.webutil :refer (authorized?)]
+            [kixi.hecuba.data.measurements.upload.status :as us]
             [kixipipe.storage.s3 :as s3]
             [liberator.core :refer (defresource)]))
 
@@ -84,20 +85,10 @@
                   :entity_id entity_id}}]
         true))))
 
-(defn merge-uploads-status-with-metadata [store s3-object]
-  (let [session (:s3 store)
-        metadata (s3/get-user-metadata-from-s3-object session s3-object)
-        {:keys [uploads-timestamp uploads-filename]} metadata
-        status (status-from-object store (:key s3-object))]
-    (hash-map :filename uploads-filename
-              :timestamp (tc/to-string uploads-timestamp)
-              :status status)))
-
 (defn uploads-for-username-handle-ok [store ctx]
   (let [{:keys [username entity_id]} (::item ctx)
         files    (s3/list-objects-seq (:s3 store) {:max-keys 100 :prefix (str "uploads/" username "/" entity_id)})
-        statuses (map #(merge-uploads-status-with-metadata store %)
-                      (filter #(re-find #"status" (:key %)) files))]
+        statuses (us/get-statuses entity_id store)]
     (util/render-items ctx statuses)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
