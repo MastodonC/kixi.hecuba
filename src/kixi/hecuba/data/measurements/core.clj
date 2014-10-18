@@ -90,4 +90,4 @@
        :reading_metadata {}})
     (catch Throwable t
       (log/errorf t "For sensor %s Unable to prepare measurement: %s" sensor m)
-      (throw t))))
+      (throw (Exception. (format "For sensor %s:%s Unable to prepare measurement: %s" (:device_id sensor) (:type sensor) m) t)))))
