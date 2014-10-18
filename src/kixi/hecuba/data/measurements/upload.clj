@@ -219,7 +219,7 @@
     (try
       (let [page-size 10
             validated-measurements (->> measurements
-                                        (remove #(nil? (:timestamp %)))
+                                        (filter #(seq (:timestamp %)))
                                         (map #(-> %
                                                   (prepare-measurement sensor date-parser)
                                                   (v/validate sensor))))]
