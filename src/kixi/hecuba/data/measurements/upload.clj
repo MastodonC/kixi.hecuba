@@ -215,28 +215,33 @@
 
 (defn process-column [store update-devices-and-sensors? date-parser device-and-sensor measurements]
   (log/infof "Attempting to insert: %s" device-and-sensor)
-  (let [page-size 10
-        [device sensor :as ds] (split-device-and-sensor device-and-sensor)
-        validated-measurements (->> measurements
-                                    (remove #(nil? (:timestamp %)))
-                                    (map #(-> %
-                                              (prepare-measurement sensor date-parser)
-                                              (v/validate sensor))))]
+  (let [[device sensor :as ds] (split-device-and-sensor device-and-sensor)]
+    (try
+      (let [page-size 10
+            validated-measurements (->> measurements
+                                        (filter #(seq (:timestamp %)))
+                                        (map #(-> %
+                                                  (prepare-measurement sensor date-parser)
+                                                  (v/validate sensor))))]
 
-    ;; Leaving this out for now. We can update via the UI
-    ;; (when (and update-devices-and-sensors?
-    ;;            (valid-header? device-and-sensor))
-    ;;   (update-device-data store device)
-    ;;   (update-sensor-data store sensor))
+        ;; Leaving this out for now. We can update via the UI
+        ;; (when (and update-devices-and-sensors?
+        ;;            (valid-header? device-and-sensor))
+        ;;   (update-device-data store device)
+        ;;   (update-sensor-data store sensor))
 
-    (if (valid-header? device-and-sensor)
-      (do
-        (log/infof "Inserting measurements for Sensor: %s:%s metadata: %s" (:device_id sensor) (:type sensor) (:metadata device-and-sensor))
-        (misc/insert-measurements store device-and-sensor page-size validated-measurements)
-        (assoc-in device-and-sensor [:metadata :inserted] true))
-      (do
-        (log/infof "Skipping insert for: %s metadata %s" device-and-sensor (:metadata device-and-sensor))
-        (assoc-in device-and-sensor [:metadata :inserted] false)))))
+        (if (valid-header? device-and-sensor)
+          (do
+            (log/infof "Inserting measurements for Sensor: %s:%s metadata: %s" (:device_id sensor) (:type sensor) (:metadata device-and-sensor))
+            (misc/insert-measurements store device-and-sensor page-size validated-measurements)
+            (assoc-in device-and-sensor [:metadata :inserted] true))
+          (do
+            (log/infof "Skipping insert for: %s metadata %s" device-and-sensor (:metadata device-and-sensor))
+            (assoc-in device-and-sensor [:metadata :inserted] false))))
+      (catch Throwable t
+        (-> device-and-sensor
+            (assoc-in [:metadata :inserted] false)
+            (assoc-in [:metadata :error-message] (.getMessage t)))))))
 
 (defn- get-data [header-row-count in]
   (->> in
@@ -326,6 +331,10 @@
                 :report (or report {})}
                store)))
 
+(defn has-errors? [report]
+  (log/infof "has-errors report: %s" report)
+  (every? seq (map #(get-in % [:metadata :error-message]) report)))
+
 (defn upload-item [store item]
   (log/infof "Storing upload: %s" item)
   (write-status (assoc item :status "STORING") store)
@@ -343,8 +352,11 @@
                                                (:filename item)) tmpfile)
       (.delete (io/file (:dir item) (:filename item)))
       (let [report (db-store store newitem)]
-        (log/infof "Processing upload COMPLETE: %s" newitem)
-        (write-status (assoc newitem :status "COMPLETE" :report report) store))
+        (if (has-errors? report)
+          (do (log/infof "Processing upload FAILED: %s" newitem)
+              (write-status (assoc newitem :status "FAILURE" :report report) store))
+          (do (log/infof "Processing upload COMPLETE: %s" newitem)
+              (write-status (assoc newitem :status "COMPLETE" :report report) store))))
       (catch Throwable t
         (log/errorf t "Uploading item %s failed." newitem)
         (write-status (assoc newitem :status "FAILURE" :report (str (ex-data t))) store)))))

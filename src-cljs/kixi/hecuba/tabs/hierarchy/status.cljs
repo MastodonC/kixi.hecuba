@@ -13,9 +13,10 @@
 
 (defn skip-reason [sensor]
   (let [metadata (:metadata sensor)
-        {:keys [exists? allowed?]} metadata]
+        {:keys [exists? allowed? error-message]} metadata]
     (cond (not exists?) "No matching sensor found."
           (not allowed?) "Not allowed to upload to this sensor."
+          (seq error-message) error-message
           :else (str "Exists: " exists? " Allowed: " allowed?))))
 
 (defn upload-status [programme_id project_id entity_id]
