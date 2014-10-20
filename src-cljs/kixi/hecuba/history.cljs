@@ -77,7 +77,7 @@
        token->historian))
 
 (extend-type goog.History
-  event/EventType
+  event/IEventType
   (event-types [this]
     (into {}
           (map
