@@ -160,8 +160,8 @@
 
 (defn measurements-slice-handle-ok [store ctx]
   (let [db-session   (:hecuba-session store)
-        {:keys [start-date end-date device_id type]} (:items ctx)]
-    (let [measurements (measurements/retrieve-measurements db-session start-date end-date device_id type)]
+        {:keys [start-date end-date device_id sensor_id type]} (:items ctx)]
+    (let [measurements (measurements/retrieve-measurements db-session start-date end-date device_id sensor_id)]
       (format-measurements ctx measurements))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
