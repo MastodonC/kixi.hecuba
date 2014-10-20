@@ -29,7 +29,7 @@
         (throw t))))
   (hecuba/-delete [this index mapping-type id]
     (try
-      (doc/delete (:search-session this) index mapping-type id)))
+      (doc/delete (:search-session this) index mapping-type id {:refresh true})))
   (hecuba/-get-by-id [this index mapping-type id]
     (try
       (doc/get (:search-session this) index mapping-type id))))

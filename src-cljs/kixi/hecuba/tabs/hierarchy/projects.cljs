@@ -41,6 +41,14 @@
                            (om/update! projects-data :editing false))
                          (error-handler projects-data))))
 
+(defn delete-project [projects-data programme_id project_id history refresh-chan]
+  (common/delete-resource (str "/4/programmes/" programme_id  "/projects/" project_id)
+                          (fn []
+                            (put! refresh-chan {:event :projects})
+                            (history/update-token-ids! history :projects nil)
+                            (om/update! projects-data :editing false))
+                          (error-handler projects-data)))
+
 (defn project-add-form [projects programme_id refresh-chan]
   (fn [cursor owner]
     (om/component
@@ -76,7 +84,8 @@
 (defn project-edit-form [projects-data refresh-chan]
   (fn [cursor owner]
     (om/component
-     (let [{:keys [project_id programme_id]} cursor]
+     (let [{:keys [project_id programme_id]} cursor
+           history (om/get-shared owner :history)]
        (html
         [:div
          [:h3 (:name cursor)]
@@ -89,11 +98,15 @@
                        :onClick (fn [_]
                                   (let [project (om/get-state owner [:project])]
                                     (put-edited-project projects-data refresh-chan owner project
-                                                        programme_id project_id)))}
-              "Save"]
+                                                        programme_id project_id)))} "Save"]
              [:button {:type "button"
                        :class "btn btn-danger"
-                       :onClick (fn [_] (om/update! projects-data :editing false))} "Cancel"]]]
+                       :onClick (fn [_] (om/update! projects-data :editing false))} "Cancel"]
+             [:button {:type "button"
+                          :class "btn btn-danger pull-right"
+                          :onClick (fn [_]
+                                     (delete-project projects-data programme_id project_id  history refresh-chan))}
+                 "Delete Project"]]]
            (om/build bs/alert (-> projects-data :alert))
            [:div.col-md-4
             (bs/text-input-control cursor owner :project :organisation "Organisation")
@@ -138,10 +151,8 @@
                      created_at organisation project_code editable selected]} project
                      history   (om/get-shared owner :history)]
          [:tr {:onClick (fn [e]
-                          (let [div-id (.-id (.-target e))]
-                            (when-not (= div-id (str project_id "-edit"))
-                              (history/update-token-ids! history :projects project_id)
-                              (common/fixed-scroll-to-element "project-detail-div"))))
+                          (history/update-token-ids! history :projects project_id)
+                          (common/fixed-scroll-to-element "project-detail-div"))
                :class (when selected "success")
                :id (str table-id "-selected")}
           [:td name]

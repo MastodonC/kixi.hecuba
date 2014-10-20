@@ -25,6 +25,7 @@
                           (hayt/delete :projects
                                        (hayt/where [[= :id project_id]])))]
     {:devices deleted-entities
+     :entities entity_ids
      :project deleted-project}))
 
 (defn get-by-id

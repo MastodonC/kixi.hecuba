@@ -14,7 +14,8 @@
    [kixi.hecuba.data.projects :as projects]
    [kixi.hecuba.data.programmes :as programmes]
    [schema.core :as s]
-   [kixi.amon-schema :as schema]))
+   [kixi.amon-schema :as schema]
+   [kixi.hecuba.data.entities.search :as search]))
 
 (def ^:private programme-projects-index (p/index-path-string :programme-projects-index))
 (def ^:private programme-projects-resource (p/resource-path-string :programme-projects-resource))
@@ -217,6 +218,16 @@
                             :properties (format project-properties-index (:project_id item)))
                           (dissoc item :user_id))))
 
+(defn resource-delete! [store ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (let [existing-project (::item ctx)
+          {:keys [project_id]} existing-project
+          response (projects/delete project_id session)
+          {:keys [entities]} response]
+      (doseq [entity_id entities]
+        (search/delete-by-id entity_id (:search-session store)))
+      "Delete Accepted")))
+
 (defresource index [store]
   :allowed-methods #{:get :post}
   :available-media-types ["application/json" "application/edn"]
@@ -229,7 +240,7 @@
   :handle-created (partial index-handle-created))
 
 (defresource resource [store]
-  :allowed-methods #{:get :put}
+  :allowed-methods #{:get :put :delete}
   :available-media-types ["application/json" "application/edn"]
   :known-content-type? #{"application/edn" "application/json"}
   :authorized? (authorized? store)
@@ -237,4 +248,5 @@
   :exists? (partial resource-exists? store)
   :malformed? resource-malformed?
   :put! (partial resource-put! store)
+  :delete! (partial resource-delete! store)
   :handle-ok (partial resource-handle-ok))
