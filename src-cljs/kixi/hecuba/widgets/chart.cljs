@@ -8,6 +8,7 @@
    [om.core :as om :include-macros true]
    [clojure.string :as str]
    [kixi.hecuba.common :refer (log)]
+   [kixi.hecuba.widgets.brewer :as brewer]
    [cljs.reader :as reader]
    [sablono.core :as html :refer-macros [html]]))
 
@@ -164,13 +165,15 @@
         ;; let's try friendly formats for a while
         ;; (.tickFormat (.format js/d3.time "%Y-%m-%d %H:%M:%S"))
         ;; Left
-        color-left      (color-scale series-left (to-array ["#6baed6" "#4292c6" "#2171b5" "#08519c" "#08306b"]))
+
+
+        color-left      (color-scale series-left (to-array (take 6 brewer/cat-12)))
         y1-scale        (y-scale (:minimum series1-min-max) (:maximum series1-min-max) height)
         line1           (line-fn x-scale y1-scale)
         y-axis-left     (-> js/d3 (.-svg) (.axis) (.scale y1-scale) (.ticks 8) (.orient "left"))
         sensors-left    (color-domain series-left color-left)
         ;; Right
-        color-right     (color-scale series-right (to-array ["#fd8d3c" "#f16913" "#d94801" "#a63603" "#7f2704"]))
+        color-right     (color-scale series-right (to-array (drop 6 brewer/cat-12)))
         y2-scale        (y-scale (:minimum series2-min-max) (:maximum series2-min-max) height)
         line2           (line-fn x-scale y2-scale)
         y-axis-right    (-> js/d3 (.-svg) (.axis) (.scale y2-scale) (.ticks 8) (.orient "right"))

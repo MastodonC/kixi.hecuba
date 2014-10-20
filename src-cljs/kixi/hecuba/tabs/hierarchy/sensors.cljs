@@ -6,6 +6,7 @@
             [sablono.core :as html :refer-macros [html]]
             [kixi.hecuba.bootstrap :refer (static-text text-input-control checkbox) :as bs]
             [kixi.hecuba.history :as history]
+            [kixi.hecuba.widgets.brewer :as brewer]
             [kixi.hecuba.widgets.chart :as chart]
             [kixi.hecuba.widgets.datetimepicker :as dtpicker]
             [kixi.hecuba.tabs.hierarchy.data :as data]
@@ -283,8 +284,8 @@
                ;; Chart and infoboxes
                (let [{:keys [all-groups units]} (get property-details :chart)
                      {:keys [hovering-chan mult-chan]} (om/get-state owner)
-                     left-border-colours       ["#6baed6" "#4292c6" "#2171b5" "#08519c" "#08306b"]
-                     right-border-colours      ["#fd8d3c" "#f16913" "#d94801" "#a63603" "#7f2704"]]
+                     left-border-colours       (take 6 brewer/cat-12)
+                     right-border-colours      (drop 6 brewer/cat-12)]
                  (if (and (some seq all-groups) (seq units))
                    (let [left-group        (first all-groups)
                          left-with-colours (zipmap left-group (cycle left-border-colours))]
