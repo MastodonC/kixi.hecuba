@@ -133,7 +133,7 @@
                      (.multi (to-array
                               [(to-array [".%L" (fn [d] (.getMilliseconds d))])
                                (to-array [":%S" (fn [d] (.getSeconds d))])
-                               (to-array ["%I:%M" (fn [d] (.getMinutes d))])
+                               (to-array ["%H:%M" (fn [d] (.getMinutes d))])
                                (to-array ["%H:00" (fn [d] (.getHours d))])
                                (to-array ["%a %d %b" (fn [d] (and (.getDay d)
                                                                (not= 1 (.getDate d))))])
