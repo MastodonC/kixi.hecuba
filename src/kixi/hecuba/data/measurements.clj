@@ -106,6 +106,26 @@
                 (when (t/before? next-start end-date)
                   (measurements-for-range store sensor {:start-date next-start :end-date end-date} page))))))
 
+(defn hourly-rollups-for-range
+  "Returns a lazy sequence of hourly rollups for a sensor matching type and device_id for a specified
+  datetime range."
+  [store sensor {:keys [start-date end-date]} page]
+  (s/validate SensorId sensor)
+  (let [device_id  (:device_id sensor)
+        type       (:type sensor)
+        next-start (t/plus start-date page)]
+    (db/with-session [session (:hecuba-session store)]
+      (lazy-cat (db/execute session
+                               (hayt/select :hourly_rollups
+                                            (hayt/where [[= :device_id device_id]
+                                                         [= :type type]
+                                                         [= :year (misc/get-year-partition-key start-date)]
+                                                         [>= :timestamp start-date]
+                                                         [< :timestamp next-start]]))
+                               nil)
+                (when (t/before? next-start end-date)
+                  (hourly-rollups-for-range store sensor {:start-date next-start :end-date end-date} page))))))
+
 (defn- retrieve-measurements-for-months [session [month & more]  where]
   (log/info "Got month " month)
   (when month

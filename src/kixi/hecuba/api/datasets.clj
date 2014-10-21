@@ -19,6 +19,7 @@
    [kixi.hecuba.data.sensors :as sensors]
    [kixi.hecuba.data.datasets :as datasets]
    [kixi.hecuba.data.entities.search :as search]
+   [kixi.hecuba.data.users :as users]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
    [clojure.core.match :refer (match)]))
 
@@ -53,28 +54,29 @@
       (->> (mapcat sensor parsed-sensors)
            (map #(misc/merge-sensor-metadata store %))))))
 
-(defn synthetic-device [entity_id description]
+(defn synthetic-device [entity_id device_id description]
   (hash-map :description     description
-            :parent_id       (str (uuid))
             :entity_id       entity_id
-            :location        "{\"name\": \"Synthetic\", \"latitude\": \"0\", \"longitude\": \"0\"}"
+            :device_id       device_id
             :privacy         "private"
-            :metering_point_id (str (uuid))
             :synthetic       true))
 
-(defn synthetic-sensor [operation type device_id unit]
-  (let [period (case operation
-                 :sum "PULSE"
-                 :subtract "PULSE"
-                 :divide "INSTANT"
-                 :multiply-series-by-field "INSTANT"
-                 :divide-series-by-field "INSTANT")]
-    {:device_id  device_id
-     :type       type
-     :unit       unit
-     :period     period
-     :status     "N/A"
-     :synthetic  true}))
+(defn get-period [operation parents]
+  (let [parent-period (:period (first parents))]
+    (case operation
+      :sum parent-period
+      :subtract parent-period
+      :divide "INSTANT"
+      :multiply-series-by-field parent-period
+      :divide-series-by-field parent-period)))
+
+(defn synthetic-sensor [operation type device_id unit parents]
+  {:device_id  device_id
+   :type       type
+   :unit       unit
+   :period     (get-period operation parents)
+   :resolution "3600" ;; based on hourly_rollups
+   :synthetic  true})
 
 (defn synthetic-sensor-metadata [type device_id & [range]]
   (merge {:type      type
@@ -88,13 +90,17 @@
 (defn- name-from [ctx]
   (get-in ctx [:request :route-params :name]))
 
-(defn create-output-sensors [store device_id unit type operation range]
-  (db/with-session [session (:hecuba-session store)]
-    (let [synthetic (synthetic-sensor operation type device_id unit)]
-      (datasets/insert-sensor synthetic (synthetic-sensor-metadata type device_id range) session)
+(defn create-output-sensors [device_id unit type operation parents]
+  (let [synthetic (synthetic-sensor operation type device_id unit parents)
+        default  (d/calculated-sensor synthetic)]
+    (remove nil? (conj [synthetic] default))))
 
-      (when-let [default (d/calculated-sensor synthetic)]
-        (datasets/insert-sensor default (synthetic-sensor-metadata (:type default) device_id) session)))))
+(defn insert-output-sensors [store range sensors]
+  (db/with-session [session (:hecuba-session store)]
+    (doseq [sensor sensors]
+      (let [{:keys [device_id type]} sensor
+            metadata (synthetic-sensor-metadata type device_id range)]
+        (datasets/insert-sensor sensor metadata session)))))
 
 (defn index-allowed? [store]
   (fn [ctx]
@@ -106,6 +112,7 @@
       (when (and project_id programme_id)
         (allowed?* entity_id programme_id project_id programmes projects role request-method store)))))
 
+;; TODO Check whether all sensors are of the same period
 (defn index-malformed? [ctx]
   (let [request (:request ctx)
         method  (:request-method request)
@@ -126,14 +133,14 @@
         sensors  (sensors-for-dataset body store)]
     (when (and (seq entity)
                (= (count operands) (count sensors)))
-      {::item {:entity_id (:entity_id entity) :sensors sensors :operation operation :operands operands :name name}})))
+      [true {::items {:entity_id (:entity_id entity) :sensors sensors :operation operation :operands operands :name name}}])))
 
 (defn sensor-and-field-exist? [entity body store]
   (let [{:keys [operation operands name]} body
         sensors  (sensors-for-dataset {:operands (take 1 operands)} store)]
     (when (and (seq entity)
                (pos? (count sensors)))
-      {::item {:entity_id (:entity_id entity) :sensors sensors :operation operation :operands operands :name name}})))
+      [true {::items {:entity_id (:entity_id entity) :sensors sensors :operation operation :operands operands :name name}}])))
 
 (defmulti exists? (fn [entity body store] (:operation body)))
 
@@ -167,7 +174,7 @@
       (case request-method
         :post (let [{:keys [operation]} dataset]
                 (exists? entity (assoc dataset :operation (keyword (.toLowerCase operation))) store))
-        :get (let [items (datasets/get-by-id entity_id session)]
+        :get (let [items (datasets/get-all entity_id session)]
                {::items (mapv #(assoc % :editable editable?) items)})))))
 
 (defn stringify [k] (name k))
@@ -193,23 +200,31 @@
 
 (defn index-post! [store ctx]
    (db/with-session [session (:hecuba-session store)]
-     (let [{:keys [sensors operation operands entity_id name] :as item} (::item ctx)
+     (let [{:keys [sensors operation operands entity_id name] :as item} (::items ctx)
            unit          (get-unit item)
-           device        (synthetic-device entity_id "Synthetic")
-           device_id     (sha1/gen-key :device (assoc device :description name))
+           dataset_id    (str (uuid))
+           ;; TODO should be uuid when our history supports uuids.
+           device_id     (sha1/gen-key :device (assoc item :description dataset_id))
+           device        (synthetic-device entity_id device_id "Synthetic")
            operation-str (stringify operation)
            range         (when-let [[start end] (misc/range-for-all-sensors sensors)]
-                           {:start-date start :end-date end})]
-       (devices/insert session entity_id (assoc device :device_id device_id))
-       (create-output-sensors store device_id unit name operation range)
-       (datasets/insert {:entity_id entity_id
-                         :name      name
-                         :operands  operands
-                         :operation operation-str
-                         :device_id device_id} session)
+                           {:start-date start :end-date end})
+           output-sensors (create-output-sensors device_id unit name operation sensors)]
+       ;; Insert synthetic device
+       (devices/insert session entity_id device)
+       ;; Insert synthetic sensors
+       (insert-output-sensors store range output-sensors)
+       ;; Insert dataset
+       (datasets/insert {:entity_id  entity_id
+                         :dataset_id dataset_id
+                         :name       name
+                         :operands   operands
+                         :operation  operation-str
+                         :device_id  device_id} session)
+       ;; Refresh entity in ES
        (-> (search/searchable-entity-by-id entity_id session)
            (search/->elasticsearch (:search-session store)))
-       (hash-map ::name name
+       (hash-map ::dataset_id dataset_id
                  ::entity_id entity_id))))
 
 (defn index-handle-ok [store ctx]
@@ -219,9 +234,9 @@
 
 (defn index-handle-created [ctx]
   (let [entity_id   (::entity_id ctx)
-        name        (::name ctx)]
-    (if (and entity_id name)
-      (let [location (format entity-dataset-resource entity_id name)]
+        dataset_id  (::dataset_id ctx)]
+    (if (and entity_id dataset_id)
+      (let [location (format entity-dataset-resource entity_id dataset_id)]
         (ring-response {:headers {"Location" location}
                         :body (json/encode {:location location
                                             :status "OK"
@@ -246,47 +261,92 @@
 
 (defn resource-allowed? [store]
   (fn [ctx]
-    (let [{:keys [request-method session params]} (:request ctx)
+    (let [{:keys [body request-method session params]} (:request ctx)
           {:keys [projects programmes role]} (sec/current-authentication session)
           entity_id (:entity_id params)
           {:keys [project_id programme_id]} (when entity_id
                                               (search/get-by-id entity_id (:search-session store)))]
-      (if (and project_id programme_id)
-        (allowed?* programme_id project_id programmes projects role request-method)
-        true))))
+      (when (and project_id programme_id)
+        (allowed?* entity_id programme_id project_id programmes projects role request-method store)))))
 
+;; TODO Add resource-malformed? and check whether all sensors are of the same period
 (defn resource-exists? [store ctx]
-  (db/with-session [session [:hecuba-session store]]
+  (db/with-session [session (:hecuba-session store)]
     (let [request      (:request ctx)
+          body         (decode-body request)
           route-params (:route-params request)
-          {:keys [entity_id name]} route-params]
-      (log/infof "resource-exists? :%s:%s" entity_id name)
+          {:keys [entity_id dataset_id]} route-params]
+      (log/infof "resource-exists? %s:%s" entity_id dataset_id)
 
-      (when-let [item (datasets/get-by-id name entity_id session)]
-        {::item item}
+      (when-let [item (datasets/get-by-id dataset_id session)]
+        {:existing-dataset item :new-dataset body}
         #_(throw (ex-info (format "Cannot find item of id %s")))))))
 
-(defn resource-post! [store ctx]
+(defn recreate-dataset [user_id old-dataset new-dataset store]
   (db/with-session [session (:hecuba-session store)]
-    (let [request (:request ctx)
-          {:keys [operands name operation]} (decode-body request)
-          converted-type (misc/output-type-for operation)]
+    (let [device_id         (:device_id old-dataset)]
+      ;; Deleting old
+      (let [sensors-to-delete (sensors/get-sensors device_id session)]
+        (when (seq sensors-to-delete)
+          (doseq [{:keys [device_id type]} sensors-to-delete]
+            (log/info "Deleting: " device_id type)
+            (sensors/delete {:device_id device_id :type type} session))))
+      ;; Inserting new
+      (let [{:keys [name operation]} new-dataset
+            entity            (search/get-by-id (:entity_id old-dataset) (:search-session store))
+            [_ item]          (exists? entity new-dataset store)
+            sensors           (-> item ::items :sensors)
+            range             (when-let [[start end] (misc/range-for-all-sensors sensors)]
+                                {:start-date start :end-date end})
+            unit              (get-unit (assoc new-dataset :sensors sensors))
+            synthetic-sensors (create-output-sensors device_id unit name operation sensors)]
+        (doseq [sensor synthetic-sensors]
+          (let [{:keys [device_id type]} sensor
+                metadata (synthetic-sensor-metadata type device_id range)]
+            (log/info "Inserting synthetic sensor: " (:device_id sensor) (:type sensor))
+            (datasets/insert-sensor (assoc sensor :device_id device_id :user_id user_id) metadata session)))))))
 
-      (datasets/insert {:entity_id (entity_id-from ctx)
-                        :name      (name-from ctx)
-                        :operands  operands
-                        :operation operation} session))))
+(defn resource-put! [store ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (let [old-dataset             (:existing-dataset ctx)
+          {:keys [entity_id device_id]} old-dataset
+          new-dataset             (:new-dataset ctx)
+          dataset-to-update       (merge {:name      (:name new-dataset)
+                                          :operands  (:operands new-dataset)}
+                                         (when-let [operation (:operation new-dataset)]
+                                           {:operation (keyword (.toLowerCase (:operation new-dataset)))}))
+          username                (sec/session-username (-> ctx :request :session))
+          user_id                 (:id (users/get-by-username session username))]
+      ;; Recreate synthetic sensors for this dataset
+      (recreate-dataset user_id old-dataset dataset-to-update store)
+      ;; Update dataset - using insert because we want to overwrite the list of operands instead of deleting
+      ;; operands that changed and adding new ones.
+      (datasets/insert (assoc new-dataset :device_id device_id :entity_id entity_id
+                              :dataset_id (:dataset_id old-dataset)) session)
+      ;; Update entity in ES to include updated sensors
+      (let [search-response (-> (search/searchable-entity-by-id entity_id session)
+                                (search/->elasticsearch (:search-session store)))]))))
+
+(defn resource-delete! [store ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (let [existing-dataset (:existing-dataset ctx)
+          {:keys [device_id entity_id dataset_id]} existing-dataset
+          response        (datasets/delete dataset_id entity_id device_id false session)
+          search-response (-> (search/searchable-entity-by-id entity_id session)
+                              (search/->elasticsearch (:search-session store)))]
+      "Delete Accepted")))
 
 (defn resource-handle-ok [ctx]
   (let [item (::item ctx)]
     (util/render-item ctx item)))
 
 (defresource resource [store]
-  :allowed-methods       #{:get :post}
+  :allowed-methods       #{:get :put :delete}
   :available-media-types #{"application/edn" "application/json"}
   :known-content-type?   #{"application/edn" "application/json"}
-  :authorized?           (authorized? store :datasets)
+  :authorized?           (authorized? store)
   :allowed?              (resource-allowed? store)
   :exists?               (partial resource-exists? store)
-  :post!                 (partial resource-post! store)
+  :put!                  (partial resource-put! store)
+  :delete!               (partial resource-delete! store)
   :handle-ok             resource-handle-ok)

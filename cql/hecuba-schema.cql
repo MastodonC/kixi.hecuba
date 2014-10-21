@@ -52,13 +52,13 @@ CREATE TABLE daily_rollups (
   compression={'sstable_compression': 'SnappyCompressor'};
 
 CREATE TABLE datasets (
+  id text,
   entity_id text,
-  name text,
   device_id text,
-  members set<text>,
+  name text,
   operation text,
   operands list<text>,
-  PRIMARY KEY (entity_id, name)
+  PRIMARY KEY (id)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
   caching='KEYS_ONLY' AND
@@ -74,6 +74,9 @@ CREATE TABLE datasets (
   memtable_flush_period_in_ms=0 AND
   compaction={'class': 'SizeTieredCompactionStrategy'} AND
   compression={'sstable_compression': 'SnappyCompressor'};
+
+CREATE INDEX datasets_entity_id_idx ON datasets (entity_id);
+CREATE INDEX datasets_device_id_idx ON datasets (device_id);
 
 CREATE TABLE devices (
   id text,

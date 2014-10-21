@@ -359,7 +359,8 @@
       om/IRenderState
       (render-state [_ state]
         (let [{:keys [sort-key sort-asc]} (:sort-spec state)
-              devices                     (fetch-devices (-> properties :selected) properties)
+              ;; Don't show synthethic devices as they can't be edited by the user
+              devices                     (into [] (remove #(:synthetic %) (fetch-devices (-> properties :selected) properties)))
               table-id                    "sensors-table"]
           (html
            [:div.col-md-12 {:style {:overflow "auto"}}

@@ -20,7 +20,7 @@
 (defn invalid? [device]
   (s/check Device device))
 
-(def user-editable-keys [:device_id :description :entity_id
+(def user-editable-keys [:device_id :description :entity_id :synthetic
                          :location :metadata :metering_point_id
                          :name :parent_id :privacy])
 
@@ -35,7 +35,7 @@
                     (assoc :id (:device_id device))
                     (dissoc :device_id)
                     (cond-> remove-pk? (dissoc :id))
-                    stringify-values)))
+                    (merge (stringify-values (dissoc (select-keys device user-editable-keys) :device_id :synthetic))))))
 
 (defn decode [device session]
   (-> device

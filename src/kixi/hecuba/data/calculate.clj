@@ -55,24 +55,6 @@
                 (assoc :value (str (round (* factor (edn/read-string (:value m)))))
                        :type (m/output-type-for type operation)))))))
 
-(defmulti quantize-timestamp (fn [m resolution] resolution))
-
-(defmethod quantize-timestamp 60
-  [m resolution]
-  (let [round-fn (fn [t] (m/truncate-seconds t))]
-    (update-in m [:timestamp] round-fn)))
-
-(defmethod quantize-timestamp 300
-  [m resolution]
-  (let [round-fn (fn [t] (tc/to-date (tc/from-long (long (* (quot (+ (tc/to-long (m/truncate-seconds t)) 150000) 300000) 300000)))))]
-    (update-in m [:timestamp] round-fn)))
-
-(defmethod quantize-timestamp 1800
-  [m resolution]
-  (let [round-fn (fn [t] (tc/to-date (tc/from-long
-                                      (long (* (quot (+ (tc/to-long (m/truncate-seconds t)) 300000) (* 6 300000)) (* 6 300000))))))]
-    (update-in m [:timestamp] round-fn)))
-
 (defn timestamp-seq-inclusive
   ([start end] (timestamp-seq-inclusive start end 60))
   ([start end resolution] (map (fn [t] (tc/to-date t)) (take-while #(not (t/after? % end)) (p/periodic-seq start (t/seconds resolution))))))
@@ -81,25 +63,16 @@
   "Takes a start date, end date and resolution (in seconds) and creates a sequence
   of timestamps (inclusive). Seconds are truncated. "
   [start end resolution]
-  (let [start-date (m/truncate-seconds start)
-        end-date   (m/truncate-seconds end)]
+  (let [start-date (m/truncate-minutes start)
+        end-date   (m/truncate-minutes end)]
     (map #(hash-map :timestamp %) (timestamp-seq-inclusive start-date end-date resolution))))
 
-(defn nearest-resolution [resolution]
-  (if-not (some #{resolution} [60 300 1800])
-    (cond (< resolution 150) 60
-          (< resolution 900) 300
-          :else 1800)
-    resolution))
-
 (defn pad-measurements
-  "Takes a sequence of measurements, expected timestamps and resolution in seconds and pads it with template readings."
-  [measurements expected-timestamps resolution]
+  "Takes a sequence of measurements, expected timestamps and pads it with template readings."
+  [measurements expected-timestamps]
   (let []
     (let [template-reading (fn [t] (hash-map :value "N/A" :month (m/get-month-partition-key (:timestamp t))))
-          resolution       (nearest-resolution resolution)
-          quantized        (map #(quantize-timestamp % resolution) measurements)
-          grouped-readings (into {} (map #(vector (:timestamp %) %) quantized))]
+          grouped-readings (into {} (map #(vector (:timestamp %) %) measurements))]
       (map #(merge (template-reading %) (get grouped-readings (:timestamp %) %)) expected-timestamps))))
 
 ;;;;;;; Difference series ;;;;;;;;;
@@ -118,8 +91,6 @@
 (defn diff-seq [coll]
   (assert (not (empty? coll)) "No measurements passed to diff-seq")
   (map #(get-difference %1 %2) coll (rest coll)))
-
-
 
 (defn timestamp-seq-inclusive
   ([start end] (timestamp-seq-inclusive start end 60))
@@ -380,20 +351,18 @@
 ;; Padding ;;;
 
 (defn even-all-collections
-  "Takes a vector containg lists of measurements, a sequence of required timestamps and resolution
-                in seconds and pads the measurements."
-  [all-colls timestamps resolution]
-  (map #(pad-measurements % timestamps resolution) all-colls))
+  "Takes a vector containg lists of measurements, a sequence of required timestamps
+  and pads the measurements."
+  [all-colls timestamps]
+  (map #(pad-measurements % timestamps) all-colls))
 
 (defn padded-measurements
   "Takes a sequence of a variable number of sequences of measurements
    and makes them of even length by padding."
   [sensors measurements-seq resolution]
   (let [[start end]  (m/range-for-all-sensors sensors)
-        expected-ts  (all-timestamps-for-range (tc/from-date (:timestamp (quantize-timestamp {:timestamp start} resolution)))
-                                               (tc/from-date (:timestamp (quantize-timestamp {:timestamp end} resolution)))
-                                               resolution)]
-     (even-all-collections measurements-seq expected-ts resolution)))
+        expected-ts  (all-timestamps-for-range start end resolution)]
+     (even-all-collections measurements-seq expected-ts)))
 
 ;;; Decisions around sensors ;;;
 
@@ -459,21 +428,16 @@
        (if (and (> (count sensors) 1)
                 (should-calculate? ds sensors))
          (let [measurements (into [] (map #(m/parse-measurements
-                                            (measurements/measurements-for-range store % range (t/hours 1)))
+                                            (measurements/hourly-rollups-for-range store % range (t/days 1)))
                                           sensors))]
            (if (every? #(> (count (take 2 %)) 1) measurements)
-             (let [all-resolutions (map #(get-resolution store %1 (take 100 %2)) sensors measurements)
-                   resolution      (first all-resolutions)]
-
-               (if (every? #(= resolution %) all-resolutions)
-                 (let [padded                        (padded-measurements sensors measurements resolution)
-                       new-type                      (:name ds)
-                       sensor                        {:device_id device_id :type new-type}
-                       calculated                    (apply compute-datasets operation device_id new-type padded)
-                       {:keys [start-date end-date]} range
-                       page-size                     10]
-                   (m/insert-measurements store sensor page-size calculated)
-                   (log/info "Finished calculation for operands: " operands "and operation: " operation))
-                 (log/info "Sensors are not of the same resolution.")))
+             (let [padded                        (padded-measurements sensors measurements 3600)
+                   new-type                      (:name ds)
+                   sensor                        {:device_id device_id :type new-type}
+                   calculated                    (apply compute-datasets operation device_id new-type padded)
+                   {:keys [start-date end-date]} range
+                   page-size                     10]
+               (m/insert-measurements store sensor page-size calculated)
+               (log/info "Finished calculation for operands: " operands "and operation: " operation))
              (log/info "Sensors do not have enough measurements to calculate.")))
          (log/info "Sensors do not meet requirements for calculation.")))))
