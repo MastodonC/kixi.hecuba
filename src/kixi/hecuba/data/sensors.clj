@@ -45,7 +45,7 @@
      (encode sensor false))
   ([sensor remove-pk?]
      (-> sensor
-         (user-metadata (:synthetic sensor))
+         (cond-> (seq (:user-metadata sensor)) (user-metadata (:synthetic sensor)))
          (cond-> remove-pk? (dissoc :device_id :type)))))
 
 (defn sensor-time-range [sensor session]
