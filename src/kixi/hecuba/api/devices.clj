@@ -205,8 +205,7 @@
           ;; TODO when new sensors are created they do not necessarilly overwrite old sensors (unless their type is the same)
           ;; We should probably allow to delete sensors through the API/UI
           (doseq [reading (:readings new-body)]
-            ;; cassandra's insert only updates specified keys so no need to use update
-            (sensors/insert session (assoc reading :device_id device_id
+            (sensors/update session (assoc reading :device_id device_id
                                            :user_id user_id)))
           (-> (search/searchable-entity-by-id entity_id session)
               (search/->elasticsearch (:search-session store)))
