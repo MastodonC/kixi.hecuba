@@ -12,7 +12,8 @@
             [kixi.hecuba.data.profiles :as profiles]
             [kixi.hecuba.data.misc :as m]
             [kixi.hecuba.storage.db :as db]
-            [qbits.hayt :as hayt]))
+            [qbits.hayt :as hayt]
+            [kixi.hecuba.time :as time]))
 
 ;; Helpers
 
@@ -270,18 +271,23 @@
   Depending on the order of data in the database, it might not always return last 100 of measurements."
   [store item]
   (db/with-session [session (:hecuba-session store)]
-    (let [sensors-to-update (filter #(empty? (:resolution %)) (db/execute session (hayt/select :sensors)))]
+    (let [sensors-to-update (filter #(empty? (:resolution %)) (m/all-sensors store))]
       (doseq [sensor sensors-to-update]
-        (let [measurements (db/execute session (hayt/select :partitioned_measurements
-                                                            (hayt/where [[= :device_id (:device_id sensor)]
-                                                                         [= :type (:type sensor)]])
-                                                            (hayt/order-by [:type :desc])
-                                                            (hayt/limit 100)))
-              resolution  (str (find-resolution measurements))]
-          (db/execute session (hayt/update :sensors
-                                           (hayt/set-columns [[:resolution resolution]])
-                                           (hayt/where [[= :device_id (:device_id sensor)]
-                                                        [= :type (:type sensor)]]))))))))
+        (when (and (:lower_ts sensor) (:upper_ts sensor))
+          (let [months       (time/range->months (:lower_ts sensor) (:upper_ts sensor))
+                measurements (db/execute session (hayt/select :partitioned_measurements
+                                                              (hayt/where [[= :device_id (:device_id sensor)]
+                                                                           [= :type (:type sensor)]
+                                                                           [:in :month months]])
+                                                              (hayt/limit 100)))]
+            (when (seq measurements)
+              (let [calculated-resolution  (str (find-resolution measurements))]
+                (log/debugf "Checking resolution for id: %s type: %s. Calculated resolution is: %s"
+                          (:device_id sensor) (:type sensor) calculated-resolution)
+                (db/execute session (hayt/update :sensors
+                                                 (hayt/set-columns [[:resolution calculated-resolution]])
+                                                 (hayt/where [[= :device_id (:device_id sensor)]
+                                                              [= :type (:type sensor)]])))))))))))
 (defn update-resolution [store sensor resolution]
   (db/with-session [session (:hecuba-session store)]
     (db/execute session (hayt/update :sensors (hayt/set-columns {:resolution (str resolution)})
