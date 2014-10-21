@@ -8,6 +8,7 @@
             [sablono.core :as html :refer-macros [html]]
             [kixi.hecuba.bootstrap :as bs]
             [kixi.hecuba.tabs.slugs :as slugs]
+            [kixi.hecuba.history :as history]
             [kixi.hecuba.tabs.hierarchy.sensors :as sensors]
             [kixi.hecuba.tabs.hierarchy.devices :as devices]
             [kixi.hecuba.tabs.hierarchy.datasets :as datasets]
@@ -22,6 +23,12 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Property Details Helpers
+
+(defn error-handler [properties]
+  (fn [{:keys [status status-text]}]
+    (om/update! properties :alert {:status true
+                                   :class "alert alert-danger"
+                                   :text "Failed to delete property."})))
 
 ;; FIXME: This is a dupe in sensors.cljs
 (defn get-property-details [selected-property-id properties]
@@ -40,6 +47,14 @@
   (let [property-data (common/deep-merge (:property_data @property-details) (om/get-state owner [:property_data]))]
     (post-resource refresh-chan property_id {:entity_id property_id :property_data property-data} project_id)
     (om/set-state! owner :editing false)))
+
+(defn delete-property [properties entity_id history refresh-chan]
+  (common/delete-resource (str "/4/entities/" entity_id)
+                          (fn []
+                            (put! refresh-chan {:event :properties})
+                            (history/update-token-ids! history :properties nil)
+                            (om/update! properties :editing false))
+                          (error-handler properties)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; property-details-form
@@ -107,6 +122,7 @@
     (render-state [_ state]
       (let [selected-property-id    (-> properties :selected)
             property-details        (get-property-details selected-property-id properties)
+            history                 (om/get-shared owner :history)
             refresh-chan            (om/get-shared owner :refresh)
             {:keys [project_id
                     property_data
@@ -116,25 +132,37 @@
 
           [:form.form-horizontal {:role "form"}
            [:h3 "Overview"
-             (when editable
-               [:div.form-group.pull-right
-                [:div.btn-toolbar
-                 [:button.btn.btn-default.fa.fa-pencil-square-o
-                  {:type "button"
-                   :title "Edit"
-                   :class (str "btn btn-primary " (if (om/get-state owner :editing) "hidden" ""))
-                   :onClick (fn [_ _] (om/set-state! owner {:editing true}))}]
-                 [:button.btn.btn-default {:type "button"
-                                           :class (str "btn btn-success " (if (om/get-state owner :editing) "" "hidden"))
-                                           :onClick (fn [_ _] (save-form refresh-chan property-details
-                                                                         owner selected-property-id project_id))} "Save"]
-                 [:button.btn.btn-default {:type "button"
-                                           :class (str "btn btn-danger " (if (om/get-state owner :editing) "" "hidden"))
-                                           :onClick (fn [_ _] (om/set-state! owner {:editing false}))} "Cancel"]
-                 [:a {:class "btn btn-primary fa fa-download"
-                      :title "Download"
-                      :role "button"
-                      :href (str "/4/entities/" selected-property-id "?type=csv")}]]])]
+            [:div.col-md-12
+             [:div.form-group
+              (when editable
+                [:div.pull-right
+                 [:div.btn-toolbar
+                  [:button.btn.btn-default.fa.fa-pencil-square-o
+                   {:type "button"
+                    :title "Edit"
+                    :class (str "btn btn-primary " (if (om/get-state owner :editing) "hidden" ""))
+                    :onClick (fn [_ _] (om/set-state! owner {:editing true}))}]
+                  [:a {:class (str "btn btn-primary fa fa-download " (if (om/get-state owner :editing) "hidden" ""))
+                       :title "Download"
+                       :role "button"
+                       :href (str "/4/entities/" selected-property-id "?type=csv")}]]])]]]
+           [:div.col-md-12
+            [:div.col-md-6
+             [:div.btn-toolbar
+              [:button.btn.btn-default {:type "button"
+                                        :class (str "btn btn-success " (if (om/get-state owner :editing) "" "hidden"))
+                                        :onClick (fn [_ _] (save-form refresh-chan property-details
+                                                                      owner selected-property-id project_id))} "Save"]
+              [:button.btn.btn-default {:type "button"
+                                        :class (str "btn btn-danger " (if (om/get-state owner :editing) "" "hidden"))
+                                        :onClick (fn [_ _] (om/set-state! owner {:editing false}))} "Cancel"]]]
+            [:button {:type "button"
+                      :class (str "btn btn-danger pull-right " (if (om/get-state owner :editing) "" "hidden"))
+                      :onClick (fn [_]
+                                 (delete-property properties selected-property-id history refresh-chan))}
+             "Delete Property"]]
+           [:div {:id "overview-alert"}
+            (om/build bs/alert (:alert properties))]
            [:div.col-md-6
             (bs/static-text property-details :property_code "Property Code")
             (address-control property_data owner state)
