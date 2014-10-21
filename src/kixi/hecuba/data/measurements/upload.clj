@@ -151,7 +151,7 @@
 (defn split-device-and-sensor [m]
   [(select-keys m [:device_id :description
                    :location :metadata :privacy :metering_point_id])
-   (select-keys m [:device_id :type :alias :accuracy :actual_annual :corrected_unit
+   (select-keys m [:device_id :sensor_id :type :alias :accuracy :actual_annual :corrected_unit
                    :correction :correction_factor :correction_factor_breakdown
                    :errors :events :frequency :max :median :min :period
                    :resolution :status :synthetic :unit :user_id])])
@@ -166,7 +166,8 @@
              (s/optional-key :metering_point_id)          (s/maybe s/Str)})
 
 (def Sensor {(s/required-key :device_id)                   s/Str
-             (s/required-key :type)                        s/Str
+             (s/required-key :sensor_id)                   s/Str
+             (s/optional-key :type)                        (s/maybe s/Str)
              (s/optional-key :alias)                       (s/maybe s/Str)
              (s/optional-key :accuracy)                    (s/maybe s/Str)
              (s/optional-key :actual_annual)               (s/maybe s/Bool)

@@ -21,7 +21,7 @@
 (defn where-from
   "Takes measurement or sensor and returns where clause"
   [m]
-  [[= :device_id (:device_id m)] [= :type (:type m)]])
+  [[= :device_id (:device_id m)] [= :sensor_id (:sensor_id m)]])
 
 ;;;;; Time conversion functions ;;;;;
 ;; FIXME: These should all be moved to kixi.hecuba.time
@@ -55,23 +55,23 @@
     (let [all-sensors-metadata (db/execute session (hayt/select :sensor_metadata))]
       (map #(merge (first (db/execute session
                                       (hayt/select :sensors
-                                                   (hayt/where [[= :device_id (:device_id %)] [= :type (:type %)]]))))
+                                                   (hayt/where [[= :device_id (:device_id %)] [= :sensor_id (:sensor_id %)]]))))
                    %) all-sensors-metadata))))
 
 (defn merge-sensor-metadata [store sensor]
   (db/with-session [session (:hecuba-session store)]
     (merge (first (db/execute session (hayt/select :sensor_metadata
                                                    (hayt/where [[= :device_id (:device_id sensor)]
-                                                                [= :type (:type sensor)]])))) sensor)))
+                                                                [= :sensor_id (:sensor_id sensor)]])))) sensor)))
 
 (defn all-sensor-information
-  "Given store,  device_id and type, combines data from sensor and sensor_metadata tables
+  "Given store,  device_id and sensor_id, combines data from sensor and sensor_metadata tables
   for that sensor."
-  [store device_id type]
+  [store device_id sensor_id]
   (db/with-session [session (:hecuba-session store)]
     (let [sensor (first (db/execute session
                                     (hayt/select :sensors (hayt/where [[= :device_id device_id]
-                                                                       [= :type type]]))))]
+                                                                       [= :sensor_id sensor_id]]))))]
       (merge-sensor-metadata store sensor))))
 
 (defn all-sensor-metadata-for-device
@@ -168,9 +168,9 @@
 
 (defn reset-date-range
   "Given querier, commander, sensor, column and start/end dates, update these dates in sensor metadata."
-  [store {:keys [device_id type]} col start-date end-date]
+  [store {:keys [device_id sensor_id]} col start-date end-date]
   (db/with-session [session (:hecuba-session store)]
-    (let [where               [[= :device_id device_id] [= :type type]]
+    (let [where               [[= :device_id device_id] [= :sensor_id sensor_id]]
           current-metadata    (first (db/execute session (hayt/select :sensor_metadata (hayt/where where))))
           current-range       (get current-metadata col)
           start               (get current-range "start")

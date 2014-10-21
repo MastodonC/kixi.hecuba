@@ -7,6 +7,7 @@
             [kixipipe.storage.s3   :as s3]))
 
 (def columns-in-order [:device_id
+                       :sensor_id
                        :type
                        :customer_ref
                        :description
@@ -23,6 +24,7 @@
 (def extract-columns-in-order (apply juxt columns-in-order))
 
 (def headers-in-order ["Device UUID"
+                       "Sensor UUID"
                        "Reading Type"
                        "Customer Ref"
                        "Description"
@@ -82,7 +84,7 @@
   (try
     (let [t  (tc/to-date (date-parser (:timestamp m)))]
       {:device_id        (:device_id sensor)
-       :type             (:type sensor)
+       :sensor_id        (:sensor_id sensor)
        :timestamp        t
        :value            (str (:value m))
        :error            (str (:error m))

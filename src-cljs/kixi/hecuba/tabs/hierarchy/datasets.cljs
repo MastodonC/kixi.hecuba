@@ -9,10 +9,10 @@
             [kixi.hecuba.common :refer (log) :as common]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; PUT and VALIDATE                                                                      ;;
+;; POST and VALIDATE                                                                     ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn put-new-dataset [event-chan refresh-chan owner cursor dataset property-id]
+(defn post-new-dataset [event-chan refresh-chan owner cursor dataset property-id]
   (let [resource {:entity_id property-id
                   :operation (string/lower-case (:operation dataset))
                   :name (:name dataset)
@@ -32,6 +32,43 @@
                                                          :class "alert alert-danger"
                                                          :text status-text})))))
 
+(defn put-new-dataset [event-chan refresh-chan owner cursor dataset property-id]
+  (let [resource {:entity_id property-id
+                  :operation (string/lower-case (:operation dataset))
+                  :name (:name dataset)
+                  :operands (:series dataset)}]
+    (common/put-resource (str "/4/entities/" property-id "/datasets/" (:name dataset))
+                          resource
+                          (fn [_]
+                            (om/update! cursor {})
+                            (put! refresh-chan {:event :datasets})
+                            (put! event-chan {:event :adding-dataset :value false})
+                            (put! event-chan {:event :editing-dataset :value false})
+                            (put! event-chan {:event :alert :value {:status true
+                                                                    :class "alert alert-success"
+                                                                    :text "Dataset was edited successfully."}}))
+                          (fn [{:keys [status status-text]}]
+                            (om/set-state! owner :alert {:status true
+                                                         :class "alert alert-danger"
+                                                         :text status-text})))))
+
+(defn delete-dataset [event-chan refresh-chan entity_id dataset]
+  (let [dataset-name (:name @dataset)
+        device_id    (:device_id @dataset)]
+    (common/delete-resource (str "/4/entities/" entity_id "/datasets/" dataset-name)
+                            (fn []
+                              (om/update! dataset {})
+                              (put! refresh-chan {:event :datasets})
+                              (put! event-chan {:event :editing-dataset :value false})
+                              (put! event-chan {:event :editing-dataset :value false})
+                              (put! event-chan {:event :alert :value {:status true
+                                                                      :class "alert alert-success"
+                                                                      :text "Dataset was deleted successfully."}}))
+                            (fn [{:keys [status status-text]}]
+                              (put! event-chan {:event :alert :value {:status true
+                                                                      :class "alert alert-danger"
+                                                                      :text "Unable to delete dataset."}})))))
+
 (defn valid-dataset? [dataset]
   (let [{:keys [operation series name]} dataset]
     (and (and (seq operation) (seq series))
@@ -41,7 +78,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; HELPERS                                                                               ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-""
+
 (def available-operations [{:display "Sum multiple series"      :value "sum"}
                            {:display "Subtract multiple series" :value "subtract"}
                            {:display "Divide multiple series"   :value "divide"}
@@ -62,7 +99,7 @@
   (let [{:keys [operands operation]} dataset]
     (cond
      (some #{operation} #{"sum" "divide" "subtract"}) (merge dataset (apply merge (map-indexed (fn [idx itm] {(keyword (str "series" (+ idx 1))) itm}) operands)))
-     :else (let [[field unit] (string/split (last operands) #"-")]
+     :else (let [[field unit] (string/split (last operands) #"~")]
              (assoc dataset :series1 (first operands) :field field)))))
 
 (defn error-handler [event-chan]
@@ -72,11 +109,11 @@
                                             :text status-text}})))
 
 (defn enrich-series-for-dropdowns
-  [datasets sensors]
-  (let [d (mapv #(assoc % :display (str (:name %) "-" (:device_id %))
-                        :value (str (:name %) "-" (:device_id %))) datasets)
-        s (mapv #(assoc % :display (:id %) :value (:id %)) sensors)]
-    (concat d s [{:display "Select series" :value "none"}])))
+  [device_id sensors]
+  (let [clean-sensors (remove #(= (:device_id %) device_id) sensors)
+        s (mapv #(assoc % :display (str (-> % :parent-device :description) " : " (:type %) " : " (:device_id %))
+                        :value (:id %)) clean-sensors)]
+    (concat s [{:display "Select series" :value "none"}])))
 
 (defn alert [class body status id owner]
   [:div {:id id :class class :style {:display (if status "block" "none")}}
@@ -188,7 +225,19 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Edit dataset
 
-(defn edit-dataset-form [{:keys [series sensors selected-dataset]} owner]
+(defmulti selected-series (fn [dataset] (:operation dataset)))
+(defmethod selected-series "sum" [dataset]
+  (mapv name (vec (vals (select-keys dataset [:series1 :series2 :series3 :series4])))))
+(defmethod selected-series "subtract" [dataset]
+  (mapv name (vec (vals (select-keys dataset [:series1 :series2])))))
+(defmethod selected-series "divide" [dataset]
+  (mapv name (vec (vals (select-keys dataset [:series1 :series2])))))
+(defmethod selected-series "multiply-series-by-field" [dataset]
+  (mapv name (vec (vals (select-keys dataset [:series1 :field])))))
+(defmethod selected-series "divide-series-by-field" [dataset]
+  (mapv name (vec (vals (select-keys dataset [:series1 :field])))))
+
+(defn edit-dataset-form [{:keys [series selected-dataset]} owner]
   (reify
     om/IInitState
     (init-state [_]
@@ -199,14 +248,14 @@
         (let [{:keys [dropdown-chan]} (om/get-state owner)
               {:keys [path value]}    (<! dropdown-chan)]
           (om/update! selected-dataset path (if (= path [:field])
-                                              (str value "-" (-> (filter #(= (:value %) value) available-fields)
+                                              (str value "~" (-> (filter #(= (:value %) value) available-fields)
                                                                  first
                                                                  :unit))
                                               value)))
         (recur)))
     om/IRenderState
     (render-state [_ state]
-      (let [{:keys [entity_id device_id operands operation]} selected-dataset
+      (let [{:keys [entity_id device_id operands operation id]} selected-dataset
             refresh-chan   (om/get-shared owner :refresh)
             {:keys [event-chan edited-dataset-chan dropdown-chan]} (om/get-state owner)
             {:keys [status text]} (:alert state)]
@@ -222,12 +271,11 @@
                           :class "btn btn-success"
                           :onClick (fn [_]
                                      (let [dataset         @selected-dataset
-                                           selected-series (mapv name (vec (vals (select-keys dataset [:series1 :series2
-                                                                                                       :series3 :series4 :field]))))
+                                           series          (selected-series dataset)
                                            parsed-dataset  (-> dataset
                                                                (update-in [:operation] name)
 
-                                                               (assoc :series selected-series)
+                                                               (assoc :series series)
                                                                (dissoc :series1 :series2 :series3 :series4 :field :editable :members))]
                                        (if (valid-dataset? parsed-dataset)
                                          (put-new-dataset event-chan refresh-chan owner selected-dataset parsed-dataset entity_id)
@@ -239,7 +287,12 @@
                           :onClick (fn [_]
                                      (put! event-chan {:event :editing-dataset :value false})
                                      ;; deselect and clear edited cursor
-                                     (put! edited-dataset-chan {:dataset {} :selected? false}))} "Cancel"]]]
+                                     (put! edited-dataset-chan {:dataset {} :selected? false}))} "Cancel"]
+                [:button {:type "button"
+                          :class "btn btn-danger pull-right"
+                          :onClick (fn [_]
+                                     (delete-dataset event-chan refresh-chan entity_id selected-dataset))}
+                 "Delete Dataset"]]]
               (bs/static-text selected-dataset :device_id "ID")
               (bs/static-text selected-dataset :name "Unique Name")
               (om/build dropdown {:default operation :items available-operations}
@@ -263,7 +316,7 @@
         (let [{:keys [dropdown-chan]} (om/get-state owner)
               {:keys [path value] :as v}    (<! dropdown-chan)]
           (om/update! new-dataset path (if (= path [:field])
-                                         (str value "-" (-> (filter #(= (:value %) value) available-fields)
+                                         (str value "~" (-> (filter #(= (:value %) value) available-fields)
                                                             first
                                                             :unit))
                                          value)))
@@ -294,7 +347,7 @@
                                                              (assoc :series selected-series)
                                                              (dissoc :series1 :series2 :series3 :series4 :field))]
                                      (if (valid-dataset? parsed-dataset)
-                                       (put-new-dataset event-chan refresh-chan owner new-dataset parsed-dataset property-id)
+                                       (post-new-dataset event-chan refresh-chan owner new-dataset parsed-dataset property-id)
                                        (om/set-state! owner :alert {:status true
                                                                     :class "alert alert-danger"
                                                                     :text  " Please enter required dataset data."}))))}
@@ -315,15 +368,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Display existing datasets
 
-(defn operands-column [operands]
+(defn get-type-for-sensor_id [sensor_id sensors]
+  (-> (filter #(= (:sensor_id %) sensor_id) sensors)
+      first
+      :type))
+
+(defn operands-column [operands sensors]
   [:div
    (for [operand operands]
-     (let [[type device_id] (string/split operand #"-")]
+     (let [[device_id sensor_id] (string/split operand #"~")]
        [:div.row {:style {:min-height "100%"}}
-        [:div.col-md-3 type]
-        [:div.col-md-4 device_id]]))])
+        [:div.col-md-6 device_id]
+        [:div.col-md-4 (get-type-for-sensor_id sensor_id sensors)]]))])
 
-(defn dataset-row [dataset owner]
+(defn dataset-row [dataset owner {:keys [sensors]}]
   (reify
     om/IRenderState
     (render-state [_ state]
@@ -334,7 +392,7 @@
                :class (when selected "success")}
           [:td name]
           [:td operation]
-          [:td (operands-column (into [] operands))]
+          [:td (operands-column (into [] operands) sensors)]
           [:td device_id]])))))
 
 (defn sorting-th [owner label header-key]
@@ -347,7 +405,7 @@
          [:i.fa.fa-sort-asc]
          [:i.fa.fa-sort-desc]))]))
 
-(defn datasets-table [datasets owner opts]
+(defn datasets-table [{:keys [datasets sensors]} owner opts]
   (reify
     om/IInitState
     (init-state [_]
@@ -386,6 +444,7 @@
                                         (sort-by sort-key datasets)
                                         (reverse (sort-by sort-key datasets)))
                           {:key :device_id
+                           :opts {:sensors sensors}
                            :init-state {:edited-dataset-chan (:edited-dataset-chan opts)}})]]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -440,19 +499,20 @@
           [:div {:id "alert-div" :style {:padding-top "10px"}}
            (om/build bs/alert (:alert datasets))]
           (when (and (seq (:datasets datasets)) (not adding-dataset) (not editing-dataset))
-            (om/build datasets-table (:datasets datasets) {:opts {:edited-dataset-chan edited-dataset-chan}}))
+            (om/build datasets-table {:datasets (:datasets datasets)
+                                      :sensors (:sensors datasets)}
+                      {:opts {:edited-dataset-chan edited-dataset-chan}}))
           ;; Forms
           (when adding-dataset
             (om/build new-dataset-form {:new-dataset (:new-dataset datasets)
                                         :property-id (:property-id datasets)
-                                        :series (enrich-series-for-dropdowns (:datasets datasets)
-                                                                             (:sensors datasets))}
+                                        :series (enrich-series-for-dropdowns nil (:sensors datasets))}
                       {:init-state {:event-chan event-chan}}))
           (when (and (seq edited-dataset) editing-dataset)
             (let [{:keys [operands device_id name]} edited-dataset]
-              (om/build edit-dataset-form {:sensors (:sensors datasets)
-                                           :series (enrich-series-for-dropdowns (:datasets datasets)
-                                                                                (:sensors datasets))
+              (om/build edit-dataset-form {:series (enrich-series-for-dropdowns
+                                                    (:device_id (:edited-dataset datasets))
+                                                    (:sensors datasets))
                                            :selected-dataset (:edited-dataset datasets)}
                         {:init-state {:event-chan event-chan
                                       :edited-dataset-chan edited-dataset-chan}})))])))))

@@ -70,9 +70,9 @@
 
     (defn median-calculation [store item]
       (let [{:keys [sensor range]} item
-            {:keys [period device_id type]} sensor]
+            {:keys [period device_id type sensor_id]} sensor]
         (when (and period (not= period "PULSE"))
-          (log/info  "Calculating median for: " device_id type)
+          (log/info  "Calculating median for: " device_id sensor_id type)
           (checks/median-calculation store item)
           (misc/reset-date-range store sensor :median_calc_check
                                  (:start-date range)
@@ -88,9 +88,9 @@
 
     (defn mislabelled-sensors [store item]
       (let [{:keys [sensor range]} item
-            {:keys [period device_id type]} sensor]
+            {:keys [period device_id type sensor_id]} sensor]
         (when (some #{period} ["INSTANT" "PULSE" "CUMULATIVE"])
-          (log/info  "Checking if mislabelled: " device_id type)
+          (log/info  "Checking if mislabelled: " device_id sensor_id type)
           (checks/mislabelled-sensors store item)
           (misc/reset-date-range store sensor :mislabelled_sensors_check
                                  (:start-date range)
@@ -106,9 +106,10 @@
 
     (defn difference-series [store item]
       (let [{:keys [sensor range]} item
-            {:keys [period device_id type]} sensor]
+            {:keys [period device_id sensor_id type]} sensor]
         (when (and range (= "CUMULATIVE" period))
-          (log/debugf "Started calculating Difference Series for Sensor: %s:%s Start: %s End: %s" device_id type (:start-date range) (:end-date range))
+          (log/debugf "Started calculating Difference Series for Sensor: %s:%s:%s Start: %s End: %s"
+                      device_id sensor_id type (:start-date range) (:end-date range))
           (try
             (calculate/difference-series store item)
             (misc/reset-date-range store sensor :difference_series
@@ -129,7 +130,7 @@
 
     (defn convert-to-co2 [store item]
       (let [{:keys [sensor range]} item
-            {:keys [unit period type device_id]} sensor
+            {:keys [unit period type sensor_id device_id]} sensor
             substring? (fn [sub st] (not= (.indexOf st sub) -1))
             regex-seq  ["oil" "gas" "electricity" "kwh"]
             should-convert-type? (fn [type] (some #(substring? % type) regex-seq))]
@@ -137,7 +138,7 @@
                     (= "KWH" (.toUpperCase unit))
                     (= "PULSE" period)
                     (should-convert-type? type))
-          (log/info  "Converting to co2: " device_id type)
+          (log/info  "Converting to co2: " device_id sensor_id type)
           (calculate/kWh->co2 store item)
           (misc/reset-date-range store sensor :co2
                                  (:start-date range)
@@ -153,11 +154,11 @@
 
     (defn convert-to-kwh [store item]
       (let [{:keys [sensor range]} item
-            {:keys [unit device_id type]} sensor]
+            {:keys [unit device_id sensor_id type]} sensor]
         (when (and unit
                    (some #(= (.toUpperCase unit) (.toUpperCase %)) ["m^3" "ft^3"])
                    (some #(= type %) ["gasConsumption" "oilConsumption"]))
-          (log/info  "Converting to kWh: " device_id type)
+          (log/info  "Converting to kWh: " device_id sensor_id type)
           (calculate/gas-volume->kWh store item)
           (misc/reset-date-range store sensor :kwh
                                  (:start-date range)
@@ -253,13 +254,13 @@
         (let [datasets (dd/get-all session)]
           (doseq [ds datasets]
             (let [sensors (sensors-for-dataset ds store)
-                  {:keys [device_id name]} ds
-                  synthetic-sensor (misc/all-sensor-information store device_id name)]
+                  {:keys [device_id name sensor_id]} ds
+                  synthetic-sensor (misc/all-sensor-information store device_id sensor_id)]
               (when-let [range (misc/start-end-dates :calculated_datasets synthetic-sensor)]
                 (synthetic-readings store (assoc item
                                             :range range
                                             :ds ds :sensors sensors))
-                (misc/reset-date-range store {:device_id device_id :type name} :calculated_datasets
+                (misc/reset-date-range store {:device_id device_id :sensor_id sensor_id} :calculated_datasets
                                        (:start-date range)
                                        (:end-date range))
                 (db/with-session [session (:hecuba-session store)]

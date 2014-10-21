@@ -12,7 +12,7 @@
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex time-range content-type-from-context request-method-from-context)]
+   [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values sha1-regex time-range content-type-from-context request-method-from-context)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
@@ -23,11 +23,11 @@
 (def Measurement
   "A schema for a sensor measurements."
   (s/either
-   {(s/required-key :type) s/Str
+   {(s/required-key :sensor_id) s/Str
     (s/required-key :timestamp) s/Str
     (s/required-key :value) (s/either s/Str s/Num)
     (s/optional-key :error) s/Str}
-   {(s/required-key :type) s/Str
+   {(s/required-key :sensor_id) s/Str
     (s/required-key :timestamp) s/Str
     (s/required-key :error) s/Str
     (s/optional-key :value) (s/either s/Str s/Num)}))
@@ -52,9 +52,9 @@
        parse-measurements
        (util/render-items (:request ctx))))
 
-(defn- sensor-exists? [session device_id type]
+(defn- sensor-exists? [session device_id sensor_id]
   (let [where [[= :device_id device_id]
-               [= :type type]]]
+               [= :sensor_id sensor_id]]]
     (merge (first (db/execute session
                               (hayt/select :sensors
                                            (hayt/where where))))
@@ -65,7 +65,7 @@
 (defn prepare-measurement [m sensor]
   (let [t  (util/db-timestamp (:timestamp m))]
     {:device_id        (:device_id sensor)
-     :type             (:type sensor)
+     :sensor_id        (:sensor_id sensor)
      :timestamp        t
      :value            (str (:value m))
      :error            (str (:error m))
@@ -136,12 +136,12 @@
 
 (defn measurements-slice-malformed? [ctx]
  (let [params (-> ctx :request :params)
-       {:keys [startDate endDate device_id type]} params]
+       {:keys [startDate endDate device_id sensor_id]} params]
    (if (and startDate endDate)
      [false {:items {:start-date (util/to-db-format startDate)
                       :end-date (util/to-db-format endDate)
                       :device_id device_id
-                      :type type}}]
+                      :sensor_id sensor_id}}]
      true)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -149,10 +149,10 @@
 
 (defn measurements-slice-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [{:keys [device_id type]} (:items ctx)
+    (let [{:keys [device_id sensor_id]} (:items ctx)
           sensor (first (db/execute session (hayt/select :sensors
                                                          (hayt/where [[= :device_id device_id]
-                                                                      [= :type type]]))))]
+                                                                      [= :sensor_id sensor_id]]))))]
       (not (nil? sensor)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -160,8 +160,8 @@
 
 (defn measurements-slice-handle-ok [store ctx]
   (let [db-session   (:hecuba-session store)
-        {:keys [start-date end-date device_id type]} (:items ctx)]
-    (let [measurements (measurements/retrieve-measurements db-session start-date end-date device_id type)]
+        {:keys [start-date end-date device_id sensor_id type]} (:items ctx)]
+    (let [measurements (measurements/retrieve-measurements db-session start-date end-date device_id sensor_id)]
       (format-measurements ctx measurements))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -214,10 +214,10 @@
         route-params (:route-params request)
         device_id    (:device_id route-params)
         measurements (:measurements (:body ctx))
-        type         (-> measurements first :type)
+        sensor_id    (-> measurements first :sensor_id)
         page-size    10]
     (db/with-session [session (:hecuba-session store)]
-      (if-let [sensor (sensor-exists? session device_id type)]
+      (if-let [sensor (sensor-exists? session device_id sensor_id)]
         (let [validated-measurements (map #(-> %
                                                (prepare-measurement sensor)
                                                (v/validate sensor))
@@ -225,7 +225,7 @@
               {:keys [min-date max-date]} (misc/min-max-dates validated-measurements)]
           (misc/insert-measurements store sensor page-size validated-measurements)
           {:response {:status 202 :body "Accepted"}})
-        {:response {:status 400 :body "Provide valid device_id and type."}}))))
+        {:response {:status 400 :body "Provide valid device_id and sensor_id."}}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; index-handle-created
@@ -238,13 +238,13 @@
 (defn measurements-by-reading-handle-ok [store ctx]
   (let [{:keys [request]} ctx
         {:keys [route-params]} request
-        {:keys [device_id type timestamp]} route-params
+        {:keys [device_id sensor_id timestamp]} route-params
         t (util/to-db-format timestamp)
         measurement (format-measurements ctx (db/with-session [session (:hecuba-session store)]
                                                (db/execute session
                                                            (hayt/select :partitioned_measurements
                                                                         (hayt/where [[= :device_id device_id]
-                                                                                     [= :type type]
+                                                                                     [= :sensor_id sensor_id]
                                                                                      [= :month (misc/get-month-partition-key t)]
                                                                                      [= :timestamp t]])))))]
     (-> measurement
@@ -280,5 +280,3 @@
   :available-media-types #{"application/json" "application/edn"}
   :authorized? (authorized? store)
   :handle-ok (partial measurements-by-reading-handle-ok store))
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; index-handle-created

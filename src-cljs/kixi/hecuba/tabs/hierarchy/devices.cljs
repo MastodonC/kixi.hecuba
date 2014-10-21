@@ -169,7 +169,7 @@
 (defn save-edited-device [event-chan existing-device refresh-chan owner property_id device_id]
   (let [{:keys [device sensors]} (om/get-state owner)
         device (common/deep-merge @existing-device device)
-        readings (into [] (map (fn [[k v]] (assoc v :type k)) sensors))]
+        readings (into [] (map (fn [[k v]] (assoc v :sensor_id k)) sensors))]
     (put-edited-device event-chan refresh-chan owner (assoc device :readings readings)
                        property_id device_id)
     (put! event-chan {:event :editing :value false})))
@@ -184,14 +184,15 @@
                    #(js/alert (str "Unable to delete " device_id))))
 
 (defn sensor-edit-div [cursor owner]
-  (let [sensor-type (:type cursor)]
+  (let [sensor-id (:sensor_id cursor)]
     [:li.list-group-item
-     (static-text cursor :type "Type")
-     (text-input-control cursor owner [:sensors sensor-type] :alias "Header Rows")
-     (text-input-control cursor owner [:sensors sensor-type] :unit "Unit")
-     (text-input-control cursor owner [:sensors sensor-type] :period "Period")
-     (text-input-control cursor owner [:sensors sensor-type] :resolution "Resolution")
-     (checkbox cursor owner [:sensors sensor-type] :actual_annual "Calculated Field")]))
+     (static-text cursor :sensor_id "Sensor ID")
+     (text-input-control cursor owner [:sensors sensor-id] :type "Type")
+     (text-input-control cursor owner [:sensors sensor-id] :alias "Header Rows")
+     (text-input-control cursor owner [:sensors sensor-id] :unit "Unit")
+     (text-input-control cursor owner [:sensors sensor-id] :period "Period")
+     (text-input-control cursor owner [:sensors sensor-id] :resolution "Resolution")
+     (checkbox cursor owner [:sensors sensor-id] :actual_annual "Calculated Field")]))
 
 (defn edit-device-form [property_id]
   (fn [cursor owner]
@@ -225,12 +226,12 @@
                  "Delete Device"]]]
               [:h3 "Device"]
               (static-text cursor :device_id "Device ID")
-              (static-text cursor :description "Unique Description")
+              (text-input-control cursor owner [:device] :description "Unique Description")
               (text-input-control cursor owner [:device] :name "Further Description")
               (location-input cursor owner)
               (bs/checkbox cursor owner :device :privacy "Private")
               [:h3 "Sensors"]
-              (let [sensors (remove #(:synthetic %) (:readings cursor))]
+              (let [sensors (into [] (remove #(:synthetic %) (:readings cursor)))]
                 (if (seq sensors)
                   [:ul.list-group
                    (for [sensor  sensors]
@@ -359,7 +360,7 @@
       om/IRenderState
       (render-state [_ state]
         (let [{:keys [sort-key sort-asc]} (:sort-spec state)
-              devices                     (fetch-devices (-> properties :selected) properties)
+              devices                     (into [] (remove #(:synthetic %) (fetch-devices (-> properties :selected) properties)))
               table-id                    "sensors-table"]
           (html
            [:div.col-md-12 {:style {:overflow "auto"}}

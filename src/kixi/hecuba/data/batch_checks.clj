@@ -30,11 +30,15 @@
 (defn mislabelled-check
   "Takes an hour worth of measurements and checks if the sensor is labelled correctly according to
   rules in labelled-correctly?"
-  [store {:keys [device_id type period] :as sensor} start-date]
+  [store {:keys [device_id sensor_id period] :as sensor} start-date]
   (db/with-session [session (:hecuba-session store)]
     (let [end-date     (t/plus start-date (t/hours 1))
           month        (m/get-month-partition-key start-date)
-          where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
+          where        [[= :device_id device_id]
+                        [= :sensor_id sensor_id]
+                        [= :month month]
+                        [>= :timestamp start-date]
+                        [< :timestamp end-date]]
           measurements (filter #(number? (:value %)) (m/parse-measurements (db/execute session
                                                                                        (hayt/select :partitioned_measurements
                                                                                                     (hayt/where where)))))]
@@ -45,7 +49,7 @@
                                                                    "false"
                                                                    "true")})
                                  (hayt/where [[= :device_id device_id]
-                                              [= :type type]]))))
+                                              [= :sensor_id sensor_id]]))))
       end-date)))
 
 (defn mislabelled-sensors
@@ -60,13 +64,18 @@
 (defn label-spikes
   "Checks a sequence of measurement against the most recent recorded median. Overwrites the measurement with updated
   metadata."
-  [store {:keys [device_id type median] :as sensor} start-date]
+  [store {:keys [device_id sensor_id median] :as sensor} start-date]
   (when-not (nil? median)
     (db/with-session [session (:hecuba-session store)]
       (let [end-date     (t/plus start-date (t/hours 1))
             month        (m/get-month-partition-key start-date)
-            where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
-            measurements (filter #(m/metadata-is-number? %) (db/execute session (hayt/select :partitioned_measurements (hayt/where where))))
+            where        [[= :device_id device_id]
+                          [= :sensor_id sensor_id]
+                          [= :month month]
+                          [>= :timestamp start-date]
+                          [< :timestamp end-date]]
+            measurements (filter #(m/metadata-is-number? %)
+                                 (db/execute session (hayt/select :partitioned_measurements (hayt/where where))))
             spikes       (map #(hash-map :timestamp (:timestamp %)
                                          :spike (str (v/larger-than-median median %))) measurements)]
         (db/execute session
@@ -74,7 +83,7 @@
                      (apply hayt/queries (map #(hayt/update :partitioned_measurements
                                                             (hayt/set-columns {:reading_metadata [+ {"median-spike" (:spike %)}]})
                                                             (hayt/where  [[= :device_id device_id]
-                                                                          [= :type type]
+                                                                          [= :sensor_id sensor_id]
                                                                           [= :month (m/get-month-partition-key (:timestamp %))]
                                                                           [= :timestamp (:timestamp %)]]))
                                                          spikes))))
@@ -106,12 +115,16 @@
 
 (defn update-median
   "Calculates and updates median for a given sensor."
-  [store {:keys [device_id type period]} start-date]
+  [store {:keys [device_id sensor_id period]} start-date]
   (db/with-session [session (:hecuba-session store)]
     (let [end-date     (t/plus start-date (t/hours 1))
           month        (m/get-month-partition-key start-date)
-          type         (if (= period "CUMULATIVE") (str type "_differenceSeries") type)
-          where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
+          type         (if (= period "CUMULATIVE") (str sensor_id "_differenceSeries") sensor_id)
+          where        [[= :device_id device_id]
+                        [= :sensor_id sensor_id]
+                        [= :month month]
+                        [>= :timestamp start-date]
+                        [< :timestamp end-date]]
           measurements (m/parse-measurements (db/execute session (hayt/select :partitioned_measurements (hayt/where where))))
           median       (cond
                         (= "CUMULATIVE" period) (median (filter #(number? (:value %)) measurements))
@@ -120,7 +133,7 @@
         (db/execute session
                     (hayt/update :sensors
                                  (hayt/set-columns {:median median})
-                                 (hayt/where [[= :device_id device_id] [= :type type]]))))
+                                 (hayt/where [[= :device_id device_id] [= :sensor_id sensor_id]]))))
       end-date)))
 
 (defn median-calculation

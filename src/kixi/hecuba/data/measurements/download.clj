@@ -7,7 +7,8 @@
             [kixi.hecuba.data.measurements :as measurements]
             [kixi.hecuba.data.measurements.core :refer (headers-in-order extract-columns-in-order)]
             [kixi.hecuba.storage.db        :as db]
-            [kixi.hecuba.webutil           :refer (uuid) :as util]
+            [kixi.hecuba.webutil           :as util]
+            [kixi.hecuba.storage.uuid      :refer (uuid)]
             [kixipipe.ioplus               :as ioplus]
             [kixipipe.storage.s3           :as s3]
             [qbits.hayt                    :as hayt]
@@ -146,7 +147,7 @@
                                                                          start-date
                                                                          end-date
                                                                          (:device_id m)
-                                                                         (:type m)))
+                                                                         (:sensor_id m)))
                                    devices-and-sensors)
           uuid                (uuid)]
       (generate-file store

@@ -16,7 +16,7 @@
         parent-device (select-keys device device-keys)
         readings      (:readings device)]
     (map #(assoc % :parent-device parent-device
-                 :id (str (:type %) "-" (:device_id %))) readings)))
+                 :id (str (:device_id %) "~" (:sensor_id %))) readings)))
 
 (defn extract-sensors [devices]
   (vec (mapcat flatten-device devices)))
@@ -198,16 +198,16 @@
                        (om/update! data [:properties :error-status] status)
                        (om/update! data [:properties :error-text] status-text)))))
 
-(defmulti url-str (fn [start end entity_id device_id type measurements-type] measurements-type))
-(defmethod url-str :raw [start end entity_id device_id type _]
+(defmulti url-str (fn [start end entity_id device_id sensor_id measurements-type] measurements-type))
+(defmethod url-str :raw [start end entity_id device_id sensor_id _]
   (str "/4/entities/" entity_id "/devices/" device_id "/measurements/"
-       type "?startDate=" start "&endDate=" end))
-(defmethod url-str :hourly_rollups [start end entity_id device_id type _]
+       sensor_id "?startDate=" start "&endDate=" end))
+(defmethod url-str :hourly_rollups [start end entity_id device_id sensor_id _]
   (str "/4/entities/" entity_id "/devices/" device_id "/hourly_rollups/"
-       type "?startDate=" start "&endDate=" end))
-(defmethod url-str :daily_rollups [start end entity_id device_id type _]
+       sensor_id "?startDate=" start "&endDate=" end))
+(defmethod url-str :daily_rollups [start end entity_id device_id sensor_id _]
   (str "/4/entities/" entity_id "/devices/" device_id "/daily_rollups/"
-       type "?startDate=" start "&endDate=" end))
+       sensor_id "?startDate=" start "&endDate=" end))
 
 (defn date->amon-timestamp [date]
   (->> date
@@ -221,26 +221,30 @@
 
 (def amon-date (tf/formatter "yyyy-MM-dd'T'HH:mm:ssZ"))
 
-(defn get-description [sensors measurement]
-  (-> (filter #(= (:sensor measurement) (:id %)) sensors) first :parent-device :description))
+(defn enrich [sensors measurement]
+  (let [sensor-data (first (filter #(= (:sensor measurement) (:id %)) sensors))]
+    (-> measurement
+        (assoc :type (:type sensor-data))
+        (assoc :description (-> sensor-data :parent-device :description))
+        (assoc :timestamp (tf/parse amon-date (:timestamp measurement)))
+        (assoc :unit (:unit sensor-data)))))
 
 (defn parse
   "Enriches measurements with unit and description of device and parses timestamp into a JavaScript Date object"
   [measurements units sensors]
-  (map (fn [measurements-seq] (map #(assoc % :unit (get units (-> % :sensor))
-                                           :description (get-description sensors %)
-                                           :timestamp (tf/parse amon-date (:timestamp %))) measurements-seq)) measurements))
+  (map (fn [measurements-seq] (map #(enrich sensors %) measurements-seq)) measurements))
+
 
 (defn fetch-measurements [properties entity_id sensors start-date end-date]
   (log "Fetching measurements for sensors: " sensors)
   (om/update! properties [:chart :fetching] true)
   (om/update! properties [:chart :measurements] [])
   (doseq [sensor sensors]
-    (let [[type device_id] (str/split sensor #"-")
+    (let [[device_id sensor_id] (str/split sensor #"~")
           end (if (= start-date end-date) (pad-end-date end-date) (date->amon-timestamp end-date))
           start-date (date->amon-timestamp start-date)
           measurements-type (interval start-date end)
-          url (url-str start-date end entity_id device_id type measurements-type)]
+          url (url-str start-date end entity_id device_id sensor_id measurements-type)]
       (GET url {:handler (fn [response]
                            (om/transact! properties [:chart :measurements]
                                          (fn [measurements]

@@ -6,7 +6,7 @@
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
    [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex)]
+   [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values sha1-regex)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
@@ -41,11 +41,11 @@
 
 (defn retrieve-hourly-measurements
   "Iterate over a sequence of months and concatanate measurements retrieved from the database."
-  [session start-date end-date device_id reading_type]
+  [session start-date end-date device_id sensor_id]
   (let [range  (util/time-range start-date end-date (t/years 1))
         months (map #(util/get-year-partition-key (tc/to-date %)) range)
         where  [[= :device_id device_id]
-                [= :type reading_type]
+                [= :sensor_id sensor_id]
                 [>= :timestamp (tc/to-date start-date)]
                 [<= :timestamp (tc/to-date end-date)]]]
     (mapcat (fn [month] (db/execute session (hayt/select :hourly_rollups (hayt/where (conj where [= :year month]))))) months)))
@@ -62,11 +62,11 @@
                        {:keys [route-params
                                query-string]} request
                        {:keys [device_id
-                               type]} route-params
+                               sensor_id]} route-params
                        decoded-params (util/decode-query-params query-string)
                        start-date     (util/to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
                        end-date       (util/to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
-                       measurements   (retrieve-hourly-measurements session start-date end-date device_id type)]
+                       measurements   (retrieve-hourly-measurements session start-date end-date device_id sensor_id)]
                    {:measurements (->> measurements
                                        (map (fn [m]
                                               (-> m
@@ -80,7 +80,7 @@
   :known-content-type? #{"application/json" "application/edn"}
   :authorized? (authorized? store)
 
-  :handle-ok (fn [{{{:keys [device_id type]} :route-params query-string :query-string}
+  :handle-ok (fn [{{{:keys [device_id sensor_id]} :route-params query-string :query-string}
                    :request {mime :media-type} :representation :as req}]
                (db/with-session [session (:hecuba-session store)]
                  (let [decoded-params (util/decode-query-params query-string)
@@ -88,7 +88,7 @@
                        end-date       (util/to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
                        measurements   (db/execute session (hayt/select :daily_rollups
                                                                        (hayt/where [[= :device_id device_id]
-                                                                                    [= :type type]
+                                                                                    [= :sensor_id sensor_id]
                                                                                     [>= :timestamp (tc/to-date start-date)]
                                                                                     [<= :timestamp (tc/to-date end-date)]])))]
                    {:measurements (->> measurements

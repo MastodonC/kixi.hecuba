@@ -10,7 +10,7 @@
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
    [kixi.hecuba.storage.db :as db]
-   [kixi.hecuba.storage.sha1 :as sha1]
+   [kixi.hecuba.storage.uuid :as uuid]
    [kixi.hecuba.web-paths :as p]
    [kixi.hecuba.data.users :as users]
    [kixi.hecuba.data.projects :as projects]
@@ -95,7 +95,7 @@
         (let [data (->> in
                         (csv/read-csv)
                         (parser/csv->maps ps/profile-schema)
-                        (map sha1/add-profile-id))]
+                        (map uuid/add-profile-id))]
           (if (and data
                    (every? identity (map (fn [d] (let [e (:entity_id d)] (= e entity_id))) data)))
             [false {:profiles data}]
@@ -119,7 +119,7 @@
               ;; curl -v -H "Content-Type: text/csv; charset=utf-8" -H "Accept: text/csv" -X POST -u "username:password" --data-binary "@profiles.csv" http://localhost:8010/4/entities/821e6367f385d82cc71b2afd9dc2df3b2ec5b81c/profiles/
               (if (not (every? #(= (:entity_id %) entity_id) body))
                 true
-                [false {:profiles (map sha1/add-profile-id body)}]))
+                [false {:profiles (map uuid/add-profile-id body)}]))
       false)))
 
 (defn index-handle-ok-text-csv* [ctx]

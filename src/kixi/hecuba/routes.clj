@@ -134,7 +134,7 @@
 
    ;; Datasets
    (index-routes :entity-datasets-index [:entity_id] (datasets/index store))
-   (resource-route :entity-resource [:entity_id :name] (datasets/resource store))
+   (resource-route :entity-dataset-resource [:entity_id :name] (datasets/resource store))
 
    ;; Profiles
    (index-routes :entity-profiles-index [:entity_id] (profiles/index store))
@@ -149,18 +149,18 @@
 
    ;; Readings
    ;; FIXME This should be an index route with the start/stop times
-   (resource-route :entity-device-measurement-readingtype-index [:entity_id :device_id :type] (measurements/measurements-slice store))
+   (resource-route :entity-device-measurement-readingtype-index [:entity_id :device_id :sensor_id] (measurements/measurements-slice store))
 
    ;; Readings by Time Range
    ;; FIXME - This should be an index route with the start/stop times
-   (resource-route :entity-device-measurement-readingtype-index [:entity_id :device_id :type] (measurements/measurements-slice store))
-   (resource-route :entity-device-measurement-readingtype-resource [:entity_id :device_id :type :timestamp] (measurements/measurements-by-reading store))
+   (resource-route :entity-device-measurement-readingtype-index [:entity_id :device_id :sensor_id] (measurements/measurements-slice store))
+   (resource-route :entity-device-measurement-readingtype-resource [:entity_id :device_id :sensor_id :timestamp] (measurements/measurements-by-reading store))
 
    ;; Hourly Measurements FIXME - should be a auto chosen with a type=raw for a force
-   (resource-route :entity-device-measurement-readingtype-hourly-rollups [:entity_id :device_id :type] (rollups/hourly_rollups store))
+   (resource-route :entity-device-measurement-readingtype-hourly-rollups [:entity_id :device_id :sensor_id] (rollups/hourly_rollups store))
 
    ;; Daily Measurements
-   (resource-route :entity-device-measurement-readingtype-daily-rollups [:entity_id :device_id :type] (rollups/daily_rollups store))
+   (resource-route :entity-device-measurement-readingtype-daily-rollups [:entity_id :device_id :sensor_id] (rollups/daily_rollups store))
 
    ;; Templates
    (index-routes :templates-index (templates/index store))

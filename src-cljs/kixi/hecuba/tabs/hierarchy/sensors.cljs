@@ -46,10 +46,10 @@
       om/IRender
       (render [_]
         (html
-         (let [{:keys [device_id type unit period resolution status synthetic
+         (let [{:keys [device_id sensor_id type unit period resolution status synthetic
                        parent-device lower_ts upper_ts actual_annual selected]} sensor
                        {:keys [description privacy location]} parent-device
-                       id (str type "-" device_id)
+                       id (str device_id "~" sensor_id)
                        selected? (contains? (:selected sensors) id)]
            [:tr {:onClick (fn [e] (put! selected-chan {:id id
                                                        :unit unit
@@ -57,6 +57,7 @@
                                                        :lower_ts lower_ts}))
                  :class (when selected? "success")
                  :id (str table-id "-selected")}
+            [:td sensor_id]
             [:td description]
             [:td type]
             [:td unit]
@@ -73,7 +74,7 @@
         parent-device (select-keys device device-keys)
         readings      (:readings device)]
     (map #(assoc % :parent-device parent-device
-                 :id (str (:type %) "-" (:device_id %))) readings)))
+                 :id (str (:device_id %) "~" (:sensor_id %))) readings)))
 
 (defn extract-sensors [devices]
   (vec (mapcat flatten-device devices)))
@@ -90,8 +91,7 @@
 
 (defn update-sensor [click chart sensors property-details history selected?]
   (let [{:keys [id unit lower_ts upper_ts]} click
-        new-selected-sensors ((if selected? disj conj) (:selected @sensors) id)
-        [type device_id] (string/split id #"-")]
+        new-selected-sensors ((if selected? disj conj) (:selected @sensors) id)]
     ;; update history
     (history/update-token-ids! history :sensors (if (seq new-selected-sensors)
                                                   (string/join ";" new-selected-sensors)
@@ -161,6 +161,7 @@
           [:table {:class "table table-hover table-condensed"}
            [:thead
             [:tr
+             (sorting-th owner "Sensor ID" :sensor_id)
              (sorting-th owner "Description" :description)
              (sorting-th owner "Type" :type)
              (sorting-th owner "Unit" :unit)
@@ -207,7 +208,8 @@
       (let [{:keys [measurements]}     cursor
             mouseover                 (:mouseover state)
             {:keys [value timestamp]} (:value state)
-            [type device_id]          (-> measurements first (aget "sensor") (string/split #"-"))
+            [device_id sensor_id]     (-> measurements first (aget "sensor") (string/split #"~"))
+            type                      (-> measurements first (aget "type"))
             description               (-> measurements first (aget "description"))]
         (html
          [:div {:style {:font-size "80%"}}
@@ -235,16 +237,6 @@
                  [:tr [:td "Maximum"] [:td.number (str (.toFixed (js/Number. measurements-max) 3))] [:td unit]]
                  [:tr [:td "Average (Mean)"] [:td.number (str (.toFixed (js/Number. measurements-mean) 3))] [:td unit]]
                  [:tr [:td "Range"] [:td.number (str (.toFixed (js/Number. (- measurements-max measurements-min)) 3))] [:td unit]]]))])])))))
-
-(defn get-description [sensors measurement]
-  (-> (filter #(= (:type measurement) (:type %)) sensors) first :parent-device :description))
-
-(defn parse
-  "Enriches measurements with unit and description of device and parses timestamp into a JavaScript Date object"
-  [measurements units sensors]
-  (map (fn [measurements-seq] (map #(assoc % :unit (get units (-> % :sensor))
-                                           :description (get-description sensors %)
-                                           :timestamp (tf/parse amon-date (:timestamp %))) measurements-seq)) measurements))
 
 (defn sensors-div [property-details owner opts]
   (reify

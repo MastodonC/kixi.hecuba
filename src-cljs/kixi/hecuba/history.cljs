@@ -11,7 +11,7 @@
 ;; (enable-console-print!)
 
 (defn match-token [s]
-  (re-matches #"((?:[A-Za-z0-9-_; ]+)(?:,(?:[A-Za-z0-9-_; ]+))*)(?:/search/(.*))?" s))
+  (re-matches #"((?:[A-Za-z0-9-_;~ ]+)(?:,(?:[A-Za-z0-9-_;~ ]+))*)(?:/search/(.*))?" s))
 
 ;; TODO let's not use an atom for this.
 (def ^:private key-order (atom []))

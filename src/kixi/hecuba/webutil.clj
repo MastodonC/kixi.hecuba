@@ -45,8 +45,6 @@
              (fn [c jsonGenerator]
                (.writeString jsonGenerator (name c))))
 
-(defn uuid [] (java.util.UUID/randomUUID))
-
 (def sha1-regex #"[0-9a-z-]+")
 
 (defn stringify-values [m]
