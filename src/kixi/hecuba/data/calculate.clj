@@ -63,8 +63,8 @@
   "Takes a start date, end date and resolution (in seconds) and creates a sequence
   of timestamps (inclusive). Seconds are truncated. "
   [start end resolution]
-  (let [start-date (m/truncate-minutes start)
-        end-date   (m/truncate-minutes end)]
+  (let [start-date (time/truncate-minutes start)
+        end-date   (time/truncate-minutes end)]
     (map #(hash-map :timestamp %) (timestamp-seq-inclusive start-date end-date resolution))))
 
 (defn pad-measurements

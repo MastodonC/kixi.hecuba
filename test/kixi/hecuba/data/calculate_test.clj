@@ -4,7 +4,8 @@
             [generators :as g]
             [kixi.hecuba.data.misc :as misc]
             [clj-time.core :as t]
-            [clj-time.coerce :as tc]))
+            [clj-time.coerce :as tc]
+            [kixi.hecuba.time :as time]))
 
 ;; Helpers
 
@@ -48,8 +49,8 @@
       (doseq [s sensors]
         (let [all-measurements       (g/generate-measurements-with-interval s 3600) ;; 500
               measurements-with-gaps (remove #(= 12 (t/hour (tc/from-date (:timestamp %)))) all-measurements) ;; 21
-              start-date             (misc/truncate-minutes (t/date-time 2014 01 01))
-              end-date               (misc/truncate-minutes (t/plus start-date (t/hours 499)))
+              start-date             (time/truncate-minutes (t/date-time 2014 01 01))
+              end-date               (time/truncate-minutes (t/plus start-date (t/hours 499)))
               expected-timestamps    (calc/all-timestamps-for-range start-date end-date 3600)
               padded                 (calc/pad-measurements measurements-with-gaps expected-timestamps)]
           (is (= 500 (count padded)))
@@ -115,8 +116,8 @@
     (testing "Filled measurements should result in (2 * n) of N/As than originally."
       (let [measurements           (g/generate-measurements-with-interval sensor 3600) ;; 500
             with-gaps              (remove #(= 12 (t/hour (tc/from-date (:timestamp %)))) measurements) ;; 21
-            start-date             (misc/truncate-minutes (t/date-time 2014 01 01))
-            end-date               (misc/truncate-minutes (t/plus start-date (t/hours 499)))
+            start-date             (time/truncate-minutes (t/date-time 2014 01 01))
+            end-date               (time/truncate-minutes (t/plus start-date (t/hours 499)))
             expected-timestamps    (calc/all-timestamps-for-range start-date end-date 3600)
             padded                 (calc/pad-measurements with-gaps expected-timestamps)
             calculated             (calc/diff-seq padded)

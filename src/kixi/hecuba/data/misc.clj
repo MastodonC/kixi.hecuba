@@ -46,14 +46,6 @@
   (let [time-str (tf/unparse (tf/formatter "yyyy-MM-dd'T'HH:mm") t)]
     (tf/parse (tf/formatter "yyyy-MM-dd'T'HH:mm") time-str)))
 
-(defmulti truncate-minutes type)
-(defmethod truncate-minutes java.util.Date [t]
-  (let [time-str (tf/unparse (tf/formatter "yyyy-MM-dd'T'HH") (tc/from-date t))]
-    (tc/to-date  (tf/parse (tf/formatter "yyyy-MM-dd'T'HH") time-str))))
-(defmethod truncate-minutes org.joda.time.DateTime [t]
-  (let [time-str (tf/unparse (tf/formatter "yyyy-MM-dd'T'HH") t)]
-    (tf/parse (tf/formatter "yyyy-MM-dd'T'HH") time-str)))
-
 ;;;;; Last check functions ;;;;;
 
 (defn all-sensors

@@ -112,7 +112,7 @@
       (when (and project_id programme_id)
         (allowed?* entity_id programme_id project_id programmes projects role request-method store)))))
 
-;; TODO Check whether all sensors are of the same period
+;; TODO Check that sensors periods are a valid combination
 (defn index-malformed? [ctx]
   (let [request (:request ctx)
         method  (:request-method request)
