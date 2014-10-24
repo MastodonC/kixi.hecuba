@@ -108,9 +108,9 @@
   "Takes a sequence of sensors and returns min and max dates from their lower_ts and upper_ts"
   [sensors]
   (assert (not (empty? sensors)) "Sensors passed to range-for-all-sensors are empty.")
-  (when (every? #(not (nil? %)) (map :lower_ts sensors))
-    (let [all-starts (map #(tc/from-date (:lower_ts %)) sensors)
-          all-ends   (map #(tc/from-date (:upper_ts %)) sensors)
+  (when-let [s (seq (filter #(not (nil? (:lower_ts %))) sensors))]
+    (let [all-starts (map #(tc/from-date (:lower_ts %)) s)
+          all-ends   (map #(tc/from-date (:upper_ts %)) s)
           min-date   (tc/to-date-time (apply min (map tc/to-long all-starts)))
           max-date   (tc/to-date-time (apply max (map tc/to-long all-ends)))]
       [min-date max-date])))
@@ -143,9 +143,10 @@
    Returns a list of maps, with all values parsed approprietly."
   [measurements]
   (map (fn [m] (assoc-in m [:value]
-                         (if (metadata-is-number? m)
-                           (edn/read-string (:value m))
-                           nil)))
+                         (let [n (edn/read-string (:value m))]
+                           (if (number? n)
+                             n
+                             nil))))
        measurements))
 
 (defn find-broken-sensors

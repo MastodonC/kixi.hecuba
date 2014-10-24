@@ -4,7 +4,8 @@
             [generators :as g]
             [kixi.hecuba.data.misc :as misc]
             [clj-time.core :as t]
-            [clj-time.coerce :as tc]))
+            [clj-time.coerce :as tc]
+            [kixi.hecuba.time :as time]))
 
 ;; Helpers
 
@@ -40,35 +41,18 @@
       (is (= true (calc/should-calculate? ds [{:period "INSTANT" :unit "kWh"}])))
       (is (= true (calc/should-calculate? ds [{:period "PULSE"}]))))))
 
-(deftest quantize-timestamp-test
-  (let [sensor (first (g/generate-sensor-sample "PULSE"))]
-
-    (println "Testing quantize-timestamp")
-
-    (testing "Testing quantize-timestamp"
-      (let [measurements-250 (g/generate-measurements-with-interval sensor 250)
-            measurements-40  (g/generate-measurements-with-interval sensor 40)
-            measurements-1700  (g/generate-measurements-with-interval sensor 1800)
-            measurements   [{:timestamp #inst "2011-10-18T21:24:18.000-00:00"} {:timestamp #inst "2011-10-18T21:29:18.000-00:00"}
-                            {:timestamp #inst "2011-10-18T21:34:18.000-00:00"} {:timestamp #inst "2011-10-18T21:39:21.000-00:00"}
-                            {:timestamp #inst "2011-10-18T21:44:21.000-00:00"}]]
-        (is (= (t/date-time 2014 1 1 0 5 0 0) (tc/from-date (:timestamp (second (map #(calc/quantize-timestamp % 300) measurements-250))))))
-        (is (= (t/date-time 2014 1 1 0 0 0 0) (tc/from-date (:timestamp (second (map #(calc/quantize-timestamp % 60) measurements-40))))))
-        (is (= (t/date-time 2014 1 1 0 30 0 0) (tc/from-date (:timestamp (second (map #(calc/quantize-timestamp % 1800) measurements-1700))))))
-        (is (= (t/date-time 2011 10 18 21 25 0 0) (tc/from-date (:timestamp (first (map #(calc/quantize-timestamp % 300) measurements))))))))))
-
 (deftest pad-measurements-test
   (let [sensors (g/generate-sensor-sample "INSTANT" 3)]
     (println "Testing pad-measurements.")
 
     (testing "Each sensor should have gaps in measurements filled with template measurements."
       (doseq [s sensors]
-        (let [all-measurements       (g/measurements s)
-              measurements-with-gaps (remove #(= 0 (t/minute (tc/from-date (:timestamp %)))) all-measurements)
-              start-date             (t/date-time 2014 01 01)
-              end-date               (t/plus start-date (t/minutes 499))
-              expected-timestamps    (calc/all-timestamps-for-range start-date end-date 60)
-              padded                 (calc/pad-measurements measurements-with-gaps expected-timestamps 60)]
+        (let [all-measurements       (g/generate-measurements-with-interval s 3600) ;; 500
+              measurements-with-gaps (remove #(= 12 (t/hour (tc/from-date (:timestamp %)))) all-measurements) ;; 21
+              start-date             (time/truncate-minutes (t/date-time 2014 01 01))
+              end-date               (time/truncate-minutes (t/plus start-date (t/hours 499)))
+              expected-timestamps    (calc/all-timestamps-for-range start-date end-date 3600)
+              padded                 (calc/pad-measurements measurements-with-gaps expected-timestamps)]
           (is (= 500 (count padded)))
           (is (= {:min-date start-date :max-date end-date} (misc/min-max-dates padded))))))))
 
@@ -129,17 +113,17 @@
             calculated   (calc/diff-seq measurements)]
         (is (= "1" (first (keys (frequencies (map :value calculated))))))))
 
-    (testing "Filled measurements should result in (2 * n) - 1 of N/As than originally."
-      (let [measurements           (g/measurements sensor)
-            with-gaps              (remove #(= 0 (t/minute (tc/from-date (:timestamp %)))) measurements)
-            start-date             (t/date-time 2014 01 01)
-            end-date               (t/plus start-date (t/minutes 499))
-            expected-timestamps    (calc/all-timestamps-for-range start-date end-date 60)
-            padded                 (calc/pad-measurements with-gaps expected-timestamps 60)
+    (testing "Filled measurements should result in (2 * n) of N/As than originally."
+      (let [measurements           (g/generate-measurements-with-interval sensor 3600) ;; 500
+            with-gaps              (remove #(= 12 (t/hour (tc/from-date (:timestamp %)))) measurements) ;; 21
+            start-date             (time/truncate-minutes (t/date-time 2014 01 01))
+            end-date               (time/truncate-minutes (t/plus start-date (t/hours 499)))
+            expected-timestamps    (calc/all-timestamps-for-range start-date end-date 3600)
+            padded                 (calc/pad-measurements with-gaps expected-timestamps)
             calculated             (calc/diff-seq padded)
             freqs                  (frequencies (map :value calculated))]
-        (is (= 482 (get-in freqs ["1"])))
-        (is (= 17  (get-in freqs ["N/A"])))))))
+        (is (= 457 (get-in freqs ["1"]))) ;; last measurement is odd so it's not calculated
+        (is (= 42  (get-in freqs ["N/A"])))))))
 
 (deftest timestamp-seq-inclusive-test
   (let [start (t/date-time 2014 01 01)

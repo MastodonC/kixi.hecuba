@@ -56,6 +56,14 @@
   (let [time-str (tf/unparse (tf/formatters :date-hour-minute) t)]
     (tf/parse (tf/formatters :date-hour-minute) time-str)))
 
+(defmulti truncate-minutes type)
+(defmethod truncate-minutes java.util.Date [t]
+  (let [time-str (tf/unparse (tf/formatter "yyyy-MM-dd'T'HH") (tc/from-date t))]
+    (tc/to-date  (tf/parse (tf/formatter "yyyy-MM-dd'T'HH") time-str))))
+(defmethod truncate-minutes org.joda.time.DateTime [t]
+  (let [time-str (tf/unparse (tf/formatter "yyyy-MM-dd'T'HH") t)]
+    (tf/parse (tf/formatter "yyyy-MM-dd'T'HH") time-str)))
+
 (defn dates-overlap?
   "Takes a start/end range from sensor_metadata \"dirty dates\" and a period,
   and returns range to calculate if it overlaps. Otherwise it returns nil."
