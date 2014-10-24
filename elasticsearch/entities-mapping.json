@@ -20,7 +20,8 @@
         "type" : "boolean"
       },
       "entity_id" : {
-        "type" : "string"
+          "type" : "string",
+          "index" : "not_analyzed"
       },
       "full_entity" : {
         "type" : "object",
@@ -36,10 +37,12 @@
         "type" : "boolean"
       },
       "programme_id" : {
-        "type" : "string"
+        "type" : "string",
+        "index" : "not_analyzed"
       },
       "project_id" : {
-        "type" : "string"
+        "type" : "string",
+        "index" : "not_analyzed"
       },
       "project_name" : {
         "type" : "string"

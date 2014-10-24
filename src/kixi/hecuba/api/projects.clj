@@ -4,11 +4,11 @@
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex) :as util]
+   [kixi.hecuba.webutil :refer (decode-body authorized?) :as util]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [kixi.hecuba.storage.db :as db]
-   [kixi.hecuba.storage.sha1 :as sha1]
+   [kixi.hecuba.storage.uuid :refer (uuid)]
    [kixi.hecuba.web-paths :as p]
    [kixi.hecuba.data.users :as users]
    [kixi.hecuba.data.projects :as projects]
@@ -158,7 +158,7 @@
     (let [username  (sec/session-username (-> ctx :request :session))
           user_id       (:id (users/get-by-username session username))
           project       (:project ctx)
-          project_id    (sha1/gen-key :project project)]
+          project_id    (uuid)]
       (projects/insert session (assoc project :user_id user_id :project_id project_id))
       {::project_id project_id})))
 

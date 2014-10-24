@@ -13,7 +13,6 @@
    [kixi.hecuba.webutil :refer (decode-body authorized? content-type-from-context) :as util]
    [kixi.hecuba.web-paths :as p]
    [kixi.hecuba.storage.db :as db]
-   [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.data.programmes :as programmes]
    [kixi.hecuba.data.projects :as projects]
    [kixi.hecuba.data.entities :as entities]
@@ -250,8 +249,7 @@ their containing structures."
     (-> query-entity
         (search/searchable-entity (:hecuba-session store))
         (search/->elasticsearch (:search-session store)))
-    (log/info "updated elastic search")
-    (:entity_id entity)))
+    (log/info "updated elastic search")))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -290,12 +288,14 @@ their containing structures."
        [:put           "multipart/form-data" false            true ] (es/malformed-multipart-entity-put? received-entity entity_id)
        [:put           "text/csv"            false            _    ] (-> (decode-body request) (es/malformed-entity-csv-put? entity_id))
        [:put           _                     false            _    ] (-> (decode-body request) (es/malformed-entity-put? entity_id))
-       [:put           "multipart/form-data" false            false] [true {:malformed-msg "No multipart data sent."}]
-       [_              _                     true             _    ] [true {:malformed-msg "Missing entity_id"}]
+       [:put           "multipart/form-data" false            false] [true {:malformed-msg "No multipart data sent."
+                                                                            :representation {:media-type "application/json"}}]
+       [_              _                     true             _    ] [true {:malformed-msg "Missing entity_id"
+                                                                            :representation {:media-type "application/json"}}]
        :else false))
     (catch Throwable t
       (log/error t "Malformed entity.")
-      [true {:malformed-msg "Missing entity_id"}])))
+      [true {:malformed-msg "Missing entity_id" :representation {:media-type "application/json"}}])))
 
 (defn resource-allowed? [store]
   (fn [ctx]
@@ -382,7 +382,7 @@ their containing structures."
   :exists? (partial resource-exists? store)
   :handle-ok (partial resource-handle-ok store)
   :malformed? #(resource-malformed? %)
-  :handle-malformed #(select-keys % [:malformed-msg])
+  :handle-malformed #(select-keys % [:malformed-msg :errors])
   :put! (partial resource-put! store)
   :respond-with-entity? (partial resource-respond-with-entity)
   :delete! (partial resource-delete! store))
