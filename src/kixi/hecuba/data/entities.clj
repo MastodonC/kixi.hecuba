@@ -85,7 +85,9 @@
 (defn decode-tech-icons [entity]
   (let [ks [:property_data :technology_icons]]
     (if-let [dirty-icons (get-in entity ks)]
-      (assoc-in entity ks (split-icon-string dirty-icons))
+      (if (string? dirty-icons)
+        (assoc-in entity ks (split-icon-string dirty-icons))
+        entity)
       entity)))
 
 (defn decode-property-data [entity]
@@ -128,7 +130,7 @@
    (s/optional-key :photos) [s/Str]
    (s/optional-key :project_id) s/Str
    (s/optional-key :property_code) s/Str
-   (s/optional-key :property_data) {s/Keyword s/Str}
+   (s/optional-key :property_data) {s/Keyword s/Any}
    (s/optional-key :retrofit_completion_date) s/Str ;; sc/ISO-Date-Time
    :user_id s/Str})
 
