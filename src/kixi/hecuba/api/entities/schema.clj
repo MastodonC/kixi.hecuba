@@ -8,6 +8,36 @@
             [kixi.hecuba.api.profiles.schema :as ps]
             [kixi.hecuba.storage.uuid :as uuid]))
 
+(def CoreEntity
+  {(s/optional-key :entity_id) (s/maybe s/Str)
+   (s/optional-key :property_code) (s/maybe s/Str)
+   (s/optional-key :project_id) (s/maybe s/Str)
+
+   (s/optional-key :address_country) (s/maybe s/Str)
+   (s/optional-key :address_county) (s/maybe s/Str)
+   (s/optional-key :address_region) (s/maybe s/Str)
+   (s/optional-key :address_street_two) (s/maybe s/Str)
+   (s/optional-key :name) (s/maybe s/Str)
+   (s/optional-key :retrofit_completion_date) (s/maybe s/Str) ;; sc/ISO-Date-Time
+   (s/optional-key :user_id) (s/maybe s/Str)
+   (s/optional-key :profile_data_event_type) (s/maybe s/Str)
+
+   (s/optional-key :property_data) {s/Keyword (s/maybe s/Any)}
+
+   (s/optional-key :csv_uploads) (s/maybe [s/Str])
+   (s/optional-key :device_ids) (s/maybe [s/Str])
+   (s/optional-key :devices) (s/maybe [s/Any])
+   (s/optional-key :documents) (s/maybe [s/Str])
+   (s/optional-key :metering_point_ids) (s/maybe [s/Str])
+   (s/optional-key :notes) (s/maybe [s/Str])
+   (s/optional-key :photos) (s/maybe [s/Str])
+   (s/optional-key :profiles) (s/maybe [s/Any])
+
+   ;; calculated fields
+   (s/optional-key :calculated_fields_labels) {s/Any s/Str}
+   (s/optional-key :calculated_fields_last_calc) {s/Any s/Str}
+   (s/optional-key :calculated_fields_values) {s/Any s/Str}})
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Schema (not prismatic) used to rip the data out of the csvs to make
 ;; entities.
@@ -201,7 +231,7 @@
   (parser/csv->maps entity-schema rows))
 
 (defn malformed-entity-put? [entity entity_id]
-  (let [validation-failures (s/check schema/Entity entity)]
+  (let [validation-failures (s/check CoreEntity entity)]
     (if validation-failures
       [true {:entity entity
              :malformed-msg "Uploaded data validation failed"
