@@ -37,15 +37,20 @@
         (filter #(= (:entity_id %) selected-property-id))
         first))
 
-(defn post-resource [refresh-chan property_id property-data project_id]
+(defn put-resource [refresh-chan property_id property-data project_id]
   (PUT  (str "/4/entities/" property_id)
         {:headers {"Content-Type" "application/edn"}
          :handler #(put! refresh-chan {:event :property})
          :params property-data}))
 
 (defn save-form [refresh-chan property-details owner property_id project_id]
-  (let [property-data (common/deep-merge (:property_data @property-details) (om/get-state owner [:property_data]))]
-    (post-resource refresh-chan property_id {:entity_id property_id :property_data property-data} project_id)
+  (let [old-property-data    (:property_data @property-details)
+        new-property-data    (om/get-state owner :property_data)
+        new-property-code    (:property_code new-property-data)
+        merged-property-data (dissoc (common/deep-merge old-property-data new-property-data) :property_code)
+        entity               (-> {:entity_id property_id :property_data merged-property-data}
+                                 (cond-> new-property-code (assoc :property_code new-property-code)))]
+    (put-resource refresh-chan property_id entity project_id)
     (om/set-state! owner :editing false)))
 
 (defn delete-property [properties entity_id history refresh-chan]
@@ -164,7 +169,7 @@
            [:div {:id "overview-alert"}
             (om/build bs/alert (:alert properties))]
            [:div.col-md-6
-            (bs/static-text property-details :property_code "Property Code")
+            (text-control property-details state owner :property_code "Property Code")
             (address-control property_data owner state)
             (text-control property_data state owner :property_type "Property Type")
             (text-control property_data state owner :built_form "Built Form")

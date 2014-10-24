@@ -3,10 +3,10 @@
             [schema.core :as s]
             [schema.utils :as su]
             [kixi.amon-schema :as schema]
-            [kixi.hecuba.storage.sha1 :as sha1]
             [kixi.hecuba.time :as ht]
             [kixi.hecuba.api.parser :as parser]
-            [kixi.hecuba.api.profiles.schema :as ps]))
+            [kixi.hecuba.api.profiles.schema :as ps]
+            [kixi.hecuba.storage.uuid :as uuid]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Schema (not prismatic) used to rip the data out of the csvs to make
@@ -151,12 +151,12 @@
 
 (defn add-entity-id [entity project_id]
   (-> (assoc entity :project_id project_id)
-      (sha1/add-entity-id)))
+      (uuid/add-entity-id)))
 
 (defn add-profile-ids [profile project_id]
   (-> (assoc profile :project_id project_id)
-      sha1/add-entity-id
-      sha1/add-profile-id))
+      uuid/add-entity-id
+      uuid/add-profile-id))
 
 (defn malformed-data? [rows project_id]
   (let [{:keys [entities profiles]} (extract-entities-and-profiles rows)
@@ -170,8 +170,10 @@
              :profiles enriched-profiles
              :malformed-msg "Uploaded data validation failed."
              :errors {:entities broken-entities
-                      :profiles broken-profiles}}]
-      [false {:entities enriched-entities :profiles enriched-profiles}])))
+                      :profiles broken-profiles}
+             :representation {:media-type "application/json"}}]
+      [false {:entities enriched-entities :profiles enriched-profiles
+              :representation {:media-type "application/json"}}])))
 
 (defn malformed-multipart-data? [file-data project_id]
   (-> (parser/temp-file->rows file-data)
@@ -183,12 +185,15 @@
        (if validation-errors
          [true {:entities [entity]
                 :malformed-msg "Uploaded data validation failed"
-                :errors {:entities [validation-errors]}}]
-         [false {:entities [(add-entity-id entity project_id)]}])))
+                :errors {:entities [validation-errors]}
+                :representation {:media-type "application/json"}}]
+         [false {:entities [(add-entity-id entity project_id)]
+                 :representation {:media-type "application/json"}}])))
   ([entity]
      (if-let [project_id (:project_id entity)]
        (malformed-entity-post? entity project_id)
-       [true {:malformed-msg "Missing project_id"}])))
+       [true {:malformed-msg "Missing project_id"
+              :representation {:media-type "application/json"}}])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Puts to an entity resource
@@ -200,8 +205,10 @@
     (if validation-failures
       [true {:entity entity
              :malformed-msg "Uploaded data validation failed"
-             :errors (su/validation-error-explain validation-failures)}]
-      [false {:entity entity}])))
+             :errors (su/validation-error-explain validation-failures)
+             :representation {:media-type "application/json"}}]
+      [false {:entity entity
+              :representation {:media-type "application/json"}}])))
 
 (defn malformed-entity-csv-put? [entity entity_id]
   (-> (extract-entity entity)
