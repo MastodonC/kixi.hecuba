@@ -191,6 +191,45 @@
                               (search/->elasticsearch (:search-session store)))]
       "Delete Accepted")))
 
+(defn sensor-metadata
+  "Updates sensor's metadata: resets dirty dates for calculations to lower_ts and upper_ts."
+  [type device_id range]
+  (let [{:keys [start-date end-date]} range]
+    (-> {:type      type
+         :device_id device_id}
+        (merge (mapcat #(hash-map % {"start" start-date "end" end-date})
+                       [:difference_series :co2 :kwh]))
+        (merge {:upper_ts end-date :lower_ts start-date}))))
+
+(defn recreate-sensor [device_id user_id old-sensor new-sensor range session]
+  (let [updated-keys          (keys new-sensor)
+        old-synthetic-sensors (create-default-sensors {:readings [old-sensor]})
+        new-synthetic-sensors (create-default-sensors {:readings [(dissoc (m/deep-merge old-sensor new-sensor)
+                                                                          :lower_ts :upper_ts :median :status)]})]
+    (if (some (into #{} updated-keys) #{:unit :period})
+      ;; Recreate because unit or period has changed
+      (do
+        ;; Deleting old synthetic sensor
+        (doseq [s (:readings old-synthetic-sensors)]
+          (when (:synthetic s)
+            (log/infof "Deleting synthetic sensor: %s : %s" device_id (:type s))
+            (sensors/delete s session)))
+        ;; Inserting new synthetic sensors
+        (doseq [s (:readings new-synthetic-sensors)]
+          (when (:synthetic s)
+            (log/infof "Inserting sensor: %s : %s" device_id (:type s))
+            (let [metadata {:type (:type s) :device_id device_id}]
+              (sensors/insert session (assoc s :device_id device_id :user_id user_id) metadata))))
+        ;; Updating original sensor and resetting its dirty dates to lower_ts and upper_ts
+        ;; so that calculations for new synthetic sensors can kick in
+        (let [refreshed-metadata (sensor-metadata (:type new-sensor) device_id range)]
+          (log/infof "Updating original sensor: %s" new-sensor)
+          (sensors/update session device_id (assoc new-sensor :device_id device_id) refreshed-metadata)))
+      ;; Update existing one since nothing crucial has changed
+      (doseq [s (:readings new-synthetic-sensors)]
+        (log/infof "Updating sensor: %s : %s" device_id (:type s))
+        (sensors/update session device_id (assoc s :device_id device_id))))))
+
 (defn resource-put! [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [{request :request} ctx]
@@ -202,11 +241,21 @@
               device_id     (-> item :device_id)
               new-body      (create-default-sensors body)]
           (devices/update session entity_id device_id (assoc new-body :user_id user_id))
-          ;; TODO when new sensors are created they do not necessarilly overwrite old sensors (unless their type is the same)
-          ;; We should probably allow to delete sensors through the API/UI
-          (doseq [reading (:readings new-body)]
-            (sensors/update session (assoc reading :device_id device_id
-                                           :user_id user_id)))
+          (doseq [new-sensor (:readings body)]
+            (let [old-sensor   (first (filter #(= (:type %) (:type new-sensor)) (:readings item)))
+                  updated-keys (keys new-sensor)
+                  {:keys [lower_ts upper_ts]} (m/all-sensor-information store device_id (:type new-sensor))]
+              (if old-sensor
+                ;; sensor already exists - need to update/recreate synthetic sensors
+                (recreate-sensor device_id user_id old-sensor new-sensor {:start-date lower_ts :end-date upper_ts} session)
+                ;; sensor doesn't exist - adding new sensor
+                (let [new-sensors (create-default-sensors
+                                   {:readings [(-> new-sensor
+                                                   (dissoc :lower_ts :upper_ts
+                                                           :median :status))]})]
+                  (doseq [s (:readings new-sensors)]
+                    (log/infof "Inserting new sensor: %s : %s" device_id (:type s))
+                    (sensors/insert session (assoc s :device_id device_id :user_id user_id)))))))
           (-> (search/searchable-entity-by-id entity_id session)
               (search/->elasticsearch (:search-session store)))
           (ring-response {:status 404 :body "Please provide valid entity_id and device_id"}))))))
