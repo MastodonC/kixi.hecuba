@@ -9,7 +9,10 @@
                                {:pathname "/search" :text "Search"}
                                {:pathname "/properties_comparison" :text "Compare"}
                                {:pathname "/property_map" :text "Property Map"}
-                               ;; {:pathname "/user" :text "User Management" :only-roles [:kixi.hecuba.security/super-admin]}
+                               {:pathname "/user" :text "User Management" :only-roles #{"super-admin"
+                                                                                        "admin"
+                                                                                        "programme-manager"
+                                                                                        "project-manager"}}
                                {:pathname "/logout" :text "Logout"}
                                {:pathname "https://github.com/MastodonC/kixi.hecuba/blob/master/doc/documentation.md" :text "Documentation"}]
                        :whoami nil}))
@@ -21,11 +24,14 @@
       (html
        [:div
         [:ul {:class "nav navbar-nav"}
-         (for [{:keys [pathname text roles]} menu
+         (for [{:keys [pathname text only-roles]} menu
                :let [current-page? (= page-pathname pathname)
                      href (if current-page? "#" pathname)
-                     opts (when current-page? {:class "active"})]]
-           [:li opts [:a {:href href} text]])]
+                     opts (when current-page? {:class "active"})
+                     role (:role whoami)]]
+           (when (or (not (seq only-roles))
+                     (some only-roles #{role}))
+             [:li opts [:a {:href href} text]]))]
         [:div.pull-right {:id :whoami} (slugs/slugify-whoami whoami)]]))))
 
 
