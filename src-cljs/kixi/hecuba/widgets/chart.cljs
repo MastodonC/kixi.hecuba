@@ -95,18 +95,19 @@
 
 (defn min-max-values [series]
   (if (seq series)
-    (reduce (fn [{:keys [minimum maximum]} new]
-              {:minimum (min minimum (:value new))
-               :maximum (max maximum (:value new))})
-            {:minimum 0 :maximum 2}
-            series)
+    (let [v (:value (first series))]
+      (reduce (fn [{:keys [minimum maximum]} new]
+                {:minimum (min minimum (:value new))
+                 :maximum (max maximum (:value new))})
+              {:minimum v :maximum v}
+              series))
     {:minimum 0 :maximum 0}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Draw chart
 
 (defn y-scale [min max height]
-  (-> js/d3 .-scale (.linear) (.domain (to-array [min max])) (.range (to-array [height 0]))))
+  (-> js/d3 .-scale (.linear) (.domain (to-array [min max])) (.range (to-array [height min]))))
 
 (defn line-fn [x-scale y-scale]
   (doto (-> js/d3 .-svg (.line))
