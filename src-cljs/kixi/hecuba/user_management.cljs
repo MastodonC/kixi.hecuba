@@ -40,15 +40,15 @@
                            {:display "User" :role :kixi.hecuba.security/user :value "user"}
                            {:display "None" :role "none" :value "none"}])
 
-(defn dropdown [{:keys [default items]} owner {:keys [dropdown-chan id path]}]
+(defn dropdown [{:keys [default items]} owner {:keys [event-chan id path]}]
   (om/component
    (html
     [:select.form-control
      {:default-value default :id id
       :on-change (fn [e]
                    (let [v    (.-value (aget (.-options (.-target e)) (.-selectedIndex (.-options (.-target e)))))]
-                     (put! dropdown-chan {:path path
-                                          :value (if-not (= v "none") v nil)})))}
+                     (put! event-chan {:event :dropdown :value {:path path
+                                                                :value (if-not (= v "none") v nil)}})))}
      (for [item items]
        [:option {:value (:role item)} (:display item)])])))
 
@@ -57,9 +57,10 @@
 
 (defn post-form [data username selected]
   (let [{:keys [role programmes projects]} selected]
-    (let [existing-data (select-keys (-> @data :user) [:role :programmes :projects])
-          new-data      (assoc (into {} (filter #(seq (val %)) (select-keys selected [:programmes :projects])))
-                          :role (:role selected))
+    (let [existing-data (dissoc (-> @data :user) :class :username :data :fetching :typed)
+          selected-role (:role selected)
+          new-data      (-> (into {} (filter #(seq (val %)) (select-keys selected [:programmes :projects])))
+                            (cond-> (seq role) (assoc :role role)))
           data-to-post  (common/deep-merge existing-data new-data)
           parsed (-> data-to-post
                      (assoc :programmes (into {} (remove #(nil? (val %)) (:programmes data-to-post))))
@@ -102,64 +103,61 @@
 
 (defn load-user-data
   "Initialises drop down, programmes and projects with user data."
-  [data user]
-  (let [{:keys [programmes projects role]} (:data user)]
-    (om/update! data [:user :class] "has-success")
-    (om/update! data [:user :username] (:username user))
-    (om/update! data [:user :role] role)
-    (om/update! data [:user :programmes] programmes)
-    (om/update! data [:user :projects] projects)
-    (data/fetch-programmes data)
-    (fetch-projects data)))
+  [user found-user event-chan]
+  (let [{:keys [programmes projects role]} (:data found-user)]
+    (om/update! user :class "has-success")
+    (om/update! user :username (:username found-user))
+    (om/update! user :role role)
+    (om/update! user :programmes programmes)
+    (om/update! user :projects projects)
+    (put! event-chan {:event :fetch-data})))
 
 (defn find-username
   "Check if typed username exists and load user data if it does. Display error alert otherwise."
-  [data username]
-  (if username
-    (let [user (first (filter #(= (:username %) username) (-> @data :user :data)))]
-      (if user
-        (load-user-data data user)
-        (do
-          (om/update! data [:user :class] "has-error")
-          (om/update! data :alert {:status true
-                                   :class "alert alert-danger"
-                                   :text "Username not found."}))))))
+  [user event-chan]
+  (let [username (-> @user :typed)]
+    (when username
+      (let [found-user (first (filter #(= (:username %) username) (-> @user :data)))]
+        (if found-user
+          (load-user-data user found-user event-chan)
+          (do
+            (om/update! user :class "has-error")
+            (put! event-chan {:event :clear-form})
+            (put! event-chan {:event :alert :value {:status true
+                                                    :class "alert alert-danger"
+                                                    :text "Username not found."}})))))))
 
-(defn clear-form
-  "Reset app-state when user deletes their selection."
-  [data]
-  (om/update! data [:user :role] {})
-  (om/update! data [:user :class] "")
-  (om/update! data [:user :username] nil)
-  (om/update! data [:user :projects] {})
-  (om/update! data [:user :programmes] {}))
-
-(defn username-selection-form [data]
-  (fn [cursor owner]
-    (reify
-      om/IRender
-      (render [_]
-        (html
-         (let [selected-username (-> cursor :username)
-               class             (-> cursor :class)]
-           [:div.form-inline {:role "form" :style {:width "100%"}}
-            [:div {:class (str "form-group " class)}
-             [:input {:type "text"
-                      :style {:width "100%"}
-                      :class "form-control"
-                      :default-value selected-username
-                      :on-change (fn [e] (om/set-state! owner :value (.-value (.-target e)))
-                                   (when (empty? (om/get-state owner :value))
-                                     (clear-form data)))
-                      :on-key-press (fn [e] (when (= (.-keyCode e) 13)
-                                              (find-username data (om/get-state owner :value))))}]]
-            [:button {:type "button" :class "btn btn-primary"
-                      :on-click (fn [e] (find-username data (om/get-state owner :value)))} "Find user"]]))))))
+(defn username-selection-form [user owner]
+ (reify
+   om/IRenderState
+   (render-state [_ {:keys [event-chan]}]
+     (html
+      (let [typed-username (-> user :typed)
+            class          (-> user :class)]
+        [:div.form-inline {:role "form"}
+         [:div {:class (str "col-md-10 form-group " class)}
+          [:input {:type "text"
+                   :style {:width "100%"}
+                   :class "form-control"
+                   :value typed-username
+                   :on-click (fn [e]
+                               (put! event-chan {:event :alert :value {:status false}})
+                               (om/update! user :class ""))
+                   :on-change (fn [e] (om/update! user :typed (.-value (.-target e)))
+                                (when (empty? (-> @user :typed))
+                                  (put! event-chan {:event :alert :value {:status false}})
+                                  (om/update! user :class "")
+                                  (put! event-chan {:event :clear-form})))
+                   :on-key-press (fn [e] (when (= (.-keyCode e) 13)
+                                           (put! event-chan {:event :alert :value {:status false}})
+                                           (find-username user event-chan)))}]]
+         [:button {:type "button" :class "col-md-2 btn btn-primary"
+                   :on-click (fn [e] (find-username user event-chan))} "Find user"]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Projects
 
-(defn project-row [project owner {:keys [dropdown-chan]}]
+(defn project-row [project owner {:keys [event-chan]}]
   (reify
     om/IRender
     (render [_]
@@ -170,12 +168,12 @@
           [:td {:style {:width "40%"}}
            (om/build dropdown {:default role
                                :items projects-table-roles}
-                    {:opts {:dropdown-chan dropdown-chan
+                    {:opts {:event-chan event-chan
                             :id (str project_id "-role")
                             :path [:projects project_id]}})]])))))
 
 
-(defn projects-table [{:keys [projects existing-selections]} owner {:keys [dropdown-chan]}]
+(defn projects-table [{:keys [projects existing-selections]} owner {:keys [event-chan]}]
   (reify
     om/IRender
     (render [_]
@@ -189,12 +187,12 @@
            (om/build-all project-row (sort-by :project_id
                                               (mapv #(assoc % :role (get-in existing-selections [(:project_id %)] "none"))
                                                     projects))
-                         {:key :project_id :opts {:dropdown-chan dropdown-chan}})]]]]))))
+                         {:key :project_id :opts {:event-chan event-chan}})]]]]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Programmes
 
-(defn programmes-row [programme owner {:keys [dropdown-chan]}]
+(defn programmes-row [programme owner {:keys [event-chan]}]
   (reify
     om/IRender
     (render [_]
@@ -205,11 +203,11 @@
           [:td {:style {:width "40%"}}
           (om/build dropdown {:default role
                               :items programmes-table-roles}
-                    {:opts {:dropdown-chan dropdown-chan
+                    {:opts {:event-chan event-chan
                             :id (str programme_id "-role")
                             :path [:programmes programme_id]}})]])))))
 
-(defn programmes-table [{:keys [programmes existing-selections]} owner {:keys [dropdown-chan]}]
+(defn programmes-table [{:keys [programmes existing-selections]} owner {:keys [event-chan]}]
   (reify
     om/IRender
     (render [_]
@@ -223,7 +221,7 @@
          [:tbody
           (om/build-all programmes-row
                         (sort-by :name (mapv #(assoc % :role (get-in existing-selections [(:programme_id %)] "none"))
-                                             programmes)) {:key :programme_id :opts {:dropdown-chan dropdown-chan}})]]]))))
+                                             programmes)) {:key :programme_id :opts {:event-chan event-chan}})]]]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Entire view of the page
@@ -239,11 +237,27 @@
        [:label.control-label.col-md-2 {:for label} label]
        [:p {:class "form-control-static col-md-10"} data]]))))
 
+(defn fetch-data [data]
+  (data/fetch-programmes data)
+  (fetch-projects data))
+
+(defn clear-form
+  "Reset app-state when user deletes their selection."
+  [data]
+  (om/update! data [:programmes :data] [])
+  (om/update! data [:projects :data] [])
+  (om/update! data :selected nil)
+  (om/update! data [:user :role] nil)
+  (om/update! data [:user :class] "")
+  (om/update! data [:user :username] nil)
+  (om/update! data [:user :projects] {})
+  (om/update! data [:user :programmes] {}))
+
 (defn user-management-view [data owner]
   (reify
     om/IInitState
     (init-state [_]
-      {:dropdown-chan (chan)})
+      {:event-chan (chan)})
     om/IWillMount
     (will-mount [_]
       (data/fetch-usernames data)
@@ -255,12 +269,17 @@
             :response-format :json
             :keywords? true})
       (go-loop []
-        (let [{:keys [dropdown-chan]} (om/get-state owner)
-              {:keys [path value]}    (<! dropdown-chan)]
-          (om/update! data (into [:selected] path) (reader/read-string value))) ;; value from form is a string
+        (let [{:keys [event-chan]}  (om/get-state owner)
+              {:keys [event value]} (<! event-chan)]
+          (cond
+           (= event :dropdown) (let [{:keys [path value]} value]
+                                 (om/update! data (into [:selected] path) (reader/read-string value)))
+           (= event :alert) (om/update! data :alert value)
+           (= event :fetch-data) (fetch-data data)
+           (= event :clear-form) (clear-form data)))
         (recur)))
     om/IRenderState
-    (render-state [_ {:keys [dropdown-chan]}]
+    (render-state [_ {:keys [event-chan]}]
       (let [role (-> data :user :role)
             {:keys [username projects programmes]} (-> data :user)
             selected   (-> data :selected)
@@ -270,38 +289,42 @@
          [:div.col-md-12 {:style {:padding-top "10px"}}
           (if editing
             [:div
+             ;; Alert
+             [:div.col-md-12 [:div {:style {:padding-top "10px"}} (om/build bs/alert (:alert data))]]
              ;; Username
              [:div
-              [:div.col-md-4
-               (om/build (username-selection-form data) (:user data))]
+              [:div.col-md-6
+               (om/build username-selection-form (:user data) {:init-state {:event-chan event-chan}})]
               (when (seq username)
-                [:button.btn.btn-primary {:on-click #(post-form data username @selected)} "Save"])]
-             ;; Alert
-             [:div {:style {:padding-top "10px"}} (om/build bs/alert (:alert data))]
+                [:button.btn.btn-success {:on-click #(post-form data username @selected)} "Save"])]
+
              ;; Admin Role - only visible to super admins
              (when (and (= "super-admin" (:role editor)) (not (nil? role)))
-               [:div.form-group.col-md-6
+               [:div.form-group.col-md-6 {:style {:padding-top "10px"}}
                 [:label.control-label.col-md-2 {:for "role-selection"} "Role:"]
                 [:div.col-md-6
                  [:div {:style {:width "100%"}}
                   (om/build dropdown {:default role
                                       :items user-roles}
-                            {:opts {:dropdown-chan dropdown-chan
+                            {:opts {:event-chan event-chan
                                     :id "role-selection"
                                     :path [:role]}})]]])
+             ;; Show which user is being edited
+             (when (seq username)
+               [:div.col-md-12 [:h4 "Editing: "] username])
 
              ;; Programmes
              [:div.col-md-12 {:style {:padding-top "15px"}}
               [:h4 "All Programmes"]
               (om/build programmes-table {:programmes (-> data :programmes :data)
                                           :existing-selections (-> data :user :programmes)}
-                        {:opts {:dropdown-chan dropdown-chan}})]
+                        {:opts {:event-chan event-chan}})]
              ;; Projects
              [:div.col-md-12
               [:h4 "All Projects"]
               (om/build projects-table {:projects (-> data :projects :data)
                                         :existing-selections (-> data :user :projects)}
-                        {:opts {:dropdown-chan dropdown-chan}})]]
+                        {:opts {:event-chan event-chan}})]]
 
             [:div.col-md-12
              [:div.col-md-12 [:div.alert.alert-success {:role "alert"} "User updated successfully."]
