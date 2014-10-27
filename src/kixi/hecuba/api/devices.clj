@@ -201,34 +201,72 @@
                        [:difference_series :co2 :kwh]))
         (merge {:upper_ts end-date :lower_ts start-date}))))
 
-(defn recreate-sensor [device_id user_id old-sensor new-sensor range session]
-  (let [updated-keys          (keys new-sensor)
-        old-synthetic-sensors (create-default-sensors {:readings [old-sensor]})
+(defn delete-old-synthetic-sensors
+  "Takes a sequence of sensors and deletes old synthetic sensors."
+  [session device_id user_id sensors]
+  (doseq [s sensors]
+    (when (:synthetic s)
+      (log/infof "Deleting synthetic sensor: %s : %s" device_id (:type s))
+      (sensors/delete s session))))
+
+(defn insert-new-synthetic-sensors
+  "Takes a sequence of sensors and inserts new synthetic sensors"
+  [session device_id user_id sensors]
+  (doseq [s sensors]
+    (when (:synthetic s)
+      (log/infof "Inserting sensor: %s : %s" device_id (:type s))
+      (let [metadata {:type (:type s) :device_id device_id}]
+        (sensors/insert session (assoc s :device_id device_id :user_id user_id) metadata)))))
+
+(defn update-original-sensor
+  "Updates original sensor and resets its dirty dates to lower_ts and upper_ts
+   so that calculations for new synthetic sensors can calculate over all data."
+  [session device_id user_id new-sensor range]
+  (let [refreshed-metadata (sensor-metadata (:type new-sensor) device_id range)]
+    (log/infof "Updating original sensor: %s" new-sensor)
+    (sensors/update session device_id (assoc new-sensor :device_id device_id :user_id user_id) refreshed-metadata)))
+
+(defn tidy-up-sensors
+  "Takes session, old sensor data, new sensor data. Updates original sensor and
+   recreates synthetic sensors. "
+  [session device_id user_id old-sensor new-sensor range]
+  (let [old-synthetic-sensors (create-default-sensors {:readings [old-sensor]})
         new-synthetic-sensors (create-default-sensors {:readings [(dissoc (m/deep-merge old-sensor new-sensor)
                                                                           :lower_ts :upper_ts :median :status)]})]
+    (delete-old-synthetic-sensors session device_id user_id (:readings old-synthetic-sensors))
+    (insert-new-synthetic-sensors session device_id user_id (:readings new-synthetic-sensors))
+    (update-original-sensor session device_id user_id new-sensor range)))
+
+(defn update-existing-sensors
+  "Updates original and synthetic sensors (used when unit or period remain the same."
+  [session device_id user_id old-sensor new-sensor]
+  (let [new-synthetic-sensors (create-default-sensors {:readings [(dissoc (m/deep-merge old-sensor new-sensor)
+                                                                          :lower_ts :upper_ts :median :status)]})]
+    (doseq [s (:readings new-synthetic-sensors)]
+      (log/infof "Updating sensor: %s : %s" device_id (:type s))
+      (sensors/update session device_id (assoc s :device_id device_id)))))
+
+(defn recreate-sensor
+  "Depending on edited fields, either deletes/iserts new synthetic sensors or updates
+  the existing onews."
+  [session device_id user_id old-sensor new-sensor range]
+  (let [updated-keys          (keys new-sensor)]
     (if (some (into #{} updated-keys) #{:unit :period})
       ;; Recreate because unit or period has changed
-      (do
-        ;; Deleting old synthetic sensor
-        (doseq [s (:readings old-synthetic-sensors)]
-          (when (:synthetic s)
-            (log/infof "Deleting synthetic sensor: %s : %s" device_id (:type s))
-            (sensors/delete s session)))
-        ;; Inserting new synthetic sensors
-        (doseq [s (:readings new-synthetic-sensors)]
-          (when (:synthetic s)
-            (log/infof "Inserting sensor: %s : %s" device_id (:type s))
-            (let [metadata {:type (:type s) :device_id device_id}]
-              (sensors/insert session (assoc s :device_id device_id :user_id user_id) metadata))))
-        ;; Updating original sensor and resetting its dirty dates to lower_ts and upper_ts
-        ;; so that calculations for new synthetic sensors can kick in
-        (let [refreshed-metadata (sensor-metadata (:type new-sensor) device_id range)]
-          (log/infof "Updating original sensor: %s" new-sensor)
-          (sensors/update session device_id (assoc new-sensor :device_id device_id) refreshed-metadata)))
+      (tidy-up-sensors session device_id user_id old-sensor new-sensor range)
       ;; Update existing one since nothing crucial has changed
-      (doseq [s (:readings new-synthetic-sensors)]
-        (log/infof "Updating sensor: %s : %s" device_id (:type s))
-        (sensors/update session device_id (assoc s :device_id device_id))))))
+      (update-existing-sensors session device_id user_id old-sensor new-sensor))))
+
+(defn add-new-sensor
+  "Creates new sensors and respective synthetic sensors."
+  [session device_id user_id new-sensor]
+  (let [new-sensors (create-default-sensors
+                     {:readings [(-> new-sensor
+                                     (dissoc :lower_ts :upper_ts
+                                             :median :status))]})]
+    (doseq [s (:readings new-sensors)]
+      (log/infof "Inserting new sensor: %s : %s" device_id (:type s))
+      (sensors/insert session (assoc s :device_id device_id :user_id user_id)))))
 
 (defn resource-put! [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -247,15 +285,9 @@
                   {:keys [lower_ts upper_ts]} (m/all-sensor-information store device_id (:type new-sensor))]
               (if old-sensor
                 ;; sensor already exists - need to update/recreate synthetic sensors
-                (recreate-sensor device_id user_id old-sensor new-sensor {:start-date lower_ts :end-date upper_ts} session)
+                (recreate-sensor session device_id user_id old-sensor new-sensor {:start-date lower_ts :end-date upper_ts})
                 ;; sensor doesn't exist - adding new sensor
-                (let [new-sensors (create-default-sensors
-                                   {:readings [(-> new-sensor
-                                                   (dissoc :lower_ts :upper_ts
-                                                           :median :status))]})]
-                  (doseq [s (:readings new-sensors)]
-                    (log/infof "Inserting new sensor: %s : %s" device_id (:type s))
-                    (sensors/insert session (assoc s :device_id device_id :user_id user_id)))))))
+                (add-new-sensor session device_id user_id new-sensor))))
           (-> (search/searchable-entity-by-id entity_id session)
               (search/->elasticsearch (:search-session store)))
           (ring-response {:status 404 :body "Please provide valid entity_id and device_id"}))))))
