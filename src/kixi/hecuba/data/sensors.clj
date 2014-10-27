@@ -89,14 +89,23 @@
                               (hayt/where [[= :type type]
                                            [= :device_id device_id]])))))
 
-(defn insert [session sensor]
-  (s/validate Sensor sensor)
-  (let [encoded-sensor (encode sensor)]
-    (log/debugf "Inserting sensor: %s" encoded-sensor)
-    (db/execute session (hayt/insert :sensors
-                                     (hayt/values encoded-sensor)))
-    (db/execute session (hayt/insert :sensor_metadata
-                                     (hayt/values {:device_id (:device_id sensor) :type (:type sensor)})))))
+(defn insert
+  ([session sensor metadata]
+     (s/validate Sensor sensor)
+     (let [encoded-sensor (encode sensor)]
+       (log/debugf "Inserting sensor: %s" encoded-sensor)
+       (db/execute session (hayt/insert :sensors
+                                        (hayt/values encoded-sensor)))
+       (db/execute session (hayt/insert :sensor_metadata
+                                        (hayt/values metadata)))))
+  ([session sensor]
+     (s/validate Sensor sensor)
+     (let [encoded-sensor (encode sensor)]
+       (log/debugf "Inserting sensor: %s" encoded-sensor)
+       (db/execute session (hayt/insert :sensors
+                                        (hayt/values encoded-sensor)))
+       (db/execute session (hayt/insert :sensor_metadata
+                                        (hayt/values {:device_id (:device_id sensor) :type (:type sensor)}))))))
 
 (defn update-user-metadata [sensor]
   ;; sensor has primary keys removed by now
@@ -114,6 +123,19 @@
                                       (hayt/set-columns (-> sensor
                                                             (encode :remove-pk)
                                                             update-user-metadata))
+                                      (hayt/where [[= :device_id device_id]
+                                                   [= :type (:type sensor)]]))))
+  ([session device_id sensor metadata]
+     (s/validate Sensor sensor)
+     (db/execute session (hayt/update :sensors
+                                      (hayt/set-columns (-> sensor
+                                                            (encode :remove-pk)
+                                                            update-user-metadata))
+                                      (hayt/where [[= :device_id device_id]
+                                                   [= :type (:type sensor)]])))
+     (db/execute session (hayt/update :sensor_metadata
+                                      (hayt/set-columns (-> metadata
+                                                            (encode :remove-pk)))
                                       (hayt/where [[= :device_id device_id]
                                                    [= :type (:type sensor)]])))))
 
