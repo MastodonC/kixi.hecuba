@@ -291,12 +291,12 @@
       (let [{:keys [datetimepicker-chan]} (om/get-state owner)]
         ;; Chart data button
         (go-loop []
-          (let [chart-data                    (<! datetimepicker-chan)
-                sensors                       (-> @properties :sensors :selected)
-                {:keys [start-date end-date]} (-> @properties :chart :range)
-                entity_id                     (-> @properties :selected)]
+          (let [{:keys [start-date end-date] :as range} (<! datetimepicker-chan)
+                sensors   (-> @properties :sensors :selected)
+                entity_id (-> @properties :selected)]
             (log "Fetching for sensors: " sensors "start: " start-date "end: " end-date "id: " entity_id)
             (when (and sensors end-date start-date)
+              (om/update! properties [:chart :range] range)
               (data/fetch-measurements properties entity_id sensors start-date end-date)))
           (recur))))
     om/IRenderState

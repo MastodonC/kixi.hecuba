@@ -589,10 +589,11 @@
           (recur))
         ;; Chart data button
         (go-loop []
-          (let [chart-data                    (<! datetimepicker-chan)
-                sensors                       (-> @data :sensors :selected)
-                {:keys [start-date end-date]} (-> @data :chart :range)]
+          (let [{:keys [start-date end-date] :as range} (<! datetimepicker-chan)
+                sensors   (-> @data :sensors :selected)]
+            (log "Fetching for sensors: " sensors "start: " start-date "end: " end-date)
             (when (and sensors end-date start-date)
+              (om/update! data [:chart :range] range)
               (fetch-measurements data sensors start-date end-date)))
           (recur))))
     om/IRenderState
