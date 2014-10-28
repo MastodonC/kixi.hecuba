@@ -234,8 +234,9 @@
   (first (last (sort-by second (frequencies coll)))))
 
 (defn find-resolution [measurements]
-  (let [differences (diff (map #(/ (.getTime (m/truncate-seconds (:timestamp %))) 1000) measurements))]
-    (java.lang.Math/abs (mode differences))))
+  (let [differences (diff (map #(/ (.getTime (m/truncate-seconds (:timestamp %))) 1000) measurements))
+        v           (mode differences)]
+    (if v (java.lang.Math/abs v) "")))
 
 (defn resolution
   "Updates resolution if it's missing. Infers it from last 100 measurements.
