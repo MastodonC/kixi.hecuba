@@ -49,19 +49,19 @@
 (defn date-mover [data owner {:keys [k]}]
   (reify
     om/IRenderState
-    (render-state [_ {:keys [chevron-chan]}]
+    (render-state [_ {:keys [date-move-chan]}]
       (html
        [:div
         [:table.table.borderless {:style {:font-size "90%"}}
          [:tbody
           [:tr
-           [:td.datemover {:on-click (fn [_] (put! chevron-chan {:event :day-plus :k k}))} "+1 Day"]
-           [:td.datemover {:on-click (fn [_] (put! chevron-chan {:event :week-plus :k k}))} "+1 Week"]
-           [:td.datemover {:on-click (fn [_] (put! chevron-chan {:event :month-plus :k k}))} "+1 Month"]]
+           [:td.datemover {:on-click (fn [_] (put! date-move-chan {:event :day-plus :k k}))} "+1 Day"]
+           [:td.datemover {:on-click (fn [_] (put! date-move-chan {:event :week-plus :k k}))} "+1 Week"]
+           [:td.datemover {:on-click (fn [_] (put! date-move-chan {:event :month-plus :k k}))} "+1 Month"]]
           [:tr
-           [:td.datemover {:on-click (fn [_] (put! chevron-chan {:event :day-minus :k k}))} "-1 Day"]
-           [:td.datemover {:on-click (fn [_] (put! chevron-chan {:event :week-minus :k k}))} "-1 Week"]
-           [:td.datemover {:on-click (fn [_] (put! chevron-chan {:event :month-minus :k k}))} "-1 Month"]]]]]))))
+           [:td.datemover {:on-click (fn [_] (put! date-move-chan {:event :day-minus :k k}))} "-1 Day"]
+           [:td.datemover {:on-click (fn [_] (put! date-move-chan {:event :week-minus :k k}))} "-1 Week"]
+           [:td.datemover {:on-click (fn [_] (put! date-move-chan {:event :month-minus :k k}))} "-1 Month"]]]]]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Date-time picker
@@ -114,12 +114,12 @@
     (init-state [_]
       {:start-date (-> data :start-date)
        :end-date   (-> data :end-date)
-       :chevron-chan (chan)})
+       :date-move-chan (chan)})
     om/IWillMount
     (will-mount [_]
       (go-loop []
-        (let [{:keys [chevron-chan]} (om/get-state owner)
-              {:keys [event k]}      (<! chevron-chan)
+        (let [{:keys [date-move-chan]} (om/get-state owner)
+              {:keys [event k]}      (<! date-move-chan)
               current-date           (k (om/get-state owner))
               date (calculate-new-range event current-date)]
           (om/set-state! owner k date))
@@ -129,7 +129,7 @@
       (om/set-state! owner :start-date start-date)
       (om/set-state! owner :end-date end-date))
     om/IRenderState
-    (render-state [_ {:keys [date-range-chan chevron-chan]}]
+    (render-state [_ {:keys [date-range-chan date-move-chan]}]
       (html
        (let [history (om/get-shared owner :history)]
          [:div
@@ -150,7 +150,7 @@
            [:form.form-inline {:role "form"}
             [:div.col-md-5
              (om/build date-mover data {:opts {:div-id "date-mover" :k :start-date}
-                                        :init-state {:chevron-chan chevron-chan}})]
+                                        :init-state {:date-move-chan date-move-chan}})]
             [:div.col-md-5
              (om/build date-mover data {:opts {:div-id "date-mover" :k :end-date}
-                                        :init-state {:chevron-chan chevron-chan}})]]]])))))
+                                        :init-state {:date-move-chan date-move-chan}})]]]])))))
