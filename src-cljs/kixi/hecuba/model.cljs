@@ -4,6 +4,11 @@
   (atom
    {:name     :programmes
     :title    "Programmes"
+    :search {:term nil
+             :data []
+             :selected nil
+             :fetching false
+             :stats {}}
     :programmes {:name     "Programmes"
                  :data     []
                  :selected nil

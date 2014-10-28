@@ -195,6 +195,83 @@
       (om/update! data :active-components history-status))
     (recur)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Search input field
+
+(defn active-selections []
+  (om/ref-cursor (-> (om/root-cursor app-model) :active-components)))
+
+(defn search []
+  (om/ref-cursor (-> (om/root-cursor app-model) :search)))
+
+(defn search-input [cursor owner]
+  (om/component
+   (let [history (om/get-shared owner :history)]
+     (html
+      [:div {:style {:padding-top "10px"}}
+       [:div.input-group.input-group-md
+        [:input {:type "text"
+                 :default-value (:term cursor)
+                 :class "form-control input-md"
+                 :on-change (fn [e]
+                              (om/set-state! owner :value (.-value (.-target e)))
+                              (when (empty? (.-value (.-target e)))
+                                (om/update! cursor :selected nil)
+                                (om/update! cursor :term nil)
+                                (om/update! cursor :data [])))
+                 :on-key-press (fn [e] (when (= (.-keyCode e) 13)
+                                         (om/update! cursor :term (om/get-state owner :value))
+                                         (data/search-properties cursor (om/get-state owner :value))))}]
+        [:span.input-group-btn
+         [:button {:type "button"
+                   :class "btn btn-primary"
+                   :onClick (fn [_]
+                              (om/update! cursor :term (om/get-state owner :value))
+                              (data/search-properties cursor (om/get-state owner :value)))}
+          [:span.glyphicon.glyphicon-search]]]]]))))
+
+(defn found-property-row [cursor owner]
+  (om/component
+   (html
+    (let [property_data (:property_data cursor)
+          {:keys [programme_id project_id entity_id]} cursor
+          history            (om/get-shared owner :history)
+          selections         (om/observe owner (active-selections))
+          selected-entity-id (-> selections :ids :properties)
+          search-cursor      (search)]
+      [:tr {:onClick (fn [_]
+                       (history/update-token-ids! history :programmes programme_id)
+                       (history/update-token-ids! history :projects project_id)
+                       (history/update-token-ids! history :properties entity_id)
+                       (om/update! search-cursor :selected entity_id))
+            :class (if (= selected-entity-id entity_id) "success" "")}
+       [:td (when-let [uri (:uri (first (:photos cursor)))]
+              [:img.img-thumbnail.table-image
+               {:src uri}])]
+       [:td (:programme_name cursor)]
+       [:td (:project_name cursor)]
+       [:td (:property_code cursor)]
+       [:td (slugs/postal-address property_data)]]))))
+
+(defn search-results [cursor owner]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       [:div.row#results-div
+        [:div.col-md-12 {:style {:padding-top "10px"} :id "found-properties-table"}
+         [:h1 "Search Results"]
+         (if (:fetching cursor)
+           [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching data."]]]
+           (if (-> cursor :data seq)
+             [:table.table.table-hover.table-condensed
+              [:thead
+               [:tr [:th "Photo"] [:th "Programme Name"] [:th "Project Name"]
+                [:th "Property ID"][:th "Address"]]]
+              [:tbody
+               (om/build-all found-property-row (:data cursor) {:key :entity_id})]]
+             [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No results."]]]))]]))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Main View
 
@@ -228,9 +305,12 @@
     om/IRender
     (render [_]
       (html
-       [:div
-        (om/build programmes/programmes-div (:programmes data))
-        (om/build projects/projects-div (:projects data))
-        (om/build properties/properties-div (:properties data))
-        [:div.col-md-12.last
-         (om/build property-details/property-details-div (:properties data))]]))))
+       (let [{:keys [search programmes projects properties]} data]
+         [:div
+          (om/build search-input search)
+          (when (-> search :term) (om/build search-results search))
+          (om/build programmes/programmes-div programmes)
+          (om/build projects/projects-div projects)
+          (om/build properties/properties-div properties)
+          [:div.col-md-12.last
+           (om/build property-details/property-details-div properties)]])))))

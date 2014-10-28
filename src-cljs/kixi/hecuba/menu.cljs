@@ -6,7 +6,6 @@
             [sablono.core :as html :refer-macros [html]]))
 
 (def menu-model (atom {:menu [ {:pathname "/app" :text "Main"}
-                               {:pathname "/search" :text "Search"}
                                {:pathname "/properties_comparison" :text "Compare"}
                                {:pathname "/property_map" :text "Property Map"}
                                {:pathname "/user" :text "User Management" :only-roles #{"super-admin"
