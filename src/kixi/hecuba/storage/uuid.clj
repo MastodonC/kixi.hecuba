@@ -26,4 +26,4 @@
 
 (defn add-profile-id [profile]
   (s/validate KeyableProfile profile)
-  (assoc profile :profile_id uuid))
+  (assoc profile :profile_id (uuid)))

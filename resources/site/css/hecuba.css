@@ -154,3 +154,11 @@ td.number {
 div.last {
     min-height: 1000px;
 }
+
+.datemover:hover {
+    color: #428bca;
+    cursor: pointer;
+    -webkit-user-select: none; /* Chrome/Safari */
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE10+ */
+}
