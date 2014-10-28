@@ -149,7 +149,17 @@
                  properties)
         (log "Setting property details to: " properties)
         (om/update! data [:properties :selected] properties)
+        ;; Update datasets tab
+        (om/update! data [:properties :datasets :sensors] (data/fetch-sensors properties (:properties @data)))
+        (om/update! data [:properties :datasets :editable] (-> (filter #(= (:entity_id %) properties) (:data (:properties @data)))
+                                                               first
+                                                               :editable))
+        (data/fetch-datasets properties [:properties :datasets :datasets] data)
         (om/update! data [:properties :datasets :property-id] properties)
+        ;; Update upload and download statatus tab
+        (om/update! data [:properties :uploads :files] [])
+        (om/update! data [:properties :downloads :files] [])
+        ;; Update sensors tab
         (om/update! data [:properties :sensors :selected] #{})
         (om/update! data [:properties :sensors :alert] {})
         (om/update! data [:properties :chart :sensors] #{})
