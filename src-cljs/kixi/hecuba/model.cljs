@@ -63,9 +63,9 @@
                             :fetching false}
                  :raw-data {:name "Raw Data"
                             :data []
+                            :sensors []
                             :selected nil
-                            :message ""
-                            :range {:start-date nil :end-end nil}}
+                            :date nil}
                  :profiles {:alert {}}
                  :downloads {:files []}
                  :uploads {:files []

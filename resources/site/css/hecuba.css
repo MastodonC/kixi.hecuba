@@ -162,3 +162,20 @@ div.last {
     -moz-user-select: none; /* Firefox */
     -ms-user-select: none; /* IE10+ */
 }
+
+/* centered columns styles */
+.row-centered {
+    text-align:center;
+}
+.col-centered {
+    display:inline-block;
+    float:none;
+    /* reset the text-align */
+    text-align:center;
+    /* inline-block space fix */
+    margin-right:-4px;
+}
+
+.disabled {
+    opacity: 0.4;
+}

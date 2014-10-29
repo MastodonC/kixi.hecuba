@@ -301,7 +301,7 @@
           (recur))))
      om/IDidUpdate
       (did-update [_ _ _]
-        (when (-> properties :data seq)
+        (when (and (-> properties :data seq) (-> (om/get-state owner :active-tab) (= :overview)))
           (common/fixed-scroll-to-element "property-details")))
     om/IRenderState
     (render-state [_ state]
@@ -341,7 +341,9 @@
                 [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :sensors))}
                  "Sensor Charts"]]
                [:li {:class (if (= active-tab :raw-data) "active" nil)}
-                [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :raw-data))}
+                [:a {:onClick (fn [_ _]
+                                (om/update! properties [:raw-data :sensors] (into [] (data/fetch-sensors property-id @properties)))
+                                (om/set-state! owner :active-tab :raw-data))}
                  "Raw Sensor Data"]]
                (when editable
                  [:li {:class (if (= active-tab :upload) "active" nil)}
@@ -367,7 +369,8 @@
                                           {:opts {:datetimepicker-chan datetimepicker-chan}})])
               ;; Raw Data
               (when (= active-tab :raw-data)
-                [:div.col-md-12 (om/build raw/raw-data-div properties)])
+                [:div.col-md-12 (om/build raw/raw-data-div {:entity_id (:selected properties)
+                                                            :raw-data  (:raw-data properties)})])
               ;; Profiles
               (when (= active-tab :profiles)
                 [:div.col-md-12 (om/build profiles/profiles-div property-details)])
