@@ -68,10 +68,6 @@
   (log/infof "App Session: %s" (:session req))
   {:status 200 :body (slurp (io/resource "site/property_map.html"))})
 
-(defn property-search [req]
-  (log/infof "App Session: %s" (:session req))
-  {:status 200 :body (slurp (io/resource "site/property-search.html"))})
-
 (defn user-management [req]
   (log/infof "App Session: %s" (:session req))
   {:status 200 :body (slurp (io/resource "site/user-management.html"))})
@@ -230,12 +226,6 @@
    (GET (compojure-route :property_map) []
         (friend/wrap-authorize
          property_map
-         #{:kixi.hecuba.security/user}))
-
-   ;; Property search
-   (GET (compojure-route :property-search) []
-        (friend/wrap-authorize
-         property-search
          #{:kixi.hecuba.security/user}))
 
    ;; User management

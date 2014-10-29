@@ -53,8 +53,10 @@
 ;; TOFIX Some projects didn't have programme_id. Not sure if it's just a local issue.
 (defn programme-search-fields [entity db-session]
   (let [programme_id (:programme_id entity)
-        public_access  (when programme_id (:public_access (programmes/get-by-id db-session programme_id)))]
+        programme    (when programme_id (programmes/get-by-id db-session programme_id))
+        {:keys [public_access name]}  programme]
     (-> entity
+        (assoc-in [:full_entity :programme_name] name)
         (assoc :public_access public_access)
         (assoc-in [:full_entity :public_access] public_access))))
 

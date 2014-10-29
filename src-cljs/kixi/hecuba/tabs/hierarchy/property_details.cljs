@@ -299,6 +299,10 @@
               (om/update! properties [:chart :range] range)
               (data/fetch-measurements properties entity_id sensors start-date end-date)))
           (recur))))
+     om/IDidUpdate
+      (did-update [_ _ _]
+        (when (-> properties :data seq)
+          (common/fixed-scroll-to-element "property-details")))
     om/IRenderState
     (render-state [_ state]
       (let [active-tab                 (:active-tab state)

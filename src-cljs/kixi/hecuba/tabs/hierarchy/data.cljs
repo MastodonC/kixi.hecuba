@@ -278,3 +278,16 @@
                    (om/update! data [:properties :uploads :fetching] (if (seq d) :has-data :no-data))
                    (om/update! data [:properties :uploads :files] d))
         :headers {"Accept" "application/edn"}}))
+
+(defn search-properties [data query]
+  (log "Searching for: " query)
+  (om/update! data :fetching true)
+  (GET (str "/4/entities/?q=" query)
+       {:handler (fn [response]
+                   (let [entities (:entities response)]
+                     (om/update! data :data (into [] (take 20 entities)))
+                     (om/update! data :stats {:total_hits (:total_hits response)
+                                                :page (:page response)})
+                     (om/update! data :fetching false)))
+        :headers {"Accept" "application/edn"}
+        :response-format :text}))
