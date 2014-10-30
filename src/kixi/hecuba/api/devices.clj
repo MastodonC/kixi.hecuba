@@ -301,7 +301,31 @@
         method  (:request-method request)]
     (cond
      (= method :delete) false
-      :else true)))
+     :else true)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; SENSOR RESOURCE
+
+(defn sensor-resource-exists? [store ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (let [{:keys [entity_id device_id type]} (-> ctx :request :route-params)
+          sensor  (sensors/get-by-id {:device_id device_id :type type} session)]
+      (if-not (empty? sensor)
+        {:sensor sensor :entity_id entity_id}
+        false))))
+
+(defn sensor-resource-delete! [store ctx]
+  (db/with-session [session (:hecuba-session store)]
+    (let [{:keys [sensor entity_id]} ctx
+          {:keys [sensors sensors-metadata]} (sensors/delete sensor session)
+          successful? (and (empty? sensors) (empty? sensors-metadata))]
+      (when successful?
+        (-> (search/searchable-entity-by-id entity_id session)
+            (search/->elasticsearch (:search-session store))))
+      {:delete-successful? successful?})))
+
+(defn sensor-resource-delete-enacted? [store ctx]
+  (:delete-successful? ctx))
 
 (defresource index [store]
   :allowed-methods #{:get :post}
@@ -328,3 +352,12 @@
   :can-put-to-missing? (constantly false)
   :put! (partial resource-put! store)
   :handle-ok resource-handle-ok)
+
+(defresource sensor-resource [store]
+  :allowed-methods #{:delete}
+  :available-media-types #{"application/json" "application/edn"}
+  :authorized? (authorized? store)
+  :allowed? (resource-allowed? store)
+  :exists? (partial sensor-resource-exists? store)
+  :delete! (partial sensor-resource-delete! store)
+  :delete-enacted? (partial sensor-resource-delete-enacted? store))

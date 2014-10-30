@@ -114,6 +114,10 @@
 (defn new-sensor-form [property_id device_id]
   (fn [cursor owner]
     (reify
+      om/IDidMount
+      (did-mount [_]
+        (let [event-chan   (om/get-state owner :event-chan)]
+          (put! event-chan {:event :alert :value {:status false}})))
       om/IRenderState
       (render-state [_ state]
         (html
@@ -183,9 +187,26 @@
                      (put! event-chan {:event :selected :value nil}))
                    #(js/alert (str "Unable to delete " device_id))))
 
-(defn sensor-edit-div [cursor owner]
-  (let [sensor-type (:type cursor)]
+(defn delete-sensor [entity_id device_id sensor-type event-chan refresh-chan]
+  (delete-resource (str "/4/entities/" entity_id "/devices/" device_id "/" sensor-type)
+                   (fn []
+                     (js/alert (str "Sensor " sensor-type " deleted!"))
+                     (put! refresh-chan {:event :property})
+                     (put! event-chan {:event :editing :value false})
+                     (put! event-chan {:event :selected :value nil}))
+                   #(js/alert (str "Unable to delete " sensor-type))))
+
+(defn sensor-edit-div [property_id cursor owner event-chan refresh-chan]
+  (let [sensor-type (:type cursor)
+        device_id   (:device_id cursor)]
     [:li.list-group-item
+     [:div.row
+      [:div.col-md-12
+       [:button {:type "button"
+                 :class "btn btn-danger pull-right"
+                 :onClick (fn [_]
+                            (delete-sensor property_id device_id sensor-type event-chan refresh-chan))}
+        "Delete Sensor"]]]
      (static-text cursor :type "Type")
      (text-input-control cursor owner [:sensors sensor-type] :alias "Header Rows")
      (text-input-control cursor owner [:sensors sensor-type] :unit "Unit")
@@ -196,6 +217,10 @@
 (defn edit-device-form [property_id]
   (fn [cursor owner]
     (reify
+      om/IDidMount
+      (did-mount [_]
+        (let [event-chan   (om/get-state owner :event-chan)]
+          (put! event-chan {:event :alert :value {:status false}})))
       om/IRenderState
       (render-state [_ state]
         (let [device_id    (:device_id cursor)
@@ -234,7 +259,7 @@
                 (if (seq sensors)
                   [:ul.list-group
                    (for [sensor  sensors]
-                     (sensor-edit-div sensor owner))]
+                     (sensor-edit-div property_id sensor owner event-chan refresh-chan))]
                   [:p "No sensors found."]))]]]))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -259,55 +284,61 @@
 
 (defn new-device-form [property_id]
   (fn [cursor owner]
-    (om/component
-     (html
-      (let [refresh-chan (om/get-shared owner :refresh)
-            event-chan   (om/get-state owner :event-chan)
-            {:keys [text status]} (om/get-state owner :alert)]
-        [:div
-         [:div.col-md-12
-          (alert "alert alert-danger" [:p text] status "new-device-form-alert" owner)
-          [:h3 "Add new device"]
-          [:form.form-horizontal {:role "form"}
-           [:div.col-md-6
-            [:div.form-group
-             [:div.btn-toolbar
-              [:button {:class "btn btn-success"
-                        :type "button"
-                        :onClick (fn [_] (let [device (-> (om/get-state owner :device)
-                                                          (assoc :entity_id property_id))
-                                               sensor (om/get-state owner :sensor)]
-                                           (if (or (and (not (seq sensor))
-                                                        (valid-device? device))
-                                                   (and (seq sensor)
-                                                        (valid-device? device)
-                                                        (valid-sensor? sensor)))
-                                             (post-new-device event-chan refresh-chan owner
-                                                              (-> device
-                                                                  (cond-> (seq sensor) (assoc :readings [sensor]))) property_id)
-                                             (om/set-state! owner :alert {:status true
-                                                                          :class "alert alert-danger"
-                                                                          :text " Please enter the required fields."}))))}
-               "Save"]
-              [:button {:type "button"
-                        :class "btn btn-danger"
-                        :onClick (fn [_]
-                                   (put! event-chan {:event :adding-device :value false}))}
-               "Cancel"]]]
-            (bs/text-input-control cursor owner :device :description "Unique Description" true)
-            (bs/text-input-control cursor owner :device :name "Further Description")
-            (location-input cursor owner)
-            (bs/checkbox cursor owner :device :privacy "Private")]]]
-         [:div.col-md-12
-          [:h3 "Create sensor:"]
-          [:form.form-horizontal {:role "form"}
-           [:div.col-md-6
-            (bs/text-input-control nil owner :sensor :type "Type" true)
-            (bs/text-input-control nil owner :sensor :alias "Header Rows")
-            (bs/text-input-control nil owner :sensor :unit "Unit" true)
-            (sensor-period-dropdown owner)
-            (bs/text-input-control nil owner :sensor :resolution "Resolution")
-            (bs/checkbox nil owner :sensor :actual_annual "Calculated Field")]]]])))))
+    (reify
+      om/IDidMount
+      (did-mount [_]
+        (let [event-chan   (om/get-state owner :event-chan)]
+          (put! event-chan {:event :alert :value {:status false}})))
+      om/IRender
+      (render [_]
+        (html
+         (let [refresh-chan (om/get-shared owner :refresh)
+               event-chan   (om/get-state owner :event-chan)
+               {:keys [text status]} (om/get-state owner :alert)]
+           [:div
+            [:div.col-md-12
+             (alert "alert alert-danger" [:p text] status "new-device-form-alert" owner)
+             [:h3 "Add new device"]
+             [:form.form-horizontal {:role "form"}
+              [:div.col-md-6
+               [:div.form-group
+                [:div.btn-toolbar
+                 [:button {:class "btn btn-success"
+                           :type "button"
+                           :onClick (fn [_] (let [device (-> (om/get-state owner :device)
+                                                             (assoc :entity_id property_id))
+                                                  sensor (om/get-state owner :sensor)]
+                                              (if (or (and (not (seq sensor))
+                                                           (valid-device? device))
+                                                      (and (seq sensor)
+                                                           (valid-device? device)
+                                                           (valid-sensor? sensor)))
+                                                (post-new-device event-chan refresh-chan owner
+                                                                 (-> device
+                                                                     (cond-> (seq sensor) (assoc :readings [sensor]))) property_id)
+                                                (om/set-state! owner :alert {:status true
+                                                                             :class "alert alert-danger"
+                                                                             :text " Please enter the required fields."}))))}
+                  "Save"]
+                 [:button {:type "button"
+                           :class "btn btn-danger"
+                           :onClick (fn [_]
+                                      (put! event-chan {:event :adding-device :value false}))}
+                  "Cancel"]]]
+               (bs/text-input-control cursor owner :device :description "Unique Description" true)
+               (bs/text-input-control cursor owner :device :name "Further Description")
+               (location-input cursor owner)
+               (bs/checkbox cursor owner :device :privacy "Private")]]]
+            [:div.col-md-12
+             [:h3 "Create sensor:"]
+             [:form.form-horizontal {:role "form"}
+              [:div.col-md-6
+               (bs/text-input-control nil owner :sensor :type "Type" true)
+               (bs/text-input-control nil owner :sensor :alias "Header Rows")
+               (bs/text-input-control nil owner :sensor :unit "Unit" true)
+               (sensor-period-dropdown owner)
+               (bs/text-input-control nil owner :sensor :resolution "Resolution")
+               (bs/checkbox nil owner :sensor :actual_annual "Calculated Field")]]]]))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Devices table
@@ -356,6 +387,9 @@
                                          :sort-spec {:sort-key th-click
                                                      :sort-asc true}))))
           (recur)))
+      om/IDidMount
+      (did-mount [_]
+        (common/fixed-scroll-to-element "devices-tab"))
       om/IRenderState
       (render-state [_ state]
         (let [{:keys [sort-key sort-asc]} (:sort-spec state)
@@ -414,7 +448,7 @@
             property       (-> (filter #(= (:entity_id %) property_id) (:data properties))
                                first)]
         (html
-         [:div.col-md-12
+         [:div.col-md-12 {:id "devices-tab"}
           [:h3 "Devices"
            [:div.btn-toolbar.pull-right
             ;; Add new device
@@ -451,13 +485,15 @@
 
           [:div {:id "alert-div" :style {:padding-top "10px"}}
            (om/build bs/alert (:alert devices))]
-          [:div {:id "devices-div"
-                 :class (if (or editing adding-sensor adding-device) "hidden" "")
-                 :style {:padding-top "10px"}}
-           (om/build (devices-table editing-chan properties) devices)]
-          [:div {:id "sensor-add-div" :class (if adding-sensor "" "hidden")}
-           (om/build (new-sensor-form property_id device_id) {} {:init-state {:event-chan event-chan}})]
-          [:div {:id "device-add-div" :class (if adding-device "" "hidden")}
-           (om/build (new-device-form property_id) {} {:init-state {:event-chan event-chan}})]
-          [:div {:id "device-edit-div" :class (if editing "" "hidden")}
-           (om/build (edit-device-form property_id) (:edited-device devices) {:init-state {:event-chan event-chan}})]])))))
+          (when (and (not editing) (not adding-sensor) (not adding-device))
+            [:div {:id "devices-div" :style {:padding-top "10px"}}
+             (om/build (devices-table editing-chan properties) devices)])
+          (when adding-sensor
+            [:div {:id "sensor-add-div"}
+             (om/build (new-sensor-form property_id device_id) {} {:init-state {:event-chan event-chan}})])
+          (when adding-device
+            [:div {:id "device-add-div"}
+             (om/build (new-device-form property_id) {} {:init-state {:event-chan event-chan}})])
+          (when editing
+            [:div {:id "device-edit-div"}
+             (om/build (edit-device-form property_id) (:edited-device devices) {:init-state {:event-chan event-chan}})])])))))
