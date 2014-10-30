@@ -72,7 +72,7 @@
     (let [sensor (first (db/execute session
                                     (hayt/select :sensors (hayt/where [[= :device_id device_id]
                                                                        [= :type type]]))))]
-      (merge-sensor-metadata store sensor))))
+      (merge-sensor-metadata store {:device_id device_id :type type}))))
 
 (defn all-sensor-metadata-for-device
   "Given device_id, retrieves all sensors metadata."

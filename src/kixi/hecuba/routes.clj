@@ -139,6 +139,7 @@
    ;; Entity/Devices
    (index-routes :entity-devices-index [:entity_id] (devices/index store))
    (resource-route :entity-device-resource [:entity_id :device_id] (devices/resource store))
+   (resource-route :entity-device-sensor-resource [:entity_id :device_id :type] (devices/sensor-resource store))
 
    ;; Measurements
    (index-routes :entity-device-measurement-index [:entity_id :device_id] (measurements/index store s3 pipeline-head))

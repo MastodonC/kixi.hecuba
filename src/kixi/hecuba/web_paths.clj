@@ -44,6 +44,7 @@
    ;; devices
    :entity-devices-index "entities/%s/devices"
    :entity-device-resource "entities/%s/devices/%s"
+   :entity-device-sensor-resource "entities/%s/devices/%s/%s"
 
    ;; profiles
    :entity-profiles-index "entities/%s/profiles"

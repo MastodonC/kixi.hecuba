@@ -84,10 +84,11 @@
 
 (defn get-by-id
   ([{:keys [device_id type]} session]
-     (db/execute session
-                 (hayt/select :sensors
-                              (hayt/where [[= :type type]
-                                           [= :device_id device_id]])))))
+     (-> (db/execute session
+                     (hayt/select :sensors
+                                  (hayt/where [[= :type type]
+                                               [= :device_id device_id]])))
+         first)))
 
 (defn insert
   ([session sensor metadata]
