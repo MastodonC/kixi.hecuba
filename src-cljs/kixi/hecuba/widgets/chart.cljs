@@ -107,7 +107,7 @@
 ;; Draw chart
 
 (defn y-scale [min max height]
-  (-> js/d3 .-scale (.linear) (.domain (to-array [min max])) (.range (to-array [height min]))))
+  (-> js/d3 .-scale (.linear) (.domain (to-array [min max])) (.range (to-array [height 0]))))
 
 (defn line-fn [x-scale y-scale]
   (doto (-> js/d3 .-svg (.line))
