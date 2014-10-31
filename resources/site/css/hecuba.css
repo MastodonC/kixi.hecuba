@@ -179,3 +179,11 @@ div.last {
 .disabled {
     opacity: 0.4;
 }
+
+.previous.hover {
+    cursor: pointer;
+}
+
+.next.hover {
+    cursor: pointer;
+}

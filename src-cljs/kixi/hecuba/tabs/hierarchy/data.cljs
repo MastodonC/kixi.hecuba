@@ -285,7 +285,7 @@
   (GET (str "/4/entities/?q=" query)
        {:handler (fn [response]
                    (let [entities (:entities response)]
-                     (om/update! data :data (into [] (take 20 entities)))
+                     (om/update! data :data (into [] entities))
                      (om/update! data :stats {:total_hits (:total_hits response)
                                                 :page (:page response)})
                      (om/update! data :fetching false)))

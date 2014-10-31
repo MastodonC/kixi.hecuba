@@ -255,22 +255,44 @@
 
 (defn search-results [cursor owner]
   (reify
+    om/IInitState
+    (init-state [_]
+      {:page 0
+       :results-per-page 10})
     om/IRenderState
     (render-state [_ state]
-      (html
-       [:div.row#results-div
-        [:div.col-md-12 {:style {:padding-top "10px"} :id "found-properties-table"}
-         [:h1 "Search Results"]
-         (if (:fetching cursor)
-           [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching data."]]]
-           (if (-> cursor :data seq)
-             [:table.table.table-hover.table-condensed
-              [:thead
-               [:tr [:th "Photo"] [:th "Programme Name"] [:th "Project Name"]
-                [:th "Property ID"][:th "Address"]]]
-              [:tbody
-               (om/build-all found-property-row (:data cursor) {:key :entity_id})]]
-             [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No results."]]]))]]))))
+      (let [{:keys [page results-per-page]} (om/get-state owner)]
+        (html
+         [:div.row#results-div
+          [:div.col-md-12 {:style {:padding-top "10px"} :id "found-properties-table"}
+           [:h1 "Search Results"]
+           (if (:fetching cursor)
+             [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching data."]]]
+             (let [current-page-results (into [] (->> (:data cursor) (drop (* page results-per-page)) (take results-per-page)))
+                   results-left         (count (drop (* (inc page) results-per-page) (:data cursor)))
+                   more-to-load?        (not (zero? results-left))]
+               (if (-> current-page-results seq)
+                 [:div
+                  [:table.table.table-hover.table-condensed
+                   [:thead
+                    [:tr [:th "Photo"] [:th "Programme Name"] [:th "Project Name"]
+                     [:th "Property ID"][:th "Address"]]]
+                   [:tbody
+                    (om/build-all found-property-row current-page-results {:key :entity_id})]]
+                  [:nav
+                   [:ul.pager
+                    [:li {:style {:padding-right "5px"}}
+                     [:a {:class (if (= page 0) "previous disabled" "previous hover")
+                          :on-click (fn [_]
+                                      (when-not (= page 0)
+                                        (om/set-state! owner :page (dec page))))} "Previous"]]
+                    [:li {:style {:padding-right "5px"}}
+                     [:a {:class (if-not more-to-load? "next disabled" "next hover")
+                          :on-click (fn [_]
+                                      (when more-to-load?
+                                        (om/set-state! owner :page (inc page))))} "Next"]]]]]
+
+                 [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No results."]]])))]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Main View
