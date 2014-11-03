@@ -172,7 +172,8 @@
 
 (defn save-edited-device [event-chan existing-device refresh-chan owner property_id device_id]
   (let [{:keys [device sensors]} (om/get-state owner)
-        device (common/deep-merge @existing-device device)
+        device (-> (common/deep-merge @existing-device device)
+                   (update-in [:privacy] str))
         readings (into [] (map (fn [[k v]] (assoc v :type k)) sensors))]
     (put-edited-device event-chan refresh-chan owner (assoc device :readings readings)
                        property_id device_id)
@@ -214,6 +215,13 @@
      (text-input-control cursor owner [:sensors sensor-type] :resolution "Resolution")
      (checkbox cursor owner [:sensors sensor-type] :actual_annual "Calculated Field")]))
 
+(defn privacy-checkbox [cursor owner table key label]
+  [:div.form-group
+   [:label.control-label.col-md-2 {:for (str key)} label]
+   [:input {:type "checkbox"
+            :defaultChecked (when (= (get cursor key) "true") true)
+            :on-change #(om/set-state! owner [table key] (.-checked (.-target %1)))}]])
+
 (defn edit-device-form [property_id]
   (fn [cursor owner]
     (reify
@@ -253,7 +261,7 @@
               (static-text cursor :description "Unique Description")
               (text-input-control cursor owner [:device] :name "Further Description")
               (location-input cursor owner)
-              (bs/checkbox cursor owner :device :privacy "Private")
+              (privacy-checkbox cursor owner :device :privacy "Private")
               [:h3 "Sensors"]
               (let [sensors (remove #(:synthetic %) (:readings cursor))]
                 (if (seq sensors)

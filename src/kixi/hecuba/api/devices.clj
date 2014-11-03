@@ -139,7 +139,9 @@
 
       (let [device_id    (sha1/gen-key :device body)
             new-body     (create-default-sensors body)]
-        (devices/insert session entity_id (assoc new-body :device_id device_id :user_id user_id))
+        (devices/insert session entity_id (-> new-body
+                                              (assoc :device_id device_id :user_id user_id)
+                                              (dissoc :readings)))
         (doseq [reading (:readings new-body)]
           (sensors/insert session (assoc reading :device_id device_id :user_id user_id)))
         (-> (search/searchable-entity-by-id entity_id session)
@@ -278,7 +280,13 @@
               user_id       (:id (users/get-by-username session username))
               device_id     (-> item :device_id)
               new-body      (create-default-sensors body)]
-          (devices/update session entity_id device_id (assoc new-body :user_id user_id))
+          (let [edited-device-data (-> new-body
+                                       (dissoc :editable :readings))]
+            ;; Don't update device if nothing has been changed
+            (when (seq edited-device-data)
+              (devices/update session entity_id device_id (assoc edited-device-data
+                                                            :user_id user_id
+                                                            :device_id device_id))))
           (doseq [new-sensor (:readings body)]
             (let [old-sensor   (first (filter #(= (:type %) (:type new-sensor)) (:readings item)))
                   updated-keys (keys new-sensor)
