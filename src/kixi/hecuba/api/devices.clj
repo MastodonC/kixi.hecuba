@@ -284,8 +284,9 @@
                                        (dissoc :editable :readings))]
             ;; Don't update device if nothing has been changed
             (when (seq edited-device-data)
-              (devices/update session entity_id device_id (assoc edited-device-data :user_id user_id
-                                                                 :device_id device_id))))
+              (devices/update session entity_id device_id (assoc edited-device-data
+                                                            :user_id user_id
+                                                            :device_id device_id))))
           (doseq [new-sensor (:readings body)]
             (let [old-sensor   (first (filter #(= (:type %) (:type new-sensor)) (:readings item)))
                   updated-keys (keys new-sensor)
