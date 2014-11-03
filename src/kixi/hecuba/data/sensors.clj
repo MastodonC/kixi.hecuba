@@ -33,7 +33,6 @@
 
 (defn user-metadata [sensor synthetic]
   (-> sensor
-      (merge (stringify-values (dissoc sensor :user_metadata :actual_annual :synthetic))) ;; actual_annual is a boolean
       (update-in [:user_metadata] (fn [user_metadata]
                                     (when-not synthetic
                                       (-> user_metadata
@@ -45,7 +44,7 @@
      (encode sensor false))
   ([sensor remove-pk?]
      (-> sensor
-         (cond-> (seq (:user-metadata sensor)) (user-metadata (:synthetic sensor)))
+         (cond-> (:user_metadata sensor) (user-metadata (:synthetic sensor)))
          (cond-> remove-pk? (dissoc :device_id :type)))))
 
 (defn sensor-time-range [sensor session]
