@@ -221,13 +221,14 @@
                                 (om/update! cursor :data [])))
                  :on-key-press (fn [e] (when (= (.-keyCode e) 13)
                                          (om/update! cursor :term (om/get-state owner :value))
-                                         (data/search-properties cursor (om/get-state owner :value))))}]
+                                         ;; Get page 0, 10 items
+                                         (data/search-properties cursor 0 10 (om/get-state owner :value))))}]
         [:span.input-group-btn
          [:button {:type "button"
                    :class "btn btn-primary"
                    :onClick (fn [_]
                               (om/update! cursor :term (om/get-state owner :value))
-                              (data/search-properties cursor (om/get-state owner :value)))}
+                              (data/search-properties cursor 0 10 (om/get-state owner :value)))}
           [:span.glyphicon.glyphicon-search]]]]]))))
 
 (defn found-property-row [cursor owner]
@@ -257,40 +258,40 @@
   (reify
     om/IInitState
     (init-state [_]
-      {:page 0
-       :results-per-page 10})
+      {:results-size 10})
     om/IRenderState
     (render-state [_ state]
-      (let [{:keys [page results-per-page]} (om/get-state owner)]
+      (let [{:keys [results-size]} (om/get-state owner)]
         (html
          [:div.row#results-div
           [:div.col-md-12 {:style {:padding-top "10px"} :id "found-properties-table"}
            [:h1 "Search Results"]
            (if (:fetching cursor)
              [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching data."]]]
-             (let [current-page-results (into [] (->> (:data cursor) (drop (* page results-per-page)) (take results-per-page)))
-                   results-left         (count (drop (* (inc page) results-per-page) (:data cursor)))
-                   more-to-load?        (not (zero? results-left))]
-               (if (-> current-page-results seq)
+             (let [{:keys [data term stats]} cursor
+                   {:keys [total_hits page]} stats
+                   results-left             (- total_hits (* (inc page) results-size))
+                   more-to-load?            (pos? results-left)]
+               (if (-> data seq)
                  [:div
                   [:table.table.table-hover.table-condensed
                    [:thead
                     [:tr [:th "Photo"] [:th "Programme Name"] [:th "Project Name"]
                      [:th "Property ID"][:th "Address"]]]
                    [:tbody
-                    (om/build-all found-property-row current-page-results {:key :entity_id})]]
+                    (om/build-all found-property-row data {:key :entity_id})]]
                   [:nav
                    [:ul.pager
                     [:li {:style {:padding-right "5px"}}
                      [:a {:class (if (= page 0) "previous disabled" "previous hover")
                           :on-click (fn [_]
                                       (when-not (= page 0)
-                                        (om/set-state! owner :page (dec page))))} "Previous"]]
+                                        (data/search-properties cursor (dec page) results-size term)))} "Previous"]]
                     [:li {:style {:padding-right "5px"}}
                      [:a {:class (if-not more-to-load? "next disabled" "next hover")
                           :on-click (fn [_]
                                       (when more-to-load?
-                                        (om/set-state! owner :page (inc page))))} "Next"]]]]]
+                                        (data/search-properties cursor (inc page) results-size term)))} "Next"]]]]]
 
                  [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No results."]]])))]])))))
 
