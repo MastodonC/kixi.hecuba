@@ -20,7 +20,9 @@
    [kixi.hecuba.data.profiles :as profiles]
    [kixi.hecuba.data.users :as users]
    [kixi.hecuba.api.parser :as parser]
-   [kixi.hecuba.api.entities.schema :as es]))
+   [kixi.hecuba.api.entities.schema :as es]
+   [kixi.hecuba.data.misc :as misc]
+   [clojure.edn :as reader]))
 
 (def ^:private entities-index-path (p/index-path-string :entities-index))
 (def ^:private entity-resource-path (p/resource-path-string :entity-resource))
@@ -194,8 +196,19 @@ their containing structures."
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Index
+
+(defn parse-number [n]
+  (when (misc/numbers-as-strings? n)
+    (reader/read-string n)))
+
+(defn parse-params [params]
+  (-> params
+      (cond-> (:size params) (update-in [:size] parse-number))
+      (cond-> (:page params) (update-in [:page] parse-number))))
+
 (defn index-allowed? [store ctx]
   (let [{:keys [request-method session params route-params]} (:request ctx)
+        params (parse-params params)
         project_id (or (:project_id route-params) (-> ctx :entities first :project_id))
         programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))
         {:keys [projects programmes role]} (sec/current-authentication session)]
