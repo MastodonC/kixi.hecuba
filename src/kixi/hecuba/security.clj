@@ -126,7 +126,7 @@
     (if (and (= password confirm_password)
              (every? identity [name email password confirm_password])
              (not-registered? email store))
-      (do (add-user! store name email password #{::user})
+      (do (add-user! store name email password ::user)
           (assoc-in (redirect-after-post "/app")
                     [:session ::friend/identity]
                     {:current email
@@ -136,6 +136,7 @@
                                         :projects {}
                                         :programmes {}
                                         :role ::user
+                                        :roles #{::user}
                                         :username email
                                         :id email}}}))
       (redirect-after-post "/registration-error"))))
