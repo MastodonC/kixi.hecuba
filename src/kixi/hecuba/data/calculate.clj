@@ -112,10 +112,11 @@
             new-type                    (ext-type type)
             calculated                  (diff-seq measurements)
             page-size                   10
-            {:keys [min-date max-date]} (measurements/insert-measurements store {:device_id device_id :type new-type}
-                                                                          page-size calculated)]
-        (db/with-session [session (:hecuba-session store)]
-          (sensors/update-sensor-metadata session sensor min-date max-date))))))
+            calculated-sensor           {:device_id device_id :type new-type}]
+        (when calculated
+          (measurements/insert-measurements store calculated-sensor page-size calculated)
+          (db/with-session [session (:hecuba-session store)]
+            (sensors/update-sensor-metadata session calculated-sensor (:start-date range) (:end-date range))))))))
 
 (defn kWh->co2
   "Converts measurements from kWh to co2."
@@ -130,11 +131,12 @@
                                       convert)
         page-size                10]
     (when calculated
-      (let [{:keys [min-date max-date]} (measurements/insert-measurements store
-                                                                          {:device_id device_id :type new-type}
+      (let [calculated-sensor {:device_id device_id :type new-type}
+            {:keys [min-date max-date]} (measurements/insert-measurements store
+                                                                          calculated-sensor
                                                                           page-size calculated)]
         (db/with-session [session (:hecuba-session store)]
-          (sensors/update-sensor-metadata session sensor min-date max-date))))))
+          (sensors/update-sensor-metadata session calculated-sensor (:start-date range) (:end-date range)))))))
 
 (defn gas-volume->kWh
   "Converts measurements from m^3 and ft^3 to kWh."
@@ -149,11 +151,10 @@
                                       convert)
         page-size                10]
     (when calculated
-      (let [{:keys [min-date max-date]} (measurements/insert-measurements store
-                                                                          {:device_id device_id :type new-type}
-                                                                          page-size calculated)]
+      (let [calculated-sensor {:device_id device_id :type new-type}]
+        (measurements/insert-measurements store calculated-sensor page-size calculated)
         (db/with-session [session (:hecuba-session store)]
-          (sensors/update-sensor-metadata session sensor min-date max-date))))))
+          (sensors/update-sensor-metadata session calculated-sensor (:start-date range) (:end-date range)))))))
 
 ;;;;;;;;;;; Rollups of measurements ;;;;;;;;;
 
@@ -435,11 +436,11 @@
                  sensor                        {:device_id device_id :type new-type}
                  calculated                    (compute-datasets-using-field operation device_id new-type measurements field-value)
                  {:keys [start-date end-date]} range
-                 page-size                     10
-                 {:keys [min-date max-date]}   (measurements/insert-measurements store sensor page-size calculated)]
-
-             (db/with-session [session (:hecuba-session store)]
-               (sensors/update-sensor-metadata session sensor min-date max-date))
+                 page-size                     10]
+             (when calculated
+               (measurements/insert-measurements store sensor page-size calculated)
+               (db/with-session [session (:hecuba-session store)]
+                 (sensors/update-sensor-metadata session sensor (:start-date range) (:end-date range))))
              (log/info "Finished calculation for operands: " operands "and operation: " operation))
            (log/info "There are not enough data to calculate.")))))
   ([store ds sensors range]
@@ -457,10 +458,11 @@
                    sensor                        {:device_id device_id :type new-type}
                    calculated                    (apply compute-datasets operation device_id new-type padded)
                    {:keys [start-date end-date]} range
-                   page-size                     10
-                   {:keys [min-date max-date]}  (measurements/insert-measurements store sensor page-size calculated)]
-               (db/with-session [session (:hecuba-session store)]
-                 (sensors/update-sensor-metadata session sensor min-date max-date))
+                   page-size                     10]
+               (when calculated
+                 (measurements/insert-measurements store sensor page-size calculated)
+                 (db/with-session [session (:hecuba-session store)]
+                   (sensors/update-sensor-metadata session sensor (:start-date range) (:end-date range))))
                (log/info "Finished calculation for operands: " operands "and operation: " operation))
              (log/info "Sensors do not have enough measurements to calculate.")))
          (log/info "Sensors do not meet requirements for calculation.")))))
