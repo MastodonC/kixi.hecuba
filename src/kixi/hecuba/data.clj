@@ -62,19 +62,6 @@
     (apply merge-with deep-merge vals)
     (last vals)))
 
-;; Datasets helper functions
-
-(defn output-unit-for [t]
-  (log/error t)
-  (case (.toUpperCase t)
-    "VOL2KWH" "kWh"
-    "KWH2CO2" "co2"))
-
-(defn output-type-for [t operation]
-  (case (.toUpperCase operation)
-    "VOL2KWH" (str t "_kwh")
-    "KWH2CO2" (str t "_co2")))
-
 (defn numbers-as-strings? [& strings]
   (every? #(re-find #"^-?\d+(?:\.\d+)?$" %) strings))
 

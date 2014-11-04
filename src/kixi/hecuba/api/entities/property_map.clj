@@ -3,7 +3,7 @@
    [clojure.core.match :refer (match)]
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-   [kixi.hecuba.data.api :as api :refer (authorized?)]
+   [kixi.hecuba.api :as api :refer (authorized?)]
    [liberator.core :refer (defresource)]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.data.programmes :as programmes]

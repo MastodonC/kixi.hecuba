@@ -55,7 +55,7 @@
       (fn [m]
         (cond-> m (measurements/metadata-is-number? m)
                 (assoc :value (str (round (* factor (edn/read-string (:value m)))))
-                       :type (data/output-type-for type operation)))))))
+                       :type (sensors/output-type-for type operation)))))))
 
 (defn timestamp-seq-inclusive
   ([start end] (timestamp-seq-inclusive start end 60))
@@ -121,7 +121,7 @@
   "Converts measurements from kWh to co2."
   [store {:keys [sensor range]}]
   (let [{:keys [device_id type]} sensor
-        new-type                 (data/output-type-for type "kwh2co2")
+        new-type                 (sensors/output-type-for type "kwh2co2")
         get-fn-and-measurements  (fn [s] [(conversion-fn s "kwh2co2")
                                           (measurements/measurements-for-range store s range (t/hours 1))])
         convert                  (fn [[f xs]] (when-not (nil? f) (map f xs)))
@@ -143,7 +143,7 @@
         get-fn-and-measurements  (fn [s] [(conversion-fn s "vol2kwh")
                                           (measurements/measurements-for-range store s range (t/hours 1))])
         convert                  (fn [[f xs]] (when-not (nil? f) (map f xs)))
-        new-type                 (data/output-type-for type "vol2kwh")
+        new-type                 (sensors/output-type-for type "vol2kwh")
         calculated               (->> sensor
                                       get-fn-and-measurements
                                       convert)

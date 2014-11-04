@@ -4,7 +4,7 @@
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.data.sensors :as sensors]
             [kixi.hecuba.data :refer [parse-item parse-list]]
-            [kixi.hecuba.data.api :refer (stringify-values)]
+            [kixi.hecuba.api :refer (stringify-values)]
             [cheshire.core :as json]
             [schema.core :as s]))
 (def LatLong

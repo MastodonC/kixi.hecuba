@@ -1,7 +1,7 @@
 (ns kixi.hecuba.api.downloads
   (:require [clojure.tools.logging :as log]
             [liberator.core :refer (defresource)]
-            [kixi.hecuba.data.api :refer (authorized?) :as api]
+            [kixi.hecuba.api :refer (authorized?) :as api]
             [kixipipe.storage.s3 :as s3]
             [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
             [kixi.hecuba.data.projects :as projects]

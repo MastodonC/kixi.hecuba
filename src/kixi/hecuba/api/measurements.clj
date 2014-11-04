@@ -12,7 +12,7 @@
    [kixi.hecuba.time :as time]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
    [kixi.hecuba.storage.db :as db]
-   [kixi.hecuba.data.api :as api :refer (decode-body authorized? content-type-from-context request-method-from-context)]
+   [kixi.hecuba.api :as api :refer (decode-body authorized? content-type-from-context request-method-from-context)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]

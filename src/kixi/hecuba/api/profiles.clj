@@ -17,7 +17,7 @@
    [kixi.hecuba.data.projects :as projects]
    [kixi.hecuba.data.entities :as entities]
    [kixi.hecuba.data.profiles :as profiles]
-   [kixi.hecuba.data.api :as api :refer (decode-body authorized? update-stringified-lists content-type-from-context)]
+   [kixi.hecuba.api :as api :refer (decode-body authorized? update-stringified-lists content-type-from-context)]
    [kixi.hecuba.data.entities.search :as search]
    [kixi.hecuba.api.parser :as parser]
    [kixi.hecuba.api.profiles.schema :as ps]))

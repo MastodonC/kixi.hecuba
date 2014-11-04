@@ -238,7 +238,7 @@
               (let [{:keys [min-date max-date]} (measurements/insert-measurements store
                                                                                   device-and-sensor page-size
                                                                                   validated-measurements)]
-                (log/infof "Updating sensor metadata with lower_ts: %s and upper_ts: " min-date max-date)
+                (log/infof "Updating sensor metadata with lower_ts: %s and upper_ts: %s" min-date max-date)
                 (sensors/update-sensor-metadata session sensor min-date max-date)))
             (assoc-in device-and-sensor [:metadata :inserted] true))
           (do

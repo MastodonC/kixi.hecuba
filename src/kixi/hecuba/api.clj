@@ -1,21 +1,14 @@
-(ns kixi.hecuba.data.api
-  (:require [clojure.java.io :as io]
-            [clojure.edn :as edn]
-            [clojure.tools.logging :as log]
+(ns kixi.hecuba.api
+  (:require [clojure.data.csv :as csv]
+            [clojure.java.io :as io]
             [cheshire.core :refer (decode decode-stream encode)]
             [cheshire.generate :refer (add-encoder)]
-            [hiccup.core :refer (html)]
-            [kixi.hecuba.time :as time]
-            [clojure.string :as string]
-            [clj-time.coerce :as tc]
-            [clj-time.format :as tf]
-            [clj-time.core :as t]
-            [clj-time.periodic :as tp]
-            [clojure.pprint :refer (pprint)]
-            [clojure.walk :refer (postwalk)]
-            [liberator.core :as liberator]
+            [clojure.edn :as edn]
             [cemerick.friend :as friend]
-            [clojure.data.csv :as csv]))
+            [clojure.tools.logging :as log]
+            [hiccup.core :refer (html)]
+            [clojure.string :as string]
+            [clojure.pprint :refer (pprint)]))
 
 (defprotocol Body
   (read-edn-body [body])
@@ -195,5 +188,3 @@
 
 (defn headers-content-disposition [filename]
   {"Content-Disposition" (str "attachment; filename=" filename)})
-
-(defn uuid [] (java.util.UUID/randomUUID))

@@ -6,7 +6,7 @@
             [kixi.hecuba.data.entities        :as entities]
             [kixi.hecuba.data.entities.upload :as upload]
             [kixi.hecuba.storage.db           :as db]
-            [kixi.hecuba.data.api             :refer (uuid)]
+            [kixi.hecuba.storage.uuid         :refer (uuid)]
             [kixipipe.ioplus                  :as ioplus]
             [kixipipe.storage.s3              :as s3]
             [pantomime.mime             :refer [mime-type-of]]))

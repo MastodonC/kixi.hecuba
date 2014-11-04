@@ -14,7 +14,7 @@
    [clj-time.core :as t]
    [clj-time.coerce :as tc]
    [clojure.java.io :as io]
-   [kixi.hecuba.data.api :refer (decode-body)]
+   [kixi.hecuba.api :refer (decode-body)]
    [liberator.representation :refer (ring-response)]))
 
 (derive ::user ::public)

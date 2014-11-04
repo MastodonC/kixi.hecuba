@@ -10,7 +10,7 @@
    [liberator.representation :refer (ring-response)]
    [clojurewerkz.elastisch.native.response :as esr]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-   [kixi.hecuba.data.api :as api :refer (decode-body authorized? content-type-from-context)]
+   [kixi.hecuba.api :as api :refer (decode-body authorized? content-type-from-context)]
    [kixi.hecuba.web-paths :as p]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.data :as data]

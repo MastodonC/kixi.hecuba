@@ -4,7 +4,7 @@
             [liberator.representation :refer (ring-response)]
             [cheshire.core :as json]
             [cemerick.friend :as friend]
-            [kixi.hecuba.data.api :refer (decode-body authorized?) :as api]
+            [kixi.hecuba.api :refer (decode-body authorized?) :as api]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.data.users :as users]
             [kixi.hecuba.security :as sec]))

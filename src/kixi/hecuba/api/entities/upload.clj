@@ -6,12 +6,12 @@
    [kixipipe.pipeline           :as pipe]
    [kixipipe.storage.s3]
    [kixi.hecuba.security        :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-   [kixi.hecuba.data.api        :refer (authorized? content-type-from-context)]
+   [kixi.hecuba.api        :refer (authorized? content-type-from-context)]
    [liberator.core              :refer (defresource)]
    [liberator.representation    :refer (ring-response)]
    [qbits.hayt                  :as hayt]
    [kixi.hecuba.storage.db      :as db]
-   [kixi.hecuba.storage.uuid    :refer (uuid)]
+   [kixi.hecuba.storage.uuid    :refer (uuid-str)]
    [kixi.hecuba.data.programmes :as programmes]
    [kixi.hecuba.data.projects   :as projects]
    [kixi.hecuba.data.entities   :as entities]
@@ -49,7 +49,7 @@
 
 (defn upload->items [files public? feed-name entity_id username]
   (let [timestamp (t/now)
-        uuid      (uuid)]
+        uuid      (uuid-str)]
     (map (fn [{:keys [tempfile content-type filename]}]
            {:dest      :upload
             :type      (keyword feed-name)

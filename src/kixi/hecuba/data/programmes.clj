@@ -3,7 +3,7 @@
             [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.data.projects :as projects]
-            [kixi.hecuba.data.api :as api]))
+            [kixi.hecuba.api :as api]))
 
 (defn encode [programme]
   (-> programme

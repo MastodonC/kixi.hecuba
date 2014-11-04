@@ -5,7 +5,7 @@
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
    [kixi.hecuba.data :as data]
-   [kixi.hecuba.data.api :as api :refer (decode-body authorized? uuid stringify-values)]
+   [kixi.hecuba.api :as api :refer (decode-body authorized? stringify-values)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
@@ -101,18 +101,18 @@
 (defmethod calculated-sensor "KWH" [sensor]
   (-> sensor
       (assoc :unit "co2" :synthetic true)
-      (update-in [:type] #(data/output-type-for % "KWH2CO2"))))
+      (update-in [:type] #(sensors/output-type-for % "KWH2CO2"))))
 
 (defmethod calculated-sensor "M^3" [sensor]
   (let [kwh-sensor (-> sensor
                        (assoc :unit "kWh" :synthetic true)
-                       (update-in [:type] #(data/output-type-for % "VOL2KWH")))]
+                       (update-in [:type] #(sensors/output-type-for % "VOL2KWH")))]
     [kwh-sensor (calculated-sensor kwh-sensor)]))
 
 (defmethod calculated-sensor "FT^3" [sensor]
   (let [kwh-sensor (-> sensor
                        (assoc :unit "kWh" :synthetic true)
-                       (update-in [:type] #(data/output-type-for % "VOL2KWH")))]
+                       (update-in [:type] #(sensors/output-type-for % "VOL2KWH")))]
     [kwh-sensor (calculated-sensor kwh-sensor)]))
 
 (defmethod calculated-sensor :default [sensor])

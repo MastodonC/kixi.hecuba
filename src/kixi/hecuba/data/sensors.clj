@@ -3,7 +3,7 @@
             [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.data :as data]
-            [kixi.hecuba.data.api :refer (stringify-values)]
+            [kixi.hecuba.api :refer (stringify-values)]
             [kixi.hecuba.data.measurements :as measurements]
             [clojure.walk :as walk]
             [schema.core :as s]
@@ -319,3 +319,14 @@
     (db/with-session [session (:hecuba-session store)]
       (db/execute session
                   (hayt/select :sensor_metadata (hayt/where where))))))
+
+(defn output-unit-for [t]
+  (log/error t)
+  (case (.toUpperCase t)
+    "VOL2KWH" "kWh"
+    "KWH2CO2" "co2"))
+
+(defn output-type-for [t operation]
+  (case (.toUpperCase operation)
+    "VOL2KWH" (str t "_kwh")
+    "KWH2CO2" (str t "_co2")))

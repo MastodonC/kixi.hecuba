@@ -5,10 +5,11 @@
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.security :as sec]
    [kixi.hecuba.data :as data]
-   [kixi.hecuba.data.api :as api :refer (decode-body authorized? uuid)]
+   [kixi.hecuba.api :as api :refer (decode-body authorized?)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [kixi.hecuba.storage.sha1 :as sha1]
+   [kixi.hecuba.storage.uuid :as uuid :refer (uuid-str)]
    [kixi.hecuba.api.devices :as d]
    [kixi.hecuba.web-paths :as p]
    [cheshire.core :as json]
@@ -201,7 +202,7 @@
    (db/with-session [session (:hecuba-session store)]
      (let [{:keys [sensors operation operands entity_id name] :as item} (::items ctx)
            unit          (get-unit item)
-           dataset_id    (str (uuid))
+           dataset_id    (uuid-str)
            ;; TODO should be uuid when our history supports uuids.
            device_id     (sha1/gen-key :device (assoc item :description dataset_id))
            device        (synthetic-device entity_id device_id "Synthetic")

@@ -4,7 +4,7 @@
             [cheshire.core :as json]
             [clojure.edn :as edn]
             (cemerick.friend [credentials :as creds])
-            [kixi.hecuba.data.api :as api]))
+            [kixi.hecuba.api :as api]))
 
 (defn encode [user]
   (-> user

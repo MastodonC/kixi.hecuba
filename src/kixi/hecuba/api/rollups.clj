@@ -5,7 +5,7 @@
    [clj-time.coerce :as tc]
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-   [kixi.hecuba.data.api :as api :refer (decode-body authorized? stringify-values)]
+   [kixi.hecuba.api :as api :refer (decode-body authorized? stringify-values)]
    [kixi.hecuba.time :as time]
    [kixi.hecuba.data.measurements :as measurements]
    [liberator.core :refer (defresource)]
