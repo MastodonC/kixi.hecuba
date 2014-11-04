@@ -6,8 +6,7 @@
             [clj-time.core                :as t]
             [clj-time.coerce              :as tc]
             [kixi.hecuba.data.measurements :as measurements]
-            [kixi.hecuba.data.calculate   :as calculate]
-            [kixi.hecuba.data.misc        :as misc]))
+            [kixi.hecuba.data.calculate   :as calculate]))
 
 (defmulti calculate-field (fn [store device_id type period measurements operation] operation))
 
@@ -24,7 +23,8 @@
 
     (db/with-session [session (:hecuba-session store)]
 
-      (let [measurements             (misc/parse-measurements (measurements/measurements-for-range store sensor range (t/hours 1)))
+      (let [measurements             (measurements/parse-measurements
+                                      (measurements/measurements-for-range store sensor range (t/hours 1)))
             filtered                 (filter number? (map :value measurements))
             {:keys [entity_id name]} (first (db/execute session (hayt/select :devices (hayt/where [[= :id device_id]]))))
             value                    (calculate-field store device_id type period filtered operation)

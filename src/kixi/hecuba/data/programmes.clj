@@ -3,13 +3,13 @@
             [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.data.projects :as projects]
-            [kixi.hecuba.webutil :as webutil]))
+            [kixi.hecuba.data.api :as api]))
 
 (defn encode [programme]
   (-> programme
       (assoc :id (:programme_id programme))
       (dissoc :programme_id)
-      webutil/stringify-values))
+      api/stringify-values))
 
 (defn decode [programme]
   (-> programme

@@ -4,9 +4,8 @@
    [clojure.tools.logging :as log]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.security :as sec]
-   [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.data.misc :as misc]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid)]
+   [kixi.hecuba.data :as data]
+   [kixi.hecuba.data.api :as api :refer (decode-body authorized? uuid)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [kixi.hecuba.storage.sha1 :as sha1]
@@ -52,7 +51,7 @@
           sensor (fn [[type device_id]]
                    (sensors/get-by-id {:device_id device_id :type type} session))]
       (->> (mapcat sensor parsed-sensors)
-           (map #(misc/merge-sensor-metadata store %))))))
+           (map #(sensors/merge-sensor-metadata store %))))))
 
 (defn synthetic-device [entity_id device_id description]
   (hash-map :description     description
@@ -207,7 +206,7 @@
            device_id     (sha1/gen-key :device (assoc item :description dataset_id))
            device        (synthetic-device entity_id device_id "Synthetic")
            operation-str (stringify operation)
-           range         (when-let [[start end] (misc/range-for-all-sensors sensors)]
+           range         (when-let [[start end] (sensors/range-for-all-sensors sensors)]
                            {:start-date start :end-date end})
            output-sensors (create-output-sensors device_id unit name operation sensors)]
        ;; Insert synthetic device
@@ -230,7 +229,7 @@
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [items (::items ctx)]
-      (util/render-items (:request ctx) items))))
+      (api/render-items (:request ctx) items))))
 
 (defn index-handle-created [ctx]
   (let [entity_id   (::entity_id ctx)
@@ -296,7 +295,7 @@
             entity            (search/get-by-id (:entity_id old-dataset) (:search-session store))
             [_ item]          (exists? entity new-dataset store)
             sensors           (-> item ::items :sensors)
-            range             (when-let [[start end] (misc/range-for-all-sensors sensors)]
+            range             (when-let [[start end] (sensors/range-for-all-sensors sensors)]
                                 {:start-date start :end-date end})
             unit              (get-unit (assoc new-dataset :sensors sensors))
             synthetic-sensors (create-output-sensors device_id unit name operation sensors)]
@@ -338,7 +337,7 @@
 
 (defn resource-handle-ok [ctx]
   (let [item (::item ctx)]
-    (util/render-item ctx item)))
+    (api/render-item ctx item)))
 
 (defresource resource [store]
   :allowed-methods       #{:get :put :delete}

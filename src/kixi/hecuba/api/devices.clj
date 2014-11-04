@@ -4,9 +4,8 @@
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-   [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.data.misc :as m]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex)]
+   [kixi.hecuba.data :as data]
+   [kixi.hecuba.data.api :as api :refer (decode-body authorized? uuid stringify-values)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
@@ -102,18 +101,18 @@
 (defmethod calculated-sensor "KWH" [sensor]
   (-> sensor
       (assoc :unit "co2" :synthetic true)
-      (update-in [:type] #(m/output-type-for % "KWH2CO2"))))
+      (update-in [:type] #(data/output-type-for % "KWH2CO2"))))
 
 (defmethod calculated-sensor "M^3" [sensor]
   (let [kwh-sensor (-> sensor
                        (assoc :unit "kWh" :synthetic true)
-                       (update-in [:type] #(m/output-type-for % "VOL2KWH")))]
+                       (update-in [:type] #(data/output-type-for % "VOL2KWH")))]
     [kwh-sensor (calculated-sensor kwh-sensor)]))
 
 (defmethod calculated-sensor "FT^3" [sensor]
   (let [kwh-sensor (-> sensor
                        (assoc :unit "kWh" :synthetic true)
-                       (update-in [:type] #(m/output-type-for % "VOL2KWH")))]
+                       (update-in [:type] #(data/output-type-for % "VOL2KWH")))]
     [kwh-sensor (calculated-sensor kwh-sensor)]))
 
 (defmethod calculated-sensor :default [sensor])
@@ -149,7 +148,7 @@
         {:device_id device_id :entity_id entity_id}))))
 
 (defn index-handle-ok [ctx]
-  (util/render-items ctx (::items ctx)))
+  (api/render-items ctx (::items ctx)))
 
 (defn index-handle-created [ctx]
   (let [entity_id (-> ctx :entity_id)
@@ -233,7 +232,7 @@
    recreates synthetic sensors. "
   [session device_id user_id old-sensor new-sensor range]
   (let [old-synthetic-sensors (create-default-sensors {:readings [old-sensor]})
-        new-synthetic-sensors (create-default-sensors {:readings [(dissoc (m/deep-merge old-sensor new-sensor)
+        new-synthetic-sensors (create-default-sensors {:readings [(dissoc (data/deep-merge old-sensor new-sensor)
                                                                           :lower_ts :upper_ts :median :status)]})]
     (delete-old-synthetic-sensors session device_id user_id (:readings old-synthetic-sensors))
     (insert-new-synthetic-sensors session device_id user_id (:readings new-synthetic-sensors))
@@ -242,7 +241,7 @@
 (defn update-existing-sensors
   "Updates original and synthetic sensors (used when unit or period remain the same."
   [session device_id user_id old-sensor new-sensor]
-  (let [new-synthetic-sensors (create-default-sensors {:readings [(dissoc (m/deep-merge old-sensor new-sensor)
+  (let [new-synthetic-sensors (create-default-sensors {:readings [(dissoc (data/deep-merge old-sensor new-sensor)
                                                                           :lower_ts :upper_ts :median :status)]})]
     (doseq [s (:readings new-synthetic-sensors)]
       (log/infof "Updating sensor: %s : %s" device_id (:type s))
@@ -290,7 +289,7 @@
           (doseq [new-sensor (:readings body)]
             (let [old-sensor   (first (filter #(= (:type %) (:type new-sensor)) (:readings item)))
                   updated-keys (keys new-sensor)
-                  {:keys [lower_ts upper_ts]} (m/all-sensor-information store device_id (:type new-sensor))]
+                  {:keys [lower_ts upper_ts]} (sensors/all-sensor-information store device_id (:type new-sensor))]
               (if old-sensor
                 ;; sensor already exists - need to update/recreate synthetic sensors
                 (recreate-sensor session device_id user_id old-sensor new-sensor {:start-date lower_ts :end-date upper_ts})
@@ -302,7 +301,7 @@
 
 (defn resource-handle-ok [ctx]
   (let [req (:request ctx)]
-    (util/render-item ctx (::item ctx))))
+    (api/render-item ctx (::item ctx))))
 
 (defn resource-respond-with-entity [ctx]
   (let [request (:request ctx)

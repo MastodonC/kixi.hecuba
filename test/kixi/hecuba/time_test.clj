@@ -2,7 +2,7 @@
   (:require [kixi.hecuba.time :refer :all]
             [clojure.test :refer :all]
             [clj-time.core :as t]
-            ))
+            [generators :as g]))
 
 ;; January in java.util.Calendar is 0
 (defn- date
@@ -74,3 +74,21 @@
            (start-end-dates :kwh sensor)))
     (is (nil? (start-end-dates :difference_series sensor)))
     (is (nil? (start-end-dates :rollups sensor)))))
+
+(deftest min-max-dates-test
+  (let [sensors (g/generate-sensor-sample "INSTANT" 3)]
+    (testing "A sequence of 500 measurements."
+      (doseq [s sensors]
+        (let [measurements (g/measurements s)
+              min-date     (t/date-time 2014 01 01)
+              max-date     (t/plus min-date (t/minutes 499))]
+          (is (= {:min-date min-date :max-date max-date} (min-max-dates measurements))))))
+
+    (testing "Sequence of 1 measurement."
+      (doseq [s sensors]
+        (let [measurements (g/measurements s)
+              min-date     (t/date-time 2014 01 01)]
+          (is (= {:min-date min-date :max-date min-date} (min-max-dates (take 1 measurements)))))))
+
+    (testing "No measurements passed."
+      (is (thrown? AssertionError (min-max-dates nil))))))

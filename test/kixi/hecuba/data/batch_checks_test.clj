@@ -2,7 +2,6 @@
   (:use clojure.test)
   (:require [kixi.hecuba.data.batch-checks :as bc]
             [generators :as g]
-            [kixi.hecuba.data.misc :as misc]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]))
 

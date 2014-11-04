@@ -3,8 +3,7 @@
    [clojure.core.match :refer (match)]
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-   [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (authorized?)]
+   [kixi.hecuba.data.api :as api :refer (authorized?)]
    [liberator.core :refer (defresource)]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.data.programmes :as programmes]
@@ -48,7 +47,7 @@
   (let [file-bucket (-> store :s3 :file-bucket)]
     (db/with-session [session (:hecuba-session store)]
       (let [entities (->> (entities/get-entities-having-location session)
-                          (map #(util/enrich-media-uris % file-bucket :photos)))]
+                          (map #(api/enrich-media-uris % file-bucket :photos)))]
         {:entities entities}))))
 
 (defresource index [store]

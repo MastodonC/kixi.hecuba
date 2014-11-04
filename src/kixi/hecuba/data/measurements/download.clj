@@ -7,7 +7,8 @@
             [kixi.hecuba.data.measurements :as measurements]
             [kixi.hecuba.data.measurements.core :refer (headers-in-order extract-columns-in-order)]
             [kixi.hecuba.storage.db        :as db]
-            [kixi.hecuba.webutil           :refer (uuid) :as util]
+            [kixi.hecuba.time              :as time]
+            [kixi.hecuba.data.api          :refer (uuid) :as api]
             [kixipipe.ioplus               :as ioplus]
             [kixipipe.storage.s3           :as s3]
             [qbits.hayt                    :as hayt]
@@ -96,7 +97,7 @@
     (loop [ms measurements]
       (let [row (next-row ms)]
         (when row
-          (let [row-timestamps (mapv #(util/db-to-iso (:timestamp %)) row)
+          (let [row-timestamps (mapv #(time/db-to-iso (:timestamp %)) row)
                 row-timestamp  (first (sort (remove nil? row-timestamps)))
                 data-indexes   (indexes-of row-timestamp row-timestamps)
                 has-data?      #(contains? data-indexes %)

@@ -11,8 +11,7 @@
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.storage.uuid :refer (uuid)]
             [kixi.hecuba.web-paths :as p]
-            [kixi.hecuba.webutil :as util]
-            [kixi.hecuba.webutil :refer (request-method-from-context decode-body authorized?)]
+            [kixi.hecuba.data.api :as api :refer (request-method-from-context decode-body authorized?)]
             [kixipipe.pipeline :as pipe]
             [kixipipe.storage.s3 :as s3]
             [liberator.core :refer (defresource)]
@@ -108,7 +107,7 @@
 
 (defn index-handle-ok [ctx]
     (let [items (::items ctx)]
-    (util/render-items ctx items)))
+    (api/render-items ctx items)))
 
 (defn index-handle-created [ctx]
   (let [location (:location_id ctx)]
@@ -217,7 +216,7 @@
       (if data?
         (queue-data-generation store pipe username item)
         (ring-response {:headers {"Content-Disposition" (str "attachment; filename=" entity_id "_template.csv")}
-                        :body (util/render-items ctx (measurements-download/get-header store entity_id))})))))
+                        :body (api/render-items ctx (measurements-download/get-header store entity_id))})))))
 
 
 (defresource index [store]

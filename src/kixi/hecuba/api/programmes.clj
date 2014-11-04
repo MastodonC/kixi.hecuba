@@ -5,7 +5,7 @@
    [liberator.representation :refer (ring-response)]
    [cheshire.core :as json]
    [cemerick.friend :as friend]
-   [kixi.hecuba.webutil :refer (decode-body authorized? allowed?) :as util]
+   [kixi.hecuba.data.api :refer (decode-body authorized? allowed?) :as api]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.storage.uuid :refer (uuid)]
    [kixi.hecuba.web-paths :as p]
@@ -147,7 +147,7 @@
   (::item ctx))
 
 (defn resource-handle-ok [ctx]
-  (util/render-item ctx
+  (api/render-item ctx
                     (as-> (::item ctx) item
                           (assoc item :projects (format programme-projects-index (:programme_id item))))))
 

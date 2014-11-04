@@ -7,7 +7,6 @@
             [clj-time.coerce :as tc]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.data :refer [parse-item parse-list] :as data]
-            [kixi.hecuba.webutil :as webutil]
             [kixi.hecuba.schema-utils :as su]
             [cheshire.core :as json]))
 

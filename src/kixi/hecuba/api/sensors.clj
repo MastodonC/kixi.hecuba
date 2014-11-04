@@ -3,8 +3,7 @@
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-   [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex)]
+   [kixi.hecuba.data.api :as api :refer (decode-body authorized? stringify-values)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
@@ -59,7 +58,7 @@
                             (map #(assoc % :location (json/decode location))
                                  (db/execute session (hayt/select :sensors (hayt/where [[= :device_id id]])))))
                           devices)]
-      (util/render-items request sensors))))
+      (api/render-items request sensors))))
 
 (defresource metadata [store]
   :allowed-methods #{:get}

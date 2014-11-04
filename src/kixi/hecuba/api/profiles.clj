@@ -3,21 +3,21 @@
    [clojure.core.match :refer (match)]
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
-   [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-   [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? stringify-values update-stringified-lists sha1-regex content-type-from-context)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
+   [clojure.java.io           :as io]
+   [clojure.data.csv          :as csv]
+   [kixi.hecuba.web-paths :as p]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.storage.uuid :as uuid]
-   [kixi.hecuba.web-paths :as p]
+   [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
+   [kixi.hecuba.data :as data]
    [kixi.hecuba.data.users :as users]
    [kixi.hecuba.data.projects :as projects]
    [kixi.hecuba.data.entities :as entities]
    [kixi.hecuba.data.profiles :as profiles]
-   [clojure.java.io           :as io]
-   [clojure.data.csv          :as csv]
+   [kixi.hecuba.data.api :as api :refer (decode-body authorized? update-stringified-lists content-type-from-context)]
    [kixi.hecuba.data.entities.search :as search]
    [kixi.hecuba.api.parser :as parser]
    [kixi.hecuba.api.profiles.schema :as ps]))
@@ -127,20 +127,20 @@
   (let [{items ::items
          entity_id ::entity_id} ctx
          exploded-items         (map #(parser/explode-and-sort-by-schema % ps/profile-schema) items)]
-    (ring-response {:headers (util/headers-content-disposition
+    (ring-response {:headers (api/headers-content-disposition
                               (str entity_id "_all_profiles.csv"))
-                    :body    (util/render-items
+                    :body    (api/render-items
                               ctx
-                              (apply util/map-longest
+                              (apply data/map-longest
                                      add-profile-keys ["" ""] exploded-items))})))
 
 (defmulti index-handle-ok content-type-from-context)
 
 (defmethod index-handle-ok :default [ctx]
-  (if-let [ctx (util/maybe-representation-override-in-url ctx)]
+  (if-let [ctx (api/maybe-representation-override-in-url ctx)]
     (index-handle-ok-text-csv* ctx)
     (let [{items ::items} ctx]
-      (util/render-items ctx (->> items
+      (api/render-items ctx (->> items
                                   (map #(update-in % [:timestamp] str))
                                   (map #(dissoc % :user_id)))))))
 
@@ -238,18 +238,18 @@
 (defn resource-handle-ok-text-csv* [store ctx]
   (let [{:keys [::item ::profile_id]} ctx
         exploded-item (parser/explode-and-sort-by-schema item ps/profile-schema)]
-    (ring-response {:headers (util/headers-content-disposition
+    (ring-response {:headers (api/headers-content-disposition
                               (str profile_id "_profile_data.csv"))
-                    :body (util/render-item
+                    :body (api/render-item
                            ctx
                            exploded-item)})))
 
 (defmulti resource-handle-ok content-type-from-context)
 
 (defmethod resource-handle-ok :default resource-handle-ok-default [store ctx]
-  (if-let [ctx (util/maybe-representation-override-in-url ctx)]
+  (if-let [ctx (api/maybe-representation-override-in-url ctx)]
     (resource-handle-ok-text-csv* store ctx)
-    (util/render-item ctx (-> (::item ctx)
+    (api/render-item ctx (-> (::item ctx)
                               (update-in [:timestamp] str)
                               (dissoc :user_id)))))
 

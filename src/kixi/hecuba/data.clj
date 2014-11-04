@@ -1,6 +1,10 @@
 (ns kixi.hecuba.data
   (:require [cheshire.core :as json]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [clj-time.core :as t]
+            [clj-time.format :as tf]
+            [clj-time.coerce :as tc]
+            [clojure.edn :as edn]))
 
 ;; Some utility funcitons
 
@@ -42,3 +46,39 @@
 (defn assoc-encode-list-update-if [m k v]
   (if (seq v)
     (assoc m k [+ (json/encode v)])))
+
+(defn map-longest
+  [f default & colls]
+  (lazy-seq
+    (when (some seq colls)
+      (cons
+        (apply f (map #(if (seq %) (first %) default) colls))
+        (apply map-longest f default (map rest colls))))))
+
+(defn deep-merge
+  "Recursively merges maps. If keys are not maps, the last value wins."
+  [& vals]
+  (if (every? map? vals)
+    (apply merge-with deep-merge vals)
+    (last vals)))
+
+;; Datasets helper functions
+
+(defn output-unit-for [t]
+  (log/error t)
+  (case (.toUpperCase t)
+    "VOL2KWH" "kWh"
+    "KWH2CO2" "co2"))
+
+(defn output-type-for [t operation]
+  (case (.toUpperCase operation)
+    "VOL2KWH" (str t "_kwh")
+    "KWH2CO2" (str t "_co2")))
+
+(defn numbers-as-strings? [& strings]
+  (every? #(re-find #"^-?\d+(?:\.\d+)?$" %) strings))
+
+(defn where-from
+  "Takes measurement or sensor and returns where clause"
+  [m]
+  [[= :device_id (:device_id m)] [= :type (:type m)]])

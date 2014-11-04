@@ -2,14 +2,14 @@
   (:require [clojure.tools.logging :as log]
             [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
-            [kixi.hecuba.webutil :as webutil]
-            [kixi.hecuba.data.entities :as entities]))
+            [kixi.hecuba.data.entities :as entities]
+            [kixi.hecuba.data.api :as api]))
 
 (defn encode [project]
   (-> project
       (assoc :id (:project_id project))
       (dissoc :project_id)
-      webutil/stringify-values))
+      api/stringify-values))
 
 (defn decode [project]
   (-> project

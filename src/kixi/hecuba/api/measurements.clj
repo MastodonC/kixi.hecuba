@@ -7,12 +7,12 @@
    [kixi.hecuba.data.measurements :as measurements]
    [kixi.hecuba.data.measurements.core :as mc]
    [kixi.hecuba.data.measurements.upload :as upload]
-   [kixi.hecuba.data.misc :as misc]
    [kixi.hecuba.data.validate :as v]
+   [kixi.hecuba.data.sensors :as sensors]
+   [kixi.hecuba.time :as time]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
    [kixi.hecuba.storage.db :as db]
-   [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex time-range content-type-from-context request-method-from-context)]
+   [kixi.hecuba.data.api :as api :refer (decode-body authorized? content-type-from-context request-method-from-context)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
@@ -37,8 +37,8 @@
 (defn- parse-measurements [measurements]
   (map (fn [m]
          (-> m
-             util/parse-value
-             (update-in [:timestamp] util/db-to-iso)
+             measurements/parse-value
+             (update-in [:timestamp] time/db-to-iso)
              (dissoc :month :metadata :device_id))) measurements))
 
 (defmulti format-measurements (fn [ctx measurements] (-> ctx :representation :media-type)))
@@ -50,7 +50,7 @@
 (defmethod format-measurements "text/csv" [ctx measurements]
   (->> measurements
        parse-measurements
-       (util/render-items (:request ctx))))
+       (api/render-items (:request ctx))))
 
 (defn- sensor-exists? [session device_id type]
   (let [where [[= :device_id device_id]
@@ -63,13 +63,13 @@
                                            (hayt/where where)))))))
 
 (defn prepare-measurement [m sensor]
-  (let [t  (util/db-timestamp (:timestamp m))]
+  (let [t  (time/db-timestamp (:timestamp m))]
     {:device_id        (:device_id sensor)
      :type             (:type sensor)
      :timestamp        t
      :value            (str (:value m))
      :error            (str (:error m))
-     :month            (util/get-month-partition-key t)
+     :month            (time/get-month-partition-key t)
      :reading_metadata {}}))
 
 (def csv-mime-type #{"text/comma-separated-values"
@@ -138,8 +138,8 @@
  (let [params (-> ctx :request :params)
        {:keys [startDate endDate device_id type]} params]
    (if (and startDate endDate)
-     [false {:items {:start-date (util/to-db-format startDate)
-                      :end-date (util/to-db-format endDate)
+     [false {:items {:start-date (time/to-db-format startDate)
+                      :end-date (time/to-db-format endDate)
                       :device_id device_id
                       :type type}}]
      true)))
@@ -222,8 +222,9 @@
                                                (prepare-measurement sensor)
                                                (v/validate sensor))
                                           measurements)
-              {:keys [min-date max-date]} (misc/min-max-dates validated-measurements)]
-          (misc/insert-measurements store sensor page-size validated-measurements)
+              {:keys [min-date max-date]} (time/min-max-dates validated-measurements)]
+          (measurements/insert-measurements store sensor page-size validated-measurements)
+          (sensors/update-sensor-metadata session sensor min-date max-date)
           {:response {:status 202 :body "Accepted"}})
         {:response {:status 400 :body "Provide valid device_id and type."}}))))
 
@@ -239,13 +240,13 @@
   (let [{:keys [request]} ctx
         {:keys [route-params]} request
         {:keys [device_id type timestamp]} route-params
-        t (util/to-db-format timestamp)
+        t (time/to-db-format timestamp)
         measurement (format-measurements ctx (db/with-session [session (:hecuba-session store)]
                                                (db/execute session
                                                            (hayt/select :partitioned_measurements
                                                                         (hayt/where [[= :device_id device_id]
                                                                                      [= :type type]
-                                                                                     [= :month (misc/get-month-partition-key t)]
+                                                                                     [= :month (time/get-month-partition-key t)]
                                                                                      [= :timestamp t]])))))]
     (-> measurement
         (dissoc :reading_metadata))))
