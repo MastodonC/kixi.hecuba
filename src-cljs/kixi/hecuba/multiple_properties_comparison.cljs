@@ -50,7 +50,7 @@
         readings      (:readings device)]
     (->> readings
          (map #(assoc % :parent-device parent-device
-                      :id (str (:entity_id parent-device) "-" (:device_id %) "-"(:type %))))
+                      :id (str (:entity_id parent-device) "~" (:device_id %) "~"(:type %))))
          (filter #(every? seq [(:upper_ts %) (:lower_ts %)])))))
 
 (defn extract-sensors [devices]
@@ -156,7 +156,7 @@
   (om/update! data [:chart :measurements] [])
   (doseq [sensor sensors]
     (log "Fetching measurements for sensor: " sensor)
-    (let [[entity_id device_id type] (str/split sensor #"-")
+    (let [[entity_id device_id type] (str/split sensor #"~")
           end (if (= start-date end-date) (pad-end-date end-date) (date->amon-timestamp end-date))
           start-date (date->amon-timestamp start-date)
           measurements-type (interval start-date end)
@@ -249,7 +249,7 @@
                     property-data]} sensor
             history   (om/get-shared owner :history)
             entity_id (:entity_id parent-device)
-            id        (str entity_id "-" device_id "-" type)]
+            id        (str entity_id "~" device_id "~" type)]
         (html
          [:tr {:class (when selected "success")
                :onClick (fn [_]
@@ -268,7 +268,7 @@
 
 (defn update-sensor [history sensors sensor-row selected id unit lower_ts upper_ts chart-range-chan]
   (let [selected-sensors ((if selected conj disj) (-> @sensors :selected) id)
-        [entity_id type device_id] (str/split id #"-")]
+        [entity_id type device_id] (str/split id #"~")]
     ;; update history
     (history/update-token-ids! history
                                :sensors (if (seq selected-sensors)
@@ -494,7 +494,7 @@
       (let [{:keys [measurements]}     cursor
             mouseover                  (:mouseover state)
             {:keys [value timestamp]}  (:value state)
-            [entity_id device_id type] (-> measurements first (aget "sensor") (str/split #"-"))
+            [entity_id device_id type] (-> measurements first (aget "sensor") (str/split #"~"))
             description                (-> measurements first (aget "description"))]
         (html
          [:div {:style {:font-size "80%"}}

@@ -16,7 +16,7 @@
         parent-device (select-keys device device-keys)
         readings      (:readings device)]
     (map #(assoc % :parent-device parent-device
-                 :id (str (:type %) "-" (:device_id %))) readings)))
+                 :id (str (:type %) "~" (:device_id %))) readings)))
 
 (defn extract-sensors [devices]
   (vec (mapcat flatten-device devices)))
@@ -236,7 +236,7 @@
   (om/update! properties [:chart :fetching] true)
   (om/update! properties [:chart :measurements] [])
   (doseq [sensor sensors]
-    (let [[type device_id] (str/split sensor #"-")
+    (let [[type device_id] (str/split sensor #"~")
           end (if (= start-date end-date) (pad-end-date end-date) (date->amon-timestamp end-date))
           start-date (date->amon-timestamp start-date)
           measurements-type (interval start-date end)

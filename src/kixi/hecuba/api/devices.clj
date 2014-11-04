@@ -10,7 +10,7 @@
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
    [kixi.hecuba.storage.db :as db]
-   [kixi.hecuba.storage.sha1 :as sha1]
+   [kixi.hecuba.storage.uuid :refer (uuid-str)]
    [kixi.hecuba.web-paths :as p]
    [kixi.hecuba.data.users :as users]
    [kixi.hecuba.data.projects :as projects]
@@ -90,6 +90,7 @@
                 true
                 [false {:body body}]))
       false)))
+
 (defn- ext-type [sensor type-ext]
   (-> sensor
       (update-in [:type] #(str % "_" type-ext))
@@ -136,7 +137,7 @@
           username               (sec/session-username (-> ctx :request :session))
           user_id                (:id (users/get-by-username session username))]
 
-      (let [device_id    (sha1/gen-key :device body)
+      (let [device_id    (uuid-str)
             new-body     (create-default-sensors body)]
         (devices/insert session entity_id (-> new-body
                                               (assoc :device_id device_id :user_id user_id)
@@ -196,11 +197,12 @@
   "Updates sensor's metadata: resets dirty dates for calculations to lower_ts and upper_ts."
   [type device_id range]
   (let [{:keys [start-date end-date]} range]
-    (-> {:type      type
-         :device_id device_id}
-        (merge (mapcat #(hash-map % {"start" start-date "end" end-date})
-                       [:difference_series :co2 :kwh]))
-        (merge {:upper_ts end-date :lower_ts start-date}))))
+    (when (and start-date end-date)
+      (-> {:type      type
+           :device_id device_id}
+          (merge (mapcat #(hash-map % {"start" start-date "end" end-date})
+                         [:difference_series :co2 :kwh]))
+          (merge {:upper_ts end-date :lower_ts start-date})))))
 
 (defn delete-old-synthetic-sensors
   "Takes a sequence of sensors and deletes old synthetic sensors."
@@ -224,8 +226,9 @@
    so that calculations for new synthetic sensors can calculate over all data."
   [session device_id user_id new-sensor range]
   (let [refreshed-metadata (sensor-metadata (:type new-sensor) device_id range)]
-    (log/infof "Updating original sensor: %s" new-sensor)
-    (sensors/update session device_id (assoc new-sensor :device_id device_id :user_id user_id) refreshed-metadata)))
+    (when refreshed-metadata
+      (log/infof "Updating original sensor: %s" new-sensor)
+      (sensors/update session device_id (assoc new-sensor :device_id device_id :user_id user_id) refreshed-metadata))))
 
 (defn tidy-up-sensors
   "Takes session, old sensor data, new sensor data. Updates original sensor and

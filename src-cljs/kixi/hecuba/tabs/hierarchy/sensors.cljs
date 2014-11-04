@@ -49,8 +49,9 @@
          (let [{:keys [device_id type unit period resolution status synthetic
                        parent-device lower_ts upper_ts actual_annual selected]} sensor
                        {:keys [description privacy location]} parent-device
-                       id (str type "-" device_id)
-                       selected? (contains? (:selected sensors) id)]
+                       id (str type "~" device_id)
+                       selected? (contains? (:selected sensors) id)
+                       _ (log "selected in cursor: " (:selected sensors))]
            [:tr {:onClick (fn [e] (put! selected-chan {:id id
                                                        :unit unit
                                                        :upper_ts upper_ts
@@ -73,7 +74,7 @@
         parent-device (select-keys device device-keys)
         readings      (:readings device)]
     (map #(assoc % :parent-device parent-device
-                 :id (str (:type %) "-" (:device_id %))) readings)))
+                 :id (str (:type %) "~" (:device_id %))) readings)))
 
 (defn extract-sensors [devices]
   (vec (mapcat flatten-device devices)))
@@ -91,7 +92,7 @@
 (defn update-sensor [click chart sensors property-details history selected?]
   (let [{:keys [id unit lower_ts upper_ts]} click
         new-selected-sensors ((if selected? disj conj) (:selected @sensors) id)
-        [type device_id] (string/split id #"-")]
+        [type device_id] (string/split id #"~")]
     ;; update history
     (history/update-token-ids! history :sensors (if (seq new-selected-sensors)
                                                   (string/join ";" new-selected-sensors)
@@ -207,7 +208,7 @@
       (let [{:keys [measurements]}     cursor
             mouseover                 (:mouseover state)
             {:keys [value timestamp]} (:value state)
-            [type device_id]          (-> measurements first (aget "sensor") (string/split #"-"))
+            [type device_id]          (-> measurements first (aget "sensor") (string/split #"~"))
             description               (-> measurements first (aget "description"))]
         (html
          [:div {:style {:font-size "80%"}}

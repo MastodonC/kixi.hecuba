@@ -99,7 +99,7 @@
   (let [{:keys [operands operation]} dataset]
     (cond
      (some #{operation} #{"sum" "divide" "subtract"}) (merge dataset (apply merge (map-indexed (fn [idx itm] {(keyword (str "series" (+ idx 1))) itm}) operands)))
-     :else (let [[field unit] (string/split (last operands) #"-")]
+     :else (let [[field unit] (string/split (last operands) #"~")]
              (assoc dataset :series1 (first operands) :field field)))))
 
 (defn error-handler [event-chan]
@@ -248,7 +248,7 @@
         (let [{:keys [dropdown-chan]} (om/get-state owner)
               {:keys [path value]}    (<! dropdown-chan)]
           (om/update! selected-dataset path (if (= path [:field])
-                                              (str value "-" (-> (filter #(= (:value %) value) available-fields)
+                                              (str value "~" (-> (filter #(= (:value %) value) available-fields)
                                                                  first
                                                                  :unit))
                                               value)))
@@ -317,7 +317,7 @@
         (let [{:keys [dropdown-chan]} (om/get-state owner)
               {:keys [path value] :as v}    (<! dropdown-chan)]
           (om/update! new-dataset path (if (= path [:field])
-                                         (str value "-" (-> (filter #(= (:value %) value) available-fields)
+                                         (str value "~" (-> (filter #(= (:value %) value) available-fields)
                                                             first
                                                             :unit))
                                          value)))
@@ -371,7 +371,7 @@
 (defn operands-column [operands]
   [:div
    (for [operand operands]
-     (let [[type device_id] (string/split operand #"-")]
+     (let [[type device_id] (string/split operand #"~")]
        [:div.row {:style {:min-height "100%" :word-wrap "break-word"}}
         [:div.col-md-5 type]
         [:div.col-md-7 device_id]]))])

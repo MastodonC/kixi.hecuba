@@ -227,11 +227,11 @@
       (calculate/calculate-dataset store ds sensors range))
     (defmethod synthetic-readings :multiply-series-by-field [store {:keys [ds sensors range]}]
       (let [{:keys [operands]} ds
-            [field unit] (string/split (last operands) #"-")]
+            [field unit] (string/split (last operands) #"~")]
         (calculate/calculate-dataset store ds sensors range (edn/read-string field))))
     (defmethod synthetic-readings :divide-series-by-field [store {:keys [ds sensors range]}]
       (let [{:keys [operands]} ds
-            [field unit] (string/split (last operands) #"-")]
+            [field unit] (string/split (last operands) #"~")]
         (calculate/calculate-dataset store ds sensors range (edn/read-string field))))
 
     (defmulti sensors-for-dataset (fn [ds store] (keyword (:operation ds))))

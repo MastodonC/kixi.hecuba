@@ -258,12 +258,12 @@
                  "Delete Device"]]]
               [:h3 "Device"]
               (static-text cursor :device_id "Device ID")
-              (static-text cursor :description "Unique Description")
+              (text-input-control cursor owner [:device] :description "Unique Description")
               (text-input-control cursor owner [:device] :name "Further Description")
               (location-input cursor owner)
               (privacy-checkbox cursor owner :device :privacy "Private")
               [:h3 "Sensors"]
-              (let [sensors (remove #(:synthetic %) (:readings cursor))]
+              (let [sensors (into [] (remove #(:synthetic %) (:readings cursor)))]
                 (if (seq sensors)
                   [:ul.list-group
                    (for [sensor  sensors]
