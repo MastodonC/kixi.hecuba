@@ -8,7 +8,6 @@
    [kixi.hecuba.api :as api :refer (decode-body authorized?)]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
-   [kixi.hecuba.storage.sha1 :as sha1]
    [kixi.hecuba.storage.uuid :as uuid :refer (uuid-str)]
    [kixi.hecuba.api.devices :as d]
    [kixi.hecuba.web-paths :as p]
@@ -48,10 +47,10 @@
   "Returns all the sensors for the given dataset."
   [{:keys [operands]} store]
   (db/with-session [session (:hecuba-session store)]
-    (let [parsed-sensors (map (fn [s] (into [] (next (re-matches #"(\w+)-(\w+)" s)))) operands)
+    (let [parsed-sensors (map (fn [s] (into [] (next (re-matches #"(\w+)~(\w+)" s)))) operands)
           sensor (fn [[type device_id]]
                    (sensors/get-by-id {:device_id device_id :type type} session))]
-      (->> (mapcat sensor parsed-sensors)
+      (->> (map sensor parsed-sensors)
            (map #(sensors/merge-sensor-metadata store %))))))
 
 (defn synthetic-device [entity_id device_id description]
@@ -191,11 +190,11 @@
     (str (:unit (first sensors)) "/" (:unit (last sensors)))))
 (defmethod get-unit :multiply-series-by-field [item]
   (let [{:keys [sensors operands]} item
-        [field unit] (string/split (last operands) #"-")]
+        [field unit] (string/split (last operands) #"~")]
     (str (:unit (first sensors)) "/" unit)))
 (defmethod get-unit :divide-series-by-field [item]
   (let [{:keys [sensors operands]} item
-        [field unit] (string/split (last operands) #"-")]
+        [field unit] (string/split (last operands) #"~")]
     (str (:unit (first sensors)) "/" unit)))
 
 (defn index-post! [store ctx]
@@ -203,8 +202,7 @@
      (let [{:keys [sensors operation operands entity_id name] :as item} (::items ctx)
            unit          (get-unit item)
            dataset_id    (uuid-str)
-           ;; TODO should be uuid when our history supports uuids.
-           device_id     (sha1/gen-key :device (assoc item :description dataset_id))
+           device_id     (uuid-str)
            device        (synthetic-device entity_id device_id "Synthetic")
            operation-str (stringify operation)
            range         (when-let [[start end] (sensors/range-for-all-sensors sensors)]
