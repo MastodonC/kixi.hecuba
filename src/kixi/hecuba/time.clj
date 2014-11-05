@@ -64,6 +64,13 @@
   (let [time-str (tf/unparse (tf/formatter "yyyy-MM-dd'T'HH") t)]
     (tf/parse (tf/formatter "yyyy-MM-dd'T'HH") time-str)))
 
+(def formatter (tf/formatter (t/default-time-zone) "yyyy-MM-dd'T'HH:mm:ssZ" "yyyy-MM-dd HH:mm:ss"))
+(defn to-db-format [date] (tf/parse formatter date))
+(defn db-to-iso [date] (tf/unparse formatter (tc/from-date date)))
+
+(defn now->timestamp []
+  (db-to-iso (tc/to-date (t/now))))
+
 (defn dates-overlap?
   "Takes a start/end range from sensor_metadata \"dirty dates\" and a period,
   and returns range to calculate if it overlaps. Otherwise it returns nil."
@@ -101,6 +108,26 @@
                (not= start end))
       {:start-date (tc/from-date start) :end-date (tc/from-date end)})))
 
+(defn min-max-dates
+  "Takes a sequence of measurements and retuns a map
+  of min and max dates for that sequence. It should be passed
+  a batch of measurements."
+  [measurements]
+  (assert (not (empty? measurements)) "No measurements passed to min-max-dates")
+  (let [parsed-dates (map #(tc/from-date (:timestamp %)) measurements)]
+    (reduce (fn [{:keys [min-date max-date]} timestamp]
+              {:min-date (if (t/before? timestamp min-date) timestamp min-date)
+               :max-date (if (t/after? timestamp max-date) timestamp max-date)})
+            {:min-date (first parsed-dates)
+             :max-date (first parsed-dates)} parsed-dates)))
+
+(defn calculate-range
+  "Takes a start/end range from sensor_metadata \"dirty dates\" and a period,
+  and returns range (number of months from end-date) to calculate."
+  [{:keys [start-date end-date]} period]
+  (let [start (t/minus end-date period)]
+    {:start-date start :end-date end-date}))
+
 (def default-date-formatters
   (concat [(tf/formatter "dd/MM/yyyy")
            (tf/formatter "dd/MM/yyyy HH:mm")
@@ -131,3 +158,7 @@
 
 (defn hecuba-date-time-string [date-time-string]
   (tf/unparse (tf/formatters :date-time) (auto-parse date-time-string)))
+
+(defn db-timestamp
+  "Returns java.util.Date from String timestamp."
+  [t] (.parse (java.text.SimpleDateFormat.  "yyyy-MM-dd'T'HH:mm:ss") t))

@@ -2,7 +2,7 @@
  "Data quality assurance and validation."
  (:require [clj-time.core :as t]
            [clj-time.coerce :as tc]
-           [kixi.hecuba.data.misc :as m]
+           [kixi.hecuba.data :as data]
            [kixi.hecuba.storage.db :as db]
            [clojure.tools.logging :as log]
            [qbits.hayt :as hayt]
@@ -26,12 +26,14 @@
   "Checks if value is a number and updates metadata accordingly."
   [m]
   (let [value (:value m)]
-    (assoc-in m [:reading_metadata "is-number"] (if (and (not (empty? value)) (m/numbers-as-strings? value)) "true" "false"))))
+    (assoc-in m [:reading_metadata "is-number"] (if (and (not (empty? value)) (data/numbers-as-strings? value))
+                                                  "true"
+                                                  "false"))))
 
 (defn- sensor-exists? [session m]
   (first (db/execute session
                   (hayt/select :sensors
-                               (hayt/where (m/where-from m))))))
+                               (hayt/where (data/where-from m))))))
 
 (defn validate
   "Measurement map is pipelines through a number of validation

@@ -10,9 +10,10 @@
    [liberator.representation :refer (ring-response)]
    [clojurewerkz.elastisch.native.response :as esr]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-   [kixi.hecuba.webutil :refer (decode-body authorized? content-type-from-context) :as util]
+   [kixi.hecuba.api :as api :refer (decode-body authorized? content-type-from-context)]
    [kixi.hecuba.web-paths :as p]
    [kixi.hecuba.storage.db :as db]
+   [kixi.hecuba.data :as data]
    [kixi.hecuba.data.programmes :as programmes]
    [kixi.hecuba.data.projects :as projects]
    [kixi.hecuba.data.entities :as entities]
@@ -21,7 +22,6 @@
    [kixi.hecuba.data.users :as users]
    [kixi.hecuba.api.parser :as parser]
    [kixi.hecuba.api.entities.schema :as es]
-   [kixi.hecuba.data.misc :as misc]
    [clojure.edn :as reader]))
 
 (def ^:private entities-index-path (p/index-path-string :entities-index))
@@ -76,8 +76,8 @@ their containing structures."
   (-> entity
       remove-private-data
       (dissoc :user_id)
-      (util/enrich-media-uris file-bucket :photos)
-      (util/enrich-media-uris file-bucket :documents)))
+      (api/enrich-media-uris file-bucket :photos)
+      (api/enrich-media-uris file-bucket :documents)))
 
 (defn update-editable [e allowed-programmes allowed-projects role]
   (update-in e [:full_entity] assoc :editable (editable? (:programme_id e) (:project_id e) allowed-programmes allowed-projects role)))
@@ -201,7 +201,7 @@ their containing structures."
 ;; Index
 
 (defn parse-number [n]
-  (when (misc/numbers-as-strings? n)
+  (when (data/numbers-as-strings? n)
     (reader/read-string n)))
 
 (defn parse-params [params]
@@ -221,13 +221,13 @@ their containing structures."
 
 (defn index-handle-ok [store ctx]
   (let [items    (::items ctx)
-        entities (util/render-item ctx (:entities items))]
+        entities (api/render-item ctx (:entities items))]
     (log/info "total hits:" (-> items :entities :total_hits))
     entities))
 
 (defn index-handle-malformed [ctx]
   (let [content-type (-> ctx :request :content-type)]
-    (util/render-item (assoc-in ctx [:representation :media-type] content-type) (:malformed-msg ctx))))
+    (api/render-item (assoc-in ctx [:representation :media-type] content-type) (:malformed-msg ctx))))
 
 (defn index-malformed? [ctx]
   (try
@@ -331,9 +331,9 @@ their containing structures."
 (defn resource-handle-ok-text-csv* [store ctx]
   (let [item         (::item ctx)
         file-bucket  (-> store :s3 :file-bucket)]
-    (ring-response {:headers (util/headers-content-disposition
+    (ring-response {:headers (api/headers-content-disposition
                               (str (:entity_id item) "_overview.csv"))
-                    :body (util/render-item
+                    :body (api/render-item
                            ctx
                            (-> item
                                (clean-entity file-bucket)
@@ -342,11 +342,11 @@ their containing structures."
 (defmulti resource-handle-ok content-type-from-context)
 
 (defmethod resource-handle-ok :default resource-handle-ok-default [store ctx]
-  (if-let [ctx (util/maybe-representation-override-in-url ctx)]
+  (if-let [ctx (api/maybe-representation-override-in-url ctx)]
     (resource-handle-ok-text-csv* store ctx)
     (let [{:keys [request editable]} ctx
           file-bucket    (-> store :s3 :file-bucket)]
-      (util/render-item ctx (-> (::item ctx)
+      (api/render-item ctx (-> (::item ctx)
                                 (clean-entity file-bucket))))))
 
 (defmethod resource-handle-ok "text/csv" resource-handle-ok-text-csv [store ctx]

@@ -10,11 +10,11 @@
                     [credentials :as creds])
    [kixi.hecuba.data.users :as users]
    [kixi.hecuba.email :as email]
-   [kixi.hecuba.webutil :as util]
+   [kixi.hecuba.time :as time]
    [clj-time.core :as t]
    [clj-time.coerce :as tc]
    [clojure.java.io :as io]
-   [kixi.hecuba.webutil :refer (decode-body)]
+   [kixi.hecuba.api :refer (decode-body)]
    [liberator.representation :refer (ring-response)]))
 
 (derive ::user ::public)
@@ -159,7 +159,7 @@
     (when (users/get-by-username (:hecuba-session store) username)
       (users/update (:hecuba-session store)
                     username {:reset_uuid uuid
-                              :reset_timestamp (util/now->timestamp)})
+                              :reset_timestamp (time/now->timestamp)})
       (email/send-email e-mail-session username "Password Reset" (reset-email-text username link))
       {:status 200 :body (slurp (io/resource "site/reset_ack.html"))})))
 

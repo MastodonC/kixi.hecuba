@@ -1,7 +1,7 @@
 (ns kixi.hecuba.api.downloads
   (:require [clojure.tools.logging :as log]
             [liberator.core :refer (defresource)]
-            [kixi.hecuba.webutil :refer (authorized?)]
+            [kixi.hecuba.api :refer (authorized?) :as api]
             [kixipipe.storage.s3 :as s3]
             [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
             [kixi.hecuba.data.projects :as projects]
@@ -11,7 +11,6 @@
             [clojure.string :as str]
             [aws.sdk.s3 :as aws]
             [clj-time.coerce :as tc]
-            [kixi.hecuba.webutil :as util]
             [cheshire.core :as json]
             [kixipipe.storage.s3 :as s3]
             [liberator.representation :refer (ring-response)]
@@ -67,7 +66,7 @@
         files                    (take 2 (s3/list-objects-seq (:s3 store) {:prefix (str "downloads/" entity_id)}))
         statuses                 (map #(merge-downloads-status-with-metadata store % entity_id)
                                       (filter #(re-find #"status" (:key %)) files))]
-    (util/render-items ctx statuses)))
+    (api/render-items ctx statuses)))
 
 (defn downloads-for-entity-data-resource-handle-ok [store ctx]
   (let [{:keys [params session]}                  (:request ctx)

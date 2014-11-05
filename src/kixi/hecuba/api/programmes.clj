@@ -5,9 +5,9 @@
    [liberator.representation :refer (ring-response)]
    [cheshire.core :as json]
    [cemerick.friend :as friend]
-   [kixi.hecuba.webutil :refer (decode-body authorized? allowed?) :as util]
+   [kixi.hecuba.api :refer (decode-body authorized? allowed?) :as api]
    [kixi.hecuba.storage.db :as db]
-   [kixi.hecuba.storage.uuid :refer (uuid)]
+   [kixi.hecuba.storage.uuid :refer (uuid-str)]
    [kixi.hecuba.web-paths :as p]
    [kixi.hecuba.data.users :as users]
    [clojure.core.match :refer (match)]
@@ -102,7 +102,7 @@
           username     (sec/session-username (-> ctx :request :session))
           user_id      (:id (users/get-by-username session username))
           programme    (:programme ctx)
-          programme_id (uuid)]
+          programme_id (uuid-str)]
       (programmes/insert session (assoc programme :user_id user_id :programme_id programme_id))
       {::programme_id programme_id})))
 
@@ -147,7 +147,7 @@
   (::item ctx))
 
 (defn resource-handle-ok [ctx]
-  (util/render-item ctx
+  (api/render-item ctx
                     (as-> (::item ctx) item
                           (assoc item :projects (format programme-projects-index (:programme_id item))))))
 

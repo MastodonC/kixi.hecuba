@@ -5,8 +5,9 @@
    [clj-time.coerce :as tc]
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-   [kixi.hecuba.webutil :as util]
-   [kixi.hecuba.webutil :refer (decode-body authorized? uuid stringify-values sha1-regex)]
+   [kixi.hecuba.api :as api :refer (decode-body authorized? stringify-values)]
+   [kixi.hecuba.time :as time]
+   [kixi.hecuba.data.measurements :as measurements]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [qbits.hayt :as hayt]
@@ -42,8 +43,8 @@
 (defn retrieve-hourly-measurements
   "Iterate over a sequence of months and concatanate measurements retrieved from the database."
   [session start-date end-date device_id reading_type]
-  (let [range  (util/time-range start-date end-date (t/years 1))
-        months (map #(util/get-year-partition-key (tc/to-date %)) range)
+  (let [range  (time/time-range start-date end-date (t/years 1))
+        months (map #(time/get-year-partition-key (tc/to-date %)) range)
         where  [[= :device_id device_id]
                 [= :type reading_type]
                 [>= :timestamp (tc/to-date start-date)]
@@ -63,15 +64,15 @@
                                query-string]} request
                        {:keys [device_id
                                type]} route-params
-                       decoded-params (util/decode-query-params query-string)
-                       start-date     (util/to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
-                       end-date       (util/to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
+                       decoded-params (api/decode-query-params query-string)
+                       start-date     (time/to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
+                       end-date       (time/to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
                        measurements   (retrieve-hourly-measurements session start-date end-date device_id type)]
                    {:measurements (->> measurements
                                        (map (fn [m]
                                               (-> m
-                                                  util/parse-value
-                                                  (update-in [:timestamp] util/db-to-iso)
+                                                  measurements/parse-value
+                                                  (update-in [:timestamp] time/db-to-iso)
                                                   (dissoc :year :metadata :device_id)))))}))))
 
 (defresource daily_rollups [store]
@@ -83,9 +84,9 @@
   :handle-ok (fn [{{{:keys [device_id type]} :route-params query-string :query-string}
                    :request {mime :media-type} :representation :as req}]
                (db/with-session [session (:hecuba-session store)]
-                 (let [decoded-params (util/decode-query-params query-string)
-                       start-date     (util/to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
-                       end-date       (util/to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
+                 (let [decoded-params (api/decode-query-params query-string)
+                       start-date     (time/to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
+                       end-date       (time/to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
                        measurements   (db/execute session (hayt/select :daily_rollups
                                                                        (hayt/where [[= :device_id device_id]
                                                                                     [= :type type]
@@ -94,6 +95,6 @@
                    {:measurements (->> measurements
                                        (map (fn [m]
                                               (-> m
-                                                  util/parse-value
-                                                  (update-in [:timestamp] util/db-to-iso)
+                                                  measurements/parse-value
+                                                  (update-in [:timestamp] time/db-to-iso)
                                                   (dissoc :metadata :device_id)))))}))))

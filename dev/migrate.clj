@@ -2,7 +2,8 @@
   (:require [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.data.measurements :as measurements]
-            [kixi.hecuba.data.misc :as misc]
+            [kixi.hecuba.data.sensors :as sensors]
+            [kixi.hecuba.time :as time]
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-time.format :as tf]
@@ -42,7 +43,7 @@
                                    (hayt/select :measurements
                                                 (hayt/where [[= :device_id device_id]
                                                              [= :type type]
-                                                             [= :month (misc/get-month-partition-key start)]
+                                                             [= :month (time/get-month-partition-key start)]
                                                              [>= :timestamp start]
                                                              [< :timestamp next-start]]))
                                    nil)
@@ -66,7 +67,9 @@
                                               (map #(update-in % [:reading_metadata] convert-metadata %))
                                               (map #(dissoc % :metadata)))]
           (when measurements-with-metadata
-            (misc/insert-measurements store s 100 measurements-with-metadata)))
+            (db/with-session [session (:hecuba-session store)]
+              (let [{:keys [min-date max-date]} (measurements/insert-measurements store s 100 measurements-with-metadata)]
+                (sensors/update-sensor-metadata session s min-date max-date)))))
         (spit "/tmp/processed_sensors.txt" (str s "\n") :append true))))
   (log/info "Finished migrating reading metadata."))
 

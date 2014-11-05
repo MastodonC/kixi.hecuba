@@ -2,10 +2,10 @@
   (:use clojure.test)
   (:require [kixi.hecuba.data.calculate :as calc]
             [generators :as g]
-            [kixi.hecuba.data.misc :as misc]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
-            [kixi.hecuba.time :as time]))
+            [kixi.hecuba.time :as time]
+            [kixi.hecuba.data.measurements :as measurements]))
 
 ;; Helpers
 
@@ -21,15 +21,15 @@
   (testing "Testing average-reading"
     (let [sensor (first (g/generate-sensor-sample "CUMULATIVE" 1))
           measurements (g/measurements sensor)]
-      (is (= 249.5 (calc/average-reading (map :value (misc/parse-measurements measurements))))))))
+      (is (= 249.5 (calc/average-reading (map :value (measurements/parse-measurements measurements))))))))
 
 (deftest data-to-calculate-test
   (testing "Testing data-to-calculate?"
     (let [sensor               (first (g/generate-sensor-sample "INSTANT" 1))
           invalid-measurements (g/generate-invalid-measurements sensor)
           valid-measurements   (g/measurements sensor)]
-      (is (nil? (calc/data-to-calculate? (misc/parse-measurements invalid-measurements))))
-      (is (seq (calc/data-to-calculate? (misc/parse-measurements valid-measurements)))))))
+      (is (nil? (calc/data-to-calculate? (measurements/parse-measurements invalid-measurements))))
+      (is (seq (calc/data-to-calculate? (measurements/parse-measurements valid-measurements)))))))
 
 (deftest should-calculate-test
   (testing "Testing should-calculate?"
@@ -54,7 +54,7 @@
               expected-timestamps    (calc/all-timestamps-for-range start-date end-date 3600)
               padded                 (calc/pad-measurements measurements-with-gaps expected-timestamps)]
           (is (= 500 (count padded)))
-          (is (= {:min-date start-date :max-date end-date} (misc/min-max-dates padded))))))))
+          (is (= {:min-date start-date :max-date end-date} (time/min-max-dates padded))))))))
 
 (deftest find-resolution-test
   (let [sensor-60     (first (g/generate-sensor-sample "CUMULATIVE" 1))
@@ -67,8 +67,8 @@
 
 (deftest compute-datasets-test
   (let [sensors              (g/generate-sensor-sample "CUMULATIVE" 2)
-        measurements         (into [] (map #(misc/parse-measurements (g/generate-measurements %)) sensors))
-        invalid-measurements (into [] (map #(misc/parse-measurements (g/generate-invalid-measurements %)) sensors))]
+        measurements         (into [] (map #(measurements/parse-measurements (g/generate-measurements %)) sensors))
+        invalid-measurements (into [] (map #(measurements/parse-measurements (g/generate-invalid-measurements %)) sensors))]
 
     (println "Testing compute-datasets.")
 

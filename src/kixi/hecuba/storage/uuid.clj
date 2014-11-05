@@ -3,7 +3,9 @@
   (:require [clojure.tools.logging :as log]
             [schema.core :as s]))
 
-(defn uuid [] (str (java.util.UUID/randomUUID)))
+(defn uuid-str [] (str (java.util.UUID/randomUUID)))
+
+(defn uuid [] (java.util.UUID/randomUUID))
 
 (def KeyableEntity
   {:project_id s/Str
@@ -13,7 +15,7 @@
 (defn add-entity-id [entity]
   (try
     (s/validate KeyableEntity entity)
-    (assoc entity :entity_id (uuid))
+    (assoc entity :entity_id (uuid-str))
     (catch Throwable t
       (log/errorf t "Tried to add id to %s" entity)
       (throw t))))
@@ -26,4 +28,4 @@
 
 (defn add-profile-id [profile]
   (s/validate KeyableProfile profile)
-  (assoc profile :profile_id (uuid)))
+  (assoc profile :profile_id (uuid-str)))

@@ -1,15 +1,15 @@
 (ns kixi.hecuba.data.users
   (:require [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
-            [kixi.hecuba.webutil :as webutil]
             [cheshire.core :as json]
             [clojure.edn :as edn]
-            (cemerick.friend [credentials :as creds])))
+            (cemerick.friend [credentials :as creds])
+            [kixi.hecuba.api :as api]))
 
 (defn encode [user]
   (-> user
       (dissoc :username :id)
-      webutil/stringify-values
+      api/stringify-values
       (cond-> (:password user) (update-in [:password] (fn [password] (creds/hash-bcrypt password))))))
 
 (defn decode [user]

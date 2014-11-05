@@ -8,9 +8,10 @@
             [kixi.hecuba.logging       :as hl]
             [kixi.hecuba.parser        :as parser]
             [kixi.hecuba.data.devices  :as devices]
+            [kixi.hecuba.data.measurements :as measurements]
             [kixi.hecuba.data.measurements.core :refer (prepare-measurement headers-in-order columns-in-order transpose keywordise)]
             [kixi.hecuba.data.measurements.upload.status :as us]
-            [kixi.hecuba.data.misc     :as misc]
+            [kixi.hecuba.data          :as data]
             [kixi.hecuba.data.devices  :as devices]
             [kixi.hecuba.data.parents  :as parents]
             [kixi.hecuba.data.sensors  :as sensors]
@@ -233,7 +234,12 @@
         (if (valid-header? device-and-sensor)
           (do
             (log/infof "Inserting measurements for Sensor: %s:%s metadata: %s" (:device_id sensor) (:type sensor) (:metadata device-and-sensor))
-            (misc/insert-measurements store device-and-sensor page-size validated-measurements)
+            (db/with-session [session (:hecuba-session store)]
+              (let [{:keys [min-date max-date]} (measurements/insert-measurements store
+                                                                                  device-and-sensor page-size
+                                                                                  validated-measurements)]
+                (log/infof "Updating sensor metadata with lower_ts: %s and upper_ts: %s" min-date max-date)
+                (sensors/update-sensor-metadata session sensor min-date max-date)))
             (assoc-in device-and-sensor [:metadata :inserted] true))
           (do
             (log/infof "Skipping insert for: %s metadata %s" device-and-sensor (:metadata device-and-sensor))

@@ -4,7 +4,8 @@
             [com.stuartsierra.frequencies :as freq]
             [kixi.hecuba.storage.db :as db]
             [qbits.hayt :as hayt]
-            [kixi.hecuba.data.misc :as m]
+            [kixi.hecuba.data :as data]
+            [kixi.hecuba.time :as time]
             [kixi.hecuba.data.validate :as v]
             [kixi.hecuba.data.calculate :as c]
             [kixi.hecuba.data.measurements :as measurements]
@@ -24,7 +25,7 @@
   (fn [sensor measurements] (:period sensor)))
 
 (defmethod labelled-correctly? "INSTANT" [sensor measurements] true)
-(defmethod labelled-correctly? "CUMULATIVE" [sensor measurements] (going-up? (m/sort-measurments measurements)))
+(defmethod labelled-correctly? "CUMULATIVE" [sensor measurements] (going-up? (measurements/sort-measurments measurements)))
 (defmethod labelled-correctly? "PULSE" [sensor measurements] (empty? (filter #(neg? (:value %)) measurements)))
 
 (defn mislabelled-check
@@ -33,9 +34,9 @@
   [store {:keys [device_id type period] :as sensor} start-date]
   (db/with-session [session (:hecuba-session store)]
     (let [end-date     (t/plus start-date (t/hours 1))
-          month        (m/get-month-partition-key start-date)
+          month        (time/get-month-partition-key start-date)
           where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
-          measurements (filter #(number? (:value %)) (m/parse-measurements (db/execute session
+          measurements (filter #(number? (:value %)) (measurements/parse-measurements (db/execute session
                                                                                        (hayt/select :partitioned_measurements
                                                                                                     (hayt/where where)))))]
       (when-not (empty? measurements)
@@ -64,9 +65,9 @@
   (when-not (nil? median)
     (db/with-session [session (:hecuba-session store)]
       (let [end-date     (t/plus start-date (t/hours 1))
-            month        (m/get-month-partition-key start-date)
+            month        (time/get-month-partition-key start-date)
             where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
-            measurements (filter #(m/metadata-is-number? %) (db/execute session (hayt/select :partitioned_measurements (hayt/where where))))
+            measurements (filter #(measurements/metadata-is-number? %) (db/execute session (hayt/select :partitioned_measurements (hayt/where where))))
             spikes       (map #(hash-map :timestamp (:timestamp %)
                                          :spike (str (v/larger-than-median median %))) measurements)]
         (db/execute session
@@ -75,7 +76,7 @@
                                                             (hayt/set-columns {:reading_metadata [+ {"median-spike" (:spike %)}]})
                                                             (hayt/where  [[= :device_id device_id]
                                                                           [= :type type]
-                                                                          [= :month (m/get-month-partition-key (:timestamp %))]
+                                                                          [= :month (time/get-month-partition-key (:timestamp %))]
                                                                           [= :timestamp (:timestamp %)]]))
                                                          spikes))))
         end-date))))
@@ -109,10 +110,11 @@
   [store {:keys [device_id type period]} start-date]
   (db/with-session [session (:hecuba-session store)]
     (let [end-date     (t/plus start-date (t/hours 1))
-          month        (m/get-month-partition-key start-date)
+          month        (time/get-month-partition-key start-date)
           type         (if (= period "CUMULATIVE") (str type "_differenceSeries") type)
           where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
-          measurements (m/parse-measurements (db/execute session (hayt/select :partitioned_measurements (hayt/where where))))
+          measurements (measurements/parse-measurements (db/execute session
+                                                                    (hayt/select :partitioned_measurements (hayt/where where))))
           median       (cond
                         (= "CUMULATIVE" period) (median (filter #(number? (:value %)) measurements))
                         (= "INSTANT" period) (median (filter #(remove-bad-readings %) measurements)))]
@@ -144,9 +146,9 @@
     "Ok"))
 
 (defn- errored? [m]
-  (or (m/metadata-is-spike? m)
+  (or (measurements/metadata-is-spike? m)
       (not (empty? (:error m))) ;; TODO need to test whether C* doesn't have stringified "null" stored.
-      (and (not (m/metadata-is-number? m))
+      (and (not (measurements/metadata-is-number? m))
            (not= "N/A" (:value m)))))
 
 ;; TODO batch because reduce will realise whole seq
@@ -164,4 +166,4 @@
         (db/with-session [session (:hecuba-session store)]
           (db/execute session (hayt/update :sensors
                                            (hayt/set-columns {:status status})
-                                           (hayt/where (m/where-from sensor)))))))))
+                                           (hayt/where (data/where-from sensor)))))))))

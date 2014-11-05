@@ -4,10 +4,11 @@
             [schema.core            :as s]
             [kixi.hecuba.time       :as time]
             [kixi.hecuba.storage.db :as db]
-            [kixi.hecuba.data.misc  :as misc]
             [qbits.hayt             :as hayt]
-            [kixi.hecuba.webutil    :as util]
-            [clojure.tools.logging  :as log]))
+            [clojure.tools.logging  :as log]
+            [clojure.edn            :as edn]))
+
+(def truthy? #{"true"})
 
 (def SensorId {(s/required-key :device_id) s/Str
                (s/required-key :type)      s/Str
@@ -78,7 +79,7 @@
                                    (hayt/select :partitioned_measurements
                                                 (hayt/where [[= :device_id device_id]
                                                              [= :type type]
-                                                             [= :month (misc/get-month-partition-key start)]
+                                                             [= :month (time/get-month-partition-key start)]
                                                              [>= :timestamp start]
                                                              [< :timestamp next-start]]))
                                    nil)
@@ -99,7 +100,7 @@
                                (hayt/select :partitioned_measurements
                                             (hayt/where [[= :device_id device_id]
                                                          [= :type type]
-                                                         [= :month (misc/get-month-partition-key start-date)]
+                                                         [= :month (time/get-month-partition-key start-date)]
                                                          [>= :timestamp start-date]
                                                          [< :timestamp next-start]]))
                                nil)
@@ -119,7 +120,7 @@
                                (hayt/select :hourly_rollups
                                             (hayt/where [[= :device_id device_id]
                                                          [= :type type]
-                                                         [= :year (misc/get-year-partition-key start-date)]
+                                                         [= :year (time/get-year-partition-key start-date)]
                                                          [>= :timestamp start-date]
                                                          [< :timestamp next-start]]))
                                nil)
@@ -138,10 +139,73 @@
 (defn retrieve-measurements
   "Iterate over a sequence of months and concatanate measurements retrieved from the database."
   [session start-date end-date device-id reading-type]
-  (let [range  (util/time-range start-date end-date (t/months 1))
-        months (map #(util/get-month-partition-key (tc/to-date %)) range)
+  (let [range  (time/time-range start-date end-date (t/months 1))
+        months (map #(time/get-month-partition-key (tc/to-date %)) range)
         where  [[= :device_id device-id]
                 [= :type reading-type]
                 [>= :timestamp (tc/to-date start-date)]
                 [<= :timestamp (tc/to-date end-date)]]]
     (retrieve-measurements-for-months session months where)))
+
+(defn prepare-batch
+  "Creates a CQL batch statement. For performance reasons
+   it should be passed a page of measurements."
+  [measurements]
+  (hayt/batch
+   (apply hayt/queries (map #(hayt/insert :partitioned_measurements (hayt/values %)) measurements))
+   (hayt/logged false)))
+
+(defn insert-batch [session batch]
+  (let [batch-statement (prepare-batch batch)]
+    (db/execute session batch-statement)))
+
+(defn insert-measurements
+  "Takes store, lazy sequence of measurements and
+   size of the batches and inserts them into the database."
+  [store sensor page measurements]
+  (db/with-session [session (:hecuba-session store)]
+    (reduce (fn [{:keys [min-date max-date]} batch]
+              (let [dates (time/min-max-dates batch)
+                    new-min (:min-date dates)
+                    new-max (:max-date dates)]
+                (insert-batch session batch)
+                {:min-date (if (t/before? new-min min-date) new-min min-date)
+                 :max-date (if (t/after? new-max max-date) new-max max-date)}))
+            {:min-date (tc/from-date (:timestamp (first measurements)))
+             :max-date (tc/from-date (:timestamp (first measurements)))} (partition-all page measurements))))
+
+(defn parse-double [txt]
+  (Double/parseDouble txt))
+
+(defn metadata-is-number? [{:keys [reading_metadata] :as m}]
+  (truthy? (get reading_metadata "is-number")))
+
+(defn metadata-is-spike? [{:keys [reading_metadata] :as m}]
+  (truthy? (get reading_metadata "median-spike")))
+
+
+(defn parse-value
+  "AMON API specifies that when value is not present, error must be returned and vice versa."
+  [measurement]
+  (let [value (:value measurement)
+        convert-fn (fn [v] (if (metadata-is-number? measurement) (read-string v) v))]
+    (if-not (empty? value)
+      (-> measurement
+          (update-in [:value] convert-fn)
+          (dissoc :error))
+      (dissoc measurement :value))))
+
+(defn sort-measurments
+  [m]
+  (sort-by :timestamp m) m)
+
+(defn parse-measurements
+  "Takes measurements in the format returned from the database.
+   Returns a list of maps, with all values parsed approprietly."
+  [measurements]
+  (map (fn [m] (assoc-in m [:value]
+                         (let [n (edn/read-string (:value m))]
+                           (if (number? n)
+                             n
+                             nil))))
+       measurements))

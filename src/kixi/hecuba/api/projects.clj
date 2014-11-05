@@ -4,11 +4,11 @@
    [cheshire.core :as json]
    [clojure.tools.logging :as log]
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-   [kixi.hecuba.webutil :refer (decode-body authorized?) :as util]
+   [kixi.hecuba.api :refer (decode-body authorized?) :as api]
    [liberator.core :refer (defresource)]
    [liberator.representation :refer (ring-response)]
    [kixi.hecuba.storage.db :as db]
-   [kixi.hecuba.storage.uuid :refer (uuid)]
+   [kixi.hecuba.storage.uuid :refer (uuid-str)]
    [kixi.hecuba.web-paths :as p]
    [kixi.hecuba.data.users :as users]
    [kixi.hecuba.data.projects :as projects]
@@ -151,14 +151,14 @@
            (map #(-> %
                      (assoc :href (format programme-projects-resource (:programme_id %) (:project_id %))
                             :properties (format project-properties-index (:project_id %)))))
-           (util/render-items request)))))
+           (api/render-items request)))))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [username  (sec/session-username (-> ctx :request :session))
           user_id       (:id (users/get-by-username session username))
           project       (:project ctx)
-          project_id    (uuid)]
+          project_id    (uuid-str)]
       (projects/insert session (assoc project :user_id user_id :project_id project_id))
       {::project_id project_id})))
 
@@ -212,7 +212,7 @@
       {::item item})))
 
 (defn resource-handle-ok [ctx]
-  (util/render-item ctx
+  (api/render-item ctx
                     (as-> (::item ctx) item
                           (assoc item
                             :properties (format project-properties-index (:project_id item)))

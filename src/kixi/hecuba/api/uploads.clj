@@ -5,8 +5,7 @@
             [clojure.tools.logging :as log]
             [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
             [kixi.hecuba.web-paths :as p]
-            [kixi.hecuba.webutil :as util]
-            [kixi.hecuba.webutil :refer (authorized?)]
+            [kixi.hecuba.api :as api :refer (authorized?)]
             [kixi.hecuba.data.measurements.upload.status :as us]
             [kixipipe.storage.s3 :as s3]
             [liberator.core :refer (defresource)]))
@@ -89,7 +88,7 @@
   (let [{:keys [username entity_id]} (::item ctx)
         files    (s3/list-objects-seq (:s3 store) {:max-keys 100 :prefix (str "uploads/" username "/" entity_id)})
         statuses (us/get-statuses entity_id store)]
-    (util/render-items ctx statuses)))
+    (api/render-items ctx statuses)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; RESOURCES

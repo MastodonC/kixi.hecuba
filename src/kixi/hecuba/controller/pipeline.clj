@@ -5,12 +5,13 @@
             [clojure.tools.logging                  :as log]
             [kixipipe.storage.s3                    :as s3]
             [kixi.hecuba.data.batch-checks          :as checks]
-            [kixi.hecuba.data.misc                  :as misc]
             [kixi.hecuba.data.calculate             :as calculate]
             [kixi.hecuba.data.calculated-fields     :as fields]
             [kixi.hecuba.data.measurements.download :as measurements-download]
             [kixi.hecuba.data.measurements.upload   :as measurements-upload]
             [kixi.hecuba.data.entities.upload       :as entities-upload]
+            [kixi.hecuba.data.sensors               :as sensors]
+            [kixi.hecuba.time                       :as time]
             [clj-time.core                          :as t]
             [clj-time.coerce                        :as tc]
             [com.stuartsierra.component             :as component]
@@ -74,15 +75,15 @@
         (when (and period (not= period "PULSE"))
           (log/info  "Calculating median for: " device_id type)
           (checks/median-calculation store item)
-          (misc/reset-date-range store sensor :median_calc_check
+          (sensors/reset-date-range store sensor :median_calc_check
                                  (:start-date range)
                                  (:end-date range)))))
 
     (defnconsumer median-calculation-q [item]
       (log/info "Starting median calculation.")
-      (let [sensors (misc/all-sensors store)]
+      (let [sensors (sensors/all-sensors store)]
         (doseq [s sensors]
-          (when-let [range (misc/start-end-dates :median_calc_check s)]
+          (when-let [range (time/start-end-dates :median_calc_check s)]
             (median-calculation store (assoc item :sensor s :range range)))))
       (log/info "Finished median calculation."))
 
@@ -92,15 +93,15 @@
         (when (some #{period} ["INSTANT" "PULSE" "CUMULATIVE"])
           (log/info  "Checking if mislabelled: " device_id type)
           (checks/mislabelled-sensors store item)
-          (misc/reset-date-range store sensor :mislabelled_sensors_check
+          (sensors/reset-date-range store sensor :mislabelled_sensors_check
                                  (:start-date range)
                                  (:end-date range)))))
 
     (defnconsumer mislabelled-sensors-q [item]
       (log/info "Starting mislabelled sensors check.")
-      (let [sensors (misc/all-sensors store)]
+      (let [sensors (sensors/all-sensors store)]
         (doseq [s sensors]
-          (when-let [range (misc/start-end-dates :mislabelled_sensors_check s)]
+          (when-let [range (time/start-end-dates :mislabelled_sensors_check s)]
             (mislabelled-sensors store (assoc item :sensor s :range range)))))
       (log/info "Finished mislabelled sensors check."))
 
@@ -111,7 +112,7 @@
           (log/debugf "Started calculating Difference Series for Sensor: %s:%s Start: %s End: %s" device_id type (:start-date range) (:end-date range))
           (try
             (calculate/difference-series store item)
-            (misc/reset-date-range store sensor :difference_series
+            (sensors/reset-date-range store sensor :difference_series
                                    (:start-date range)
                                    (:end-date range))
             (catch Throwable t
@@ -121,9 +122,9 @@
 
     (defnconsumer difference-series-q [item]
       (log/info "Starting calculation of difference series.")
-      (let [sensors (misc/all-sensors store)]
+      (let [sensors (sensors/all-sensors store)]
         (doseq [s sensors]
-          (when-let [range (misc/start-end-dates :difference_series s)]
+          (when-let [range (time/start-end-dates :difference_series s)]
             (difference-series store (assoc item :sensor s :range range)))))
       (log/info "COMPLETED calculation of difference series."))
 
@@ -139,15 +140,15 @@
                     (should-convert-type? type))
           (log/info  "Converting to co2: " device_id type)
           (calculate/kWh->co2 store item)
-          (misc/reset-date-range store sensor :co2
+          (sensors/reset-date-range store sensor :co2
                                  (:start-date range)
                                  (:end-date range)))))
 
     (defnconsumer convert-to-co2-q [item]
       (log/info "Starting conversion from kWh to co2.")
-      (let [sensors (misc/all-sensors store)]
+      (let [sensors (sensors/all-sensors store)]
         (doseq [s sensors]
-          (when-let [range (misc/start-end-dates :co2 s)]
+          (when-let [range (time/start-end-dates :co2 s)]
             (convert-to-co2 store (assoc item :sensor s :range range)))))
       (log/info "Finished conversion from kWh to co2."))
 
@@ -159,15 +160,15 @@
                    (some #(= type %) ["gasConsumption" "oilConsumption"]))
           (log/info  "Converting to kWh: " device_id type)
           (calculate/gas-volume->kWh store item)
-          (misc/reset-date-range store sensor :kwh
+          (sensors/reset-date-range store sensor :kwh
                                  (:start-date range)
                                  (:end-date range)))))
 
     (defnconsumer convert-to-kwh-q [item]
       (log/info "Starting conversion from vol to kwh.")
-      (let [sensors (misc/all-sensors store)]
+      (let [sensors (sensors/all-sensors store)]
         (doseq [s sensors]
-          (when-let [range (misc/start-end-dates :kwh s)]
+          (when-let [range (time/start-end-dates :kwh s)]
             (convert-to-kwh store (assoc item :sensor s :range range)))))
       (log/info "Finished conversion from vol to kwh."))
 
@@ -179,7 +180,7 @@
           (try
             (calculate/hourly-rollups store item)
             (calculate/daily-rollups store item)
-            (misc/reset-date-range store sensor :rollups
+            (sensors/reset-date-range store sensor :rollups
                                    (:start-date range)
                                    (:end-date range))
             (db/with-session [session (:hecuba-session store)]
@@ -194,9 +195,9 @@
 
     (defnconsumer rollups-q [item]
       (log/info "Starting rollups.")
-      (let [sensors (misc/all-sensors store)]
+      (let [sensors (sensors/all-sensors store)]
         (doseq [s sensors]
-          (when-let [range (misc/start-end-dates :rollups s)]
+          (when-let [range (time/start-end-dates :rollups s)]
             (rollups store (assoc item :sensor s :range range)))))
       (log/info "Finished rollups."))
 
@@ -209,11 +210,11 @@
 
     (defnconsumer spike-check-q [item]
       (log/info "Starting median spike check.")
-      (let [sensors (misc/all-sensors store)]
+      (let [sensors (sensors/all-sensors store)]
         (doseq [s sensors]
-          (when-let [range (misc/start-end-dates :spike_check s)]
+          (when-let [range (time/start-end-dates :spike_check s)]
             (spike-check store (assoc item :sensor s :range range))
-            (misc/reset-date-range store s :spike_check (:start-date range) (:end-date range)))))
+            (sensors/reset-date-range store s :spike_check (:start-date range) (:end-date range)))))
       (log/info "Finished median spike check."))
 
     (defmulti synthetic-readings (fn [store {:keys [ds sensors range]}] (keyword (:operation ds))))
@@ -254,12 +255,12 @@
           (doseq [ds datasets]
             (let [sensors (sensors-for-dataset ds store)
                   {:keys [device_id name]} ds
-                  synthetic-sensor (misc/all-sensor-information store device_id name)]
-              (when-let [range (misc/start-end-dates :calculated_datasets synthetic-sensor)]
+                  synthetic-sensor (sensors/all-sensor-information store device_id name)]
+              (when-let [range (time/start-end-dates :calculated_datasets synthetic-sensor)]
                 (synthetic-readings store (assoc item
                                             :range range
                                             :ds ds :sensors sensors))
-                (misc/reset-date-range store {:device_id device_id :type name} :calculated_datasets
+                (sensors/reset-date-range store {:device_id device_id :type name} :calculated_datasets
                                        (:start-date range)
                                        (:end-date range))
                 (db/with-session [session (:hecuba-session store)]
@@ -274,18 +275,18 @@
         (when (and (= (:actual_annual sensor) true)
                    (not= (:period sensor) "CUMULATIVE"))
           (log/info "Calculating actual annual for sensor: " (:device_id sensor) (:type sensor))
-          (when-let [new-range (misc/calculate-range range (t/months 12))]
+          (when-let [new-range (time/calculate-range range (t/months 12))]
             (log/info "Calculating actual annual value for last 12 months for sensor: " (:device_id sensor) (:type sensor))
             (fields/calculate store sensor :actual-annual
                               "actual_annual_12months"
                               new-range))
-          (when-let [new-range (misc/calculate-range range (t/months 1))]
+          (when-let [new-range (time/calculate-range range (t/months 1))]
             (log/info "Calculating actual annual value for last 1 month for sensor: " (:device_id sensor) (:type sensor))
             (fields/calculate store sensor :actual-annual
                               "actual_annual_1month"
                               new-range))
 
-          (misc/reset-date-range store sensor :actual_annual_calculation
+          (sensors/reset-date-range store sensor :actual_annual_calculation
                                  (:start-date range)
                                  (:end-date range))
           (db/with-session [session (:hecuba-session store)]
@@ -296,9 +297,9 @@
 
     (defnconsumer actual-annual-q [item]
       (log/info "Starting calculation of actual annual use.")
-      (let [sensors (misc/all-sensors store)]
+      (let [sensors (sensors/all-sensors store)]
         (doseq [s sensors]
-          (when-let [range (misc/start-end-dates :actual_annual_calculation s)]
+          (when-let [range (time/start-end-dates :actual_annual_calculation s)]
             (actual-annual store (assoc item :range range :sensor s)))))
       (log/info "Finished calculation of actual annual use."))
 
@@ -309,7 +310,7 @@
 
     (defnconsumer sensor-status-q [item]
       (log/info "Starting sensor status check.")
-      (let [sensors (misc/all-sensors store)
+      (let [sensors (sensors/all-sensors store)
             end     (t/now)
             start   (t/minus end (t/days 1))]
         (doseq [s sensors]
@@ -333,7 +334,7 @@
       (entities-upload/document-upload store item))
 
     (defn calculate-over-all-sensors [store item calculate-fn]
-      (let [sensors (misc/all-sensors store)]
+      (let [sensors (sensors/all-sensors store)]
         (doseq [s sensors]
           (let [{:keys [device_id type lower_ts upper_ts]} s
                 range    (when (and lower_ts upper_ts)
@@ -344,7 +345,7 @@
                (calculate-fn store new-item))))))
 
     (defnconsumer recalculate-q [item]
-      (let [sensors     (misc/all-sensors store)
+      (let [sensors     (sensors/all-sensors store)
             calculation (:type item)]
         (log/infof "Starting recalculation of: %s" calculation)
         (condp = calculation
@@ -352,7 +353,7 @@
                                 (let [datasets (dd/get-all session)]
                                   (doseq [ds datasets]
                                     (let [sensors (sensors-for-dataset ds store)
-                                          [min-date max-date] (misc/range-for-all-sensors sensors)
+                                          [min-date max-date] (sensors/range-for-all-sensors sensors)
                                           new-item (assoc item :sensors sensors :ds ds :range {:start-date min-date :max-date max-date})]
                                       (when (and min-date max-date)
                                         (synthetic-readings store new-item))))))

@@ -6,7 +6,7 @@
             [kixi.hecuba.storage.db :as db]
             [cheshire.core :as json]
             [kixi.hecuba.data.devices :as devices]
-            [kixi.hecuba.webutil :refer (update-stringified-list)]
+            [kixi.hecuba.api :refer (update-stringified-list)]
             [clojure.tools.logging :as log]
             [hickory.core :as hickory]
             [clojure.tools.logging :as log]

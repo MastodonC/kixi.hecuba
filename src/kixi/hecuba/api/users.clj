@@ -4,7 +4,7 @@
             [liberator.representation :refer (ring-response)]
             [cheshire.core :as json]
             [cemerick.friend :as friend]
-            [kixi.hecuba.webutil :refer (decode-body authorized?) :as util]
+            [kixi.hecuba.api :refer (decode-body authorized?) :as api]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.data.users :as users]
             [kixi.hecuba.security :as sec]))
@@ -22,7 +22,7 @@
 
 (defn index-handle-ok [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (util/render-items ctx (users/get-all session))))
+    (api/render-items ctx (users/get-all session))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Resource
@@ -47,7 +47,7 @@
       {::item item})))
 
 (defn resource-handle-ok [ctx]
-  (util/render-item ctx (::item ctx)))
+  (api/render-item ctx (::item ctx)))
 
 (defn resource-put! [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -60,7 +60,7 @@
         auth (sec/current-authentication (:session request))]
     ;; If there's no auth return nothing.
     (when-not (nil? (:role auth))
-      (util/render-item ctx (select-keys auth [:name :role :identity]))) ))
+      (api/render-item ctx (select-keys auth [:name :role :identity]))) ))
 
 (defresource index [store]
   :allowed-methods #{:get}

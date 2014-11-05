@@ -3,8 +3,7 @@
             [qbits.hayt :as hayt]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.data.devices :as devices]
-            [kixi.hecuba.data.sensors :as sensors]
-            [kixi.hecuba.webutil :as util]))
+            [kixi.hecuba.data.sensors :as sensors]))
 
 (defn decode [dataset]
   (-> dataset
