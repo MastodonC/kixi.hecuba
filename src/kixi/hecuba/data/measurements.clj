@@ -164,15 +164,15 @@
    size of the batches and inserts them into the database."
   [store sensor page measurements]
   (db/with-session [session (:hecuba-session store)]
-    (doall (reduce (fn [{:keys [min-date max-date]} batch]
-                     (let [dates (time/min-max-dates batch)
-                           new-min (:min-date dates)
-                           new-max (:max-date dates)]
-                       (insert-batch session batch)
-                       {:min-date (if (t/before? new-min min-date) new-min min-date)
-                        :max-date (if (t/after? new-max max-date) new-max max-date)}))
-                   {:min-date (tc/from-date (:timestamp (first measurements)))
-                    :max-date (tc/from-date (:timestamp (first measurements)))} (partition-all page measurements)))))
+    (reduce (fn [{:keys [min-date max-date]} batch]
+              (let [dates (time/min-max-dates batch)
+                    new-min (:min-date dates)
+                    new-max (:max-date dates)]
+                (insert-batch session batch)
+                {:min-date (if (t/before? new-min min-date) new-min min-date)
+                 :max-date (if (t/after? new-max max-date) new-max max-date)}))
+            {:min-date (tc/from-date (:timestamp (first measurements)))
+             :max-date (tc/from-date (:timestamp (first measurements)))} (partition-all page measurements))))
 
 (defn parse-double [txt]
   (Double/parseDouble txt))
