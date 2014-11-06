@@ -52,20 +52,16 @@
        parse-measurements
        (api/render-items (:request ctx))))
 
-(defn- sensor-exists? [session device_id type]
-  (let [where [[= :device_id device_id]
-               [= :type type]]]
-    (merge (first (db/execute session
-                              (hayt/select :sensors
-                                           (hayt/where where))))
-           (first (db/execute session
-                              (hayt/select :sensor_metadata
-                                           (hayt/where where)))))))
+(defn- sensor-exists? [store device_id type]
+  (db/with-session [session (:hecuba-session store)]
+    (let [sensor (sensors/get-by-type {:device_id device_id :type type} session)]
+      (when (seq sensor)
+        (sensors/merge-sensor-metadata store sensor)))))
 
 (defn prepare-measurement [m sensor]
   (let [t  (time/db-timestamp (:timestamp m))]
     {:device_id        (:device_id sensor)
-     :type             (:type sensor)
+     :sensor_id        (:sensor_id sensor)
      :timestamp        t
      :value            (str (:value m))
      :error            (str (:error m))
@@ -139,9 +135,9 @@
        {:keys [startDate endDate device_id type]} params]
    (if (and startDate endDate)
      [false {:items {:start-date (time/to-db-format startDate)
-                      :end-date (time/to-db-format endDate)
-                      :device_id device_id
-                      :type type}}]
+                     :end-date (time/to-db-format endDate)
+                     :device_id device_id
+                     :type type}}]
      true)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -149,19 +145,17 @@
 
 (defn measurements-slice-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
-    (let [{:keys [device_id type]} (:items ctx)
-          sensor (first (db/execute session (hayt/select :sensors
-                                                         (hayt/where [[= :device_id device_id]
-                                                                      [= :type type]]))))]
-      (not (nil? sensor)))))
+    (let [sensor (sensors/get-by-type (:items ctx) session)]
+      [(not (nil? sensor)) {:sensor sensor}])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; measurements-slice-handle-ok
 
 (defn measurements-slice-handle-ok [store ctx]
   (let [db-session   (:hecuba-session store)
-        {:keys [start-date end-date device_id type]} (:items ctx)]
-    (let [measurements (measurements/retrieve-measurements db-session start-date end-date device_id type)]
+        {:keys [start-date end-date device_id type]} (:items ctx)
+        sensor_id (-> (:sensor ctx) :sensor_id)]
+    (let [measurements (measurements/retrieve-measurements db-session start-date end-date device_id sensor_id)]
       (format-measurements ctx measurements))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -217,7 +211,7 @@
         type         (-> measurements first :type)
         page-size    10]
     (db/with-session [session (:hecuba-session store)]
-      (if-let [sensor (sensor-exists? session device_id type)]
+      (if-let [sensor (sensor-exists? store device_id type)]
         (let [validated-measurements (map #(-> %
                                                (prepare-measurement sensor)
                                                (v/validate sensor))
@@ -237,19 +231,20 @@
 ;; measurements-by-reading-handle-ok
 
 (defn measurements-by-reading-handle-ok [store ctx]
-  (let [{:keys [request]} ctx
-        {:keys [route-params]} request
-        {:keys [device_id type timestamp]} route-params
-        t (time/to-db-format timestamp)
-        measurement (format-measurements ctx (db/with-session [session (:hecuba-session store)]
-                                               (db/execute session
+  (db/with-session [session (:hecuba-session store)]
+    (let [{:keys [request]} ctx
+          {:keys [route-params]} request
+          {:keys [device_id type timestamp]} route-params
+          sensor_id (:sensor_id (sensors/get-by-type {:device_id device_id :type type} session))
+          t (time/to-db-format timestamp)
+          measurement (format-measurements ctx (db/execute session
                                                            (hayt/select :partitioned_measurements
                                                                         (hayt/where [[= :device_id device_id]
-                                                                                     [= :type type]
+                                                                                     [= :sensor_id sensor_id]
                                                                                      [= :month (time/get-month-partition-key t)]
-                                                                                     [= :timestamp t]])))))]
-    (-> measurement
-        (dissoc :reading_metadata))))
+                                                                                     [= :timestamp t]]))))]
+      (-> measurement
+          (dissoc :reading_metadata)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; RESOURCES
@@ -281,5 +276,3 @@
   :available-media-types #{"application/json" "application/edn"}
   :authorized? (authorized? store)
   :handle-ok (partial measurements-by-reading-handle-ok store))
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; index-handle-created

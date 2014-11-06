@@ -82,7 +82,7 @@
   (try
     (let [t  (tc/to-date (date-parser (:timestamp m)))]
       {:device_id        (:device_id sensor)
-       :type             (:type sensor)
+       :sensor_id        (:sensor_id sensor)
        :timestamp        t
        :value            (str (:value m))
        :error            (str (:error m))

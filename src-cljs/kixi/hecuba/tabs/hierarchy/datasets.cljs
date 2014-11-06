@@ -13,6 +13,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn post-new-dataset [event-chan refresh-chan owner cursor dataset property-id]
+  (log "series: " (:series dataset))
   (let [resource {:entity_id property-id
                   :operation (string/lower-case (:operation dataset))
                   :name (:name dataset)
@@ -112,7 +113,7 @@
   [device_id sensors]
   (let [clean-sensors (remove #(= (:device_id %) device_id) sensors)
         s (mapv #(assoc % :display (str (-> % :parent-device :description) " : " (:type %) " : " (:device_id %))
-                        :value (:id %)) clean-sensors)]
+                        :value (str (:device_id %) "~"(:sensor_id %))) clean-sensors)]
     (concat s [{:display "Select series" :value "none"}])))
 
 (defn alert [class body status id owner]
@@ -295,7 +296,8 @@
                                      (delete-dataset event-chan refresh-chan entity_id selected-dataset))}
                  "Delete Dataset"]]]
               (bs/static-text selected-dataset :device_id "ID")
-              (bs/static-text selected-dataset :name "Unique Name")
+              (om/build text-input-control selected-dataset {:opts {:id "dataset-name" :path [:name] :required true
+                                                             :label "Name" :dropdown-chan dropdown-chan}})
               (om/build dropdown {:default operation :items available-operations}
                         {:opts {:id "operation-dropdown" :required true :label "Operation"
                                 :path [:operation] :dropdown-chan dropdown-chan}})
@@ -368,15 +370,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Display existing datasets
 
-(defn operands-column [operands]
+(defn get-type-for-sensor_id [sensor_id sensors]
+  (-> (filter #(= (:sensor_id %) sensor_id) sensors)
+      first
+      :type))
+
+(defn operands-column [operands sensors]
   [:div
    (for [operand operands]
-     (let [[type device_id] (string/split operand #"~")]
+     (let [[device_id sensor_id] (string/split operand #"~")]
        [:div.row {:style {:min-height "100%" :word-wrap "break-word"}}
-        [:div.col-md-5 type]
+        [:div.col-md-5 (get-type-for-sensor_id sensor_id sensors)]
         [:div.col-md-7 device_id]]))])
 
-(defn dataset-row [dataset owner]
+(defn dataset-row [dataset owner {:keys [sensors]}]
   (reify
     om/IRenderState
     (render-state [_ state]
@@ -387,7 +394,7 @@
                :class (when selected "success")}
           [:td name]
           [:td operation]
-          [:td (operands-column (into [] operands))]
+          [:td (operands-column (into [] operands) sensors)]
           [:td dataset_id]
           [:td device_id]])))))
 
@@ -401,7 +408,7 @@
          [:i.fa.fa-sort-asc]
          [:i.fa.fa-sort-desc]))]))
 
-(defn datasets-table [datasets owner opts]
+(defn datasets-table [{:keys [datasets sensors]} owner opts]
   (reify
     om/IInitState
     (init-state [_]
@@ -441,6 +448,7 @@
                                         (sort-by sort-key datasets)
                                         (reverse (sort-by sort-key datasets)))
                           {:key :device_id
+                           :opts {:sensors sensors}
                            :init-state {:edited-dataset-chan (:edited-dataset-chan opts)}})]]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -495,7 +503,9 @@
           [:div {:id "alert-div" :style {:padding-top "10px"}}
            (om/build bs/alert (:alert datasets))]
           (when (and (seq (:datasets datasets)) (not adding-dataset) (not editing-dataset))
-            (om/build datasets-table (:datasets datasets) {:opts {:edited-dataset-chan edited-dataset-chan}}))
+            (om/build datasets-table {:datasets (:datasets datasets)
+                                      :sensors (:sensors datasets)}
+                      {:opts {:edited-dataset-chan edited-dataset-chan}}))
           ;; Forms
           (when adding-dataset
             (om/build new-dataset-form {:new-dataset (:new-dataset datasets)

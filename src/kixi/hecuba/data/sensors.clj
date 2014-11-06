@@ -11,7 +11,8 @@
             [clj-time.core :as t]))
 
 (def Sensor {(s/required-key :device_id)                   s/Str
-             (s/required-key :type)                        s/Str
+             (s/required-key :sensor_id)                   s/Str
+             (s/optional-key :type)                        s/Str
              (s/optional-key :alias)                       (s/maybe s/Str)
              (s/optional-key :accuracy)                    (s/maybe s/Str)
              (s/optional-key :actual_annual)               (s/maybe s/Bool)
@@ -75,6 +76,22 @@
    (when-let [lower (:lower_ts new-bounds)] {:lower_ts lower})
    (when-let [upper (:upper_ts new-bounds)] {:upper_ts upper})))
 
+(defn get-by-id
+  ([sensor session]
+     (-> (db/execute session
+                     (hayt/select :sensors
+                                  (hayt/where [[= :sensor_id (:sensor_id sensor)]
+                                               [= :device_id (:device_id sensor)]])))
+         first)))
+
+(defn get-by-type
+  ([sensor session]
+     (-> (db/execute session
+                     (hayt/select :sensors
+                                  (hayt/where [[= :type (:type sensor)]
+                                               [= :device_id (:device_id sensor)]])))
+         first)))
+
 (defn update-sensor-metadata
   "Updates start and end dates when new measurement is received."
   [session sensor min-date max-date]
@@ -92,10 +109,12 @@
                                (hayt/where where))))))
 
 (defn reset-date-range
-  "Given querier, commander, sensor, column and start/end dates, update these dates in sensor metadata."
-  [store {:keys [device_id type]} col start-date end-date]
+  "Given store, sensor, column and start/end dates, update these dates in sensor metadata."
+  [store sensor col start-date end-date]
   (db/with-session [session (:hecuba-session store)]
-    (let [where               [[= :device_id device_id] [= :type type]]
+    (let [sensor_id           (:sensor_id (get-by-id sensor session))
+          device_id           (:device_id sensor)
+          where               [[= :device_id device_id] [= :sensor_id sensor_id]]
           current-metadata    (first (db/execute session (hayt/select :sensor_metadata (hayt/where where))))
           current-range       (get current-metadata col)
           start               (get current-range "start")
@@ -135,22 +154,21 @@
   ([sensor remove-pk?]
      (-> sensor
          (cond-> (:user_metadata sensor) (user-metadata (:synthetic sensor)))
-         (cond-> remove-pk? (dissoc :device_id :type)))))
+         (cond-> remove-pk? (dissoc :device_id :sensor_id)))))
 
 (defn sensor-time-range [sensor session]
   (s/validate Sensor sensor)
-  (let [{:keys [device_id type]} sensor]
+  (let [{:keys [device_id sensor_id]} sensor]
     (first
      (db/execute session
                  (hayt/select :sensor_metadata
                               (hayt/columns :lower_ts :upper_ts)
                               (hayt/where [[= :device_id device_id]
-                                           [= :type type]]))))))
+                                           [= :sensor_id sensor_id]]))))))
 
 (defn add-metadata [sensor session]
   (s/validate Sensor sensor)
-  (let [{:keys [device_id type]}    sensor
-        {:keys [lower_ts upper_ts]} (sensor-time-range sensor session)]
+  (let [{:keys [lower_ts upper_ts]} (sensor-time-range sensor session)]
     (-> sensor
         (assoc :lower_ts lower_ts)
         (assoc :upper_ts upper_ts))))
@@ -171,14 +189,6 @@
               (hayt/select :sensors
                            (hayt/where [[:in :device_id device_ids]]))))
 
-(defn get-by-id
-  ([{:keys [device_id type]} session]
-     (-> (db/execute session
-                     (hayt/select :sensors
-                                  (hayt/where [[= :type type]
-                                               [= :device_id device_id]])))
-         first)))
-
 (defn insert
   ([session sensor metadata]
      (s/validate Sensor sensor)
@@ -195,7 +205,7 @@
        (db/execute session (hayt/insert :sensors
                                         (hayt/values encoded-sensor)))
        (db/execute session (hayt/insert :sensor_metadata
-                                        (hayt/values {:device_id (:device_id sensor) :type (:type sensor)}))))))
+                                        (hayt/values {:device_id (:device_id sensor) :sensor_id (:sensor_id sensor)}))))))
 
 (defn update-user-metadata [sensor]
   ;; sensor has primary keys removed by now
@@ -214,7 +224,7 @@
                                                             (encode :remove-pk)
                                                             update-user-metadata))
                                       (hayt/where [[= :device_id device_id]
-                                                   [= :type (:type sensor)]]))))
+                                                   [= :sensor_id (:sensor_id sensor)]]))))
   ([session device_id sensor metadata]
      (s/validate Sensor sensor)
      (db/execute session (hayt/update :sensors
@@ -222,12 +232,12 @@
                                                             (encode :remove-pk)
                                                             update-user-metadata))
                                       (hayt/where [[= :device_id device_id]
-                                                   [= :type (:type sensor)]])))
+                                                   [= :sensor_id (:sensor_id sensor)]])))
      (db/execute session (hayt/update :sensor_metadata
                                       (hayt/set-columns (-> metadata
                                                             (encode :remove-pk)))
                                       (hayt/where [[= :device_id device_id]
-                                                   [= :type (:type sensor)]])))))
+                                                   [= :sensor_id (:sensor_id sensor)]])))))
 
 (defn ->clojure
   "Sensors are called readings in the API."
@@ -246,15 +256,15 @@
 (defn delete
   ([sensor session]
      (s/validate Sensor sensor)
-     (let [{:keys [device_id type]} sensor
+     (let [{:keys [device_id sensor_id]} sensor
            sensor-response
            (db/execute session (hayt/delete :sensors
                                             (hayt/where [[= :device_id device_id]
-                                                         [= :type type]])))
+                                                         [= :sensor_id sensor_id]])))
            sensor_metadata-response
            (db/execute session (hayt/delete :sensor_metadata
                                             (hayt/where [[= :device_id device_id]
-                                                         [= :type type]])))]
+                                                         [= :sensor_id sensor_id]])))]
        {:sensors sensor-response
         :sensor_metadata sensor_metadata-response}))
   ([sensor measurements? session]
@@ -274,7 +284,7 @@
     (let [all-sensors-metadata (db/execute session (hayt/select :sensor_metadata))]
       (map #(merge (first (db/execute session
                                       (hayt/select :sensors
-                                                   (hayt/where [[= :device_id (:device_id %)] [= :type (:type %)]]))))
+                                                   (hayt/where [[= :device_id (:device_id %)] [= :sensor_id (:sensor_id %)]]))))
                    %) all-sensors-metadata))))
 
 (defn all-sensor-metadata-for-device
@@ -287,17 +297,16 @@
   (db/with-session [session (:hecuba-session store)]
     (merge (first (db/execute session (hayt/select :sensor_metadata
                                                    (hayt/where [[= :device_id (:device_id sensor)]
-                                                                [= :type (:type sensor)]])))) sensor)))
+                                                                [= :sensor_id (:sensor_id sensor)]])))) sensor)))
 
 (defn all-sensor-information
   "Given store,  device_id and type, combines data from sensor and sensor_metadata tables
   for that sensor."
-  [store device_id type]
+  [store device_id sensor_id]
   (db/with-session [session (:hecuba-session store)]
-    (let [sensor (first (db/execute session
-                                    (hayt/select :sensors (hayt/where [[= :device_id device_id]
-                                                                       [= :type type]]))))]
-      (merge-sensor-metadata store {:device_id device_id :type type}))))
+    (let [sensor    (get-by-id {:device_id device_id :sensor_id sensor_id} session)]
+      (when sensor
+        (merge-sensor-metadata store sensor)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Lookup

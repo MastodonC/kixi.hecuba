@@ -109,6 +109,7 @@
            result))))
 
 (deftest entity-resource-handle-ok-returns-correct-results
+  "Should return results sorted by device_id and type"
   (let [store    (new-mock-store [{:id 3001 :metadata {:customer_ref "cref 2"} :description "description2"
                                    :location {:name "Lounge"} :entity_id 1000}
                                   {:id 3000 :metadata {:customer_ref "cref 1"} :description "description"

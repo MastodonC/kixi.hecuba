@@ -110,7 +110,7 @@
 
     (testing "Difference between measurements should be 1."
       (let [measurements (g/measurements sensor)
-            calculated   (calc/diff-seq measurements)]
+            calculated   (calc/diff-seq "12345" measurements)]
         (is (= "1" (first (keys (frequencies (map :value calculated))))))))
 
     (testing "Filled measurements should result in (2 * n) of N/As than originally."
@@ -120,7 +120,7 @@
             end-date               (time/truncate-minutes (t/plus start-date (t/hours 499)))
             expected-timestamps    (calc/all-timestamps-for-range start-date end-date 3600)
             padded                 (calc/pad-measurements with-gaps expected-timestamps)
-            calculated             (calc/diff-seq padded)
+            calculated             (calc/diff-seq "12345" padded)
             freqs                  (frequencies (map :value calculated))]
         (is (= 457 (get-in freqs ["1"]))) ;; last measurement is odd so it's not calculated
         (is (= 42  (get-in freqs ["N/A"])))))))

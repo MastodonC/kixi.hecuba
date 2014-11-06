@@ -148,7 +148,7 @@
                                                                          start-date
                                                                          end-date
                                                                          (:device_id m)
-                                                                         (:type m)))
+                                                                         (:sensor_id m)))
                                    devices-and-sensors)
           uuid                (uuid)]
       (generate-file store

@@ -334,6 +334,7 @@ CREATE INDEX projects_programme_id_idx_1 ON projects (programme_id);
 
 CREATE TABLE sensor_metadata (
   device_id text,
+  sensor_id text,
   type text,
   actual_annual_calculation map<text, timestamp>,
   calculated_datasets map<text, timestamp>,
@@ -347,7 +348,7 @@ CREATE TABLE sensor_metadata (
   rollups map<text, timestamp>,
   spike_check map<text, timestamp>,
   upper_ts timestamp,
-  PRIMARY KEY (device_id, type)
+  PRIMARY KEY (device_id, sensor_id)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
   caching='KEYS_ONLY' AND
@@ -368,6 +369,7 @@ CREATE INDEX sensor_metadata_mislabelled_idx ON sensor_metadata (mislabelled);
 
 CREATE TABLE sensors (
   device_id text,
+  sensor_id,
   type text,
   alias text,
   accuracy text,
@@ -387,7 +389,7 @@ CREATE TABLE sensors (
   unit text,
   user_id text,
   user_metadata map<text,text>,
-  PRIMARY KEY (device_id, type)
+  PRIMARY KEY (device_id, sensor_id)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
   caching='KEYS_ONLY' AND
@@ -407,6 +409,8 @@ CREATE TABLE sensors (
 CREATE INDEX sensors_status_idx ON sensors (status);
 
 CREATE INDEX synthetic_sensors_idx ON sensors (synthetic);
+
+CREATE INDEX sensors_type_idx ON sensors (type);
 
 CREATE TABLE sessions (
   id text,

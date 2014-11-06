@@ -7,7 +7,9 @@
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-time.format :as tf]
-            [clj-time.coerce :as tc]))
+            [clj-time.coerce :as tc]
+            [kixi.hecuba.data.parents :as parents]
+            [kixi.hecuba.data.entities.search :as search]))
 
 (defn do-map
   "Map with side effects."
@@ -97,3 +99,31 @@
                                                              :lower_ts first-ts)
                                            (hayt/where where)))))))
   (log/info "Finished populating sensor bounds."))
+
+(defn migrate-types
+  "Migrates sensor types from sensor_id column (old type column) to
+  type column. Takes < 2 minutes"
+  [{:keys [store]}]
+  (db/with-session [session (:hecuba-session store)]
+    (let [sensors (db/execute session (hayt/select :sensors))]
+      (doseq [s sensors]
+        (let [where [[= :device_id (:device_id s)]
+                     [= :sensor_id (:sensor_id s)]]
+              typ   (:sensor_id s)]
+          (db/execute session (hayt/update :sensors
+                                           (hayt/set-columns :type typ)
+                                           (hayt/where where)))))
+      (search/refresh-search (:hecuba-session store) (:search-session store)))))
+
+(defn reset-broken-location
+  "Some devices have a strigified edn in location (should be json). This deletes it."
+  [{:keys [store]}]
+  (db/with-session [session (:hecuba-session store)]
+    (let [devices (db/execute session (hayt/select :devices))]
+      (doseq [d devices]
+        (let [where [[= :id (:id d)]]]
+          (when (seq (:location d))
+            (db/execute session (hayt/update :devices
+                                             (hayt/set-columns :location nil)
+                                             (hayt/where where))))))
+      (search/refresh-search (:hecuba-session store) (:search-session store)))))
