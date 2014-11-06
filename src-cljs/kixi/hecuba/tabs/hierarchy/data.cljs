@@ -282,7 +282,7 @@
 (defn search-properties [data page size query]
   (log "Searching for: " query)
   (om/update! data :fetching true)
-  (GET (str "/4/entities/?q=" query "&page=" page "&size=" size)
+  (GET (str "/4/entities/?q=" (js/encodeURIComponent query) "&page=" page "&size=" size)
        {:handler (fn [response]
                    (let [entities (:entities response)]
                      (om/update! data :data (into [] entities))
