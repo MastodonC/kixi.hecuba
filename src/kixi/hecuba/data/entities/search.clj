@@ -120,7 +120,7 @@
      (let [query {:query {:filtered
                           {:query
                            {:query_string
-                            {:query (esc/escape-query-string-characters query-string)}}
+                            {:query query-string}}
                            :filter filter-map}}}]
        (search/search search-session "entities" "entity" (assoc query :size size :from from))))
   ([query-string from size search-session]
@@ -128,7 +128,7 @@
                     "entities"
                     "entity"
                     :query {:query_string
-                            {:query (esc/escape-query-string-characters query-string)}}
+                            {:query query-string}}
                     :size size
                     :from from))
   ([query-string filter-map search-session]
