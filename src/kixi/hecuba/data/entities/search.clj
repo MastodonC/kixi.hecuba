@@ -6,6 +6,7 @@
             [clojurewerkz.elastisch.native :as es]
             [clojurewerkz.elastisch.native.document :as doc]
             [clojurewerkz.elastisch.query :as q]
+            [clojurewerkz.elastisch.escape :as esc]
             [kixi.hecuba.storage.search :as search]
             [kixi.hecuba.data.entities :as entities]
             [kixi.hecuba.data.profiles :as profiles]
@@ -116,11 +117,20 @@
 ;; See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
 (defn search-entities
   ([query-string filter-map from size search-session]
-     (let [query  {:query {:filtered {:query {:query_string {:query query-string}}
-                                      :filter filter-map}}}]
+     (let [query {:query {:filtered
+                          {:query
+                           {:query_string
+                            {:query (esc/escape-query-string-characters query-string)}}
+                           :filter filter-map}}}]
        (search/search search-session "entities" "entity" (assoc query :size size :from from))))
   ([query-string from size search-session]
-     (search/search search-session "entities" "entity" :query {:query_string {:query query-string}} :size size :from from))
+     (search/search search-session
+                    "entities"
+                    "entity"
+                    :query {:query_string
+                            {:query (esc/escape-query-string-characters query-string)}}
+                    :size size
+                    :from from))
   ([query-string filter-map search-session]
      (search-entities query-string filter-map 0 20 search-session))
   ([query-string search-session]
