@@ -240,6 +240,13 @@
         (while (.hasChildNodes n)
           (.removeChild n (.-lastChild n))))
       (let [measurements (:measurements chart)]
+        (draw-chart measurements (:chan opts))))
+    om/IDidUpdate
+    (did-update [_ _ _]
+      (let [n (.getElementById js/document "chart")]
+        (while (.hasChildNodes n)
+          (.removeChild n (.-lastChild n))))
+      (let [measurements (:measurements chart)]
         (draw-chart measurements (:chan opts))))))
 
 ;;;;;;;;;;; Bootstrap ;;;;;;;;;;;;
