@@ -245,7 +245,7 @@
 
 (defresource entity-resource [store pipeline]
   :allowed-methods #{:get}
-  :available-media-types #{"text/csv"}
+  :available-media-types #{"text/csv" "application/edn"}
   :known-content-type? #{"text/csv"}
   :authorized? (authorized? store)
   :allowed? (entity-resource-allowed? store)
