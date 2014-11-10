@@ -260,7 +260,7 @@
                         :class "btn btn-primary"
                         :onClick (fn [_]
                                    (GET (str "/4/templates/for-entity/" entity_id "?data=true")
-                                        {:headers {"Accept" "text/csv"}
+                                        {:headers {"Accept" "application/edn"}
                                          :handler #(let [status (:status (:response %))]
                                                      (om/set-state! owner :status
                                                                     (case status
