@@ -27,7 +27,7 @@ The following fields currently exist in as searchable fields:
  * bedroom_count (a number)
  * heating_type
  * walls_construction
- * ventilation_systems
+ * ventilation_systems (true/false)
  * photovoltaics (true/false)
  * solar_termals (true/false)
  * wind_turbines (true/false)
@@ -43,7 +43,7 @@ photovoltaics:true
 
 To retrieve properties with photovoltaics.
 
-Where the built_form is either a House or a Fla
+Where the built_form is either a House or a Flat
 
 ```
 built_form:(House OR Flat)
