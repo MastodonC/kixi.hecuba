@@ -68,4 +68,4 @@
 (defn where-from
   "Takes measurement or sensor and returns where clause"
   [m]
-  [[= :device_id (:device_id m)] [= :type (:type m)]])
+  [[= :device_id (:device_id m)] [= :sensor_id (:sensor_id m)]])

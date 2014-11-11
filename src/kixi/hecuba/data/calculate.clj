@@ -26,17 +26,14 @@
   (db/with-session [session (:hecuba-session store)]
     (merge (first (db/execute session (hayt/select :sensor_metadata
                                                    (hayt/where [[= :device_id (:device_id sensor)]
-                                                                [= :type (:type sensor)]])))) sensor)))
+                                                                [= :sensor_id (:sensor_id sensor)]])))) sensor)))
 (defn sensors-for-dataset
   "Returns all the sensors for the given dataset."
   [{:keys [operands]} store]
   (db/with-session [session (:hecuba-session store)]
     (let [parsed-sensors (map (fn [s] (into [] (next (re-matches #"(\w+)-(\w+)" s)))) operands)
           sensor (fn [[type device_id]]
-                   (db/execute session
-                               (hayt/select :sensors
-                                            (hayt/where [[= :type type]
-                                                         [= :device_id device_id]]))))]
+                   (sensors/get-by-type {:device_id device_id :type type} session))]
       (->> (mapcat sensor parsed-sensors)
            (map #(merge-sensor-metadata store %))))))
 
@@ -48,14 +45,14 @@
                                     "gasConsumption" {"kWh" 0.185}
                                     "oilConsumption" {"kWh" 0.246}}})
 
-(defn conversion-fn [{:keys [type unit]} operation]
-  (let [typ   (first (str/split type #"_"))
-        factor (get-in conversion-factors [operation typ unit])]
+(defn conversion-fn [{:keys [type unit]} output-sensor_id operation]
+  (let [typ              (first (str/split type #"_"))
+        factor           (get-in conversion-factors [operation typ unit])]
     (when factor
       (fn [m]
         (cond-> m (measurements/metadata-is-number? m)
                 (assoc :value (str (round (* factor (edn/read-string (:value m)))))
-                       :type (sensors/output-type-for type operation)))))))
+                       :sensor_id output-sensor_id))))))
 
 (defn timestamp-seq-inclusive
   ([start end] (timestamp-seq-inclusive start end 60))
@@ -81,20 +78,24 @@
 
 (defn- ext-type [type] (str type "_differenceSeries"))
 
-(defn get-difference [m n]
-  (let [value (if (every? measurements/metadata-is-number? [m n])
-                (str (round (- (edn/read-string (:value n)) (edn/read-string (:value m)))))
-                "N/A")]
-    {:timestamp (:timestamp n)
-     :value value
-     :reading_metadata {"is-number" (if (number? (edn/read-string value)) "true" "false") "median-spike" "n-a"}
-     :device_id (:device_id m)
-     :type (ext-type (:type m))
-     :month (:month m)}))
+(defn difference-value [m n]
+  (if (every? measurements/metadata-is-number? [m n])
+    (str (round (- (edn/read-string (:value n)) (edn/read-string (:value m)))))
+    "N/A"))
 
-(defn diff-seq [coll]
+(defn get-difference [output-sensor_id]
+  (fn [m n]
+    (let [value (difference-value m n)]
+      {:timestamp (:timestamp n)
+       :value value
+       :reading_metadata {"is-number" (if (number? (edn/read-string value)) "true" "false") "median-spike" "n-a"}
+       :device_id (:device_id m)
+       :sensor_id output-sensor_id
+       :month (:month m)})))
+
+(defn diff-seq [output-sensor_id coll]
   (assert (not (empty? coll)) "No measurements passed to diff-seq")
-  (map #(get-difference %1 %2) coll (rest coll)))
+  (map #((get-difference output-sensor_id) %1 %2) coll (rest coll)))
 
 (defn timestamp-seq-inclusive
   ([start end] (timestamp-seq-inclusive start end 60))
@@ -105,55 +106,57 @@
   stored in the sensor data. If resolution is not specified, default 60 seconds is used.
   Measurements have gaps filled in."
   [store {:keys [sensor range]}]
-  (let [{:keys [start-date end-date]} range
-        measurements                  (measurements/measurements-for-range store sensor range (t/hours 1))]
-    (when (> (count (take 2 measurements)) 1)
-      (let [{:keys [device_id type]}    sensor
-            new-type                    (ext-type type)
-            calculated                  (diff-seq measurements)
-            page-size                   10
-            calculated-sensor           {:device_id device_id :type new-type}]
-        (when calculated
-          (measurements/insert-measurements store calculated-sensor page-size calculated)
-          (db/with-session [session (:hecuba-session store)]
+  (db/with-session [session (:hecuba-session store)]
+    (let [{:keys [start-date end-date]} range
+          measurements                  (measurements/measurements-for-range store sensor range (t/hours 1))]
+      (when (> (count (take 2 measurements)) 1)
+        (let [{:keys [device_id sensor_id type]} sensor
+              new-type                      (ext-type type)
+              calculated-sensor             (sensors/get-by-type {:device_id device_id :type new-type} session)
+              output-sensor_id              (:sensor_id calculated-sensor)
+              calculated                    (diff-seq output-sensor_id measurements)
+              page-size                     10]
+          (when calculated
+            (measurements/insert-measurements store calculated-sensor page-size calculated)
             (sensors/update-sensor-metadata session calculated-sensor (:start-date range) (:end-date range))))))))
 
 (defn kWh->co2
   "Converts measurements from kWh to co2."
   [store {:keys [sensor range]}]
-  (let [{:keys [device_id type]} sensor
-        new-type                 (sensors/output-type-for type "kwh2co2")
-        get-fn-and-measurements  (fn [s] [(conversion-fn s "kwh2co2")
-                                          (measurements/measurements-for-range store s range (t/hours 1))])
-        convert                  (fn [[f xs]] (when-not (nil? f) (map f xs)))
-        calculated               (->> sensor
-                                      get-fn-and-measurements
-                                      convert)
-        page-size                10]
-    (when calculated
-      (let [calculated-sensor {:device_id device_id :type new-type}
-            {:keys [min-date max-date]} (measurements/insert-measurements store
-                                                                          calculated-sensor
-                                                                          page-size calculated)]
-        (db/with-session [session (:hecuba-session store)]
+  (db/with-session [session (:hecuba-session store)]
+    (let [{:keys [device_id type sensor_id]} sensor
+          new-type                 (sensors/output-type-for type "kwh2co2")
+          output-sensor_id         (:sensor_id (sensors/get-by-type {:device_id device_id :type new-type} session))
+          get-fn-and-measurements  (fn [s] [(conversion-fn s "kwh2co2" output-sensor_id)
+                                            (measurements/measurements-for-range store s range (t/hours 1))])
+          convert                  (fn [[f xs]] (when-not (nil? f) (map f xs)))
+          calculated               (->> sensor
+                                        get-fn-and-measurements
+                                        convert)
+          page-size                10]
+      (when calculated
+        (let [calculated-sensor {:device_id device_id :sensor_id output-sensor_id}]
+          (measurements/insert-measurements store calculated-sensor page-size calculated)
           (sensors/update-sensor-metadata session calculated-sensor (:start-date range) (:end-date range)))))))
 
 (defn gas-volume->kWh
   "Converts measurements from m^3 and ft^3 to kWh."
   [store {:keys [sensor range]}]
-  (let [{:keys [device_id type]} sensor
-        get-fn-and-measurements  (fn [s] [(conversion-fn s "vol2kwh")
-                                          (measurements/measurements-for-range store s range (t/hours 1))])
-        convert                  (fn [[f xs]] (when-not (nil? f) (map f xs)))
-        new-type                 (sensors/output-type-for type "vol2kwh")
-        calculated               (->> sensor
-                                      get-fn-and-measurements
-                                      convert)
-        page-size                10]
-    (when calculated
-      (let [calculated-sensor {:device_id device_id :type new-type}]
-        (measurements/insert-measurements store calculated-sensor page-size calculated)
-        (db/with-session [session (:hecuba-session store)]
+  (db/with-session [session (:hecuba-session store)]
+    (let [{:keys [device_id type]} sensor
+          new-type                 (sensors/output-type-for type "vol2kwh")
+          output-sensor_id         (:sensor_id (sensors/get-by-type {:device_id device_id :type new-type} session))
+          get-fn-and-measurements  (fn [s] [(conversion-fn s "vol2kwh" output-sensor_id)
+                                            (measurements/measurements-for-range store s range (t/hours 1))])
+          convert                  (fn [[f xs]] (when-not (nil? f) (map f xs)))
+
+          calculated               (->> sensor
+                                        get-fn-and-measurements
+                                        convert)
+          page-size                10]
+      (when calculated
+        (let [calculated-sensor {:device_id device_id :sensor_id output-sensor_id}]
+          (measurements/insert-measurements store calculated-sensor page-size calculated)
           (sensors/update-sensor-metadata session calculated-sensor (:start-date range) (:end-date range)))))))
 
 ;;;;;;;;;;; Rollups of measurements ;;;;;;;;;
@@ -175,11 +178,12 @@
                                       (edn/read-string value)))) measurements))
 
 (defn daily-batch
-  [store {:keys [device_id type period]} start-date]
+  [store {:keys [device_id type period sensor_id]} start-date]
   (db/with-session [session (:hecuba-session store)]
     (let [end-date     (t/plus start-date (t/days 1))
           year         (time/get-year-partition-key start-date)
-          where        [[= :device_id device_id] [= :type type] [= :year year] [>= :timestamp start-date] [< :timestamp end-date]]
+          where        [[= :device_id device_id] [= :sensor_id sensor_id]
+                        [= :year year] [>= :timestamp start-date] [< :timestamp end-date]]
           measurements (parse-hourly-rollups (db/execute session (hayt/select :hourly_rollups (hayt/where where))))
           filtered     (filter #(number? %) (map :value measurements))
           funct        (fn [measurements] (case period
@@ -191,7 +195,7 @@
                     (hayt/insert :daily_rollups (hayt/values {:value (str (round (funct filtered)))
                                                               :timestamp (tc/to-date start-date)
                                                               :device_id device_id
-                                                              :type type}))))
+                                                              :sensor_id sensor_id}))))
       end-date)))
 
 (defn daily-rollups
@@ -210,11 +214,12 @@
           filtered)))))
 
 (defn hour-batch
-  [store {:keys [device_id type period]} start-date]
+  [store {:keys [device_id type sensor_id period]} start-date]
   (db/with-session [session (:hecuba-session store)]
     (let [end-date     (t/plus start-date (t/hours 1))
           month        (time/get-month-partition-key start-date)
-          where        [[= :device_id device_id] [= :type type] [= :month month] [>= :timestamp start-date] [< :timestamp end-date]]
+          where        [[= :device_id device_id] [= :sensor_id sensor_id] [= :month month]
+                        [>= :timestamp start-date] [< :timestamp end-date]]
           measurements (measurements/parse-measurements (db/execute session
                                                                     (hayt/select :partitioned_measurements (hayt/where where))))
           funct        (fn [measurements] (case period
@@ -228,7 +233,7 @@
                                                    :timestamp (tc/to-date end-date)
                                                    :year (time/get-year-partition-key start-date)
                                                    :device_id device_id
-                                                   :type type}))))
+                                                   :sensor_id sensor_id}))))
       end-date)))
 
 (defn hourly-rollups
@@ -266,7 +271,7 @@
           (let [months       (time/range->months (:lower_ts sensor) (:upper_ts sensor))
                 measurements (db/execute session (hayt/select :partitioned_measurements
                                                               (hayt/where [[= :device_id (:device_id sensor)]
-                                                                           [= :type (:type sensor)]
+                                                                           [= :sensor_id (:sensor_id sensor)]
                                                                            [:in :month months]])
                                                               (hayt/limit 100)))]
             (when (seq measurements)
@@ -276,7 +281,7 @@
                 (db/execute session (hayt/update :sensors
                                                  (hayt/set-columns [[:resolution calculated-resolution]])
                                                  (hayt/where [[= :device_id (:device_id sensor)]
-                                                              [= :type (:type sensor)]])))))))))))
+                                                              [= :sensor_id (:sensor_id sensor)]])))))))))))
 (defn update-resolution [store sensor resolution]
   (db/with-session [session (:hecuba-session store)]
     (db/execute session (hayt/update :sensors (hayt/set-columns {:resolution (str resolution)})
@@ -344,23 +349,23 @@
       (round (/ m f))
       "N/A")))
 
-(defn compute-datasets-using-field [operation device_id type dataset field]
+(defn compute-datasets-using-field [operation device_id sensor_id dataset field]
   (map (fn [m]
          (let [value (calculation operation m field)]
            (hash-map :value (str value)
                      :device_id device_id
-                     :type type
+                     :sensor_id sensor_id
                      :reading_metadata {"is-number" (str (number? value)) "median-spike" "n/a"}
                      :timestamp (:timestamp m)
                      :month (:month m))))
        dataset))
 
-(defn compute-datasets [operation device_id type & datasets]
+(defn compute-datasets [operation device_id sensor_id & datasets]
   (apply map (fn [& args]
                (let [value (apply calculation operation args)]
                  (hash-map :value (str value)
                            :device_id device_id
-                           :type type
+                           :sensor_id sensor_id
                            :reading_metadata {"is-number" (str (number? value)) "median-spike" "n/a"}
                            :timestamp (:timestamp (first args))
                            :month (:month (first args)))))
@@ -431,18 +436,21 @@
        (log/info "Calculating datasets for operands: " operands "and operation: " operation "and range: " range)
        (let [measurements (mapcat #(measurements/parse-measurements
                                     (measurements/measurements-for-range store % range (t/hours 1))) sensors)]
-         (if (and (> (count (take 2 measurements)) 0) (not (nil? field-value)))
-           (let [new-type                      (:name ds)
-                 sensor                        {:device_id device_id :type new-type}
-                 calculated                    (compute-datasets-using-field operation device_id new-type measurements field-value)
-                 {:keys [start-date end-date]} range
-                 page-size                     10]
-             (when calculated
-               (measurements/insert-measurements store sensor page-size calculated)
-               (db/with-session [session (:hecuba-session store)]
-                 (sensors/update-sensor-metadata session sensor (:start-date range) (:end-date range))))
-             (log/info "Finished calculation for operands: " operands "and operation: " operation))
-           (log/info "There are not enough data to calculate.")))))
+         (db/with-session [session (:hecuba-session store)]
+           (if (and (> (count (take 2 measurements)) 0) (not (nil? field-value)))
+             (let [new-type                      (:name ds)
+                   output-sensor                 (sensors/merge-sensor-metadata
+                                                  store
+                                                  (sensors/get-by-type {:device_id device_id :type new-type} session))
+                   sensor_id                     (:sensor_id output-sensor)
+                   calculated                    (compute-datasets-using-field operation device_id sensor_id measurements field-value)
+                   {:keys [start-date end-date]} range
+                   page-size                     10]
+               (when calculated
+                 (measurements/insert-measurements store output-sensor page-size calculated)
+                 (sensors/update-sensor-metadata session output-sensor (:start-date range) (:end-date range)))
+               (log/info "Finished calculation for operands: " operands "and operation: " operation))
+             (log/info "There are not enough data to calculate."))))))
   ([store ds sensors range]
      (let [{:keys [operation operands device_id]} ds
            operation (keyword operation)]
@@ -453,16 +461,19 @@
                                             (measurements/hourly-rollups-for-range store % range (t/days 1)))
                                           sensors))]
            (if (every? #(> (count (take 2 %)) 1) measurements)
-             (let [padded                        (padded-measurements sensors measurements 3600)
-                   new-type                      (:name ds)
-                   sensor                        {:device_id device_id :type new-type}
-                   calculated                    (apply compute-datasets operation device_id new-type padded)
-                   {:keys [start-date end-date]} range
-                   page-size                     10]
-               (when calculated
-                 (measurements/insert-measurements store sensor page-size calculated)
-                 (db/with-session [session (:hecuba-session store)]
-                   (sensors/update-sensor-metadata session sensor (:start-date range) (:end-date range))))
-               (log/info "Finished calculation for operands: " operands "and operation: " operation))
+             (db/with-session [session (:hecuba-session store)]
+               (let [padded                        (padded-measurements sensors measurements 3600)
+                     new-type                      (:name ds)
+                     output-sensor                 (sensors/merge-sensor-metadata
+                                                    store
+                                                    (sensors/get-by-type {:device_id device_id :type new-type} session))
+                     sensor_id                     (:sensor_id output-sensor)
+                     calculated                    (apply compute-datasets operation device_id sensor_id padded)
+                     {:keys [start-date end-date]} range
+                     page-size                     10]
+                 (when calculated
+                   (measurements/insert-measurements store output-sensor page-size calculated)
+                   (sensors/update-sensor-metadata session output-sensor (:start-date range) (:end-date range)))
+                 (log/info "Finished calculation for operands: " operands "and operation: " operation)))
              (log/info "Sensors do not have enough measurements to calculate.")))
          (log/info "Sensors do not meet requirements for calculation.")))))

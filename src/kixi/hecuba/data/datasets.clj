@@ -51,8 +51,8 @@
 
 (defn delete-sensors [device_id measurements? session]
   (let [sensors         (sensors/get-sensors device_id session)
-        sensor-types    (map :type sensors)
-        deleted-sensors (doall (map #(sensors/delete {:device_id device_id :type %} measurements? session) sensor-types))]
+        sensor-types    (map :sensor_id sensors)
+        deleted-sensors (doall (map #(sensors/delete {:device_id device_id :sensor_id %} measurements? session) sensor-types))]
     {:sensors deleted-sensors}))
 
 (defn delete

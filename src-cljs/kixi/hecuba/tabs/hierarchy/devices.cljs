@@ -174,7 +174,7 @@
   (let [{:keys [device sensors]} (om/get-state owner)
         device (-> (common/deep-merge @existing-device device)
                    (update-in [:privacy] str))
-        readings (into [] (map (fn [[k v]] (assoc v :type k)) sensors))]
+        readings (into [] (map (fn [[k v]] (assoc v :sensor_id k)) sensors))]
     (put-edited-device event-chan refresh-chan owner (assoc device :readings readings)
                        property_id device_id)
     (put! event-chan {:event :editing :value false})))
@@ -198,22 +198,23 @@
                    #(js/alert (str "Unable to delete " sensor-type))))
 
 (defn sensor-edit-div [property_id cursor owner event-chan refresh-chan]
-  (let [sensor-type (:type cursor)
+  (let [sensor_id   (:sensor_id cursor)
+        sensor-type (:type cursor)
         device_id   (:device_id cursor)]
     [:li.list-group-item
      [:div.row
-      [:div.col-md-12
+      [:div.col-md-12 {:style {:padding-bottom "10px"}}
        [:button {:type "button"
                  :class "btn btn-danger pull-right"
                  :onClick (fn [_]
                             (delete-sensor property_id device_id sensor-type event-chan refresh-chan))}
         "Delete Sensor"]]]
-     (static-text cursor :type "Type")
-     (text-input-control cursor owner [:sensors sensor-type] :alias "Header Rows")
-     (text-input-control cursor owner [:sensors sensor-type] :unit "Unit")
-     (text-input-control cursor owner [:sensors sensor-type] :period "Period")
-     (text-input-control cursor owner [:sensors sensor-type] :resolution "Resolution")
-     (checkbox cursor owner [:sensors sensor-type] :actual_annual "Calculated Field")]))
+     (text-input-control cursor owner [:sensors sensor_id] :type "Type")
+     (text-input-control cursor owner [:sensors sensor_id] :alias "Header Rows")
+     (text-input-control cursor owner [:sensors sensor_id] :unit "Unit")
+     (text-input-control cursor owner [:sensors sensor_id] :period "Period")
+     (text-input-control cursor owner [:sensors sensor_id] :resolution "Resolution")
+     (checkbox cursor owner [:sensors sensor_id] :actual_annual "Calculated Field")]))
 
 (defn privacy-checkbox [cursor owner table key label]
   [:div.form-group

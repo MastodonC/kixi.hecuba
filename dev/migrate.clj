@@ -7,7 +7,11 @@
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-time.format :as tf]
-            [clj-time.coerce :as tc]))
+            [clj-time.coerce :as tc]
+            [kixi.hecuba.data.parents :as parents]
+            [kixi.hecuba.data.entities.search :as search]
+            [clojure.edn :as edn]
+            [cheshire.core :as json]))
 
 (defn do-map
   "Map with side effects."
@@ -97,3 +101,43 @@
                                                              :lower_ts first-ts)
                                            (hayt/where where)))))))
   (log/info "Finished populating sensor bounds."))
+
+(defn migrate-types
+  "Migrates sensor types from sensor_id column (old type column) to
+  type column. Takes < 2 minutes"
+  [{:keys [store]}]
+  (db/with-session [session (:hecuba-session store)]
+    (let [sensors (db/execute session (hayt/select :sensors))]
+      (doseq [s sensors]
+        (let [where [[= :device_id (:device_id s)]
+                     [= :sensor_id (:sensor_id s)]]
+              typ   (:sensor_id s)]
+          (db/execute session (hayt/update :sensors
+                                           (hayt/set-columns :type typ)
+                                           (hayt/where where)))))
+      (search/refresh-search (:hecuba-session store) (:search-session store)))))
+
+(defn reset-broken-location
+  "Some devices have a strigified edn in location (should be json). This deletes it."
+  [{:keys [store]}]
+  (db/with-session [session (:hecuba-session store)]
+    (let [devices (db/execute session (hayt/select :devices))]
+      (doseq [d devices]
+        (let [where    [[= :id (:id d)]]
+              location (:location d)]
+          (when (seq location)
+            (try
+              (json/decode location) ;; don't have to do anything when location is stringified json
+              (catch Throwable t
+                (log/errorf "Could not parse location %s for device %s. Attempting to parse as edn."
+                            location (:id d))
+                (try
+                  (let [location-edn (edn/read-string location)
+                        location-json (json/encode location-edn)]
+                    (db/execute session (hayt/update :devices
+                                                     (hayt/set-columns :location location-json)
+                                                     (hayt/where where))))
+                  (catch Throwable t
+                    (log/errorf "Could not parse location %s for device %s as edn."
+                                location (:id d)))))))))
+      (search/refresh-search (:hecuba-session store) (:search-session store)))))

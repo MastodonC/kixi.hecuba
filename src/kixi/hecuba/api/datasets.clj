@@ -48,8 +48,8 @@
   [{:keys [operands]} store]
   (db/with-session [session (:hecuba-session store)]
     (let [parsed-sensors (map (fn [s] (into [] (next (re-matches #"(\w+)~(\w+)" s)))) operands)
-          sensor (fn [[type device_id]]
-                   (sensors/get-by-id {:device_id device_id :type type} session))]
+          sensor (fn [[device_id sensor_id]]
+                   (sensors/get-by-id {:device_id device_id :sensor_id sensor_id} session))]
       (->> (map sensor parsed-sensors)
            (map #(sensors/merge-sensor-metadata store %))))))
 
@@ -69,16 +69,17 @@
       :multiply-series-by-field parent-period
       :divide-series-by-field parent-period)))
 
-(defn synthetic-sensor [operation type device_id unit parents]
+(defn synthetic-sensor [sensor_id operation type device_id unit parents]
   {:device_id  device_id
    :type       type
+   :sensor_id  sensor_id
    :unit       unit
    :period     (get-period operation parents)
    :resolution "3600" ;; based on hourly_rollups
    :synthetic  true})
 
-(defn synthetic-sensor-metadata [type device_id & [range]]
-  (merge {:type      type
+(defn synthetic-sensor-metadata [sensor_id device_id & [range]]
+  (merge {:sensor_id sensor_id
           :device_id device_id}
          (when-let [{:keys [start-date end-date]} range]
            {:calculated_datasets {"start" start-date "end" end-date}})))
@@ -89,16 +90,15 @@
 (defn- name-from [ctx]
   (get-in ctx [:request :route-params :name]))
 
-(defn create-output-sensors [device_id unit type operation parents]
-  (let [synthetic (synthetic-sensor operation type device_id unit parents)
-        default  (d/calculated-sensor synthetic)]
-    (remove nil? (conj [synthetic] default))))
+(defn create-output-sensors [device_id sensor_id unit type operation parents]
+  (let [synthetic (synthetic-sensor sensor_id operation type device_id unit parents)]
+    (:readings (d/create-default-sensors {:readings [synthetic]}))))
 
 (defn insert-output-sensors [store range sensors]
   (db/with-session [session (:hecuba-session store)]
     (doseq [sensor sensors]
-      (let [{:keys [device_id type]} sensor
-            metadata (synthetic-sensor-metadata type device_id range)]
+      (let [{:keys [device_id sensor_id]} sensor
+            metadata (synthetic-sensor-metadata sensor_id device_id range)]
         (datasets/insert-sensor sensor metadata session)))))
 
 (defn index-allowed? [store]
@@ -207,7 +207,8 @@
            operation-str (stringify operation)
            range         (when-let [[start end] (sensors/range-for-all-sensors sensors)]
                            {:start-date start :end-date end})
-           output-sensors (create-output-sensors device_id unit name operation sensors)]
+           sensor_id     (uuid-str)
+           output-sensors (create-output-sensors device_id sensor_id unit name operation sensors)]
        ;; Insert synthetic device
        (devices/insert session entity_id device)
        ;; Insert synthetic sensors
@@ -215,6 +216,7 @@
        ;; Insert dataset
        (datasets/insert {:entity_id  entity_id
                          :dataset_id dataset_id
+                         :sensor_id  sensor_id
                          :name       name
                          :operands   operands
                          :operation  operation-str
@@ -286,9 +288,9 @@
       ;; Deleting old
       (let [sensors-to-delete (sensors/get-sensors device_id session)]
         (when (seq sensors-to-delete)
-          (doseq [{:keys [device_id type]} sensors-to-delete]
-            (log/info "Deleting: " device_id type)
-            (sensors/delete {:device_id device_id :type type} session))))
+          (doseq [{:keys [device_id sensor_id]} sensors-to-delete]
+            (log/info "Deleting: " device_id sensor_id)
+            (sensors/delete {:device_id device_id :sensor_id sensor_id} session))))
       ;; Inserting new
       (let [{:keys [name operation]} new-dataset
             entity            (search/get-by-id (:entity_id old-dataset) (:search-session store))
@@ -297,10 +299,11 @@
             range             (when-let [[start end] (sensors/range-for-all-sensors sensors)]
                                 {:start-date start :end-date end})
             unit              (get-unit (assoc new-dataset :sensors sensors))
-            synthetic-sensors (create-output-sensors device_id unit name operation sensors)]
+            sensor_id         (:sensor_id old-dataset)
+            synthetic-sensors (create-output-sensors device_id sensor_id unit name operation sensors)]
         (doseq [sensor synthetic-sensors]
-          (let [{:keys [device_id type]} sensor
-                metadata (synthetic-sensor-metadata type device_id range)]
+          (let [{:keys [device_id sensor_id]} sensor
+                metadata (synthetic-sensor-metadata sensor_id device_id range)]
             (log/info "Inserting synthetic sensor: " (:device_id sensor) (:type sensor))
             (datasets/insert-sensor (assoc sensor :device_id device_id :user_id user_id) metadata session)))))))
 

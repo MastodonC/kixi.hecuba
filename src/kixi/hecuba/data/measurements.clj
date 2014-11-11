@@ -11,23 +11,23 @@
 (def truthy? #{"true"})
 
 (def SensorId {(s/required-key :device_id) s/Str
-               (s/required-key :type)      s/Str
+               (s/required-key :sensor_id) s/Str
                s/Any s/Any})
 
-(defn sensor_metadata-for [store sensor_id]
-  (s/validate SensorId sensor_id)
-  (let [{:keys [type device_id]} sensor_id]
+(defn sensor_metadata-for [store sensor]
+  (s/validate SensorId sensor)
+  (let [{:keys [sensor_id device_id]} sensor]
     (db/with-session [session (:hecuba-session store)]
       (first (db/execute session
                          (hayt/select
                           :sensor_metadata
                           (hayt/where [[= :device_id device_id]
-                                       [= :type type]])))))))
+                                       [= :sensor_id sensor_id]])))))))
 
-(defn resolve-start-end [store type device_id start end]
+(defn resolve-start-end [store sensor_id device_id start end]
   (mapv tc/to-date-time
         (if (not (and start end))
-          (let [sm (sensor_metadata-for store {:type type :device_id device_id})
+          (let [sm (sensor_metadata-for store {:sensor_id sensor_id :device_id device_id})
                 [lower upper] ((juxt :lower_ts :upper_ts) sm)]
             [(or start lower)
              (or end upper)])
@@ -36,23 +36,23 @@
 (defn delete
   "WARNING: This will delete data in 1 month chunks based on the dates
   passed in."
-  [sensor_id start-date end-date session]
-  (log/infof "Deleting Measurements for %s from %s to %s" sensor_id start-date end-date)
-  (s/validate SensorId sensor_id)
+  [sensor start-date end-date session]
+  (log/infof "Deleting Measurements for %s from %s to %s" sensor start-date end-date)
+  (s/validate SensorId sensor)
   (let [months (time/range->months start-date end-date)
         years  (time/range->years start-date end-date)
-        {:keys [device_id type]} sensor_id]
+        {:keys [device_id sensor_id]} sensor]
     {:measurements
      (db/execute session
                  (hayt/delete :partitioned_measurements
                               (hayt/where [[= :device_id device_id]
-                                           [= :type type]
+                                           [= :sensor_id sensor_id]
                                            [:in :month months]])))
      :hourly_rollups
      (db/execute session
                  (hayt/delete :hourly_rollups
                               (hayt/where [[= :device_id device_id]
-                                           [= :type type]
+                                           [= :sensor_id sensor_id]
                                            ;; FIXME: This should be partitioned by years, but isn't
                                            ;; [:in :year years]
                                            ])))
@@ -60,25 +60,25 @@
      (db/execute session
                  (hayt/delete :daily_rollups
                               (hayt/where [[= :device_id device_id]
-                                           [= :type type]])))}))
+                                           [= :sensor_id sensor_id]])))}))
 
 (defn all-measurements
   "Returns a sequence of all the measurements for a sensor
    matching (type,device_id). The sequence pages to the database in the
    background. The page size is a clj-time Period representing a range
    in the timestamp column. page size defaults to (clj-time/hours 1)"
-  ([store sensor_id & [opts]]
-     (s/validate SensorId sensor_id)
-     (let [{:keys [type device_id]} sensor_id
+  ([store sensor & [opts]]
+     (s/validate SensorId sensor)
+     (let [{:keys [sensor_id device_id]} sensor
            {:keys [page start end] :or {page (t/hours 1)}} opts
-           [start end] (resolve-start-end store type device_id start end)]
+           [start end] (resolve-start-end store sensor_id device_id start end)]
        (when (and start end)
          (let  [next-start (t/plus start page)]
            (db/with-session [session (:hecuba-session store)]
              (lazy-cat (db/execute session
                                    (hayt/select :partitioned_measurements
                                                 (hayt/where [[= :device_id device_id]
-                                                             [= :type type]
+                                                             [= :sensor_id sensor_id]
                                                              [= :month (time/get-month-partition-key start)]
                                                              [>= :timestamp start]
                                                              [< :timestamp next-start]]))
@@ -93,13 +93,13 @@
   [store sensor {:keys [start-date end-date]} page]
   (s/validate SensorId sensor)
   (let [device_id  (:device_id sensor)
-        type       (:type sensor)
+        sensor_id  (:sensor_id sensor)
         next-start (t/plus start-date page)]
     (db/with-session [session (:hecuba-session store)]
       (lazy-cat (db/execute session
                                (hayt/select :partitioned_measurements
                                             (hayt/where [[= :device_id device_id]
-                                                         [= :type type]
+                                                         [= :sensor_id sensor_id]
                                                          [= :month (time/get-month-partition-key start-date)]
                                                          [>= :timestamp start-date]
                                                          [< :timestamp next-start]]))
@@ -113,13 +113,13 @@
   [store sensor {:keys [start-date end-date]} page]
   (s/validate SensorId sensor)
   (let [device_id  (:device_id sensor)
-        type       (:type sensor)
+        sensor_id  (:sensor_id sensor)
         next-start (t/plus start-date page)]
     (db/with-session [session (:hecuba-session store)]
       (lazy-cat (db/execute session
                                (hayt/select :hourly_rollups
                                             (hayt/where [[= :device_id device_id]
-                                                         [= :type type]
+                                                         [= :sensor_id sensor_id]
                                                          [= :year (time/get-year-partition-key start-date)]
                                                          [>= :timestamp start-date]
                                                          [< :timestamp next-start]]))
@@ -138,11 +138,11 @@
 
 (defn retrieve-measurements
   "Iterate over a sequence of months and concatanate measurements retrieved from the database."
-  [session start-date end-date device-id reading-type]
+  [session start-date end-date device-id sensor_id]
   (let [range  (time/time-range start-date end-date (t/months 1))
         months (map #(time/get-month-partition-key (tc/to-date %)) range)
         where  [[= :device_id device-id]
-                [= :type reading-type]
+                [= :sensor_id sensor_id]
                 [>= :timestamp (tc/to-date start-date)]
                 [<= :timestamp (tc/to-date end-date)]]]
     (retrieve-measurements-for-months session months where)))

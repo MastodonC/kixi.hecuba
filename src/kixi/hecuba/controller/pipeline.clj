@@ -254,15 +254,15 @@
         (let [datasets (dd/get-all session)]
           (doseq [ds datasets]
             (let [sensors (sensors-for-dataset ds store)
-                  {:keys [device_id name]} ds
-                  synthetic-sensor (sensors/all-sensor-information store device_id name)]
+                  {:keys [device_id sensor_id]} ds
+                  synthetic-sensor (sensors/all-sensor-information store device_id sensor_id)]
               (when-let [range (time/start-end-dates :calculated_datasets synthetic-sensor)]
                 (synthetic-readings store (assoc item
                                             :range range
                                             :ds ds :sensors sensors))
-                (sensors/reset-date-range store {:device_id device_id :type name} :calculated_datasets
-                                       (:start-date range)
-                                       (:end-date range))
+                (sensors/reset-date-range store {:device_id device_id :sensor_id sensor_id} :calculated_datasets
+                                          (:start-date range)
+                                          (:end-date range))
                 (db/with-session [session (:hecuba-session store)]
                   (let [{:keys [device_id]} ds
                         {:keys [entity_id]} (devices/get-by-id session device_id)]
@@ -354,7 +354,8 @@
                                   (doseq [ds datasets]
                                     (let [sensors (sensors-for-dataset ds store)
                                           [min-date max-date] (sensors/range-for-all-sensors sensors)
-                                          new-item (assoc item :sensors sensors :ds ds :range {:start-date min-date :max-date max-date})]
+                                          new-item (assoc item :sensors sensors :ds ds :range
+                                                          {:start-date min-date :end-date max-date})]
                                       (when (and min-date max-date)
                                         (synthetic-readings store new-item))))))
           :rollups (calculate-over-all-sensors
