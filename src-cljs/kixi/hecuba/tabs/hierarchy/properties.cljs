@@ -130,7 +130,7 @@
              [:td (:address_region property_data)]
              [:td (:ownership property_data)]
              [:td.tech-icon-container-sm (for [ti (:technology_icons property_data)]
-                    [:img {:src ti}])]
+                                           (common/tech-icon ti))]
              [:td (:monitoring_hierarchy property_data)]]))))
 
 (defmethod properties-table-html :has-data [properties owner]

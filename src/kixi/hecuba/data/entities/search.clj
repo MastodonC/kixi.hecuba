@@ -61,9 +61,6 @@
         (assoc :public_access public_access)
         (assoc-in [:full_entity :public_access] public_access))))
 
-(defn has-technology? [profile technology]
-  (-> profile (get technology) seq nil? not))
-
 (defn profile-search-fields [entity db-session]
   (let [{:keys [entity_id]} entity
         profiles (profiles/get-profiles entity_id db-session)
@@ -74,13 +71,15 @@
         (assoc :bedroom_count (get profile_data :bedroom_count 0))
         (assoc :heating_type (-> last_profile :heating_systems first :heating_type))
         (assoc :walls_construction (-> last_profile :walls first :construction))
-        (assoc :ventilation_systems (has-technology?  last_profile :ventilation_systems))
-        (assoc :photovoltaics (has-technology? last_profile :photovoltaics))
-        (assoc :solar_thermals (has-technology?  last_profile :solar_thermals))
-        (assoc :wind_turbines (has-technology? last_profile :wind_turbines))
-        (assoc :small_hydros (has-technology? last_profile :small_hydros))
-        (assoc :heat_pumps (has-technology? last_profile :heat_pumps))
-        (assoc :chps (has-technology? last_profile :chps)))))
+        (assoc :ventilation_systems (profiles/has-technology? last_profile :ventilation_systems))
+        (assoc :photovoltaics (profiles/has-technology? last_profile :photovoltaics))
+        (assoc :solar_thermals (profiles/has-technology? last_profile :solar_thermals))
+        (assoc :wind_turbines (profiles/has-technology? last_profile :wind_turbines))
+        (assoc :small_hydros (profiles/has-technology? last_profile :small_hydros))
+        (assoc :heat_pumps (profiles/has-technology? last_profile :heat_pumps))
+        (assoc :chps (profiles/has-technology? last_profile :chps))
+        (assoc :solid_wall_insulation (profiles/has-walls-technology? last_profile "External"))
+        (assoc :cavity_wall_insulation (profiles/has-walls-technology? last_profile "Filled cavity")))))
 
 (defn entity-devices [entity db-session]
   (let [devices (devices/get-devices db-session (:entity_id entity))]

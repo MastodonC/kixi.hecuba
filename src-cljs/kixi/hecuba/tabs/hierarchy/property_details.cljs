@@ -200,7 +200,7 @@
                [:h3 "Technologies"]
                [:span.tech-icon-container-md
                 (for [ti tech-icons]
-                  [:img {:src ti}])]])
+                  (common/tech-icon ti))]])
             (when-let [photos (seq (:photos property-details))]
               [:div.col-md-12
                [:h3 "Photos"]

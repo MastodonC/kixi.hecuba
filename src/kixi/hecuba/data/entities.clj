@@ -11,7 +11,8 @@
             [hickory.core :as hickory]
             [clojure.tools.logging :as log]
             [kixi.hecuba.schema-utils :as su]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [kixi.hecuba.data.profiles :as profiles]))
 
 (defn delete [entity_id session]
   (let [devices              (devices/get-devices session entity_id)
@@ -82,15 +83,23 @@
     (->> (string/split icon-string #" ")
          (map #(string/replace % ".jpg" ".png")))))
 
-(defn decode-tech-icons [entity]
-  (let [ks [:property_data :technology_icons]]
-    (if-let [dirty-icons (get-in entity ks)]
-      (if (string? dirty-icons)
-        (assoc-in entity ks (split-icon-string dirty-icons))
-        entity)
-      entity)))
+(defn decode-tech-icons [entity session]
+  (let [profiles     (profiles/get-profiles (:entity_id entity) session)
+        last_profile (last profiles)
+        profile_data (-> last_profile :profile_data)
+        ks           [:property_data :technology_icons]]
+    (-> (assoc-in entity ks {})
+        (assoc-in (conj ks :ventilation_systems) (profiles/has-technology? last_profile :ventilation_systems))
+        (assoc-in (conj ks :photovoltaics) (profiles/has-technology? last_profile :photovoltaics))
+        (assoc-in (conj ks :solar_thermals) (profiles/has-technology? last_profile :solar_thermals))
+        (assoc-in (conj ks :wind_turbines) (profiles/has-technology? last_profile :wind_turbines))
+        (assoc-in (conj ks :small_hydros) (profiles/has-technology? last_profile :small_hydros))
+        (assoc-in (conj ks :heat_pumps) (profiles/has-technology? last_profile :heat_pumps))
+        (assoc-in (conj ks :chps) (profiles/has-technology? last_profile :chps))
+        (assoc-in (conj ks :solid_wall_insulation) (profiles/has-walls-technology? last_profile "External"))
+        (assoc-in (conj ks :cavity_wall_insulation) (profiles/has-walls-technology? last_profile "Filled cavity")))))
 
-(defn decode-property-data [entity]
+(defn decode-property-data [entity session]
   (-> entity
       (assoc :property_data
         (try
@@ -98,13 +107,13 @@
           (catch Throwable t
             (log/errorf "Could not parse property_data %s for entity with id %s" (:property_data entity) (:entity_id entity))
             {})))
-      (decode-tech-icons)))
+      (decode-tech-icons session)))
 
-(defn decode [entity]
+(defn decode [entity session]
   (-> entity
       (assoc :entity_id (:id entity))
       (dissoc :id)
-      (cond-> (:property_data entity) (decode-property-data)
+      (cond-> (:property_data entity) (decode-property-data session)
               (:notes entity) (decode-list :notes)
               (:documents entity) (decode-list :documents)
               (:photos entity) (decode-list :photos)
@@ -159,15 +168,15 @@
                      (hayt/select :entities
                                   (hayt/where [[= :id entity_id]])))
          first
-         decode)))
+         (decode session))))
 
 (defn get-all
   ([session]
      (->> (db/execute session (hayt/select :entities))
-          (map decode)))
+          (map #(decode % session))))
   ([session project_id]
      (->> (db/execute session (hayt/select :entities (hayt/where [[= :project_id project_id]])))
-          (map decode))))
+          (map #(decode % session)))))
 
 (defn add-image [session id image]
     (db/execute session (hayt/update :entities
@@ -188,6 +197,6 @@
 (defn get-entities-having-location [session]
   (let [data
         (->> (db/execute session (hayt/select :entities) (hayt/columns [:id :name :property_data]))
-             (map decode)
+             (map #(decode % session))
              (keep has-location?))]
     data))

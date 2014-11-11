@@ -254,7 +254,7 @@
        [:td (:property_code cursor)]
        [:td (slugs/postal-address property_data)]
        [:td.tech-icon-container-sm (for [ti (-> cursor :property_data :technology_icons)]
-                                     [:img {:src ti}])]]))))
+                                     (common/tech-icon ti))]]))))
 
 (defn search-results [cursor owner]
   (reify
