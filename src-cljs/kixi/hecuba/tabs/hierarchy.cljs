@@ -261,17 +261,17 @@
       {:results-size 10})
     om/IRenderState
     (render-state [_ state]
-      (let [{:keys [results-size]} (om/get-state owner)]
+      (let [{:keys [results-size]} (om/get-state owner)
+            {:keys [data term stats]} cursor
+            {:keys [total_hits page]} stats]
         (html
          [:div.row#results-div
           [:div.col-md-12 {:style {:padding-top "10px"} :id "found-properties-table"}
-           [:h1 "Search Results"]
+           [:h2 (str "We've found " total_hits (if (= total_hits 1) " matching property." " matching properties."))]
            (if (:fetching cursor)
              [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching data."]]]
-             (let [{:keys [data term stats]} cursor
-                   {:keys [total_hits page]} stats
-                   results-left             (- total_hits (* (inc page) results-size))
-                   more-to-load?            (pos? results-left)]
+             (let [results-left  (- total_hits (* (inc page) results-size))
+                   more-to-load? (pos? results-left)]
                (if (-> data seq)
                  [:div
                   [:table.table.table-hover.table-condensed
