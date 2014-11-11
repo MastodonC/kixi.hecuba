@@ -252,7 +252,9 @@
        [:td (:programme_name cursor)]
        [:td (:project_name cursor)]
        [:td (:property_code cursor)]
-       [:td (slugs/postal-address property_data)]]))))
+       [:td (slugs/postal-address property_data)]
+       [:td.tech-icon-container-sm (for [ti (-> cursor :property_data :technology_icons)]
+                                     [:img {:src ti}])]]))))
 
 (defn search-results [cursor owner]
   (reify
@@ -277,7 +279,7 @@
                   [:table.table.table-hover.table-condensed
                    [:thead
                     [:tr [:th "Photo"] [:th "Programme Name"] [:th "Project Name"]
-                     [:th "Property ID"][:th "Address"]]]
+                     [:th "Property ID"][:th "Address"] [:th "Technologies"]]]
                    [:tbody
                     (om/build-all found-property-row data {:key :entity_id})]]
                   [:nav
