@@ -9,7 +9,9 @@
             [clj-time.format :as tf]
             [clj-time.coerce :as tc]
             [kixi.hecuba.data.parents :as parents]
-            [kixi.hecuba.data.entities.search :as search]))
+            [kixi.hecuba.data.entities.search :as search]
+            [clojure.edn :as edn]
+            [cheshire.core :as json]))
 
 (defn do-map
   "Map with side effects."
@@ -121,9 +123,17 @@
   (db/with-session [session (:hecuba-session store)]
     (let [devices (db/execute session (hayt/select :devices))]
       (doseq [d devices]
-        (let [where [[= :id (:id d)]]]
-          (when (seq (:location d))
-            (db/execute session (hayt/update :devices
-                                             (hayt/set-columns :location nil)
-                                             (hayt/where where))))))
+        (let [where    [[= :id (:id d)]]
+              location (:location d)]
+          (when (seq location)
+            (try
+              (json/decode location) ;; don't have to do anything when location is stringified json
+              (catch Throwable t
+                (log/errorf "Could not parse location %s for device %s. Attempting to parse as edn."
+                            location (:id d))
+                (let [location-edn (edn/read-string location)
+                      location-json (json/encode location-edn)]
+                  (db/execute session (hayt/update :devices
+                                                 (hayt/set-columns :location location-json)
+                                                 (hayt/where where)))))))))
       (search/refresh-search (:hecuba-session store) (:search-session store)))))

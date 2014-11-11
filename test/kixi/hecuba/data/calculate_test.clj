@@ -132,3 +132,16 @@
 
     (testing "Generate a day worth of timestamps with interval of 60 seconds. Inclusive."
       (is (= 1441 (count (calc/timestamp-seq-inclusive start end)))))))
+
+(deftest difference-value-test
+  (testing "Should return difference or \"N/A\" if values aren't numbers."
+    (is (= "1" (calc/difference-value {:value "1" :reading_metadata {"is-number" "true"}}
+                                      {:value "2" :reading_metadata {"is-number" "true"}})))
+    (is (= "5" (calc/difference-value {:value "1" :reading_metadata {"is-number" "true"}}
+                                      {:value "6" :reading_metadata {"is-number" "true"}})))
+    (is (= "N/A" (calc/difference-value {:value "N/A" :reading_metadata {"is-number" "false"}}
+                                        {:value "2" :reading_metadata {"is-number" "true"}})))
+    (is (= "N/A" (calc/difference-value {:value "1" :reading_metadata {"is-number" "false"}}
+                                        {:value "2" :reading_metadata {"is-number" "false"}})))
+     (is (= "1.5" (calc/difference-value {:value "1" :reading_metadata {"is-number" "true"}}
+                                         {:value "2.5" :reading_metadata {"is-number" "true"}})))))

@@ -205,27 +205,43 @@
                          [:difference_series :co2 :kwh]))
           (merge {:upper_ts end-date :lower_ts start-date})))))
 
+(defn get-sensors-to-delete
+  "Takes old device data and a sequence of sensors and returns
+  a sequence of sensors that should be deleted."
+  [old-device sensors]
+  (->> (map (fn [s] (when (:synthetic s)
+                      (let [device_id              (:device_id old-device)
+                            corresponding-sensor_id (:sensor_id (first (filter #(= (:type %) (:type s)) (:readings old-device))))
+                            sensor                  {:device_id device_id :sensor_id corresponding-sensor_id}]
+                        {:device_id device_id :sensor_id corresponding-sensor_id})))
+            sensors)
+       (filter identity)))
+
 (defn delete-old-synthetic-sensors
-  "Takes a sequence of sensors and deletes old synthetic sensors."
-  [session old-device user_id sensors]
+  "Takes a sequence of sensors and deletes them."
+  [session sensors]
   (doseq [s sensors]
-    (when (:synthetic s)
-      (let [device_id               (:device_id old-device)
-            corresponding-sensor_id (:sensor_id (first (filter #(= (:type %) (:type s)) (:readings old-device))))
-            sensor                  {:device_id device_id :sensor_id corresponding-sensor_id}]
-        (log/infof "Deleting synthetic sensor: %s : %s" device_id (:type s))
-        (sensors/delete sensor session)))))
+    (log/infof "Deleting synthetic sensor: %s : %s" (:device_id s) (:type s))
+    (sensors/delete s session)))
+
+(defn get-sensors-to-insert
+  "Takes a sequence of sensors and enriches it with synthetic sensors"
+  [user_id sensors]
+  (->> (map (fn [s]
+              (when (:synthetic s)
+                (let [sensor_id (uuid-str)
+                      sensor    (assoc s :device_id (:device_id s) :user_id user_id :sensor_id sensor_id)]
+                  sensor)))
+            sensors)
+       (filter identity)))
 
 (defn insert-new-synthetic-sensors
   "Takes a sequence of sensors and inserts new synthetic sensors"
-  [session device_id user_id sensors]
+  [session sensors]
   (doseq [s sensors]
-    (when (:synthetic s)
-      (log/infof "Inserting sensor: %s : %s" device_id (:type s))
-      (let [sensor_id (uuid-str)
-            sensor    (assoc s :device_id device_id :user_id user_id :sensor_id sensor_id)
-            metadata  {:sensor_id sensor_id :device_id device_id}]
-        (sensors/insert session sensor metadata)))))
+    (log/infof "Inserting sensor: %s : %s" (:device_id s) (:type s))
+    (let [metadata  {:sensor_id (:sensor_id s) :device_id (:device_id s)}]
+      (sensors/insert session s metadata))))
 
 (defn update-original-sensor
   "Updates original sensor and resets its dirty dates to lower_ts and upper_ts
@@ -244,9 +260,11 @@
   (let [device_id             (:device_id old-device)
         old-synthetic-sensors (create-default-sensors {:readings [old-sensor]})
         new-synthetic-sensors (create-default-sensors {:readings [(dissoc (data/deep-merge old-sensor new-sensor)
-                                                                          :lower_ts :upper_ts :median :status)]})]
-    (delete-old-synthetic-sensors session old-device user_id (:readings old-synthetic-sensors))
-    (insert-new-synthetic-sensors session device_id user_id (:readings new-synthetic-sensors))
+                                                                          :lower_ts :upper_ts :median :status)]})
+        sensors-to-delete     (get-sensors-to-delete old-device (:readings old-synthetic-sensors))
+        sensors-to-insert     (get-sensors-to-insert user_id (:readings new-synthetic-sensors))]
+    (delete-old-synthetic-sensors session sensors-to-delete)
+    (insert-new-synthetic-sensors session sensors-to-insert)
     (update-original-sensor session device_id user_id new-sensor range)))
 
 (defn update-existing-sensors

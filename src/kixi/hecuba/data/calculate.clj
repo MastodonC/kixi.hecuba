@@ -78,11 +78,14 @@
 
 (defn- ext-type [type] (str type "_differenceSeries"))
 
+(defn difference-value [m n]
+  (if (every? measurements/metadata-is-number? [m n])
+    (str (round (- (edn/read-string (:value n)) (edn/read-string (:value m)))))
+    "N/A"))
+
 (defn get-difference [output-sensor_id]
   (fn [m n]
-    (let [value (if (every? measurements/metadata-is-number? [m n])
-                  (str (round (- (edn/read-string (:value n)) (edn/read-string (:value m)))))
-                  "N/A")]
+    (let [value (difference-value m n)]
       {:timestamp (:timestamp n)
        :value value
        :reading_metadata {"is-number" (if (number? (edn/read-string value)) "true" "false") "median-spike" "n-a"}

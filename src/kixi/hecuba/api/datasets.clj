@@ -92,7 +92,7 @@
 
 (defn create-output-sensors [device_id sensor_id unit type operation parents]
   (let [synthetic (synthetic-sensor sensor_id operation type device_id unit parents)]
-    (:readings (d/create-default-sensors {:readings [synthetic]})) ()))
+    (:readings (d/create-default-sensors {:readings [synthetic]}))))
 
 (defn insert-output-sensors [store range sensors]
   (db/with-session [session (:hecuba-session store)]
