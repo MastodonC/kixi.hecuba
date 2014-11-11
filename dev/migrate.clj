@@ -131,9 +131,13 @@
               (catch Throwable t
                 (log/errorf "Could not parse location %s for device %s. Attempting to parse as edn."
                             location (:id d))
-                (let [location-edn (edn/read-string location)
-                      location-json (json/encode location-edn)]
-                  (db/execute session (hayt/update :devices
-                                                 (hayt/set-columns :location location-json)
-                                                 (hayt/where where)))))))))
+                (try
+                  (let [location-edn (edn/read-string location)
+                        location-json (json/encode location-edn)]
+                    (db/execute session (hayt/update :devices
+                                                     (hayt/set-columns :location location-json)
+                                                     (hayt/where where))))
+                  (catch Throwable t
+                    (log/errorf "Could not parse location %s for device %s as edn."
+                                location (:id d)))))))))
       (search/refresh-search (:hecuba-session store) (:search-session store)))))

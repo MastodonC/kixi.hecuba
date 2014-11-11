@@ -209,13 +209,12 @@
   "Takes old device data and a sequence of sensors and returns
   a sequence of sensors that should be deleted."
   [old-device sensors]
-  (->> (map (fn [s] (when (:synthetic s)
-                      (let [device_id              (:device_id old-device)
-                            corresponding-sensor_id (:sensor_id (first (filter #(= (:type %) (:type s)) (:readings old-device))))
-                            sensor                  {:device_id device_id :sensor_id corresponding-sensor_id}]
-                        {:device_id device_id :sensor_id corresponding-sensor_id})))
-            sensors)
-       (filter identity)))
+  (keep (fn [s] (when (:synthetic s)
+                  (let [device_id              (:device_id old-device)
+                        corresponding-sensor_id (:sensor_id (first (filter #(= (:type %) (:type s)) (:readings old-device))))
+                        sensor                  {:device_id device_id :sensor_id corresponding-sensor_id}]
+                    {:device_id device_id :sensor_id corresponding-sensor_id})))
+        sensors))
 
 (defn delete-old-synthetic-sensors
   "Takes a sequence of sensors and deletes them."
@@ -227,13 +226,12 @@
 (defn get-sensors-to-insert
   "Takes a sequence of sensors and enriches it with synthetic sensors"
   [user_id sensors]
-  (->> (map (fn [s]
-              (when (:synthetic s)
-                (let [sensor_id (uuid-str)
-                      sensor    (assoc s :device_id (:device_id s) :user_id user_id :sensor_id sensor_id)]
-                  sensor)))
-            sensors)
-       (filter identity)))
+  (keep (fn [s]
+         (when (:synthetic s)
+           (let [sensor_id (uuid-str)
+                 sensor    (assoc s :device_id (:device_id s) :user_id user_id :sensor_id sensor_id)]
+             sensor)))
+       sensors))
 
 (defn insert-new-synthetic-sensors
   "Takes a sequence of sensors and inserts new synthetic sensors"
