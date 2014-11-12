@@ -12,10 +12,9 @@
 (defn allowed? [ctx]
   (let [request (:request ctx)
         {:keys [request-method session]} request
-        {:keys [role]}  (sec/current-authentication session)]
-    (log/infof "roles: %s request-method: %s" role request-method)
-    (some #{role} #{:kixi.hecuba.security/super-admin :kixi.hecuba.security/admin
-                    :kixi.hecuba.security/programme-manager :kixi.hecuba.security/project-manager})))
+        {:keys [roles]}  (sec/current-authentication session)]
+    (log/infof "roles: %s request-method: %s" roles request-method)
+    (some #(isa? % :kixi.hecuba.security/project-manager) roles)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Index
@@ -60,7 +59,7 @@
         auth (sec/current-authentication (:session request))]
     ;; If there's no auth return nothing.
     (when-not (nil? (:role auth))
-      (api/render-item ctx (select-keys auth [:name :role :identity]))) ))
+      (api/render-item ctx (select-keys auth [:name :role :identity :roles])))))
 
 (defresource index [store]
   :allowed-methods #{:get}

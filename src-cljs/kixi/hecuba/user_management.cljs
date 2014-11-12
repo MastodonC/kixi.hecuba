@@ -88,16 +88,33 @@
 (defn fetch-projects [data]
   (GET (str "/4/projects/")
        {:handler (fn [response]
-         (om/update! data [:projects :data] (->> response
-                                                 (mapv slugs/slugify-project)
-                                                 (enrich-projects (-> @data :programmes :data))))
-         (om/update! data [:projects :fetching] (if (empty? (-> @data :projects :data))
-                                                  :no-data :has-data)))
+                   (om/update! data [:projects :data] (->> response
+                                                           (filter :editable)
+                                                           (mapv slugs/slugify-project)
+                                                           (enrich-projects (-> @data :programmes :data))))
+                   (om/update! data [:projects :fetching] (if (empty? (-> @data :projects :data))
+                                                            :no-data :has-data)))
         :error-handler (fn [{:keys [status status-text]}]
-         (om/update! data :alert {:status true
-                                  :class "alert alert-danger"
-                                  :text status-text})
-         (om/update! data [:projects :fetching] :error))
+                         (om/update! data :alert {:status true
+                                                  :class "alert alert-danger"
+                                                  :text status-text})
+                         (om/update! data [:projects :fetching] :error))
+        :headers {"Accept" "application/edn"}
+        :response-format :text}))
+
+(defn fetch-programmes [data]
+  (GET (str "/4/programmes/")
+       {:handler (fn [response]
+                   (om/update! data [:programmes :data] (->> response
+                                                             (filter :editable)
+                                                             (mapv slugs/slugify-programme)))
+                   (om/update! data [:programmes :fetching] (if (empty? (-> @data :programmes :data))
+                                                              :no-data :has-data)))
+        :error-handler (fn [{:keys [status status-text]}]
+                         (om/update! data :alert {:status true
+                                                  :class "alert alert-danger"
+                                                  :text status-text})
+                         (om/update! data [:programmes :fetching] :error))
         :headers {"Accept" "application/edn"}
         :response-format :text}))
 
@@ -238,7 +255,7 @@
        [:p {:class "form-control-static col-md-10"} data]]))))
 
 (defn fetch-data [data]
-  (data/fetch-programmes data)
+  (fetch-programmes data)
   (fetch-projects data))
 
 (defn clear-form
@@ -261,7 +278,7 @@
     om/IWillMount
     (will-mount [_]
       (data/fetch-usernames data)
-      (GET "/4/whoami"
+      (GET "/4/whoami/"
            {:handler (fn [x] (om/update! data :editor x))
             :error-handler (fn [status status-text] (om/update! data :alert {:status true
                                                                              :class "alert alert-danger"
