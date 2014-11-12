@@ -29,7 +29,19 @@
    [kixi.hecuba.api.uploads :as uploads]
    [kixi.hecuba.api.entities.upload :as entity-uploads]
    [kixi.hecuba.api.entities.property-map :as map]
-   [kixi.hecuba.api.users :as users]))
+   [kixi.hecuba.api.users :as users]
+   [environ.core :refer [env]]
+   [net.cgrand.enlive-html :refer [deftemplate append html]]))
+
+(def is-dev? (env :is-dev))
+
+(def inject-devmode-html
+  (comp
+    (append (html [:script {:type "text/javascript"} "goog.require('kixi.hecuba.env.dev')"]))))
+
+(def inject-prodmode-html
+  (comp
+   (append (html [:script {:type "text/javascript"} "goog.require('kixi.hecuba.env.prod')"]))))
 
 (defn index-page [req]
   {:status 200
@@ -56,9 +68,12 @@
   {:status 200
    :body (slurp (io/resource "site/password_change_error.html"))})
 
+(deftemplate page
+  (io/resource "site/app.html") [] [:html] (if is-dev? inject-devmode-html inject-prodmode-html))
+
 (defn app-page [req]
   (log/infof "App Session: %s" (:session req))
-  {:status 200 :body (slurp (io/resource "site/app.html"))})
+  {:status 200 :body (page)})
 
 (defn multiple-properties-comparison [req]
   (log/infof "App Session: %s" (:session req))

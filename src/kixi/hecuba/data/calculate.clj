@@ -393,16 +393,18 @@
 
 (defmethod should-calculate? :sum [ds sensors]
   (let [{:keys [period unit]} (first sensors)]
-    (every? #(and (= period (:period %))
-                  (= unit   (:unit %))) sensors)))
+    (and (every? #(= unit (:unit %)) sensors)
+         (or (every? #(= period (:period %)) sensors)
+             (not (some #(= (:period %) "INSTANT") sensors))))))
 
 (defmethod should-calculate? :divide [ds sensors]
-  (let [{:keys [period]} (first sensors)]
-    (every? #(= period (:period %)) sensors)))
+  true)
 
 (defmethod should-calculate? :subtract [ds sensors]
-  (let [{:keys [period]} (first sensors)]
-    (every? #(= period (:period %)) sensors)))
+  (let [{:keys [period unit]} (first sensors)]
+    (and (every? #(= unit (:unit %)) sensors)
+         (or (every? #(= period (:period %)) sensors)
+             (not (some #(= (:period %) "INSTANT") sensors))))))
 
 (defn profile-comparator [x y]
   (let [order (zipmap ["pre-retrofit" "planned retrofit" "post retrofit" ;; R4F

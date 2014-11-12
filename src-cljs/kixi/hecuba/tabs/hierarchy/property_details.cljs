@@ -285,8 +285,7 @@
   (reify
     om/IInitState
     (init-state [_]
-      {:active-tab :overview
-       :datetimepicker-chan (chan)})
+      {:datetimepicker-chan (chan)})
     om/IWillMount
     (will-mount [_]
       (let [{:keys [datetimepicker-chan]} (om/get-state owner)]
@@ -306,7 +305,7 @@
           (common/fixed-scroll-to-element "property-details")))
     om/IRenderState
     (render-state [_ state]
-      (let [active-tab                 (:active-tab state)
+      (let [active-tab                 (:active-tab properties)
             programme-id               (-> properties :programme_id)
             project-id                 (-> properties :project_id)
             property-id                (-> properties :selected)
@@ -323,35 +322,35 @@
              [:div ;; Tab Container
               [:ul.nav.nav-tabs {:role "tablist"}
                [:li {:class (if (= active-tab :overview) "active" nil)}
-                [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :overview))}
+                [:a {:onClick (fn [_ _] (om/update! properties :active-tab :overview))}
                  "Overview"]]
                [:li {:class (if (= active-tab :profiles) "active" nil)}
-                [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :profiles))}
+                [:a {:onClick (fn [_ _] (om/update! properties :active-tab :profiles))}
                  "Profiles"]]
                [:li {:class (if (= active-tab :devices) "active" nil)}
-                [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :devices))}
+                [:a {:onClick (fn [_ _] (om/update! properties :active-tab :devices))}
                  "Devices"]]
                [:li {:class (if (= active-tab :datasets) "active" nil)}
                 [:a {:onClick (fn [_ _]
                                 (om/update! properties [:datasets :sensors] (data/fetch-sensors property-id @properties))
                                 (om/update! properties [:datasets :editable] editable)
                                 (data/fetch-datasets property-id [:datasets :datasets] properties)
-                                (om/set-state! owner :active-tab :datasets))}
+                                (om/update! properties :active-tab :datasets))}
                  "Datasets"]]
                [:li {:class (if (= active-tab :sensors) "active" nil)}
-                [:a {:onClick (fn [_ _] (om/set-state! owner :active-tab :sensors))}
+                [:a {:onClick (fn [_ _] (om/update! properties :active-tab :sensors))}
                  "Sensor Charts"]]
                [:li {:class (if (= active-tab :raw-data) "active" nil)}
                 [:a {:onClick (fn [_ _]
                                 (om/update! properties [:raw-data :sensors] (into [] (data/fetch-sensors property-id @properties)))
-                                (om/set-state! owner :active-tab :raw-data))}
+                                (om/update! properties :active-tab :raw-data))}
                  "Raw Sensor Data"]]
                (when editable
                  [:li {:class (if (= active-tab :upload) "active" nil)}
                   [:a {:onClick (fn [_ _]
                                   (let [refresh-chan (om/get-shared owner :refresh)]
                                     (put! refresh-chan {:event :upload-status})
-                                    (om/set-state! owner :active-tab :upload)))}
+                                    (om/update! properties :active-tab :upload)))}
                    "Uploads"]])]
               ;; Overview
               (when (= active-tab :overview)

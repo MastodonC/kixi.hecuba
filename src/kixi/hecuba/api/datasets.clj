@@ -47,7 +47,7 @@
   "Returns all the sensors for the given dataset."
   [{:keys [operands]} store]
   (db/with-session [session (:hecuba-session store)]
-    (let [parsed-sensors (map (fn [s] (into [] (next (re-matches #"(\w+)~(\w+)" s)))) operands)
+    (let [parsed-sensors (mapv (fn [s] (string/split s #"~")) operands)
           sensor (fn [[device_id sensor_id]]
                    (sensors/get-by-id {:device_id device_id :sensor_id sensor_id} session))]
       (->> (map sensor parsed-sensors)

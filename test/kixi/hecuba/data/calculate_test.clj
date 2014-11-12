@@ -36,7 +36,9 @@
     (let [ds {:operation :sum}]
       (is (= true (calc/should-calculate? ds [{:period "PULSE" :unit "kWh"}
                                               {:period "PULSE" :unit "kWh"}])))
-      (is (= false (calc/should-calculate? ds [{:period "PULSE" :unit "C"}
+      (is (= true (calc/should-calculate? ds [{:period "PULSE" :unit "C"}
+                                              {:period "CUMULATIVE" :unit "C"}])))
+      (is (= false (calc/should-calculate? ds [{:period "INSTANT" :unit "C"}
                                                {:period "CUMULATIVE" :unit "C"}])))
       (is (= true (calc/should-calculate? ds [{:period "INSTANT" :unit "kWh"}])))
       (is (= true (calc/should-calculate? ds [{:period "PULSE"}]))))))
