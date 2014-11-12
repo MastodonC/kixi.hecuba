@@ -397,9 +397,8 @@
                   (= unit   (:unit %))) sensors)))
 
 (defmethod should-calculate? :divide [ds sensors]
-  (let [{:keys [period unit]} (first sensors)]
-    (every? #(and (= period (:period %))
-                  (= unit (:unit %))) sensors)))
+  (let [{:keys [period]} (first sensors)]
+    (every? #(= period (:period %)) sensors)))
 
 (defmethod should-calculate? :subtract [ds sensors]
   (let [{:keys [period]} (first sensors)]
