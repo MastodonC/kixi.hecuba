@@ -19,7 +19,8 @@
             [kixi.hecuba.tabs.hierarchy.data :refer (fetch-properties) :as data]
             [ajax.core :refer [GET PUT]]
             [kixi.hecuba.widgets.fileupload :as file]
-            [kixi.hecuba.widgets.measurementsupload :as measurementsupload]))
+            [kixi.hecuba.widgets.measurementsupload :as measurementsupload]
+            [kixi.hecuba.tabs.hierarchy.tech-icons :as icons]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Property Details Helpers
@@ -200,7 +201,7 @@
                [:h3 "Technologies"]
                [:span.tech-icon-container-md
                 (for [ti tech-icons]
-                  (common/tech-icon ti))]])
+                  (icons/tech-icon ti))]])
             (when-let [photos (seq (:photos property-details))]
               [:div.col-md-12
                [:h3 "Photos"]
