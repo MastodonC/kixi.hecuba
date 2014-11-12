@@ -27,9 +27,9 @@
                :let [current-page? (= page-pathname pathname)
                      href (if current-page? "#" pathname)
                      opts (when current-page? {:class "active"})
-                     role (:role whoami)]]
+                     roles (:roles whoami)]]
            (when (or (not (seq only-roles))
-                     (some only-roles #{role}))
+                     (some only-roles (set roles)))
              [:li opts [:a {:href href} text]]))]
         [:div.pull-right {:id :whoami} (slugs/slugify-whoami whoami)]]))))
 
@@ -39,7 +39,7 @@
            menu-model
            {:target hecuba-menu
             :init-state {:pathname (-> js/window .-location .-pathname)}})
-  (GET "/4/whoami"
+  (GET "/4/whoami/"
        {:handler (fn [x] (swap! menu-model assoc :whoami x))
         :error-handler (fn [x] (log "Error retrieving whoami data."))
         :response-format :json
