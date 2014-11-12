@@ -11,7 +11,8 @@
    [kixi.hecuba.common :refer (log assoc-if) :as common]
    [kixi.hecuba.widgets.fileupload :as file]
    [sablono.core :as html :refer-macros [html]]
-   [cljs.reader :as reader]))
+   [cljs.reader :as reader]
+   [kixi.hecuba.tabs.hierarchy.tech-icons :as icons]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; properties
@@ -130,7 +131,7 @@
              [:td (:address_region property_data)]
              [:td (:ownership property_data)]
              [:td.tech-icon-container-sm (for [ti (:technology_icons property_data)]
-                    [:img {:src ti}])]
+                                           (icons/tech-icon ti))]
              [:td (:monitoring_hierarchy property_data)]]))))
 
 (defmethod properties-table-html :has-data [properties owner]

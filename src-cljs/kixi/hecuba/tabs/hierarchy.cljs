@@ -16,6 +16,7 @@
    [kixi.hecuba.tabs.hierarchy.property-details :as property-details]
    [kixi.hecuba.tabs.hierarchy.data :as data]
    [kixi.hecuba.common :refer (log) :as common]
+   [kixi.hecuba.tabs.hierarchy.tech-icons :as icons]
    [sablono.core :as html :refer-macros [html]]))
 
 (defn back-to-programmes [history]
@@ -254,7 +255,7 @@
        [:td (:property_code cursor)]
        [:td (slugs/postal-address property_data)]
        [:td.tech-icon-container-sm (for [ti (-> cursor :property_data :technology_icons)]
-                                     [:img {:src ti}])]]))))
+                                     (icons/tech-icon ti))]]))))
 
 (defn search-results [cursor owner]
   (reify

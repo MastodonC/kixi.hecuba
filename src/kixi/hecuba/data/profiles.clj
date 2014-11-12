@@ -165,3 +165,10 @@
     (catch Throwable t
       (log/errorf t "Could not update: %s" (pr-str profile))
       (throw t))))
+
+(defn has-technology? [profile technology]
+  (-> profile (get technology) seq nil? not))
+
+(defn has-walls-technology? [profile technology]
+  (when-let [walls (seq (-> profile :walls))]
+    (not (nil? (some #(= (:insulation %) technology) walls)))))
