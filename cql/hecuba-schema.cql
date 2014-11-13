@@ -31,10 +31,10 @@ CREATE TABLE csv_templates (
 
 CREATE TABLE daily_rollups (
   device_id text,
-  type text,
+  sensor_id text,
   "timestamp" timestamp,
   value text,
-  PRIMARY KEY (device_id, type, "timestamp")
+  PRIMARY KEY (device_id, sensor_id, "timestamp")
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
   caching='KEYS_ONLY' AND
@@ -55,6 +55,7 @@ CREATE TABLE datasets (
   id text,
   entity_id text,
   device_id text,
+  sensor_id text,
   name text,
   operation text,
   operands list<text>,
@@ -153,11 +154,11 @@ CREATE INDEX entities_project_id_idx_1 ON entities (project_id);
 
 CREATE TABLE hourly_rollups (
   device_id text,
-  type text,
+  sensor_id text,
   year int,
   "timestamp" timestamp,
   value text,
-  PRIMARY KEY (device_id, type, year, "timestamp")
+  PRIMARY KEY (device_id, sensor_id, year, "timestamp")
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
   caching='KEYS_ONLY' AND
@@ -176,14 +177,14 @@ CREATE TABLE hourly_rollups (
 
 CREATE TABLE measurements (
   device_id text,
-  type text,
+  sensor_id text,
   month int,
   "timestamp" timestamp,
   error text,
   metadata text,
   reading_metadata map<text, text>,
   value text,
-  PRIMARY KEY (device_id, type, month, "timestamp")
+  PRIMARY KEY (device_id, sensor_id, month, "timestamp")
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
   caching='KEYS_ONLY' AND
@@ -202,13 +203,13 @@ CREATE TABLE measurements (
 
 CREATE TABLE partitioned_measurements (
   device_id text,
-  type text,
+  sensor_id text,
   month int,
   "timestamp" timestamp,
   error text,
   reading_metadata map<text, text>,
   value text,
-  PRIMARY KEY ((device_id, type, month), "timestamp")
+  PRIMARY KEY ((device_id, sensor_id, month), "timestamp")
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
   caching='KEYS_ONLY' AND
@@ -335,7 +336,6 @@ CREATE INDEX projects_programme_id_idx_1 ON projects (programme_id);
 CREATE TABLE sensor_metadata (
   device_id text,
   sensor_id text,
-  type text,
   actual_annual_calculation map<text, timestamp>,
   calculated_datasets map<text, timestamp>,
   co2 map<text, timestamp>,
@@ -369,7 +369,7 @@ CREATE INDEX sensor_metadata_mislabelled_idx ON sensor_metadata (mislabelled);
 
 CREATE TABLE sensors (
   device_id text,
-  sensor_id,
+  sensor_id text,
   type text,
   alias text,
   accuracy text,
