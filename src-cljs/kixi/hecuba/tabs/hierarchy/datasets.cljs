@@ -208,53 +208,45 @@
              [:option {:value (:value item) :selected "selected"} (:display item)]
              [:option {:value (:value item)} (:display item)]))]]]))))
 
-(defmulti filter-series (fn [operation selected-series all-series] operation))
+(defmulti filter-by-period (fn [selected-series all-series]
+                          (let [[device_id sensor_id period unit] (string/split selected-series #"~")]
+                            period)))
 
-(defmethod filter-series "sum" [operation selected-series all-series]
+(defmethod filter-by-period "INSTANT" [selected-series all-series]
   (let [[device_id sensor_id period unit] (string/split selected-series #"~")
-        filtered-series (case period
-                          "INSTANT" (->> all-series
-                                         (filter #(= (:unit %) unit))
-                                         (filter #(= (:period %) "INSTANT"))
-                                         (into [])
-                                         (concat [{:display "Select series" :value "none"}] ))
-                          "CUMULATIVE" (->> all-series
-                                            (filter #(= (:unit %) unit))
-                                            (filter #(not= (:period %) "INSTANT"))
-                                            (into [])
-                                            (concat [{:display "Select series" :value "none"}] ))
-                          "PULSE" (->> all-series
-                                       (filter #(= (:unit %) unit))
-                                       (filter #(not= (:period %) "INSTANT"))
-                                       (into [])
-                                       (concat [{:display "Select series" :value "none"}] ))
-                          all-series)]
+        filtered-series (->> all-series
+                             (filter #(= (:unit %) unit))
+                             (filter #(= (:period %) "INSTANT"))
+                             (into [])
+                             (concat [{:display "Select series" :value "none"}]))]
     (into [] (remove #(= selected-series (:value %)) filtered-series))))
 
-(defmethod filter-series "subtract" [operation selected-series all-series]
+(defmethod filter-by-period "CUMULATIVE" [selected-series all-series]
   (let [[device_id sensor_id period unit] (string/split selected-series #"~")
-        filtered-series (case period
-                          "INSTANT" (->> all-series
-                                         (filter #(= (:unit %) unit))
-                                         (filter #(= (:period %) "INSTANT"))
-                                         (into [])
-                                         (concat [{:display "Select series" :value "none"}] ))
-                          "CUMULATIVE" (->> all-series
-                                            (filter #(= (:unit %) unit))
-                                            (filter #(not= (:period %) "INSTANT"))
-                                            (into [])
-                                            (concat [{:display "Select series" :value "none"}] ))
-                          "PULSE" (->> all-series
-                                       (filter #(= (:unit %) unit))
-                                       (filter #(not= (:period %) "INSTANT"))
-                                       (into [])
-                                       (concat [{:display "Select series" :value "none"}] ))
-                          all-series)]
+        filtered-series (->> all-series
+                             (filter #(= (:unit %) unit))
+                             (filter #(not= (:period %) "INSTANT"))
+                             (into [])
+                             (concat [{:display "Select series" :value "none"}]))]
     (into [] (remove #(= selected-series (:value %)) filtered-series))))
 
-(defmethod filter-series "divide" [operation selected-series all-series]
+(defmethod filter-by-period  "PULSE" [selected-series all-series]
+  (let [[device_id sensor_id period unit] (string/split selected-series #"~")
+        filtered-series (->> all-series
+                             (filter #(= (:unit %) unit))
+                             (filter #(not= (:period %) "INSTANT"))
+                             (into [])
+                             (concat [{:display "Select series" :value "none"}]))]
+    (into [] (remove #(= selected-series (:value %)) filtered-series))))
+
+(defmethod filter-by-period :default [selected-series all-series]
+  all-series)
+
+(defn filter-series [operation selected-series all-series]
   (let [[device_id sensor_id period unit] (string/split selected-series #"~")]
-    (into [] (remove #(= selected-series (:value %)) all-series))))
+    (if (= operation "divide")
+      (into [] (remove #(= selected-series (:value %)) all-series))
+      (filter-by-period selected-series all-series))))
 
 (defmulti dropdowns (fn [cursor owner opts] (:operation cursor)))
 
