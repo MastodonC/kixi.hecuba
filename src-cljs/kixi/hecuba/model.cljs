@@ -26,6 +26,7 @@
                  :data     []
                  :selected nil
                  :adding-property false
+                 :active-tab :overview
                  :alert {}
                  :devices {:name "Devices"
                            :header   {:cols {[:location :name] {:label "Name"}

@@ -4,7 +4,8 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
-  :plugins [[lein-cljsbuild "1.0.3"]]
+  :plugins [[lein-cljsbuild "1.0.3"]
+            [lein-environ "1.0.0"]]
 
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/data.csv "0.1.2"]
@@ -69,6 +70,9 @@
                  [com.andrewmcveigh/cljs-time "0.1.6"]
                  [sablono "0.2.22"]
 
+                 [lein-figwheel "0.1.5-SNAPSHOT"]
+                 [enlive "1.1.5"]
+                 [environ "1.0.0"]
                  [ankha "0.1.4"]
 
                  [cc.qbits/alia "2.1.2"]
@@ -96,8 +100,12 @@
                                   [org.clojure/tools.namespace "0.2.5"]
                                   [javax.servlet/servlet-api "2.5"]
                                   [org.clojure/test.check "0.5.9"]]
-                   :plugins [[com.cemerick/austin "0.1.4"]]}
-
+                   :figwheel {:http-server-root "cljs"
+                              :port 3449
+                              :css-dirs ["resources/site/css"]}
+                   :env {:is-dev false}
+                   :plugins [[com.cemerick/austin "0.1.4"]
+                             [lein-figwheel "0.1.5-SNAPSHOT"]]}
              :uberjar {:main kixi.hecuba.controller.main :aot [kixi.hecuba.controller.main]}}
 
   :exclusions [[org.clojure/clojure]

@@ -33,6 +33,26 @@ app needs to be bounced by doing ```reset``` as above.
 If you pull from github, you'll still probably want to restart your
 nrepl session though.
 
+You can also use figwheel:
+Instead of running ``` lein cljsbuild auto ``` and reloading the
+website, update ``` project.clj ``` to have this:
+
+```
+:env {:is-dev true}
+
+```
+and run:
+
+```
+lein figwheel
+```
+
+Each time you save your cljs files, figwheel will recompile and
+refresh the website for you.
+
+Environment should be set to ``` {:is-dev false} ``` before
+deployment to the server.
+
 ## Dev environment
 
 We are using Vagrant to manage dev environments.

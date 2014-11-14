@@ -12,12 +12,16 @@
 ;; POST, PUT, DELETE and VALIDATE                                                        ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defn remove-period-and-unit [operand]
+  (let [[device_id sensor_id period unit] (string/split operand #"~")]
+    (str device_id "~" sensor_id)))
+
 (defn post-new-dataset [event-chan refresh-chan owner cursor dataset property-id]
-  (log "series: " (:series dataset))
-  (let [resource {:entity_id property-id
+  (let [operands (mapv remove-period-and-unit (:series dataset))
+        resource {:entity_id property-id
                   :operation (string/lower-case (:operation dataset))
                   :name (:name dataset)
-                  :operands (:series dataset)}]
+                  :operands operands}]
     (common/post-resource (str "/4/entities/" property-id "/datasets/")
                           resource
                           (fn [_]
@@ -27,30 +31,31 @@
                             (put! event-chan {:event :editing-dataset :value false})
                             (put! event-chan {:event :alert :value {:status true
                                                                     :class "alert alert-success"
-                                                                    :text "Dataset was created successfully."}}))
+                                                                    :text "Dataset was created successfully. Data will be available within 2 hours."}}))
                           (fn [{:keys [status status-text]}]
                             (om/set-state! owner :alert {:status true
                                                          :class "alert alert-danger"
                                                          :text status-text})))))
 
 (defn put-edited-dataset [event-chan refresh-chan owner cursor dataset entity_id dataset_id]
-  (let [resource {:operation (string/lower-case (:operation dataset))
-                  :name      (:name dataset)
-                  :operands  (:series dataset)}]
-    (common/put-resource (str "/4/entities/" entity_id "/datasets/" dataset_id)
-                          resource
-                          (fn [_]
-                            (om/update! cursor {})
-                            (put! refresh-chan {:event :datasets})
-                            (put! event-chan {:event :adding-dataset :value false})
-                            (put! event-chan {:event :editing-dataset :value false})
-                            (put! event-chan {:event :alert :value {:status true
-                                                                    :class "alert alert-success"
-                                                                    :text "Dataset was edited successfully."}}))
-                          (fn [{:keys [status status-text]}]
-                            (om/set-state! owner :alert {:status true
-                                                         :class "alert alert-danger"
-                                                         :text status-text})))))
+  (let [operands (mapv remove-period-and-unit (:series dataset))]
+    (let [resource {:operation (string/lower-case (:operation dataset))
+                    :name      (:name dataset)
+                    :operands  operands}]
+      (common/put-resource (str "/4/entities/" entity_id "/datasets/" dataset_id)
+                           resource
+                           (fn [_]
+                             (om/update! cursor {})
+                             (put! refresh-chan {:event :datasets})
+                             (put! event-chan {:event :adding-dataset :value false})
+                             (put! event-chan {:event :editing-dataset :value false})
+                             (put! event-chan {:event :alert :value {:status true
+                                                                     :class "alert alert-success"
+                                                                     :text "Dataset was edited successfully. New data will be available within 2 hours."}}))
+                           (fn [{:keys [status status-text]}]
+                             (om/set-state! owner :alert {:status true
+                                                          :class "alert alert-danger"
+                                                          :text status-text}))))))
 
 (defn delete-dataset [event-chan refresh-chan entity_id dataset]
   (let [{:keys [dataset_id device_id]} @dataset]
@@ -68,13 +73,38 @@
                                                                       :class "alert alert-danger"
                                                                       :text "Unable to delete dataset."}})))))
 
+(defn add-unit-and-period [selected available]
+  (->> (map (fn [s] (let [[device_id sensor_id] (string/split s #"~")]
+                      {:device_id device_id :sensor_id sensor_id})) selected)
+       (map (fn [s] (let [match (first (filter #(and (= (:device_id %) (:device_id s))
+                                                     (= (:sensor_id %) (:sensor_id s))) available))
+                          {:keys [unit period]} match]
+                      (assoc s :unit unit :period period))))))
 
-(defn valid-dataset? [dataset]
+(defn valid-combination? [operation selected-series available-series]
+  (if-not (some #{operation} #{"divide" "multiply-series-by-field" "divide-series-by-field"})
+    (let [series (add-unit-and-period selected-series available-series)
+        {:keys [period unit]} (first series)]
+      (if-not (every? #(= unit (:unit %)) series)
+        [false "Please check that you've selected series of the same units."]
+        (if-not (or (every? #(= period (:period %)) series)
+                    (not (some #(= (:period %) "INSTANT") series)))
+          [false "Combining series with CUMULATIVE and INSTANT or PULSE and INSTANT periods is not allowed."]
+          [true ""])))
+    [true ""]))
+
+(defn valid-dataset? [dataset available-series]
   (let [{:keys [operation series name]} dataset]
-    (and (and (seq operation) (seq series))
-         (= (count series) (count (set series)))
-         (> (count series) 1)
-         (seq name))))
+
+    (if-not (seq name)
+      [false "Please enter name for the dataset."]
+      (if-not (seq operation)
+        [false "Please select operation."]
+        (if-not (seq series)
+          [false "Please select all required series for calculation."]
+          (if-not (= (count series) (count (set series)))
+            [false "Please select unique series."]
+            (valid-combination? operation series available-series)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; HELPERS                                                                               ;;
@@ -93,15 +123,21 @@
                        {:display "Electricity cost" :value "electricity_cost" :unit "£"}
                        {:display "Gas cost"         :value "gas_cost" :unit "£"}
                        {:display "Select field"     :value "none"}])
+(defn enrich [itm series]
+  (let [[device_id sensor_id] (string/split itm #"~")
+        {:keys [period unit]} (first (filter #(and (= (:device_id %) device_id) (= (:sensor_id %) sensor_id)) series))
+        enriched (str itm "~" period "~" unit)]
+    enriched))
 
 (defn update-series
-  "Turn set of operands into key value pairs format used in dropdowns, e.g. :series1 \"fd323ds\" "
-  [dataset]
+  "Turn set of operands into key value pairs format used in dropdowns, e.g. :series1 \"fd323ds\"
+   Series need to be in the following format: <device_id>~<sensor_id>~<period>~<unit>"
+  [dataset series]
   (let [{:keys [operands operation]} dataset]
     (cond
-     (some #{operation} #{"sum" "divide" "subtract"}) (merge dataset (apply merge (map-indexed (fn [idx itm] {(keyword (str "series" (+ idx 1))) itm}) operands)))
+     (some #{operation} #{"sum" "divide" "subtract"}) (merge dataset (apply merge (map-indexed (fn [idx itm] {(keyword (str "series" (+ idx 1))) (enrich itm series)}) operands)))
      :else (let [[field unit] (string/split (last operands) #"~")]
-             (assoc dataset :series1 (first operands) :field field)))))
+             (assoc dataset :series1 (enrich (first operands) series) :field field)))))
 
 (defn error-handler [event-chan]
   (fn [{:keys [status status-text]}]
@@ -112,8 +148,9 @@
 (defn enrich-series-for-dropdowns
   [device_id sensors]
   (let [clean-sensors (remove #(= (:device_id %) device_id) sensors)
-        s (mapv #(assoc % :display (str (-> % :parent-device :description) " : " (:type %) " : " (:device_id %))
-                        :value (str (:device_id %) "~"(:sensor_id %))) clean-sensors)]
+        s (mapv #(assoc % :display (string/join " : " (remove nil? [(-> % :parent-device :description)
+                                                                    (:type %) (:period %) (:unit %)]))
+                        :value (string/join "~" [(:device_id %) (:sensor_id %) (:period %) (:unit %)])) clean-sensors)]
     (concat s [{:display "Select series" :value "none"}])))
 
 (defn alert [class body status id owner]
@@ -134,6 +171,7 @@
   (mapv name (vec (remove nil? (vals (select-keys dataset [:series1 :field]))))))
 (defmethod selected-series "divide-series-by-field" [dataset]
   (mapv name (vec (remove nil? (vals (select-keys dataset [:series1 :field]))))))
+(defmethod selected-series :default [dataset])
 
 (defn text-input-control [cursor owner {:keys [path id label required dropdown-chan]}]
   (om/component
@@ -153,69 +191,117 @@
 
 (defn dropdown [{:keys [default items]} owner {:keys [id required label path dropdown-chan]}]
   (om/component
-   (html
-    [:div.form-group
-     [:label.control-label.col-md-2 {:for id} label]
-     [:div {:class (str "col-md-10 " (when required "required"))}
-      [:select.form-control
-       {:default-value (or default "none") :id id
-        :on-change (fn [e]
-                     (let [v (.-value (aget (.-options (.-target e))
-                                            (.-selectedIndex (.-options (.-target e)))))]
-                       (put! dropdown-chan {:path path
-                                            :value (if-not (= v "none") v nil)})))}
-       (for [item items]
-         [:option {:value (:value item)} (:display item)])]]])))
+   (let [default-value (or default "none")]
+     (html
+      [:div.form-group
+       [:label.control-label.col-md-2 {:for id} label]
+       [:div {:class (str "col-md-10 " (when required "required"))}
+        [:select.form-control
+         {:default-value default-value :id id
+          :on-change (fn [e]
+                       (let [v (.-value (aget (.-options (.-target e))
+                                              (.-selectedIndex (.-options (.-target e)))))]
+                         (put! dropdown-chan {:path path
+                                              :value (if-not (= v "none") v nil)})))}
+         (for [item items]
+           (if (= default-value (:value item))
+             [:option {:value (:value item) :selected "selected"} (:display item)]
+             [:option {:value (:value item)} (:display item)]))]]]))))
+
+(defmulti filter-by-period (fn [selected-series all-series]
+                          (let [[device_id sensor_id period unit] (string/split selected-series #"~")]
+                            period)))
+
+(defmethod filter-by-period "INSTANT" [selected-series all-series]
+  (let [[device_id sensor_id period unit] (string/split selected-series #"~")
+        filtered-series (->> all-series
+                             (filter #(= (:unit %) unit))
+                             (filter #(= (:period %) "INSTANT"))
+                             (into [])
+                             (concat [{:display "Select series" :value "none"}]))]
+    (into [] (remove #(= selected-series (:value %)) filtered-series))))
+
+(defmethod filter-by-period "CUMULATIVE" [selected-series all-series]
+  (let [[device_id sensor_id period unit] (string/split selected-series #"~")
+        filtered-series (->> all-series
+                             (filter #(= (:unit %) unit))
+                             (filter #(not= (:period %) "INSTANT"))
+                             (into [])
+                             (concat [{:display "Select series" :value "none"}]))]
+    (into [] (remove #(= selected-series (:value %)) filtered-series))))
+
+(defmethod filter-by-period  "PULSE" [selected-series all-series]
+  (let [[device_id sensor_id period unit] (string/split selected-series #"~")
+        filtered-series (->> all-series
+                             (filter #(= (:unit %) unit))
+                             (filter #(not= (:period %) "INSTANT"))
+                             (into [])
+                             (concat [{:display "Select series" :value "none"}]))]
+    (into [] (remove #(= selected-series (:value %)) filtered-series))))
+
+(defmethod filter-by-period :default [selected-series all-series]
+  all-series)
+
+(defn filter-series [operation selected-series all-series]
+  (let [[device_id sensor_id period unit] (string/split selected-series #"~")]
+    (if (= operation "divide")
+      (into [] (remove #(= selected-series (:value %)) all-series))
+      (filter-by-period selected-series all-series))))
 
 (defmulti dropdowns (fn [cursor owner opts] (:operation cursor)))
 
-(defmethod dropdowns "sum" [{:keys [operation items selected-dataset]} owner {:keys [dropdown-chan]}]
+(defmethod dropdowns "sum" [{:keys [operation items dataset]} owner {:keys [dropdown-chan]}]
   (om/component
     (html
      [:div
-      (om/build dropdown {:default (:series1 selected-dataset) :items items}
+      (om/build dropdown {:default (:series1 dataset) :items items}
                 {:opts {:id "series1-dropdown" :required true :label "First Series"
                         :path [:series1] :dropdown-chan dropdown-chan}})
-      (om/build dropdown {:default (:series2 selected-dataset) :items items}
+      (om/build dropdown {:default (:series2 dataset) :items items }
                 {:opts {:id "series2-dropdown" :required true :label "Second Series"
-                        :path [:series2] :dropdown-chan dropdown-chan}})
-      (om/build dropdown {:default (:series3 selected-dataset) :items items}
+                        :path [:series2] :dropdown-chan dropdown-chan}
+                 :fn (fn [c] (assoc c :items (filter-series operation (:series1 dataset) items)))})
+      (om/build dropdown {:default (:series3 dataset) :items items}
                 {:opts {:id "series3-dropdown" :required false :label "Third Series"
-                        :path [:series3] :dropdown-chan dropdown-chan}})
-      (om/build dropdown {:default (:series4 selected-dataset) :items items}
+                        :path [:series3] :dropdown-chan dropdown-chan}
+                 :fn (fn [c] (assoc c :items (filter-series operation (:series1 dataset) items)))})
+      (om/build dropdown {:default (:series4 dataset) :items items}
                 {:opts {:id "series4-dropdown" :required false :label "Fourth Series"
-                        :path [:series4] :dropdown-chan dropdown-chan}})])))
+                        :path [:series4] :dropdown-chan dropdown-chan}
+                 :fn (fn [c] (assoc c :items (filter-series operation (:series1 dataset) items)))})])))
 
-(defmethod dropdowns "subtract" [{:keys [operation items selected-dataset]} owner {:keys [dropdown-chan]}]
+(defmethod dropdowns "subtract" [{:keys [operation items dataset]} owner {:keys [dropdown-chan]}]
   (om/component
    (html
     [:div
-     (om/build dropdown {:default (:series1 selected-dataset) :items items}
+     (om/build dropdown {:default (:series1 dataset) :items items}
                {:opts {:id "series1-dropdown" :required true :label "First Series"
                        :path [:series1] :dropdown-chan dropdown-chan}})
-     (om/build dropdown {:default (:series2 selected-dataset) :items items}
+     (om/build dropdown {:default (:series2 dataset) :items items}
                {:opts {:id "series2-dropdown" :required true :label "Second Series"
-                       :path [:series2] :dropdown-chan dropdown-chan}})])))
+                       :path [:series2] :dropdown-chan dropdown-chan}
+                :fn (fn [c] (assoc c :items (filter-series operation (:series1 dataset) items)))})])))
 
-(defmethod dropdowns "divide" [{:keys [operation items selected-dataset]} owner {:keys [dropdown-chan]}]
+(defmethod dropdowns "divide" [{:keys [operation items dataset]} owner {:keys [dropdown-chan]}]
   (om/component
    (html
     [:div
-     (om/build dropdown {:default (:series1 selected-dataset) :items items}
+     (om/build dropdown {:default (:series1 dataset) :items items}
                {:opts {:id "series1-dropdown" :required true :label "First Series"
                        :path [:series1] :dropdown-chan dropdown-chan}})
-     (om/build dropdown {:default (:series2 selected-dataset) :items items}
+     (om/build dropdown {:default (:series2 dataset) :items items}
                {:opts {:id "series2-dropdown" :required true :label "Second Series"
-                       :path [:series2] :dropdown-chan dropdown-chan}})])))
+                       :path [:series2] :dropdown-chan dropdown-chan}
+                :fn (fn [c] (assoc c :items (filter-series operation (:series1 dataset) items)))})])))
 
-(defmethod dropdowns "multiply-series-by-field" [{:keys [operation items selected-dataset]} owner {:keys [dropdown-chan]}]
+(defmethod dropdowns "multiply-series-by-field" [{:keys [operation items dataset]} owner {:keys [dropdown-chan]}]
   (om/component
    (html
     [:div
-     (om/build dropdown {:default (:series1 selected-dataset) :items items}
+     (om/build dropdown {:default (:series1 dataset) :items items}
                {:opts {:id "series-dropdown" :required true :label "Series"
                        :path [:series1] :dropdown-chan dropdown-chan}})
-     (om/build dropdown {:default (:field selected-dataset) :items available-fields}
+     (om/build dropdown {:default (:field dataset) :items available-fields}
                {:opts {:id "field-dropdown" :required true :label "Field"
                        :path [:field] :dropdown-chan dropdown-chan}})])))
 
@@ -271,19 +357,20 @@
                 [:button {:type "button"
                           :class "btn btn-success"
                           :onClick (fn [_]
-                                     (let [dataset @selected-dataset
-                                           series  (selected-series dataset)
+                                     (let [dataset         @selected-dataset
+                                           selected        (selected-series dataset)
                                            parsed-dataset  (-> dataset
                                                                (update-in [:operation] name)
 
-                                                               (assoc :series series)
-                                                               (dissoc :series1 :series2 :series3 :series4 :field :editable :members))]
-                                       (if (valid-dataset? parsed-dataset)
+                                                               (assoc :series selected)
+                                                               (dissoc :series1 :series2 :series3 :series4 :field :editable :members))
+                                           [valid? reason] (valid-dataset? parsed-dataset series)]
+                                       (if valid?
                                          (put-edited-dataset event-chan refresh-chan owner selected-dataset
                                                              parsed-dataset entity_id dataset_id)
                                          (om/set-state! owner :alert {:status true
-                                                                      :class "alert alert-danger"
-                                                                      :text  " Please enter required dataset data."}))))} "Save"]
+                                                                      :class  "alert alert-danger"
+                                                                      :text   reason}))))} "Save"]
                 [:button {:type "button"
                           :class "btn btn-danger"
                           :onClick (fn [_]
@@ -301,7 +388,7 @@
               (om/build dropdown {:default operation :items available-operations}
                         {:opts {:id "operation-dropdown" :required true :label "Operation"
                                 :path [:operation] :dropdown-chan dropdown-chan}})
-              (om/build dropdowns {:selected-dataset selected-dataset :items series :operation operation}
+              (om/build dropdowns {:dataset selected-dataset :items series :operation operation}
                         {:opts {:dropdown-chan dropdown-chan}})]]])))))
 
 
@@ -342,17 +429,18 @@
                         :class "btn btn-success"
                         :onClick (fn [_]
                                    (let [dataset         @new-dataset
-                                         series          (selected-series dataset)
+                                         selected        (selected-series dataset)
                                          parsed-dataset  (-> dataset
-                                                             (update-in [:operation] name)
+                                                             (cond-> (:operation dataset) (update-in [:operation] name))
 
-                                                             (assoc :series series)
-                                                             (dissoc :series1 :series2 :series3 :series4 :field))]
-                                     (if (valid-dataset? parsed-dataset)
+                                                             (assoc :series selected)
+                                                             (dissoc :series1 :series2 :series3 :series4 :field))
+                                         [valid? reason] (valid-dataset? parsed-dataset series)]
+                                     (if valid?
                                        (post-new-dataset event-chan refresh-chan owner new-dataset parsed-dataset property-id)
                                        (om/set-state! owner :alert {:status true
-                                                                    :class "alert alert-danger"
-                                                                    :text  " Please enter required dataset data."}))))}
+                                                                    :class  "alert alert-danger"
+                                                                    :text   reason}))))}
                "Save"]
               [:button {:type "button"
                         :class "btn btn-danger"
@@ -361,10 +449,10 @@
                "Cancel"]]]
             (om/build text-input-control new-dataset {:opts {:id "dataset-name" :path [:name] :required true
                                                              :label "Name" :dropdown-chan dropdown-chan}})
-            (om/build dropdown {:default "none" :items available-operations}
+            (om/build dropdown {:default (:operation new-dataset) :items available-operations}
                       {:opts {:id "operation-dropdown" :required true :label "Operation"
                               :path [:operation] :dropdown-chan dropdown-chan}})
-            (om/build dropdowns {:items series :operation (:operation new-dataset)}
+            (om/build dropdowns {:items series :operation (:operation new-dataset) :dataset new-dataset}
                       {:opts {:dropdown-chan dropdown-chan}})]]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -375,13 +463,13 @@
       first
       :type))
 
-(defn operands-column [operands sensors]
+(defn operands-column [operation operands sensors]
   [:div
    (for [operand operands]
      (let [[device_id sensor_id] (string/split operand #"~")]
        [:div.row {:style {:min-height "100%" :word-wrap "break-word"}}
-        [:div.col-md-5 (get-type-for-sensor_id sensor_id sensors)]
-        [:div.col-md-7 device_id]]))])
+        [:div.col-md-5 device_id ]
+        [:div.col-md-7 (or (get-type-for-sensor_id sensor_id sensors) sensor_id)]]))])
 
 (defn dataset-row [dataset owner {:keys [sensors]}]
   (reify
@@ -394,7 +482,7 @@
                :class (when selected "success")}
           [:td name]
           [:td operation]
-          [:td (operands-column (into [] operands) sensors)]
+          [:td (operands-column operation (into [] operands) sensors)]
           [:td dataset_id]
           [:td device_id]])))))
 
@@ -440,7 +528,7 @@
             [:tr
              (sorting-th owner "Name" :name)
              (sorting-th owner "Operation" :operation)
-             (sorting-th owner "Operands (Sensors: Type/Device ID. Fields: Field/Unit)" :operands)
+             (sorting-th owner "Operands (Sensors: Device ID/Type. Fields: Field/Unit)" :operands)
              (sorting-th owner "Dataset ID" :dataset_id)
              (sorting-th owner "Synthetic Device ID" :device_id)]]
            [:tbody
@@ -474,7 +562,8 @@
                                                                 (assoc % :selected false)) d)))
             (om/update! datasets :edited-dataset (if selected?
                                                    (-> dataset
-                                                       (update-series))
+                                                       (update-series (enrich-series-for-dropdowns (:datasets @datasets)
+                                                                                                   (:sensors @datasets))))
                                                    {})))
           (recur))))
     om/IRenderState
