@@ -1,20 +1,33 @@
 (ns kixi.hecuba.widgets.fileupload
   (:import goog.net.XhrIo)
   (:require [om.core :as om :include-macros true]
-            [sablono.core :as html :refer-macros [html]]))
+            [sablono.core :as html :refer-macros [html]]
+            [kixi.hecuba.common :refer (log)]
+            [cljs.core.async :refer [put!]]))
 
 (defn clear-form [owner node]
   (.reset node))
 
-(defn upload [owner node post-url method]
-  (om/set-state! owner :status :uploading)
-  (.send goog.net.XhrIo post-url
-         (fn [e]
-           (let [status (.getStatus (.-target e))]
-             (om/set-state! owner :status (if (some #{status} [201 202]) :success :failure))
-             (clear-form owner node)))
-         method
-         (new js/FormData node)))
+(defn upload
+  ([owner node post-url method refresh-chan]
+     (om/set-state! owner :status :uploading)
+     (.send goog.net.XhrIo post-url
+            (fn [e]
+              (let [status (if (some #{(.getStatus (.-target e))} [201 202]) :success :failure)]
+                (om/set-state! owner :status status)
+                (when (= status :success) (put! refresh-chan {:event :properties}))
+                (clear-form owner node)))
+            method
+            (new js/FormData node)))
+  ([owner node post-url method]
+     (om/set-state! owner :status :uploading)
+     (.send goog.net.XhrIo post-url
+            (fn [e]
+              (let [status (.getStatus (.-target e))]
+                (om/set-state! owner :status (if (some #{status} [201 202]) :success :failure))
+                (clear-form owner node)))
+            method
+            (new js/FormData node))))
 
 (defn alert [class body status id]
   [:div
@@ -23,43 +36,48 @@
      [:span {:class "fa fa-times"}]]
     body]])
 
-(defn file-upload [url id & extra-inputs]
-  (fn [data owner {:keys [method]}]
-    (reify
-      om/IInitState
-      (init-state [_]
-        {:status ""})
-      om/IRenderState
-      (render-state [_ {:keys [status]}]
-        (html
-         [:div
+(defn file-upload
+  ([url id & extra-inputs]
+     (fn [data owner {:keys [method refresh?]}]
+       (reify
+         om/IInitState
+         (init-state [_]
+           {:status ""})
+         om/IRenderState
+         (render-state [_ {:keys [status]}]
+           (html
+            [:div
 
-          (alert "alert alert-info "
+             (alert "alert alert-info "
                     [:div
                      [:div {:class "fa fa-spinner fa-spin"}] ;; needs to be separate as otherwise it spins the text as well
                      [:p "Upload in progress"]]
                     (= :uploading status)
                     (str id "-uploading"))
 
-          (alert "alert alert-success "
-                 [:div
-                  [:div {:class "fa fa-check-square-o"} " File uploaded successfully."]]
-                 (= :success status)
-                 (str id "-success"))
+             (alert "alert alert-success "
+                    [:div
+                     [:div {:class "fa fa-check-square-o"} " File uploaded successfully."]]
+                    (= :success status)
+                    (str id "-success"))
 
-          (alert "alert alert-danger "
-                 [:div
-                  [:div {:class "fa fa-exclamation-triangle"} " Failed to parse CSV."]]
-                 (= :failure status)
-                 (str id "-failure"))
+             (alert "alert alert-danger "
+                    [:div
+                     [:div {:class "fa fa-exclamation-triangle"} " Failed to parse CSV."]]
+                    (= :failure status)
+                    (str id "-failure"))
 
-          [:div
-           [:form {:role "form" :id id :enc-type "multipart/form-data"}
-            [:div {:class "form-group"}
-             [:input {:type "file" :name "data"
-                      :title "Browse files"}]
-             extra-inputs]
-            [:button {:type "button"
-                      :class "btn btn-primary"
-                      :onClick (fn [_] (upload owner (.getElementById js/document id) url method))}
-             "Upload"]]]])))))
+             [:div
+              [:form {:role "form" :id id :enc-type "multipart/form-data"}
+               [:div {:class "form-group"}
+                [:input {:type "file" :name "data"
+                         :title "Browse files"}]
+                extra-inputs]
+               [:button {:type "button"
+                         :class "btn btn-primary"
+                         :onClick (fn [_] (if refresh?
+                                            (upload owner (.getElementById js/document id) url
+                                                    method (om/get-shared owner :refresh))
+                                            (upload owner (.getElementById js/document id) url
+                                                    method)))}
+                "Upload"]]]]))))))
