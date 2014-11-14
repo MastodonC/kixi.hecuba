@@ -1,6 +1,6 @@
 (ns kixi.hecuba.tabs.hierarchy.sensors
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
-  (:require [cljs.core.async :refer [<! >! chan put! sliding-buffer mult tap]]
+  (:require [cljs.core.async :refer [<! >! chan put! sliding-buffer mult tap untap]]
             [om.core :as om :include-macros true]
             [goog.userAgent :as agent]
             [sablono.core :as html :refer-macros [html]]
@@ -186,9 +186,11 @@
     om/IInitState
     (init-state [_]
       {:value {}
-       :mouseover false})
+       :mouseover false
+       :chan (chan (sliding-buffer 100))})
     om/IWillMount
     (will-mount [_]
+      (tap (om/get-state owner :mult) (om/get-state owner :chan))
       (go-loop []
         (let [measurements       (-> cursor :measurements)
               event-chan         (om/get-state owner :chan)
@@ -234,7 +236,10 @@
                  [:tr [:td "Minimum"] [:td.number (str (.toFixed (js/Number. measurements-min) 3))] [:td unit]]
                  [:tr [:td "Maximum"] [:td.number (str (.toFixed (js/Number. measurements-max) 3))] [:td unit]]
                  [:tr [:td "Average (Mean)"] [:td.number (str (.toFixed (js/Number. measurements-mean) 3))] [:td unit]]
-                 [:tr [:td "Range"] [:td.number (str (.toFixed (js/Number. (- measurements-max measurements-min)) 3))] [:td unit]]]))])])))))
+                 [:tr [:td "Range"] [:td.number (str (.toFixed (js/Number. (- measurements-max measurements-min)) 3))] [:td unit]]]))])])))
+    om/IWillUnmount
+    (will-unmount [_]
+      (untap (om/get-state owner :mult) (om/get-state owner :chan)))))
 
 (defn get-description [sensors measurement]
   (-> (filter #(= (:type measurement) (:type %)) sensors) first :parent-device :description))
@@ -245,6 +250,15 @@
   (map (fn [measurements-seq] (map #(assoc % :unit (get units (-> % :sensor))
                                            :description (get-description sensors %)
                                            :timestamp (tf/parse amon-date (:timestamp %))) measurements-seq)) measurements))
+
+(defn rollup-indicator [cursor owner]
+  (om/component
+   (html
+    (let [rollup-type (case cursor
+                        :raw "raw data."
+                        :hourly_rollups "hourly rollups."
+                        :daily_rollups "daily rollups.")]
+      [:h4 [:span.label.label-primary (str "Displaying " rollup-type)]]))))
 
 (defn sensors-div [property-details owner opts]
   (reify
@@ -274,10 +288,14 @@
              [:div {:class "col-md-4"}
               [:div {:id "picker-alert"}
                (om/build bs/alert (-> property-details :chart :range :alert))]]
-             [:div.col-md-6.col-md-offset-3
-              (om/build dtpicker/datetime-picker (-> property-details :chart :range) {:opts {:div-id "chart-date-picker"}
-                                                                                      :init-state {:date-range-chan
-                                                                                                   (:datetimepicker-chan opts)}})]
+             [:div.col-md-12
+              [:div.col-md-2
+               (when-let [rollup-type (-> property-details :chart :rollup-type)]
+                 (om/build rollup-indicator rollup-type))]
+              [:div.col-md-6.col-md-offset-1
+               (om/build dtpicker/datetime-picker (-> property-details :chart :range) {:opts {:div-id "chart-date-picker"}
+                                                                                       :init-state {:date-range-chan
+                                                                                                    (:datetimepicker-chan opts)}})]]
 
              (if (-> property-details :chart :fetching)
                [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching data."]]]
@@ -292,9 +310,8 @@
                      [:div.col-md-12.last
                       [:div.col-md-2
                        (for [[series colours] left-with-colours]
-                         (let [c (chan (sliding-buffer 100))]
-                           (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}
-                                                                                     :opts {:border colours}})))]
+                         (om/build chart-summary {:measurements (clj->js series)} {:init-state {:mult mult-chan}
+                                                                                   :opts {:border colours}}))]
                       [:div.col-md-8
                        [:div#chart {:style {:width "100%" :height 600}}
                         (om/build chart/chart-figure {:measurements (mapv #(into [] (flatten %)) all-groups)}
@@ -305,9 +322,8 @@
                          (let [right-group        (last all-groups)
                                right-with-colours (zipmap right-group (cycle right-border-colours))]
                            (for [[series colours] right-with-colours]
-                             (let [c (chan (sliding-buffer 100))]
-                               (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}
-                                                                                         :opts {:border colours}})))))]])
+                             (om/build chart-summary {:measurements (clj->js series)} {:init-state {:mult mult-chan}
+                                                                                       :opts {:border colours}}))))]])
                    [:div [:div.col-md-12.text-center.last [:p.lead {:style {:padding-top 30}} "No data."]]])))]
             [:div.col-md-12.text-center
              [:p.lead {:style {:padding-top 30}}
