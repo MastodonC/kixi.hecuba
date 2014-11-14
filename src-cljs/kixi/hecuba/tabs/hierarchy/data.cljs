@@ -249,15 +249,14 @@
                                                  (into [] (map (fn [m]
                                                                  (assoc m :sensor sensor))
                                                                (:measurements response))))))
-                           (when (= (-> sensors last) sensor)
-                             (let [units          (-> @properties :chart :units)
-                                   sensors        (fetch-sensors entity_id @properties)
-                                   measurements   (-> @properties :chart :measurements)
-                                   all-series     (parse (filter seq measurements) units sensors)
-                                   unit-groups    (group-by #(-> % first :unit) all-series)
-                                   all-groups     (vals unit-groups)]
-                               (om/update! properties [:chart :all-groups] all-groups)
-                               (om/update! properties [:chart :fetching] false))))
+                           (let [units          (-> @properties :chart :units)
+                                 sensors        (fetch-sensors entity_id @properties)
+                                 measurements   (-> @properties :chart :measurements)
+                                 all-series     (parse (filter seq measurements) units sensors)
+                                 unit-groups    (group-by #(-> % first :unit) all-series)
+                                 all-groups     (vals unit-groups)]
+                             (om/update! properties [:chart :all-groups] all-groups)
+                             (om/update! properties [:chart :fetching] false)))
                 :headers {"Accept" "application/json"}
                 :response-format :json
                 :keywords? true}))))
