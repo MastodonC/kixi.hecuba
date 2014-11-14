@@ -242,6 +242,7 @@
           measurements-type (interval start-date end)
           url (url-str start-date end entity_id device_id type measurements-type)]
       (GET url {:handler (fn [response]
+                           (om/update! properties [:chart :rollup-type] measurements-type)
                            (om/transact! properties [:chart :measurements]
                                          (fn [measurements]
                                            (conj measurements

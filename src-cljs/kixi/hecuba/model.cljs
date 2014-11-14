@@ -61,7 +61,8 @@
                             :measurements []
                             :all-groups []
                             :message ""
-                            :fetching false}
+                            :fetching false
+                            :rollup-type nil}
                  :raw-data {:name "Raw Data"
                             :data []
                             :sensors []
