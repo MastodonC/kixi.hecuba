@@ -97,21 +97,21 @@
   (zipmap [:name :device_id :type] (clojure.string/split (name label) #":")))
 
 (defn extract-calcs [property_details]
-  (into [] (map (fn [[k v]]
-                  (let [{:keys [name device_id type]} (parse-label k)
-                        device-description (->> property_details
-                                                :devices
-                                                (filter #(= (:device_id %) device_id))
-                                                first
-                                                :description)]
-                    {:label device-description
-                     :name name
-                     :type type
-                     :last-calc (if-let [timestamp (get (:calculated_fields_last_calc property_details) k)]
-                                  (common/unparse-date timestamp "yyyy-MM-dd")
-                                  "No date.")
-                     :value v}))
-                (:calculated_fields_values property_details))))
+  (mapv (fn [[k v]]
+          (let [{:keys [name device_id type]} (parse-label k)
+                device-description (->> property_details
+                                        :devices
+                                        (filter #(= (:device_id %) device_id))
+                                        first
+                                        :description)]
+            {:label device-description
+             :name name
+             :type type
+             :last-calc (if-let [timestamp (get (:calculated_fields_last_calc property_details) k)]
+                          (common/unparse-date timestamp "yyyy-MM-dd")
+                          "No date.")
+             :value v}))
+        (:calculated_fields_values property_details)))
 
 (defn calculation-type [type]
   (case type
