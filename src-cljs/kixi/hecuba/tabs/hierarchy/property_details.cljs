@@ -97,13 +97,33 @@
   (zipmap [:name :device_id :type] (clojure.string/split (name label) #":")))
 
 (defn extract-calcs [property_details]
-  (into [] (map (fn [[k v]] (merge (parse-label k)
-                                   {:label (get (:calculated_fields_labels property_details) k "No Label")
-                                    :last-calc (if-let [timestamp (get (:calculated_fields_last_calc property_details) k)]
-                                                 (common/unparse-date timestamp "yyyy-MM-dd")
-                                                 "No date.")
-                                    :value v}))
+  (into [] (map (fn [[k v]]
+                  (let [{:keys [name device_id type]} (parse-label k)
+                        device-description (->> property_details
+                                                :devices
+                                                (filter #(= (:device_id %) device_id))
+                                                first
+                                                :description)]
+                    {:label device-description
+                     :name name
+                     :type type
+                     :last-calc (if-let [timestamp (get (:calculated_fields_last_calc property_details) k)]
+                                  (common/unparse-date timestamp "yyyy-MM-dd")
+                                  "No date.")
+                     :value v}))
                 (:calculated_fields_values property_details))))
+
+(defn calculation-type [type]
+  (case type
+    "actual_annual_12months" "Last 12 Months"
+    "actual_annual_1month" "Last Month"
+    "Type Missing"))
+
+(defn fix-sensor-type [sensor-type]
+  (-> sensor-type
+      (clojure.string/replace "_SPACE_" " ")
+      (clojure.string/replace "_AMPERSAND_" "&")
+      (clojure.string/replace "_SLASH_" "/")))
 
 ;; Change property_data to calcs and remove calcs from the let and all will be fine.
 (defn summary-stats [property_data owner]
@@ -113,10 +133,11 @@
      [:h3 "Summary Statistics"]
      (let [rows (extract-calcs property_data)]
        [:table.table.table-hover.table-condensed
-        [:thead [:tr [:th "Name"] [:th "Calculation Type"] [:th "Device Type"] [:th "Device ID"] [:th "Last Calculated"] [:th "Value"]]]
+        [:thead [:tr [:th "Device"] [:th "Sensor"] [:th "Calculation Type"] [:th "Last Calculated"] [:th "Value"]]]
         [:tbody
-         (for [r rows]
-           [:tr [:td (:label r)] [:td (:name r)] [:td (:type r)] [:td (:device_id r)] [:td (:last-calc r)] [:td.number (:value r)]])]])])))
+         (for [r (sort-by (juxt :label :type :name) rows)]
+           (let [_ (log "Row: " r)]
+             [:tr [:td (:label r)] [:td (fix-sensor-type (:type r))] [:td (calculation-type (:name r))] [:td (:last-calc r)] [:td.number (:value r)]]))]])])))
 
 
 (defn property-details-form [properties owner]
@@ -195,7 +216,7 @@
             (when (seq (:calculated_fields_values property-details))
               (om/build summary-stats
                         (select-keys property-details
-                                     [:calculated_fields_values :calculated_fields_labels :calculated_fields_last_calc])))
+                                     [:calculated_fields_values :calculated_fields_labels :calculated_fields_last_calc :devices])))
             (when-let [tech-icons (seq (:technology_icons property_data))]
               [:div.col-md-12
                [:h3 "Technologies"]
