@@ -121,9 +121,9 @@
 
 (defn fix-sensor-type [sensor-type]
   (-> sensor-type
-      (clojure.string/replace "_SPACE_" " ")
-      (clojure.string/replace "_AMPERSAND_" "&")
-      (clojure.string/replace "_SLASH_" "/")))
+      (clojure.string/replace "__SPACE__" " ")
+      (clojure.string/replace "__AMPERSAND__" "&")
+      (clojure.string/replace "__SLASH__" "/")))
 
 ;; Change property_data to calcs and remove calcs from the let and all will be fine.
 (defn summary-stats [property_data owner]

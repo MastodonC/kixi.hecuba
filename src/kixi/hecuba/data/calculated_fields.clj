@@ -18,9 +18,9 @@
     (calculate-fn measurements)))
 
 (defn escape [string]
-  (string/escape string {\  "_SPACE_"
-                         \&  "_AMPERSAND_"
-                         \/  "_SLASH_"} ))
+  (string/escape string {\space  "__SPACE__"
+                         \&  "__AMPERSAND__"
+                         \/  "__SLASH__"} ))
 
 (defn calculate [store sensor operation calculation-name range]
 
