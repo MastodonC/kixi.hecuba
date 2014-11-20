@@ -127,9 +127,9 @@
    (s/optional-key :address_county) s/Str
    (s/optional-key :address_region) s/Str
    (s/optional-key :address_street_two) s/Str
-   (s/optional-key :calculated_fields_labels) {s/Str s/Str}
-   (s/optional-key :calculated_fields_last_calc) {s/Str s/Str} ;; sc/ISO-Date-Time
-   (s/optional-key :calculated_fields_values) {s/Str s/Str}
+   (s/optional-key :calculated_fields_labels) (s/maybe {s/Str s/Str})
+   (s/optional-key :calculated_fields_last_calc) (s/maybe {s/Str s/Str}) ;; sc/ISO-Date-Time
+   (s/optional-key :calculated_fields_values) (s/maybe {s/Str s/Str})
    (s/optional-key :csv_uploads) [s/Str]
    (s/optional-key :devices) {s/Str s/Any}
    (s/optional-key :documents) [s/Str]
