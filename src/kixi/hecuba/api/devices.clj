@@ -210,10 +210,9 @@
   a sequence of sensors that should be deleted."
   [old-device sensors]
   (keep (fn [s] (when (:synthetic s)
-                  (let [device_id              (:device_id old-device)
-                        corresponding-sensor_id (:sensor_id (first (filter #(= (:type %) (:type s)) (:readings old-device))))
-                        sensor                  {:device_id device_id :sensor_id corresponding-sensor_id}]
-                    {:device_id device_id :sensor_id corresponding-sensor_id})))
+                  (when-let [corresponding-sensor_id (:sensor_id (first (filter #(= (:type %) (:type s)) (:readings old-device))))]
+                    {:device_id (:device_id old-device)
+                     :sensor_id corresponding-sensor_id})))
         sensors))
 
 (defn delete-old-synthetic-sensors
@@ -255,12 +254,12 @@
   "Takes session, old sensor data, new sensor data. Updates original sensor and
    recreates synthetic sensors. "
   [session old-device user_id old-sensor new-sensor range]
-  (let [device_id             (:device_id old-device)
-        old-synthetic-sensors (create-default-sensors {:readings [old-sensor]})
-        new-synthetic-sensors (create-default-sensors {:readings [(dissoc (data/deep-merge old-sensor new-sensor)
-                                                                          :lower_ts :upper_ts :median :status)]})
-        sensors-to-delete     (get-sensors-to-delete old-device (:readings old-synthetic-sensors))
-        sensors-to-insert     (get-sensors-to-insert user_id (:readings new-synthetic-sensors))]
+  (let [device_id                     (:device_id old-device)
+        alleged-old-synthetic-sensors (create-default-sensors {:readings [old-sensor]})
+        new-synthetic-sensors         (create-default-sensors {:readings [(dissoc (data/deep-merge old-sensor new-sensor)
+                                                                                  :lower_ts :upper_ts :median :status)]})
+        sensors-to-delete             (get-sensors-to-delete old-device (:readings alleged-old-synthetic-sensors))
+        sensors-to-insert             (get-sensors-to-insert user_id (:readings new-synthetic-sensors))]
     (delete-old-synthetic-sensors session sensors-to-delete)
     (insert-new-synthetic-sensors session sensors-to-insert)
     (update-original-sensor session device_id user_id new-sensor range)))
