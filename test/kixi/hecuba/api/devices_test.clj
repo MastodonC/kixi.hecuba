@@ -80,7 +80,7 @@
                                                                          :type "temperature"
                                                                          :unit "C" :period "INSTANT"}]}))))))))
 
-(deftest get-sensors-to-delte-from-bad-sensor-defs
+(deftest get-sensors-to-delete-from-bad-sensor-defs
   (testing "Testing that we can properly delete sensors from bad sensor definitions"
     (let [device {:device_id "12345" :readings [{:sensor_id "1" :type "electricityConsumption"
                                                  :unit "kWh" :period "CUMULATIVE"}]}]

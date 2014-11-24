@@ -210,7 +210,8 @@
   a sequence of sensors that should be deleted."
   [old-device sensors]
   (keep (fn [s] (when (:synthetic s)
-                  (when-let [corresponding-sensor_id (:sensor_id (first (filter #(= (:type %) (:type s)) (:readings old-device))))]
+                  ;; there should only ever be one sensor of a particular type per device
+                  (when-let [corresponding-sensor_id (:sensor_id (some #(when (= (:type %) (:type s)) %) (:readings old-device)))]
                     {:device_id (:device_id old-device)
                      :sensor_id corresponding-sensor_id})))
         sensors))
