@@ -32,6 +32,13 @@
              (s/optional-key :user_id)                     (s/maybe s/Str)
              s/Any                                         s/Any})
 
+(defn validate-and-log [sensor]
+  (try
+    (s/validate Sensor sensor)
+    (catch Throwable t
+      (log/errorf t "Sensor: %s" sensor)
+      (throw t))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Dirty dates and lower_ts and upper_ts
 
@@ -157,7 +164,7 @@
          (cond-> remove-pk? (dissoc :device_id :sensor_id)))))
 
 (defn sensor-time-range [sensor session]
-  (s/validate Sensor sensor)
+  (validate-and-log sensor)
   (let [{:keys [device_id sensor_id]} sensor]
     (first
      (db/execute session
@@ -167,7 +174,7 @@
                                            [= :sensor_id sensor_id]]))))))
 
 (defn add-metadata [sensor session]
-  (s/validate Sensor sensor)
+  (validate-and-log sensor)
   (let [{:keys [lower_ts upper_ts]} (sensor-time-range sensor session)]
     (-> sensor
         (assoc :lower_ts lower_ts)
@@ -191,7 +198,7 @@
 
 (defn insert
   ([session sensor metadata]
-     (s/validate Sensor sensor)
+     (validate-and-log sensor)
      (let [encoded-sensor (encode sensor)]
        (log/debugf "Inserting sensor: %s" encoded-sensor)
        (db/execute session (hayt/insert :sensors
@@ -199,7 +206,7 @@
        (db/execute session (hayt/insert :sensor_metadata
                                         (hayt/values metadata)))))
   ([session sensor]
-     (s/validate Sensor sensor)
+     (validate-and-log sensor)
      (let [encoded-sensor (encode sensor)]
        (log/debugf "Inserting sensor: %s" encoded-sensor)
        (db/execute session (hayt/insert :sensors
@@ -215,10 +222,10 @@
 
 (defn update
   ([session sensor]
-     (s/validate Sensor sensor)
+     (validate-and-log sensor)
      (update session (:device_id sensor) sensor))
   ([session device_id sensor]
-     (s/validate Sensor sensor)
+     (validate-and-log sensor)
      (db/execute session (hayt/update :sensors
                                       (hayt/set-columns (-> sensor
                                                             (encode :remove-pk)
@@ -226,7 +233,7 @@
                                       (hayt/where [[= :device_id device_id]
                                                    [= :sensor_id (:sensor_id sensor)]]))))
   ([session device_id sensor metadata]
-     (s/validate Sensor sensor)
+     (validate-and-log sensor)
      (db/execute session (hayt/update :sensors
                                       (hayt/set-columns (-> sensor
                                                             (encode :remove-pk)
@@ -245,7 +252,7 @@
   (get-sensors device_id session))
 
 (defn delete-measurements [sensor session]
-  (s/validate Sensor sensor)
+  (validate-and-log sensor)
   (let [{:keys [lower_ts upper_ts]} (sensor-time-range sensor session)]
     (when (and lower_ts upper_ts)
       (let [measurements-result (measurements/delete sensor lower_ts upper_ts session)
@@ -255,7 +262,7 @@
 
 (defn delete
   ([sensor session]
-     (s/validate Sensor sensor)
+     (validate-and-log sensor)
      (let [{:keys [device_id sensor_id]} sensor
            sensor-response
            (db/execute session (hayt/delete :sensors
@@ -268,7 +275,7 @@
        {:sensors sensor-response
         :sensor_metadata sensor_metadata-response}))
   ([sensor measurements? session]
-     (s/validate Sensor sensor)
+     (validate-and-log sensor)
      (if measurements?
        (merge (delete sensor session)
               (delete-measurements sensor session))

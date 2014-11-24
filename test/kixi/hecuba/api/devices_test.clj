@@ -80,6 +80,16 @@
                                                                          :type "temperature"
                                                                          :unit "C" :period "INSTANT"}]}))))))))
 
+(deftest get-sensors-to-delete-from-bad-sensor-defs
+  (testing "Testing that we can properly delete sensors from bad sensor definitions"
+    (let [device {:device_id "12345" :readings [{:sensor_id "1" :type "electricityConsumption"
+                                                 :unit "kWh" :period "CUMULATIVE"}]}]
+      (is (= []
+             (get-sensors-to-delete device (:readings (create-default-sensors
+                                                       {:readings [{:sensor_id "1"
+                                                                    :type "electricityConsumption"
+                                                                    :unit "kWh" :period "CUMULATIVE"}]}))))))))
+
 (deftest get-sensors-to-insert-test
   (testing "Testing getting a list of synthetic sensors that should be inserted."
     (let [device {:device_id "12345" :readings [{:sensor_id "1" :type "electricityConsumption"
