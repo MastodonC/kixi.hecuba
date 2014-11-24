@@ -3,6 +3,7 @@
             [schema.core :as s]
             [schema.utils :as su]
             [kixi.amon-schema :as schema]
+            [kixi.hecuba.data.entities :as data]
             [kixi.hecuba.time :as ht]
             [kixi.hecuba.api.parser :as parser]
             [kixi.hecuba.api.profiles.schema :as ps]
@@ -158,7 +159,7 @@
                   (map fix-timestamp))})
 
 (defn entity-validation-failures [entity project_id]
-  (if-let [validation-errors (s/check schema/Entity entity)]
+  (if-let [validation-errors (s/check CoreEntity entity)]
     (do
       (log/debugf "Entity: %s validation errors: %s" (pr-str entity) (su/validation-error-explain validation-errors))
       {:received-entity entity
@@ -167,43 +168,65 @@
     nil))
 
 (defn profile-validation-failures [profile entities]
-  (let [available-entity-keys (set (map :property_code entities))
-        validation-errors     (str (s/check schema/Profile profile))
-        profile-key (:property_code profile)
-        wrong-entities        (not (boolean (available-entity-keys profile-key)))]
-    (when (or (seq validation-errors) wrong-entities)
-      (log/debugf "Profile validation errors: %s Wrong Entities? %s" validation-errors wrong-entities)
+  (let [validation-errors (str (s/check schema/Profile profile))]
+    (when (seq validation-errors)
+      (log/debugf "Profile validation errors: %s" validation-errors)
       (log/debug "Failed profile " (pr-str profile))
       {:received-profile  profile
-       :proposed-entites  available-entity-keys
-       :validation-errors validation-errors
-       :wrong-entites     wrong-entities})))
+       :validation-errors validation-errors})))
 
+;; Check to see if the property already exists in the project. If so,
+;; then use that entity_id, if not then generate a new one.
 (defn add-entity-id [entity project_id]
-  (-> (assoc entity :project_id project_id)
-      (uuid/add-entity-id)))
+  (let [entities (data/get-all project_id)]
+    (-> (assoc entity :project_id project_id)
+        (uuid/add-entity-id))))
 
+;; Check to see if the property_code exists in the passed in entities,
+;; if so then use that entity_id, if the entity_id exists, use the
+;; event type and date to see if an profile event exists and if so,
+;; then use that profile id, if not, then generate a new one.
 (defn add-profile-ids [profile project_id]
   (-> (assoc profile :project_id project_id)
       uuid/add-entity-id
       uuid/add-profile-id))
 
+(defn assoc-profiles [entities profiles]
+  (let [property_codes (clojure.set/union (set (map :property_code entities))
+                                          (set (map :property_code profiles)))
+        profile-map    (->> profiles
+                            (reduce (fn [acc n]
+                                      (assoc acc
+                                        (:property_code n)
+                                        (conj (get acc (:property_code n)) n)))
+                                    {})
+                            vals
+                            (map #(hash-map
+                                   :property_code (-> % first :property_code)
+                                   :profiles (vec %)))
+                            (map #(vector (:property_code %) %))
+                            (into {}))
+        entity-map (->> entities
+                        (map #(vector (:property_code %) %))
+                        (into {}))]
+    (map #(merge (get entity-map %) (get profile-map %)) property_codes)))
+
 (defn malformed-data? [rows project_id]
   (let [{:keys [entities profiles]} (extract-entities-and-profiles rows)
-        enriched-entities (map #(add-entity-id % project_id) entities)
-        enriched-profiles (map #(add-profile-ids % project_id) profiles)
-        broken-entities (keep #(entity-validation-failures % project_id) enriched-entities)
-        broken-profiles (keep #(profile-validation-failures % entities) enriched-profiles)]
+        broken-entities (keep #(entity-validation-failures % project_id) entities)
+        broken-profiles (keep #(profile-validation-failures % entities) profiles)]
     (if (or (seq broken-entities)
             (seq broken-profiles))
-      [true {:entities enriched-entities
-             :profiles enriched-profiles
+      [true {:entities entities
+             :profiles profiles
              :malformed-msg "Uploaded data validation failed."
              :errors {:entities broken-entities
                       :profiles broken-profiles}
+             ;; we need to put in the representation so that liberator
+             ;; knows how to render this item
              :representation {:media-type "application/json"}}]
-      [false {:entities enriched-entities :profiles enriched-profiles
-              :representation {:media-type "application/json"}}])))
+      [false {:entities (->> (assoc-profiles entities profiles)
+                             (map #(assoc % :project_id project_id)))}])))
 
 (defn malformed-multipart-data? [file-data project_id]
   (-> (parser/temp-file->rows file-data)
@@ -217,7 +240,9 @@
                 :malformed-msg "Uploaded data validation failed"
                 :errors {:entities [validation-errors]}
                 :representation {:media-type "application/json"}}]
-         [false {:entities [(add-entity-id entity project_id)]
+         [false {:entities [(assoc entity
+                              :project_id project_id
+                              :entity_id (uuid/add-entity-id))]
                  :representation {:media-type "application/json"}}])))
   ([entity]
      (if-let [project_id (:project_id entity)]

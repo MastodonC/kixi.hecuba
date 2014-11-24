@@ -103,7 +103,6 @@
 
 (defn get-profiles [entity_id session]
   (let [profiles (db/execute session (hayt/select :profiles (hayt/where [[= :entity_id entity_id]])))]
-    (log/infof "Got %s profiles to parse" (count profiles))
     (mapv decode profiles)))
 
 (defn ->clojure [entity_id session]
@@ -134,7 +133,8 @@
    (s/optional-key :hot_water_systems) [{s/Keyword s/Any}]
    (s/optional-key :low_energy_lights) [{s/Keyword s/Any}]
    (s/optional-key :photovoltaics) [{s/Keyword s/Any}]
-   (s/optional-key :profile_data) {s/Keyword s/Str}
+   (s/optional-key :profile_data) {:event_type s/Str
+                                   s/Keyword   s/Str}
    (s/optional-key :roof_rooms) [{s/Keyword s/Any}]
    (s/optional-key :roofs) [{s/Keyword s/Any}]
    (s/optional-key :small_hydros) [{s/Keyword s/Any}]
@@ -157,10 +157,21 @@
       (log/errorf t "Could not insert: %s" (pr-str profile))
       (throw t))))
 
+(defn insert-all [session profiles]
+  (let [insertable-profiles (->> profiles
+                                 (map #(su/select-keys-by-schema % InsertableProfile))
+                                 (map #(s/validate InsertableProfile %)))]
+    (db/execute
+     session
+     (hayt/batch
+      (apply hayt/queries (map #(hayt/insert :profiles (hayt/values (encode %))) insertable-profiles))))))
+
 (defn update [session id profile]
   (try
-    (let [insertable-profile (su/select-keys-by-schema profile InsertableProfile)]
-      (db/execute session (hayt/update :profiles (hayt/set-columns (dissoc (encode insertable-profile) :id))
+    (let [insertable-profile (s/validate InsertableProfile (su/select-keys-by-schema profile InsertableProfile))
+          updateable-profile (-> insertable-profile encode (dissoc :id))
+          _ (log/infof "Updateable profile: %s" updateable-profile)]
+      (db/execute session (hayt/update :profiles (hayt/set-columns updateable-profile)
                                        (hayt/where [[= :id id]]))))
     (catch Throwable t
       (log/errorf t "Could not update: %s" (pr-str profile))
