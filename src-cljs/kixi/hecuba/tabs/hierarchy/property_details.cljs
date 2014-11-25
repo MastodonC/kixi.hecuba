@@ -321,9 +321,11 @@
               (data/fetch-measurements properties entity_id sensors start-date end-date)))
           (recur))))
      om/IDidUpdate
-      (did-update [_ _ _]
-        (when (and (-> properties :data seq) (-> (om/get-state owner :active-tab) (= :overview)))
-          (common/fixed-scroll-to-element "property-details")))
+     (did-update [_ prev-props _]
+       (when (and (or (not= (:selected prev-props) (:selected properties))
+                      (not= (:data prev-props) (:data properties)))
+                  (-> properties :data seq))
+         (common/fixed-scroll-to-element "property-details")))
     om/IRenderState
     (render-state [_ state]
       (let [active-tab                 (:active-tab properties)
