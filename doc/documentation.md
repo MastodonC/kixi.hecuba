@@ -20,6 +20,7 @@ The following fields currently exist in as searchable fields:
  * entity_id
  * project_team
  * project_id
+ * project_code
  * property_type
  * built_form
  * age
