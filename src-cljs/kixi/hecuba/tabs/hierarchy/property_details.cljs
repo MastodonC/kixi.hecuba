@@ -324,7 +324,8 @@
      (did-update [_ prev-props _]
        (when (and (or (not= (:selected prev-props) (:selected properties))
                       (not= (:data prev-props) (:data properties)))
-                  (-> properties :data seq))
+                  (-> properties :data seq)
+                  (-> properties :selected seq))
          (common/fixed-scroll-to-element "property-details")))
     om/IRenderState
     (render-state [_ state]

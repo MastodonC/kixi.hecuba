@@ -30,16 +30,6 @@
    (when (= "true" privacy) [:div {:class "fa fa-key"}])
    (when (= true calculated-field) [:div {:class "fa fa-magic"}])])
 
-(defn sorting-th [owner label header-key]
-  (let [{:keys [sort-spec th-chan]} (om/get-state owner)
-        {:keys [sort-key sort-asc]} sort-spec]
-    [:th {:onClick (fn [_ _] (put! th-chan header-key))}
-     (str label " ")
-     (if (= sort-key header-key)
-       (if sort-asc
-         [:i.fa.fa-sort-asc]
-         [:i.fa.fa-sort-desc]))]))
-
 (defn form-row [sensors]
   (fn [sensor owner {:keys [table-id selected-chan]}]
     (reify
@@ -124,8 +114,6 @@
     om/IInitState
     (init-state [_]
       {:th-chan (chan)
-       :sort-spec {:sort-key :type
-                   :sort-asc true}
        :selected-chan (chan)})
     om/IWillMount
     (will-mount [_]
@@ -137,46 +125,47 @@
             (process-click click property-details history)))
         (recur))
       (go-loop []
-        (let [{:keys [th-chan sort-spec]} (om/get-state owner)
-              {:keys [sort-key sort-asc]} sort-spec
+        (let [{:keys [th-chan]}           (om/get-state owner)
+              {:keys [sensors]}           property-details
+              {:keys [sort-key sort-asc]} (:sort-spec @sensors)
               th-click                    (<! th-chan)]
           (if (= th-click sort-key)
-            (om/update-state! owner #(assoc %
-                                       :sort-spec {:sort-key th-click
-                                                   :sort-asc (not sort-asc)}))
-            (om/update-state! owner #(assoc %
-                                       :sort-spec {:sort-key th-click
-                                                   :sort-asc true}))))
+            (om/update! sensors :sort-spec {:sort-key th-click
+                                            :sort-asc (not sort-asc)})
+            (om/update! sensors :sort-spec {:sort-key th-click
+                                            :sort-asc true})))
         (recur)))
     om/IRenderState
     (render-state [_ state]
-      (let [{:keys [sort-key sort-asc]} (:sort-spec state)
+      (let [sort-spec         (-> property-details :sensors :sort-spec)
+            {:keys [sort-key sort-asc]} sort-spec
             selected-sensors  (-> property-details :sensors :selected)
             sensors-data      (fetch-sensors (:property-details property-details) selected-sensors)
             sensors-with-data (filter #(every? seq [(:lower_ts %) (:upper_ts %)]) sensors-data)
             history           (om/get-shared owner :history)
+            th-chan           (om/get-state owner :th-chan)
             table-id          "sensors-table"]
         (html
          [:div.col-md-12 {:style {:overflow "auto"}}
           [:table {:class "table table-hover table-condensed"}
            [:thead
             [:tr
-             (sorting-th owner "Description" :description)
-             (sorting-th owner "Type" :type)
-             (sorting-th owner "Unit" :unit)
-             (sorting-th owner "Period" :period)
-             (sorting-th owner "Resolution" :resolution)
-             (sorting-th owner "Device ID" :device_id)
-             (sorting-th owner "Location" :location)
-             (sorting-th owner "Earliest Event" :lower_ts)
-             (sorting-th owner "Last Event" :upper_ts)
-             (sorting-th owner "Status" :status)]]
+             (bs/sorting-th sort-spec th-chan "Description" :description)
+             (bs/sorting-th sort-spec th-chan "Type" :type)
+             (bs/sorting-th sort-spec th-chan "Unit" :unit)
+             (bs/sorting-th sort-spec th-chan "Period" :period)
+             (bs/sorting-th sort-spec th-chan "Resolution" :resolution)
+             (bs/sorting-th sort-spec th-chan "Device ID" :device_id)
+             (bs/sorting-th sort-spec th-chan "Location" :location)
+             (bs/sorting-th sort-spec th-chan "Earliest Event" :lower_ts)
+             (bs/sorting-th sort-spec th-chan "Last Event" :upper_ts)
+             (bs/sorting-th sort-spec th-chan "Status" :status)]]
            [:tbody
-            (for [sensor (if sort-asc
-                           (sort-by sort-key sensors-with-data)
-                           (reverse (sort-by sort-key sensors-with-data)))]
-              (om/build (form-row (:sensors property-details)) sensor {:opts {:selected-chan (:selected-chan state)
-                                                                              :table-id table-id}}))]]])))))
+            (om/build-all (form-row (:sensors property-details)) (if sort-asc
+                                                                   (sort-by sort-key sensors-with-data)
+                                                                   (reverse (sort-by sort-key sensors-with-data)))
+                          {:opts {:selected-chan (:selected-chan state)
+                                  :table-id table-id}})]]])))))
 
 
 (defn chart-summary

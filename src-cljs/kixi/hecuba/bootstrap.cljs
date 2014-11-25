@@ -1,7 +1,8 @@
 (ns kixi.hecuba.bootstrap
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
-            [sablono.core :as html :refer-macros [html]]))
+            [sablono.core :as html :refer-macros [html]]
+            [cljs.core.async :refer [put!]]))
 
 
 (defn checkbox [v cursor on-click]
@@ -223,3 +224,12 @@
               :class "form-control"
               :type "text"
               :id "address_country"}]]]])
+
+(defn sorting-th [sort-spec th-chan label header-key]
+  (let [ {:keys [sort-key sort-asc]} sort-spec]
+    [:th {:onClick (fn [_ _] (put! th-chan header-key))}
+     (str label " ")
+     (if (= sort-key header-key)
+       (if sort-asc
+         [:i.fa.fa-sort-asc]
+         [:i.fa.fa-sort-desc]))]))

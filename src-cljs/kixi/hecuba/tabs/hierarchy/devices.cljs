@@ -8,16 +8,6 @@
             [clojure.string :as string]
             [kixi.hecuba.common :refer (log delete-resource) :as common]))
 
-(defn sorting-th [owner label header-key]
-  (let [{:keys [sort-spec th-chan]} (om/get-state owner)
-        {:keys [sort-key sort-asc]} sort-spec]
-    [:th {:onClick (fn [_ _] (put! th-chan header-key))}
-     (str label " ")
-     (if (= sort-key header-key)
-       (if sort-asc
-         [:i.fa.fa-sort-asc]
-         [:i.fa.fa-sort-desc]))]))
-
 (defn privacy-label [privacy]
   [:div
    (when (= "true" privacy) [:div {:class "fa fa-key"}])])
@@ -379,29 +369,28 @@
     (reify
       om/IInitState
       (init-state [_]
-        {:th-chan (chan)
-         :sort-spec {:sort-key :type
-                     :sort-asc true}})
+        {:th-chan (chan)})
       om/IWillMount
       (will-mount [_]
         (go-loop []
-          (let [{:keys [th-chan sort-spec]} (om/get-state owner)
+          (let [{:keys [th-chan]}           (om/get-state owner)
+                sort-spec                   (:sort-spec @cursor)
                 {:keys [sort-key sort-asc]} sort-spec
                 th-click                    (<! th-chan)]
             (if (= th-click sort-key)
-              (om/update-state! owner #(assoc %
-                                         :sort-spec {:sort-key th-click
-                                                     :sort-asc (not sort-asc)}))
-              (om/update-state! owner #(assoc %
-                                         :sort-spec {:sort-key th-click
-                                                     :sort-asc true}))))
+              (om/update! cursor :sort-spec {:sort-key th-click
+                                             :sort-asc (not sort-asc)})
+              (om/update! cursor :sort-spec {:sort-key th-click
+                                             :sort-asc true})))
           (recur)))
       om/IDidMount
       (did-mount [_]
         (common/fixed-scroll-to-element "devices-tab"))
       om/IRenderState
       (render-state [_ state]
-        (let [{:keys [sort-key sort-asc]} (:sort-spec state)
+        (let [sort-spec                   (:sort-spec cursor)
+              {:keys [sort-key sort-asc]} sort-spec
+              th-chan                     (om/get-state owner :th-chan)
               ;; Don't show synthethic devices as they can't be edited by the user
               devices                     (into [] (remove #(:synthetic %) (fetch-devices (-> properties :selected) properties)))
               table-id                    "sensors-table"]
@@ -410,13 +399,13 @@
             [:table {:class "table table-hover table-condensed"}
              [:thead
               [:tr
-               (sorting-th owner "Unique Description" :description)
-               (sorting-th owner "Further Description" :name)
-               (sorting-th owner "Location" :location)
-               (sorting-th owner "Privacy" :privacy)
-               (sorting-th owner "No. of Sensors" :count)
-               (sorting-th owner "Sensor Types" :sensor_types)
-               (sorting-th owner "Device ID" :device_id)]]
+               (bs/sorting-th sort-spec th-chan "Unique Description" :description)
+               (bs/sorting-th sort-spec th-chan "Further Description" :name)
+               (bs/sorting-th sort-spec th-chan "Location" :location)
+               (bs/sorting-th sort-spec th-chan "Privacy" :privacy)
+               (bs/sorting-th sort-spec th-chan "No. of Sensors" :count)
+               (bs/sorting-th sort-spec th-chan "Sensor Types" :sensor_types)
+               (bs/sorting-th sort-spec th-chan "Device ID" :device_id)]]
              [:tbody
               (for [row (if sort-asc
                           (sort-by sort-key devices)
