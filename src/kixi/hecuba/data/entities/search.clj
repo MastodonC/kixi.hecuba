@@ -42,13 +42,14 @@
 
 (defn project-search-fields [entity db-session]
   (let [project_id (:project_id entity)
-        {:keys [name organisation type_of programme_id]} (projects/get-by-id db-session project_id)]
+        {:keys [name organisation type_of programme_id project_code]} (projects/get-by-id db-session project_id)]
     (-> entity
         (assoc :programme_id programme_id)
         (assoc-in [:full_entity :programme_id] programme_id)
         (assoc-in [:full_entity :project_name] name)
         (assoc :type_of type_of)
         (assoc :project_name name)
+        (assoc :project_code project_code)
         (assoc :project_organisation organisation))))
 
 ;; TOFIX Some projects didn't have programme_id. Not sure if it's just a local issue.
