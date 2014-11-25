@@ -212,7 +212,7 @@
             [type device_id]          (-> measurements first (aget "sensor") (string/split #"~"))
             description               (-> measurements first (aget "description"))]
         (html
-         [:div {:style {:font-size "80%"}}
+         [:div {:style {:font-size "80%" :padding 0}}
           (bs/panel border "panel-info"
            [:div [:p {:style {:word-wrap "break-word" :font-size "80%"}} type]
             [:p {:style {:word-wrap "break-word" :font-size "80%"}} description]]
@@ -221,22 +221,23 @@
               [:dl
                [:dt "Timestamp:"] [:dd timestamp]
                [:dt "Value:"] [:dd value]]
-              (let [unit               (-> measurements first (aget "unit"))
-                    series             (js->clj measurements)
-                    values             (keep #(let [v (get % "value")]
-                                                (cond (nil? v) nil
-                                                      (number? v) v
-                                                      (re-matches #"[-+]?\d+(\.\d+)?" v) (js/parseFloat v))) series)
-                    measurements-min   (apply min values)
-                    measurements-max   (apply max values)
-                    measurements-sum   (reduce + values)
-                    measurements-count (count values)
-                    measurements-mean  (if (not= 0 measurements-count) (/ measurements-sum measurements-count) "NA")]
-                [:table.table.table-hover.table-condensed
-                 [:tr [:td "Minimum"] [:td.number (str (.toFixed (js/Number. measurements-min) 3))] [:td unit]]
-                 [:tr [:td "Maximum"] [:td.number (str (.toFixed (js/Number. measurements-max) 3))] [:td unit]]
-                 [:tr [:td "Average (Mean)"] [:td.number (str (.toFixed (js/Number. measurements-mean) 3))] [:td unit]]
-                 [:tr [:td "Range"] [:td.number (str (.toFixed (js/Number. (- measurements-max measurements-min)) 3))] [:td unit]]]))])])))
+              [:div.table-responsive
+               (let [unit               (-> measurements first (aget "unit"))
+                     series             (js->clj measurements)
+                     values             (keep #(let [v (get % "value")]
+                                                 (cond (nil? v) nil
+                                                       (number? v) v
+                                                       (re-matches #"[-+]?\d+(\.\d+)?" v) (js/parseFloat v))) series)
+                     measurements-min   (apply min values)
+                     measurements-max   (apply max values)
+                     measurements-sum   (reduce + values)
+                     measurements-count (count values)
+                     measurements-mean  (if (not= 0 measurements-count) (/ measurements-sum measurements-count) "NA")]
+                 [:table.table.table-hover.table-condensed {:style {:width "100%"}}
+                  [:tr [:td "Minimum"] [:td.number (str (.toFixed (js/Number. measurements-min) 3))] [:td unit]]
+                  [:tr [:td "Maximum"] [:td.number (str (.toFixed (js/Number. measurements-max) 3))] [:td unit]]
+                  [:tr [:td "Average (Mean)"] [:td.number (str (.toFixed (js/Number. measurements-mean) 3))] [:td unit]]
+                  [:tr [:td "Range"] [:td.number (str (.toFixed (js/Number. (- measurements-max measurements-min)) 3))] [:td unit]]])])] 5)])))
     om/IWillUnmount
     (will-unmount [_]
       (untap (om/get-state owner :mult) (om/get-state owner :chan)))))
@@ -290,8 +291,9 @@
                (om/build bs/alert (-> property-details :chart :range :alert))]]
              [:div.col-md-12
               [:div.col-md-2
-               (when-let [rollup-type (-> property-details :chart :rollup-type)]
-                 (om/build rollup-indicator rollup-type))]
+               (when (-> property-details :chart :all-groups seq)
+                 (when-let [rollup-type (-> property-details :chart :rollup-type)]
+                   (om/build rollup-indicator rollup-type)))]
               [:div.col-md-6.col-md-offset-1
                (om/build dtpicker/datetime-picker (-> property-details :chart :range) {:opts {:div-id "chart-date-picker"}
                                                                                        :init-state {:date-range-chan
