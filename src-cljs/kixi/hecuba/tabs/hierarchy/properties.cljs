@@ -101,16 +101,6 @@
     (history/update-token-ids! history :projects nil)
     (common/fixed-scroll-to-element "projects-div")))
 
-(defmulti properties-table-html (fn [properties owner] (:fetching properties)))
-(defmethod properties-table-html :fetching [properties owner]
-  (bs/fetching-row properties))
-
-(defmethod properties-table-html :no-data [properties owner]
-  (bs/no-data-row properties))
-
-(defmethod properties-table-html :error [properties owner]
-  (bs/error-row properties))
-
 (defn property-row [property owner {:keys [table-id]}]
   (om/component
    (let [property_data (:property_data property)
@@ -134,25 +124,85 @@
                                            (icons/tech-icon ti))]
              [:td (:monitoring_hierarchy property_data)]]))))
 
-(defmethod properties-table-html :has-data [properties owner]
-  (let [table-id "properties-table"
-        history  (om/get-shared owner :history)]
-    [:div.col-md-12
-     [:table {:className "table table-hover"}
-      [:thead
-       [:tr [:th "Photo"] [:th "Property Code"] [:th "Type"] [:th "Address"]
-        [:th "Region"] [:th "Ownership"] [:th "Technologies"] [:th "Monitoring Hierarchy"]]]
-      [:tbody
-       (om/build-all property-row (sort-by #(-> % :property_code) (:data properties)) {:opts {:table-id table-id}})]]]))
+(defmulti sort-function (fn [k] k))
+(defmethod sort-function :address [k]
+  (comp #(slugs/postal-address %) :property_data))
+(defmethod sort-function :region [k]
+  (comp :address_region :property_data))
+(defmethod sort-function :ownership [k]
+  (comp :ownership :property_data))
+(defmethod sort-function :technologies [k]
+  (comp count :technology_icons :property_data))
+(defmethod sort-function :hierarchy [k]
+  (comp :monutoring_hierarchy :property_data))
+(defmethod sort-function :default [k]
+  k)
 
-(defmethod properties-table-html :default [properties owner]
-  [:div.row [:div.col-md-12]])
+(defmulti properties-table (fn [properties owner] (:fetching properties)))
+(defmethod properties-table :fetching [properties owner]
+  (om/component
+   (html
+    (bs/fetching-row properties))))
 
-(defn properties-table [properties owner]
+(defmethod properties-table :no-data [properties owner]
+  (om/component
+   (html
+    (bs/no-data-row properties))))
+
+(defmethod properties-table :error [properties owner]
+  (om/component
+   (html
+    (bs/error-row properties))))
+
+(defmethod properties-table :has-data [properties owner]
   (reify
-    om/IRender
-    (render [_]
-      (html (properties-table-html properties owner)))))
+    om/IInitState
+    (init-state [_]
+      {:th-chan (chan)})
+    om/IWillMount
+    (will-mount [_]
+      (go-loop []
+        (let [{:keys [th-chan]}                   (om/get-state owner)
+              {:keys [sort-key sort-fn sort-asc]} (:sort-spec @properties)
+              th-click                            (<! th-chan)]
+          (if (= th-click sort-key)
+            (om/update! properties :sort-spec {:sort-key th-click
+                                                :sort-fn  (sort-function th-click)
+                                                :sort-asc (not sort-asc)})
+            (om/update! properties :sort-spec {:sort-key th-click
+                                                :sort-fn  (sort-function th-click)
+                                                :sort-asc true})))
+        (recur)))
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       (let [table-id "properties-table"
+             history  (om/get-shared owner :history)
+             th-chan (:th-chan state)
+             {:keys [sort-spec]} properties
+             {:keys [sort-fn sort-asc]} (:sort-spec properties)]
+         [:div.col-md-12
+          [:table {:className "table table-hover"}
+           [:thead
+            [:tr
+             [:th "Photo"]
+             (bs/sorting-th sort-spec th-chan "Property Code" :property_code)
+             (bs/sorting-th sort-spec th-chan "Type" :property_type)
+             (bs/sorting-th sort-spec th-chan "Address" :address)
+             (bs/sorting-th sort-spec th-chan "Region" :region)
+             (bs/sorting-th sort-spec th-chan "Ownership" :ownership)
+             (bs/sorting-th sort-spec th-chan "Technologies" :technologies)
+             (bs/sorting-th sort-spec th-chan "Monitoring Hierarchy" :hierarchy)]]
+           [:tbody
+            (om/build-all property-row (if sort-asc
+                                         (sort-by sort-fn (:data properties))
+                                         (reverse (sort-by sort-fn (:data properties))))
+                          {:opts {:table-id table-id}})]]])))))
+
+(defmethod properties-table :default [properties owner]
+  (om/component
+   (html
+    [:div.row [:div.col-md-12]])))
 
 (defn properties-div [properties owner]
   (reify

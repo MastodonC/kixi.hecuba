@@ -137,24 +137,43 @@
           [:td name]
           [:td lead_organisations]])))))
 
-(defn programmes-table [editing-chan]
-  (fn [programmes owner]
-    (reify
-      om/IRender
-      (render [_]
-        (let [table-id     "programme-table"
-              history      (om/get-shared owner :history)]
-          (html
-           [:table {:className "table table-hover"}
-            [:thead
-             [:tr
-              [:th "Name"]
-              [:th "Organisations"]]]
-            [:tbody
-             (om/build-all programmes-row (sort-by :name (:data programmes))
-                           {:opts {:table-id table-id
-                                   :editing-chan editing-chan}
-                            :key :programme_id})]]))))))
+(defn programmes-table [programmes owner {:keys [editing-chan]}]
+  (reify
+    om/IInitState
+    (init-state [_]
+      {:th-chan (chan)})
+    om/IWillMount
+    (will-mount [_]
+      (go-loop []
+        (let [{:keys [th-chan]}           (om/get-state owner)
+              {:keys [sort-key sort-asc]} (:sort-spec @programmes)
+              th-click                    (<! th-chan)]
+          (if (= th-click sort-key)
+            (om/update! programmes :sort-spec {:sort-key th-click
+                                               :sort-asc (not sort-asc)})
+            (om/update! programmes :sort-spec {:sort-key th-click
+                                               :sort-asc true})))
+        (recur)))
+    om/IRenderState
+    (render-state [_ state]
+      (let [table-id     "programme-table"
+            history      (om/get-shared owner :history)
+            th-chan      (om/get-state owner :th-chan)
+            sort-spec    (:sort-spec programmes)
+            {:keys [sort-key sort-asc]} sort-spec]
+        (html
+         [:table {:className "table table-hover"}
+          [:thead
+           [:tr
+            (bs/sorting-th sort-spec th-chan "Name" :name)
+            (bs/sorting-th sort-spec th-chan "Organisations" :lead_organisations)]]
+          [:tbody
+           (om/build-all programmes-row (if sort-asc
+                                          (sort-by sort-key (:data programmes))
+                                          (reverse (sort-by sort-key (:data programmes))))
+                         {:opts {:table-id table-id
+                                 :editing-chan editing-chan}
+                          :key :programme_id})]])))))
 
 (defn programmes-div [programmes owner opts]
   (reify
@@ -197,7 +216,7 @@
               (om/build (programme-edit-form programmes refresh-chan) (-> programmes :edited-row))])
            (when (not (or adding-programme editing))
              [:div#programmes-div
-              (om/build (programmes-table editing-chan) programmes)])
+              (om/build programmes-table programmes {:opts {:editing-chan editing-chan}})])
            [:div#programmes-detail-div
             (when (and selected (not (or adding-programme editing)))
               (om/build (programme-detail programmes editing-chan) selected-programme))]]])))))

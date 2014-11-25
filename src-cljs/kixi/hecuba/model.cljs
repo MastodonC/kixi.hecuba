@@ -12,6 +12,8 @@
     :programmes {:name     "Programmes"
                  :data     []
                  :selected nil
+                 :sort-spec {:sort-key :name
+                             :sort-asc true}
                  :editing false
                  :edited-row nil
                  :adding-programme false
@@ -19,12 +21,17 @@
     :projects {:name     "Projects"
                :data     []
                :selected nil
+               :sort-spec {:sort-key :name
+                           :sort-asc true}
                :editing false
                :edited-row nil
                :adding-project false}
     :properties {:name     "Properties"
                  :data     []
                  :selected nil
+                 :sort-spec {:sort-key :property_code
+                             :sort-fn :property_code
+                             :sort-asc true}
                  :adding-property false
                  :active-tab :overview
                  :alert {}
@@ -36,6 +43,8 @@
                                       :sort [:name]}
                            :alert {}
                            :selected nil
+                           :sort-spec {:sort-key :description
+                                       :sort-asc true}
                            :adding false
                            :editing false
                            :edited-device nil}
@@ -46,6 +55,8 @@
                                              :select   {:label "Select" :checkbox true}}
                                       :sort [:name]}
                            :selected nil
+                           :sort-spec {:sort-key :type
+                                       :sort-asc true}
                            :alert {}}
                  :datasets {:sensors []
                             :datasets []
