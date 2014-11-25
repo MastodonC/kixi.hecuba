@@ -187,3 +187,12 @@ div.last {
 .next.hover {
     cursor: pointer;
 }
+
+.table-responsive {
+    width: 100%;
+    overflow-y: hidden;
+    overflow-x: auto;
+    word-wrap: break-word;
+    -ms-overflow-style: -ms-autohiding-scrollbar;
+    -webkit-overflow-scrolling: touch;
+}
