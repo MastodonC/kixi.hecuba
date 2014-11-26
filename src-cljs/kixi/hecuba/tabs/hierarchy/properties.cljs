@@ -138,71 +138,77 @@
 (defmethod sort-function :default [k]
   k)
 
-(defmulti properties-table (fn [properties owner] (:fetching properties)))
-(defmethod properties-table :fetching [properties owner]
-  (om/component
-   (html
-    (bs/fetching-row properties))))
+(defmulti properties-table (fn [fetching] fetching))
 
-(defmethod properties-table :no-data [properties owner]
-  (om/component
-   (html
-    (bs/no-data-row properties))))
+(defmethod properties-table :fetching [_]
+  (fn [properties owner]
+    (om/component
+     (html
+      (bs/fetching-row properties)))))
 
-(defmethod properties-table :error [properties owner]
-  (om/component
-   (html
-    (bs/error-row properties))))
+(defmethod properties-table :no-data [_]
+  (fn [properties owner]
+    (om/component
+     (html
+      (bs/no-data-row properties)))))
 
-(defmethod properties-table :has-data [properties owner]
-  (reify
-    om/IInitState
-    (init-state [_]
-      {:th-chan (chan)})
-    om/IWillMount
-    (will-mount [_]
-      (go-loop []
-        (let [{:keys [th-chan]}                   (om/get-state owner)
-              {:keys [sort-key sort-fn sort-asc]} (:sort-spec @properties)
-              th-click                            (<! th-chan)]
-          (if (= th-click sort-key)
-            (om/update! properties :sort-spec {:sort-key th-click
-                                                :sort-fn  (sort-function th-click)
-                                                :sort-asc (not sort-asc)})
-            (om/update! properties :sort-spec {:sort-key th-click
-                                                :sort-fn  (sort-function th-click)
-                                                :sort-asc true})))
-        (recur)))
-    om/IRenderState
-    (render-state [_ state]
-      (html
-       (let [table-id "properties-table"
-             history  (om/get-shared owner :history)
-             th-chan (:th-chan state)
-             {:keys [sort-spec]} properties
-             {:keys [sort-fn sort-asc]} (:sort-spec properties)]
-         [:div.col-md-12
-          [:table {:className "table table-hover"}
-           [:thead
-            [:tr
-             [:th "Photo"]
-             (bs/sorting-th sort-spec th-chan "Property Code" :property_code)
-             (bs/sorting-th sort-spec th-chan "Type" :property_type)
-             (bs/sorting-th sort-spec th-chan "Address" :address)
-             (bs/sorting-th sort-spec th-chan "Region" :region)
-             (bs/sorting-th sort-spec th-chan "Ownership" :ownership)
-             (bs/sorting-th sort-spec th-chan "Technologies" :technologies)
-             (bs/sorting-th sort-spec th-chan "Monitoring Hierarchy" :hierarchy)]]
-           [:tbody
-            (om/build-all property-row (if sort-asc
-                                         (sort-by sort-fn (:data properties))
-                                         (reverse (sort-by sort-fn (:data properties))))
-                          {:opts {:table-id table-id}})]]])))))
+(defmethod properties-table :error [_]
+  (fn [properties owner]
+    (om/component
+     (html
+      (bs/error-row properties)))))
 
-(defmethod properties-table :default [properties owner]
-  (om/component
-   (html
-    [:div.row [:div.col-md-12]])))
+(defmethod properties-table :has-data [_]
+  (fn [properties owner]
+    (reify
+      om/IInitState
+      (init-state [_]
+        {:th-chan (chan)})
+      om/IWillMount
+      (will-mount [_]
+        (go-loop []
+          (let [{:keys [th-chan]}                   (om/get-state owner)
+                {:keys [sort-key sort-fn sort-asc]} (:sort-spec @properties)
+                th-click                            (<! th-chan)]
+            (if (= th-click sort-key)
+              (om/update! properties :sort-spec {:sort-key th-click
+                                                 :sort-fn  (sort-function th-click)
+                                                 :sort-asc (not sort-asc)})
+              (om/update! properties :sort-spec {:sort-key th-click
+                                                 :sort-fn  (sort-function th-click)
+                                                 :sort-asc true})))
+          (recur)))
+      om/IRenderState
+      (render-state [_ state]
+        (html
+         (let [table-id "properties-table"
+               history  (om/get-shared owner :history)
+               th-chan (:th-chan state)
+               {:keys [sort-spec]} properties
+               {:keys [sort-fn sort-asc]} (:sort-spec properties)]
+           [:div.col-md-12
+            [:table {:className "table table-hover"}
+             [:thead
+              [:tr
+               [:th "Photo"]
+               (bs/sorting-th sort-spec th-chan "Property Code" :property_code)
+               (bs/sorting-th sort-spec th-chan "Type" :property_type)
+               (bs/sorting-th sort-spec th-chan "Address" :address)
+               (bs/sorting-th sort-spec th-chan "Region" :region)
+               (bs/sorting-th sort-spec th-chan "Ownership" :ownership)
+               (bs/sorting-th sort-spec th-chan "Technologies" :technologies)
+               (bs/sorting-th sort-spec th-chan "Monitoring Hierarchy" :hierarchy)]]
+             [:tbody
+              (om/build-all property-row (if sort-asc
+                                           (sort-by sort-fn (:data properties))
+                                           (reverse (sort-by sort-fn (:data properties))))
+                            {:opts {:table-id table-id}})]]]))))))
+
+(defmethod properties-table :default [_]
+  (fn [properties owner]
+    (om/component
+     (html
+      [:div.row [:div.col-md-12]]))))
 
 (defn properties-div [properties owner]
   (reify
@@ -232,4 +238,4 @@
            [:div {:id "property-add-div" :class (if adding-property "" "hidden")}
             (om/build (property-add-form properties refresh-chan project_id) nil)]
            [:div {:id "property-div" :class (if adding-property "hidden" "")}
-            (om/build properties-table properties)]]])))))
+            (om/build (properties-table (:fetching properties)) properties)]]])))))
