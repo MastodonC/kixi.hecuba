@@ -33,6 +33,9 @@
         (assoc :entity_id entity_id)
         (assoc :project_team project_team)
         (assoc :project_id project_id)
+        (assoc :location (and property_data
+                              (contains? property_data :latitude)
+                              (contains? property_data :longitude)))
 
         ;; filters
         (assoc :property_type property_type)

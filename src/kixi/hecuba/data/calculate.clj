@@ -433,7 +433,7 @@
   ([store ds sensors range field]
      (let [{:keys [operation operands device_id entity_id]} ds
            operation   (keyword operation)
-           field-value (edn/read-string (get-field-value entity_id (keyword field) store))]
+           field-value (edn/read-string (str (get-field-value entity_id (keyword field) store)))]
        (log/info "Calculating datasets for operands: " operands "and operation: " operation "and range: " range)
        (let [measurements (mapcat #(measurements/parse-measurements
                                     (measurements/measurements-for-range store % range (t/hours 1))) sensors)]
