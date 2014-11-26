@@ -33,6 +33,9 @@
       "heating_type" : {
         "type" : "string"
       },
+      "location" : {
+        "type" : "boolean"
+      },
       "photovoltaics" : {
         "type" : "boolean"
       },

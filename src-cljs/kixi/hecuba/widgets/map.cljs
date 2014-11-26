@@ -2,9 +2,10 @@
   (:require
    [kixi.hecuba.tabs.slugs :as slugs]
    [om.core :as om :include-macros true]
-   [om.dom :as dom :include-macros true]
    [clojure.string :as str]
-   [kixi.hecuba.common :refer (log)]))
+   [kixi.hecuba.common :refer (log)]
+   [kixi.hecuba.tabs.hierarchy.tech-icons :as icons]
+   [sablono.core :as html :refer-macros [html]]))
 
 (defn- ->lat-long [{:keys [latitude longitude]}]
   (when (and latitude longitude)
@@ -27,15 +28,17 @@
 
 ;; TODO I want to build the html using sablono, but it doesn't seem to play nice with leaflet.addMarker().
 ;;      solutions from YOU! dear reader are most welcome.
-(defn build-popup [owner {:keys [property_data name photos entity_id] :as e}]
+(defn build-popup [owner {:keys [property_data name photos entity_id programme_id project_id] :as e}]
   (let [{:keys [address_street address_street_two address_region address_country description tech-icons]} property_data
         full-address (slugs/postal-address property_data)
         title (:property_code property_data) ;; TODO what should go here?
         img-url (:uri (first photos))
-        entity-url (str "/search#" entity_id)
-        tech-icons (apply str (for [i (:technology_icons property_data) :when i]
-                                (str "<img alt=\" \" src=\"" i "\">")))]
-    (str "<div class=\"container-fluid container-xs-height\">
+        entity-url (str "/app#" programme_id "," project_id "," entity_id)
+        tech-icons (apply str (remove nil? (for [ti (:technology_icons property_data)]
+                                             (when-let [icon (icons/tech-icon ti)]
+                                               (let [[tag src] icon]
+                                                 (str "<img src=\"" (:src src) "\"></img>"))))))]
+    (str "<div class=\"container-fluid container-xs-height container-popup\">
             <div class=\"panel panel-default\">
               <div class=\"panel-heading\">
                 <h3 class=\"panel-title\">" title "</h3>
@@ -45,7 +48,7 @@
                   <div class=\"\">" full-address "</div>
                   <div class=\"tech-icon-container-sm\">" tech-icons "</div>
                 </div>
-                <img class=\"img-responsive\" alt=\" \" src=\"" img-url "\" ></img>
+                <img class=\"img-responsive constrained\" alt=\" \" src=\"" img-url "\" ></img>
                 <a href=\"" entity-url "\">view</a>
               </div>
             </div>
@@ -56,7 +59,7 @@
   (reify
     om/IRender
     (render [_]
-      (dom/div nil))
+      (html [:div]))
     om/IDidMount
     (did-mount [_]
       (om/set-state! owner :map (draw-map cursor (om/get-node owner))))

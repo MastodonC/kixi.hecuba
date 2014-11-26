@@ -29,29 +29,14 @@
 
 ;; curl -v -H "Content-Type: application/json" -H 'Accept: application/edn' -X GET -u support-test@mastodonc.com:password 127.0.0.1:8010/4/entities/?q=TSB119
 
-;; from https://github.com/weavejester/medley/blob/master/src/medley/core.cljx Thx @weavejester
-(defn dissoc-in
-  "Dissociate a value in a nested assocative structure, identified by a sequence
-of keys. Any collections left empty by the operation will be dissociated from
-their containing structures."
-  [m ks]
-  (if-let [[k & ks] (seq ks)]
-    (if (seq ks)
-      (let [v (dissoc-in (get m k) ks)]
-        (if (empty? v)
-          (dissoc m k)
-          (assoc m k v)))
-      (dissoc m k))
-    m))
-
 (defn remove-private-data [entity]
   (if-not (:editable entity)
       (-> entity
-          (dissoc-in [:property_data :address_street])
-          (dissoc-in [:property_data :address_street_two])
-          (dissoc-in [:property_data :address_city])
-          (dissoc-in [:property_data :address_code])
-          (dissoc-in [:property_data :fuel_poverty])
+          (api/dissoc-in [:property_data :address_street])
+          (api/dissoc-in [:property_data :address_street_two])
+          (api/dissoc-in [:property_data :address_city])
+          (api/dissoc-in [:property_data :address_code])
+          (api/dissoc-in [:property_data :fuel_poverty])
           (assoc-in [:documents] (filter :public? (:documents entity)))
           (dissoc :notes))
       entity))
@@ -127,7 +112,9 @@ their containing structures."
            page-size      (or (:size params) default-page-size)
            from           (* page-number page-size)
            shoulds        (should-terms allowed-programmes allowed-projects)
-           filter-terms   (search-filter nil shoulds nil)
+           must           (when (every? empty? [allowed-programmes allowed-projects])
+                            {:term {:public_access "true"}})
+           filter-terms   (search-filter must shoulds nil)
            results        (search/search-entities query-string filter-terms from page-size (:search-session store))
            total_hits     (esr/total-hits results)
            file-bucket    (-> store :s3 :file-bucket)
