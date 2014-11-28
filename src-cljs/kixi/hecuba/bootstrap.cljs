@@ -2,7 +2,8 @@
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [sablono.core :as html :refer-macros [html]]
-            [cljs.core.async :refer [put!]]))
+            [cljs.core.async :refer [put!]]
+            [kixi.hecuba.tabs.slugs :as slugs]))
 
 
 (defn checkbox [v cursor on-click]
@@ -131,9 +132,9 @@
 (defn fetching-row [data]
   [:div.row [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "Fetching data for selection." ]]])
 
-(defn handle-change [owner table key e]
+(defn handle-change [owner keys e]
   (let [value (.-value (.-target e))]
-    (om/set-state! owner [table key] value)))
+    (om/set-state! owner keys value)))
 
 (defn alert [cursor owner]
   (om/component
@@ -146,84 +147,81 @@
          [:span {:class "fa fa-times"}]]
         text]]))))
 
-(defn text-input-control [data owner table key label & required]
-  [:div.form-group
-   [:label.control-label.col-md-2 {:for (name key)} label]
-   [:div {:class (str (if required "required " "") "col-md-10")}
-    [:input {:defaultValue (get data key "")
-             :on-change #(handle-change owner table key %1)
-             :class "form-control"
-             :type "text"}]]])
+(defn text-input-control [data owner keys label & required]
+  (let [id (str key)]
+    [:div.form-group
+     [:label {:for id} label]
+     [:div {:class (str (if required "required " ""))}
+      [:input {:defaultValue (get-in data keys "")
+               :on-change #(handle-change owner keys %1)
+               :class "form-control"
+               :type "text"}]]]))
 
-(defn text-area-control [data owner table key label]
+(defn text-area-control [data owner keys label]
   [:div.form-group
-   [:label.control-label.col-md-2 {:for (name key)} label]
-   [:div.col-md-10
-    [:textarea.form-control {:id (name key)
-                             :name (name key)
-                             :defaultValue (get data key "")
-                             :on-change #(handle-change owner table key %1)
-                             :rows 2}]]])
+   [:label {:for label} label]
+   [:textarea.form-control {:id label
+                            :name label
+                            :defaultValue (get-in data keys "")
+                            :on-change #(handle-change owner keys %1)
+                            :rows 2}]])
 
-(defn static-text [data key label]
+(defn static-text [data keys label]
   [:div.form-group
-   [:label.control-label.col-md-2 {:for (name key)} label]
-   [:p {:class "form-control-static col-md-10"} (get data key "")]])
+   [:label {:for label} label]
+   [:p {:class "form-control-static"} (get-in data keys "")]])
 
-(defn static-text-vertical [data key label]
-  [:div.form-group
-   [:label.control-label {:for (name key)} label]
-   [:p {:class "form-control-static"} (get data key "")]])
+(defn checkbox [data owner keys label]
+  [:div.checkbox
+   [:label
+    [:input {:type "checkbox"
+             :defaultChecked (let [checked? (get-in data keys)]
+                               (or (= checked? "true") (= checked? true)))
+             :on-change #(om/set-state! owner keys (.-checked (.-target %)))}
+     label]]])
 
-(defn checkbox [data owner table key label]
-  [:div.form-group
-   [:label.control-label.col-md-2 {:for (str key)} label]
-   [:input {:type "checkbox"
-            :defaultChecked (get data key "")
-            :on-change #(om/set-state! owner [table key] (.-checked (.-target %)))}]])
-
-(defn address-control [data owner table]
+(defn address-control [data owner keys]
   [:div
    [:div.form-group
-    [:label.control-label.col-md-2 {:for "address_street"} "Street Address"]
-    [:div.col-md-10
-     [:input {:defaultValue (get data :address_street "")
-              :on-change #(handle-change owner table :address_street %1)
-              :class "form-control"
-              :type "text"
-              :id "address_street"}]]]
+    [:label.control-label {:for "address_street"} "Street Address"]
+    [:input {:defaultValue (get-in data (conj keys :address_street) "")
+             :on-change #(handle-change owner (conj keys :address_street) %1)
+             :class "form-control"
+             :type "text"
+             :id "address_street"}]]
    [:div.form-group
-    [:label.control-label.col-md-2 {:for "address_street_two"} "Street Address 2"]
-    [:div.col-md-10
-     [:input {:defaultValue (get data :address_street_two "")
-              :on-change #(handle-change owner table :address_street_two %1)
-              :class "form-control"
-              :type "text"
-              :id "address_street_two"}]]]
+    [:label.control-label {:for "address_street_two"} "Street Address 2"]
+    [:input {:defaultValue (get-in data (conj keys :address_street_two) "")
+             :on-change #(handle-change owner (conj keys :address_street_two) %1)
+             :class "form-control"
+             :type "text"
+             :id "address_street_two"}]]
    [:div.form-group
-    [:label.control-label.col-md-2 {:for "address_city"} "City"]
-    [:div.col-md-10
-     [:input {:defaultValue (get data :address_city "")
-              :on-change #(handle-change owner table :address_city  %1)
-              :class "form-control"
-              :type "text"
-              :id "address_city"}]]]
+    [:label.control-label {:for "address_city"} "City"]
+    [:input {:defaultValue (get-in data (conj keys :address_city) "")
+             :on-change #(handle-change owner (conj keys :address_city)  %1)
+             :class "form-control"
+             :type "text"
+             :id "address_city"}]]
    [:div.form-group
-    [:label.control-label.col-md-2 {:for "address_code"} "Postal Code"]
-    [:div.col-md-10
-     [:input {:defaultValue (get data :address_code "")
-              :on-change #(handle-change owner table :address_code %1)
-              :class "form-control"
-              :type "text"
-              :id "address_code"}]]]
+    [:label.control-label {:for "address_code"} "Postal Code"]
+    [:input {:defaultValue (get-in data (conj keys :address_code) "")
+             :on-change #(handle-change owner (conj keys :address_code) %1)
+             :class "form-control"
+             :type "text"
+             :id "address_code"}]]
    [:div.form-group
-    [:label.control-label.col-md-2 {:for "address_country"} "Country"]
-    [:div.col-md-10
-     [:input {:defaultValue (get data :address_country "")
-              :on-change #(handle-change owner table :address_country %1)
-              :class "form-control"
-              :type "text"
-              :id "address_country"}]]]])
+    [:label.control-label {:for "address_country"} "Country"]
+    [:input {:defaultValue (get-in data (conj keys :address_country) "")
+             :on-change #(handle-change owner (conj keys :address_country) %1)
+             :class "form-control"
+             :type "text"
+             :id "address_country"}]]])
+
+(defn address-static-text [property_data]
+  [:div.form-group
+   [:label {:for "address"} "Address"]
+   [:p {:class "form-control-static"} (slugs/postal-address-html property_data)]])
 
 (defn sorting-th [sort-spec th-chan label header-key]
   (let [ {:keys [sort-key sort-asc]} sort-spec]

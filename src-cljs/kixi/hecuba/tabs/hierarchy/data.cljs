@@ -126,6 +126,10 @@
                                                                                           true
                                                                                           false)))))
                                              entities))
+                           (when (seq property-id)
+                             (om/update! data [:properties :selected-property :property] (get-property-details property-id
+                                                                                                               (-> @data
+                                                                                                                   :properties))))
                            (when (seq sensors)
                              (om/update! data [:properties :chart :units] (get-units property-id sensors (-> @data :properties)))))
                          (om/update! data [:properties :fetching] (if (empty? entities) :no-data :has-data))))
@@ -169,6 +173,8 @@
           {:handler (fn [entity]
                       (log "Fetching property for id: " entity_id)
                       (om/update! data [:properties :data] (mapv #(update-entity % entity entity_id)(-> @data :properties :data)))
+                      (om/update! data [:properties :selected-property :property] (-> (slugs/slugify-property entity)
+                                                                                      (assoc :selected true)))
                       (om/update! data [:properties :fetching] (if (empty? entity) :no-data :has-data)))
            :error-handler error-handler
            :headers {"Accept" "application/edn"}

@@ -6,7 +6,7 @@
    [clojure.string :as str]
    [kixi.hecuba.history :as history]
    [kixi.hecuba.tabs.slugs :as slugs]
-   [kixi.hecuba.bootstrap :refer (text-area-control static-text static-text-vertical) :as bs]
+   [kixi.hecuba.bootstrap :as bs]
    [kixi.hecuba.common :refer (log) :as common]
    [kixi.hecuba.tabs.hierarchy.data :refer (fetch-projects)]
    [sablono.core :as html :refer-macros [html]]))
@@ -40,6 +40,7 @@
                          (assoc project :updated_at (common/now->str))
                          (fn [_]
                            (put! refresh-chan {:event :projects})
+                           (om/update! projects-data :alert {:status false})
                            (om/update! projects-data :editing false))
                          (error-handler projects-data))))
 
@@ -51,43 +52,46 @@
                             (om/update! projects-data :editing false))
                           (error-handler projects-data)))
 
-(defn project-add-form [projects programme_id refresh-chan]
+(defn project-add-form [projects programme_id]
   (fn [cursor owner]
     (om/component
-     (html
-      [:div
-       [:h3 "Add new project"]
-       [:form.form-horizontal {:role "form"}
-        [:div.col-md-6
-         [:div.form-group
-          [:div.btn-toolbar
-           [:button {:class "btn btn-success"
-                     :type "button"
-                     :onClick (fn [_] (let [project (om/get-state owner [:project])]
-                                        (if (valid-project? project (:data @projects))
-                                          (post-new-project projects refresh-chan owner project programme_id)
-                                          (om/update! projects :alert {:status true
-                                                                            :class "alert alert-danger"
-                                                                            :text "Please enter unique name of the project."}))))}
-            "Save"]
-           [:button {:type "button"
-                     :class "btn btn-danger"
-                     :onClick (fn [_]
-                                (om/update! projects :adding-project false))}
-            "Cancel"]]]
-         (om/build bs/alert (-> projects :alert))
-         (bs/text-input-control cursor owner :project :name "Project Name" true)
-         (bs/text-input-control cursor owner :project :description "Description")
-         (bs/text-input-control cursor owner :project :organisation "Organisation")
-         (bs/text-input-control cursor owner :project :project_code "Project Code")
-         (bs/text-input-control cursor owner :project :project_type "Project Type")
-         (bs/text-input-control cursor owner :project :type_of "Type Of")]]]))))
+     (let [refresh-chan (om/get-shared owner :refresh)]
+       (html
+        [:div
+         [:h3 "Add new project"]
+         [:form.form-horizontal {:role "form"}
+          [:div.col-md-6
+           [:div.form-group
+            [:div.btn-toolbar
+             [:button {:class "btn btn-success"
+                       :type "button"
+                       :onClick (fn [_] (let [project (om/get-state owner [:project])]
+                                          (om/update! cursor :project project)
+                                          (if (valid-project? project (:data @projects))
+                                            (post-new-project projects refresh-chan owner project programme_id)
+                                            (om/update! projects :alert {:status true
+                                                                         :class "alert alert-danger"
+                                                                         :text "Please enter unique name of the project."}))))}
+              "Save"]
+             [:button {:type "button"
+                       :class "btn btn-danger"
+                       :onClick (fn [_]
+                                  (om/update! projects :adding-project false))}
+              "Cancel"]]]
+           (om/build bs/alert (-> projects :alert))
+           (bs/text-input-control cursor owner [:project :name] "Project Name" true)
+           (bs/text-input-control cursor owner [:project :description] "Description")
+           (bs/text-input-control cursor owner [:project :organisation] "Organisation")
+           (bs/text-input-control cursor owner [:project :project_code] "Project Code")
+           (bs/text-input-control cursor owner [:project :project_type] "Project Type")
+           (bs/text-input-control cursor owner [:project :type_of] "Type Of")]]])))))
 
-(defn project-edit-form [projects-data refresh-chan]
+(defn project-edit-form [projects-data]
   (fn [cursor owner]
     (om/component
-     (let [{:keys [project_id programme_id]} cursor
-           history (om/get-shared owner :history)]
+     (let [{:keys [project_id programme_id]} (:project cursor)
+           history (om/get-shared owner :history)
+           refresh-chan (om/get-shared owner :refresh)]
        (html
         [:div
          [:h3 (:name cursor)]
@@ -111,15 +115,15 @@
                  "Delete Project"]]]
            (om/build bs/alert (-> projects-data :alert))
            [:div.col-md-4
-            (bs/text-input-control cursor owner :project :name "Project Name")
-            (bs/text-input-control cursor owner :project :organisation "Organisation")
-            (bs/text-input-control cursor owner :project :project_code "Project Code")
-            (bs/text-input-control cursor owner :project :project_type "Project Type")
-            (bs/text-input-control cursor owner :project :type_of "Type Of")
-            (bs/static-text cursor :created_at "Created At")]
+            (bs/text-input-control cursor owner [:project :name] "Project Name")
+            (bs/text-input-control cursor owner [:project :organisation] "Organisation")
+            (bs/text-input-control cursor owner [:project :project_code] "Project Code")
+            (bs/text-input-control cursor owner [:project :project_type] "Project Type")
+            (bs/text-input-control cursor owner [:project :type_of] "Type Of")
+            (bs/static-text cursor [:project :created_at] "Created At")]
            [:div.col-md-8
-            (bs/text-area-control cursor owner :project :description "Description")
-            (bs/static-text cursor :project_id "API Project ID")]]]])))))
+            (bs/text-area-control cursor owner [:project :description] "Description")
+            (bs/static-text cursor [:project :project_id] "API Project ID")]]]])))))
 
 (defn project-detail [projects-data editing-chan]
   (fn [cursor owner]
@@ -136,14 +140,14 @@
          (om/build bs/alert (-> projects-data :alert))
          [:div.row
           [:div.col-md-4
-           (static-text-vertical cursor :organisation "Organisation")
-           (static-text-vertical cursor :project_code "Project Code")
-           (static-text-vertical cursor :project_type "Project Type")
-           (static-text-vertical cursor :type_of "Type Of")
-           (static-text-vertical cursor :created_at "Created At")]
+           (bs/static-text cursor [:organisation] "Organisation")
+           (bs/static-text cursor [:project_code] "Project Code")
+           (bs/static-text cursor [:project_type] "Project Type")
+           (bs/static-text cursor [:type_of] "Type Of")
+           (bs/static-text cursor [:created_at] "Created At")]
           [:div.col-md-8
-           (static-text-vertical cursor :description "Description")
-           (static-text-vertical cursor :project_id "API Project ID")]]])))))
+           (bs/static-text cursor [:description] "Description")
+           (bs/static-text cursor [:project_id] "API Project ID")]]])))))
 
 (defn project-row [project owner {:keys [table-id editing-chan]}]
   (reify
@@ -245,7 +249,7 @@
         (let [{:keys [editing-chan]} (om/get-state owner)
               edited-row             (<! editing-chan)]
           (om/update! projects :editing true)
-          (om/update! projects :edited-row edited-row)
+          (om/update! projects :edited-row {:project edited-row})
           (common/fixed-scroll-to-element "projects-div"))
         (recur)))
     om/IRenderState
@@ -273,10 +277,10 @@
                           (om/update! projects :adding-project true))}])]
            [:div#projects-add-div
             (when adding-project
-              (om/build (project-add-form projects programme_id refresh-chan) nil))]
+              (om/build (project-add-form projects programme_id) (:new-project projects)))]
            [:div#projects-edit-div
             (when editing
-              (om/build (project-edit-form projects refresh-chan) (-> projects :edited-row)))]
+              (om/build (project-edit-form projects) (-> projects :edited-row)))]
            [:div#projects-div
             (when-not (or editing adding-project)
               (om/build (projects-table (:fetching projects)) projects {:opts {:editing-chan editing-chan}}))]

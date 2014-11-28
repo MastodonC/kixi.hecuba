@@ -382,7 +382,7 @@
                           :onClick (fn [_]
                                      (delete-dataset event-chan refresh-chan entity_id selected-dataset))}
                  "Delete Dataset"]]]
-              (bs/static-text selected-dataset :device_id "ID")
+              (bs/static-text selected-dataset [:device_id] "ID")
               (om/build text-input-control selected-dataset {:opts {:id "dataset-name" :path [:name] :required true
                                                              :label "Name" :dropdown-chan dropdown-chan}})
               (om/build dropdown {:default operation :items available-operations}

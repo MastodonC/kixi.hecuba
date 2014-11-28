@@ -39,7 +39,6 @@
 (defn property-add-form [properties refresh-chan project_id]
   (fn [cursor owner]
     (om/component
-
      (html
       [:div
        [:div
@@ -57,6 +56,8 @@
                      :type "button"
                      :onClick (fn [_] (let [property      (om/get-state owner :property)
                                             property_data (om/get-state owner :property_data)]
+                                        (om/update! cursor :property property)
+                                        (om/update! cursor :property_data property_data)
                                         (if (valid-property? property (:data @properties))
                                           (post-new-property properties refresh-chan owner (-> (assoc property :project_id project_id)
                                                                                   (assoc-if :property_data property_data))
@@ -71,27 +72,27 @@
                                 (om/update! properties :adding-property false))}
             "Cancel"]]]
          (om/build bs/alert (-> properties :alert))
-         (bs/text-input-control cursor owner :property :property_code "Property Code" true)
-         (bs/address-control cursor owner :property_data)
-         (bs/text-input-control cursor owner :property_data :property_type "Property Type")
-         (bs/text-input-control cursor owner :property_data :built_form "Built Form")
-         (bs/text-input-control cursor owner :property_data :age "Age")
-         (bs/text-input-control cursor owner :property_data :ownership "Ownership")
-         (bs/text-input-control cursor owner :property_data :project_phase "Project Phase")
-         (bs/text-input-control cursor owner :property_data :monitoring_hierarchy "Monitoring Hierarchy")
-         (bs/text-input-control cursor owner :property_data :practical_completion_date "Practical Completion Date")
-         (bs/text-input-control cursor owner :property_data :construction_date "Construction Date")
-         (bs/text-input-control cursor owner :property_data :conservation_area "Conservation Area")
-         (bs/text-input-control cursor owner :property_data :listed "Listed Building")
-         (bs/text-input-control cursor owner :property_data :terrain "Terrain")
-         (bs/text-input-control cursor owner :property_data :degree_day_region "Degree Day Region")
-         (bs/text-area-control cursor owner :property_data :description "Description")
-         (bs/text-area-control cursor owner :property_data :project_summary "Project Summary")
-         (bs/text-area-control cursor owner :property_data :project_team "Project Team")
-         (bs/text-area-control cursor owner :property_data :design_strategy "Design Strategy")
-         (bs/text-area-control cursor owner :property_data :energy_strategy "Energy Strategy")
-         (bs/text-area-control cursor owner :property_data :monitoring_policy "Monitoring Policy")
-         (bs/text-area-control cursor owner :property_data :other_notes "Other Notes")]]]))))
+         (bs/text-input-control cursor owner [:property :property_code] "Property Code" true)
+         (bs/address-control cursor owner [:property_data])
+         (bs/text-input-control cursor owner [:property_data :property_type] "Property Type")
+         (bs/text-input-control cursor owner [:property_data :built_form] "Built Form")
+         (bs/text-input-control cursor owner [:property_data :age] "Age")
+         (bs/text-input-control cursor owner [:property_data :ownership] "Ownership")
+         (bs/text-input-control cursor owner [:property_data :project_phase] "Project Phase")
+         (bs/text-input-control cursor owner [:property_data :monitoring_hierarchy] "Monitoring Hierarchy")
+         (bs/text-input-control cursor owner [:property_data :practical_completion_date] "Practical Completion Date")
+         (bs/text-input-control cursor owner [:property_data :construction_date] "Construction Date")
+         (bs/text-input-control cursor owner [:property_data :conservation_area] "Conservation Area")
+         (bs/text-input-control cursor owner [:property_data :listed] "Listed Building")
+         (bs/text-input-control cursor owner [:property_data :terrain] "Terrain")
+         (bs/text-input-control cursor owner [:property_data :degree_day_region] "Degree Day Region")
+         (bs/text-area-control cursor owner [:property_data :description] "Description")
+         (bs/text-area-control cursor owner [:property_data :project_summary] "Project Summary")
+         (bs/text-area-control cursor owner [:property_data :project_team] "Project Team")
+         (bs/text-area-control cursor owner [:property_data :design_strategy] "Design Strategy")
+         (bs/text-area-control cursor owner [:property_data :energy_strategy] "Energy Strategy")
+         (bs/text-area-control cursor owner [:property_data :monitoring_policy] "Monitoring Policy")
+         (bs/text-area-control cursor owner [:property_data :other_notes] "Other Notes")]]]))))
 
 (defn back-to-projects [history]
   (fn [_ _]
@@ -101,7 +102,7 @@
     (history/update-token-ids! history :projects nil)
     (common/fixed-scroll-to-element "projects-div")))
 
-(defn property-row [property owner {:keys [table-id]}]
+(defn property-row [property owner {:keys [table-id selected-row-chan]}]
   (om/component
    (let [property_data (:property_data property)
          entity_id     (:entity_id property)
@@ -109,7 +110,8 @@
      (html  [:tr
              {:onClick   (fn [_ _]
                            (history/update-token-ids! history :properties entity_id)
-                           (common/fixed-scroll-to-element "property-details-div"))
+                           (common/fixed-scroll-to-element "property-details-div")
+                           (put! selected-row-chan @property))
               :className (if (:selected property) "success")
               :id        (str table-id "-selected")}
              [:td (when-let [uri (:uri (first (:photos property)))]
@@ -163,9 +165,15 @@
     (reify
       om/IInitState
       (init-state [_]
-        {:th-chan (chan)})
+        {:th-chan (chan)
+         :selected-row-chan (chan)})
       om/IWillMount
       (will-mount [_]
+        (go-loop []
+          (let [selected-row-chan (om/get-state owner :selected-row-chan)
+                row               (<! selected-row-chan)]
+            (om/update! properties [:selected-property :property] row))
+          (recur))
         (go-loop []
           (let [{:keys [th-chan]}                   (om/get-state owner)
                 {:keys [sort-key sort-fn sort-asc]} (:sort-spec @properties)
@@ -185,7 +193,8 @@
                history  (om/get-shared owner :history)
                th-chan (:th-chan state)
                {:keys [sort-spec]} properties
-               {:keys [sort-fn sort-asc]} (:sort-spec properties)]
+               {:keys [sort-fn sort-asc]} (:sort-spec properties)
+               selected-row-chan (om/get-state owner :selected-row-chan)]
            [:div.col-md-12
             [:table {:className "table table-hover"}
              [:thead
@@ -202,7 +211,8 @@
               (om/build-all property-row (if sort-asc
                                            (sort-by sort-fn (:data properties))
                                            (reverse (sort-by sort-fn (:data properties))))
-                            {:opts {:table-id table-id}})]]]))))))
+                            {:opts {:table-id table-id
+                                    :selected-row-chan selected-row-chan}})]]]))))))
 
 (defmethod properties-table :default [_]
   (fn [properties owner]
@@ -236,6 +246,6 @@
                 :onClick (fn [_]
                            (om/update! properties :adding-property true))}])]
            [:div {:id "property-add-div" :class (if adding-property "" "hidden")}
-            (om/build (property-add-form properties refresh-chan project_id) nil)]
+            (om/build (property-add-form properties refresh-chan project_id) (:new-property properties))]
            [:div {:id "property-div" :class (if adding-property "hidden" "")}
             (om/build (properties-table (:fetching properties)) properties)]]])))))

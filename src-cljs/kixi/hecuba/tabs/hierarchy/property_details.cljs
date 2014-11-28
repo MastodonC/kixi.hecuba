@@ -31,28 +31,18 @@
                                    :class "alert alert-danger"
                                    :text "Failed to delete property."})))
 
-;; FIXME: This is a dupe in sensors.cljs
-(defn get-property-details [selected-property-id properties]
-  (->>  properties
-        :data
-        (filter #(= (:entity_id %) selected-property-id))
-        first))
-
-(defn put-resource [refresh-chan property_id property-data project_id]
+(defn put-resource [refresh-chan event-chan property_id property]
   (PUT  (str "/4/entities/" property_id)
         {:headers {"Content-Type" "application/edn"}
-         :handler #(put! refresh-chan {:event :property})
-         :params property-data}))
+         :handler (fn [_]
+                    (put! event-chan {:event :edit :value false})
+                    (put! refresh-chan {:event :property}))
+         :error-handler (fn [{:keys [status status-text]}]
+                          (put! event-chan {:event :error :value status-text}))
+         :params property}))
 
-(defn save-form [refresh-chan property-details owner property_id project_id]
-  (let [old-property-data    (:property_data @property-details)
-        new-property-data    (om/get-state owner :property_data)
-        new-property-code    (:property_code new-property-data)
-        merged-property-data (dissoc (common/deep-merge old-property-data new-property-data) :property_code)
-        entity               (-> {:entity_id property_id :property_data merged-property-data}
-                                 (cond-> new-property-code (assoc :property_code new-property-code)))]
-    (put-resource refresh-chan property_id entity project_id)
-    (om/set-state! owner :editing false)))
+(defn save-form [refresh-chan event-chan entity property_id]
+  (put-resource refresh-chan event-chan property_id entity))
 
 (defn delete-property [properties entity_id history refresh-chan]
   (common/delete-resource (str "/4/entities/" entity_id)
@@ -64,34 +54,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; property-details-form
-
-(defn text-control [data state owner key label]
-  (if (:editing state)
-    (bs/text-input-control data owner :property_data key label)
-    [:div.form-group
-     [:label.control-label.col-md-2 {:for (name key)} label]
-     [:p {:class "form-control-static col-md-10"} (get data key "")]]))
-
-(defn text-area-control [data state owner key label]
-  (let [text (get data key "")]
-    (if (:editing state)
-      (bs/text-area-control data owner :property_data key label)
-      (if (and text (re-find #"\w" text))
-        [:div [:h3 label]
-         [:p text]]
-        [:div {:class "hidden"} [:p {:class "form-control-static col-md-10"} text]]))))
-
-(defn address-static-text [property_data]
-  [:div.form-group
-     [:label.control-label.col-md-2 {:for "address"} "Address"]
-     [:p {:class "form-control-static col-md-10"} (slugs/postal-address-html property_data)]])
-
-(defn address-control [property_data owner state]
-  (if (:editing state)
-    (bs/address-control property_data owner :property_data)
-    [:div.form-group
-     [:label.control-label.col-md-2 {:for "address"} "Address"]
-     [:p {:class "form-control-static col-md-10"} (slugs/postal-address-html property_data)]]))
 
 (defn parse-label [label]
   (zipmap [:name :device_id :type] (clojure.string/split (name label) #":")))
@@ -139,24 +101,81 @@
            (let [_ (log "Row: " r)]
              [:tr [:td (:label r)] [:td (fix-sensor-type (:type r))] [:td (calculation-type (:name r))] [:td (:last-calc r)] [:td.number (:value r)]]))]])])))
 
+(defn property-details-form [property owner {:keys [event-chan]}]
+  (reify
+    om/IRenderState
+    (render-state [_ state]
+      (let [history                 (om/get-shared owner :history)
+            refresh-chan            (om/get-shared owner :refresh)
+            selected-property-id    (:entity_id (:property property))
+            {:keys [project_id
+                    property_data
+                    editable]} property]
+        (html
+         [:div
 
-(defn property-details-form [properties owner]
+          [:form.form-horizontal {:role "form"}
+           [:h3 "Overview"]
+           [:div.row
+            [:div.col-md-6
+             [:div.btn-toolbar
+              [:button.btn.btn-default {:type "button"
+                                        :class (str "btn btn-success")
+                                        :onClick (fn [_ _]
+                                                   (let [edited-data          (om/get-state owner :property)
+                                                         existing-property    (:property @property)
+                                                         merged-property-data (common/deep-merge (:property_data existing-property)
+                                                                                                 (:property_data edited-data))
+                                                         entity               (assoc-in edited-data [:property_data]
+                                                                                        merged-property-data)]
+                                                     (save-form refresh-chan event-chan entity selected-property-id)))} "Save"]
+              [:button.btn.btn-default {:type "button"
+                                        :class (str "btn btn-danger")
+                                        :onClick (fn [_ _] (put! event-chan {:event :edit :value false}))} "Cancel"]]]
+            [:button {:type "button"
+                      :class (str "btn btn-danger pull-right")
+                      :onClick (fn [_]
+                                 (put! event-chan {:event :delete :value selected-property-id}))}
+             "Delete Property"]]
+           [:div {:id "overview-alert"}]
+           [:div.col-md-6
+            (bs/text-input-control property owner [:property :property_code] "Property Code")
+            (bs/address-control property owner [:property :property_data])
+            (bs/text-input-control property owner [:property :property_data :property_type] "Property Type")
+            (bs/text-input-control property owner [:property :property_data :built_form] "Built Form")
+            (bs/text-input-control property owner [:property :property_data :age] "Age")
+            (bs/text-input-control property owner [:property :property_data :ownership] "Ownership")
+            (bs/text-input-control property owner [:property :property_data :project_phase] "Project Phase")
+            (bs/text-input-control property owner [:property :property_data :monitoring_hierarchy] "Monitoring Hierarchy")
+            (bs/text-input-control property owner [:property :property_data :practical_completion_date] "Practical Completion Date")
+            (bs/text-input-control property owner [:property :property_data :construction_date] "Construction Date")
+            (bs/text-input-control property owner [:property :property_data :conservation_area] "Conservation Area")
+            (bs/text-input-control property owner [:property :property_data :listed] "Listed Building")
+            (bs/text-input-control property owner [:property :property_data :terrain] "Terrain")
+            (bs/text-input-control property owner [:property :property_data :degree_day_region] "Degree Day Region")
+            (bs/text-area-control property owner [:property :property_data :description] "Description")
+            (bs/text-area-control property owner [:property :property_data :project_summary] "Project Summary")
+            (bs/text-area-control property owner [:property :property_data :project_team] "Project Team")
+            (bs/text-area-control property owner [:property :property_data :design_strategy] "Design Strategy")
+            (bs/text-area-control property owner [:property :property_data :energy_strategy] "Energy Strategy")
+            (bs/text-area-control property owner [:property :property_data :monitoring_policy] "Monitoring Policy")
+            (bs/text-area-control property owner [:property :property_data :other_notes] "Other Notes")]]])))))
+
+(defn property-details-display [property owner {:keys [event-chan]}]
   (reify
     om/IInitState
     (init-state [_]
       {:editing false})
     om/IRenderState
     (render-state [_ state]
-      (let [selected-property-id    (-> properties :selected)
-            property-details        (get-property-details selected-property-id properties)
-            history                 (om/get-shared owner :history)
+      (let [history                 (om/get-shared owner :history)
             refresh-chan            (om/get-shared owner :refresh)
+            selected-property-id    (:entity_id property)
             {:keys [project_id
                     property_data
-                    editable]} property-details]
+                    editable]} (:property property)]
         (html
          [:div
-
           [:form.form-horizontal {:role "form"}
            [:h3 "Overview"
             [:div.col-md-12
@@ -167,55 +186,39 @@
                   [:button.btn.btn-default.fa.fa-pencil-square-o
                    {:type "button"
                     :title "Edit"
-                    :class (str "btn btn-primary " (if (om/get-state owner :editing) "hidden" ""))
-                    :onClick (fn [_ _] (om/set-state! owner {:editing true}))}]
-                  [:a {:class (str "btn btn-primary fa fa-download " (if (om/get-state owner :editing) "hidden" ""))
+                    :class (str "btn btn-primary")
+                    :onClick (fn [_ _]
+                               (put! event-chan {:event :edit :value true}))}]
+                  [:a {:class (str "btn btn-primary fa fa-download")
                        :title "Download"
                        :role "button"
                        :href (str "/4/entities/" selected-property-id "?type=csv")}]]])]]]
-           [:div.col-md-12
-            [:div.col-md-6
-             [:div.btn-toolbar
-              [:button.btn.btn-default {:type "button"
-                                        :class (str "btn btn-success " (if (om/get-state owner :editing) "" "hidden"))
-                                        :onClick (fn [_ _] (save-form refresh-chan property-details
-                                                                      owner selected-property-id project_id))} "Save"]
-              [:button.btn.btn-default {:type "button"
-                                        :class (str "btn btn-danger " (if (om/get-state owner :editing) "" "hidden"))
-                                        :onClick (fn [_ _] (om/set-state! owner {:editing false}))} "Cancel"]]]
-            [:button {:type "button"
-                      :class (str "btn btn-danger pull-right " (if (om/get-state owner :editing) "" "hidden"))
-                      :onClick (fn [_]
-                                 (delete-property properties selected-property-id history refresh-chan))}
-             "Delete Property"]]
-           [:div {:id "overview-alert"}
-            (om/build bs/alert (:alert properties))]
            [:div.col-md-6
-            (text-control property-details state owner :property_code "Property Code")
-            (address-control property_data owner state)
-            (text-control property_data state owner :property_type "Property Type")
-            (text-control property_data state owner :built_form "Built Form")
-            (text-control property_data state owner :age "Age")
-            (text-control property_data state owner :ownership "Ownership")
-            (text-control property_data state owner :project_phase "Project Phase")
-            (text-control property_data state owner :monitoring_hierarchy "Monitoring Hierarchy")
-            (text-control property_data state owner :practical_completion_date "Practical Completion Date")
-            (text-control property_data state owner :construction_date "Construction Date")
-            (text-control property_data state owner :conservation_area "Conservation Area")
-            (text-control property_data state owner :listed "Listed Building")
-            (text-control property_data state owner :terrain "Terrain")
-            (text-control property_data state owner :degree_day_region "Degree Day Region")
-            (text-area-control property_data state owner :description "Description")
-            (text-area-control property_data state owner :project_summary "Project Summary")
-            (text-area-control property_data state owner :project_team "Project Team")
-            (text-area-control property_data state owner :design_strategy "Design Strategy")
-            (text-area-control property_data state owner :energy_strategy "Energy Strategy")
-            (text-area-control property_data state owner :monitoring_policy "Monitoring Policy")
-            (text-area-control property_data state owner :other_notes "Other Notes")]
+            (bs/static-text property [:property :property_code] "Property Code")
+            (bs/address-static-text property_data)
+            (bs/static-text property_data [:property_type] "Property Type")
+            (bs/static-text property_data [:built_form] "Built Form")
+            (bs/static-text property_data [:age] "Age")
+            (bs/static-text property_data [:ownership] "Ownership")
+            (bs/static-text property_data [:project_phase] "Project Phase")
+            (bs/static-text property_data [:monitoring_hierarchy] "Monitoring Hierarchy")
+            (bs/static-text property_data [:practical_completion_date] "Practical Completion Date")
+            (bs/static-text property_data [:construction_date] "Construction Date")
+            (bs/static-text property_data [:conservation_area] "Conservation Area")
+            (bs/static-text property_data [:listed] "Listed Building")
+            (bs/static-text property_data [:terrain] "Terrain")
+            (bs/static-text property_data [:degree_day_region] "Degree Day Region")
+            (bs/static-text property_data [:description] "Description")
+            (bs/static-text property_data [:project_summary] "Project Summary")
+            (bs/static-text property_data [:project_team] "Project Team")
+            (bs/static-text property_data [:design_strategy] "Design Strategy")
+            (bs/static-text property_data [:energy_strategy] "Energy Strategy")
+            (bs/static-text property_data [:monitoring_policy] "Monitoring Policy")
+            (bs/static-text property_data [:other_notes] "Other Notes")]
            [:div.col-md-6
-            (when (seq (:calculated_fields_values property-details))
+            (when (seq (:calculated_fields_values (:property property)))
               (om/build summary-stats
-                        (select-keys property-details
+                        (select-keys property
                                      [:calculated_fields_values :calculated_fields_labels :calculated_fields_last_calc :devices])))
             (when-let [tech-icons (seq (:technology_icons property_data))]
               [:div.col-md-12
@@ -223,7 +226,7 @@
                [:span.tech-icon-container-md
                 (for [ti tech-icons]
                   (icons/tech-icon ti))]])
-            (when-let [photos (seq (:photos property-details))]
+            (when-let [photos (seq (:photos (:property property)))]
               [:div.col-md-12
                [:h3 "Photos"]
                [:p
@@ -306,36 +309,53 @@
   (reify
     om/IInitState
     (init-state [_]
-      {:datetimepicker-chan (chan)})
+      {:datetimepicker-chan (chan)
+       :event-chan (chan)})
     om/IWillMount
     (will-mount [_]
-      (let [{:keys [datetimepicker-chan]} (om/get-state owner)]
+      (let [history      (om/get-shared owner :history)
+            refresh-chan (om/get-shared owner :refresh)]
+
         ;; Chart data button
         (go-loop []
-          (let [{:keys [start-date end-date] :as range} (<! datetimepicker-chan)
+          (let [datetimepicker-chan (om/get-state owner :datetimepicker-chan)
+                {:keys [start-date end-date] :as range} (<! datetimepicker-chan)
                 sensors   (-> @properties :sensors :selected)
                 entity_id (-> @properties :selected)]
             (log "Fetching for sensors: " sensors "start: " start-date "end: " end-date "id: " entity_id)
             (when (and sensors end-date start-date)
               (om/update! properties [:chart :range] range)
               (data/fetch-measurements properties entity_id sensors start-date end-date)))
+          (recur))
+
+        ;;  Event chan
+        (go-loop []
+          (let [event-chan (om/get-state owner :event-chan)
+                {:keys [event value]} (<! event-chan)]
+            (case event
+              :delete (delete-property properties value history refresh-chan)
+              :edit   (om/update! properties :editing value)
+              :error  (om/update! properties :alert {:status true
+                                                     :class "alert alert-danger"
+                                                     :text value})))
           (recur))))
-     om/IDidUpdate
-     (did-update [_ prev-props _]
-       (when (and (or (not= (:selected prev-props) (:selected properties))
-                      (not= (:data prev-props) (:data properties)))
-                  (-> properties :data seq)
-                  (-> properties :selected seq))
-         (common/fixed-scroll-to-element "property-details")))
+    om/IDidUpdate
+    (did-update [_ prev-props _]
+      (when (and (or (not= (:selected prev-props) (:selected properties))
+                     (not= (:data prev-props) (:data properties)))
+                 (-> properties :data seq)
+                 (-> properties :selected seq))
+        (common/fixed-scroll-to-element "property-details")))
     om/IRenderState
     (render-state [_ state]
       (let [active-tab                 (:active-tab properties)
             programme-id               (-> properties :programme_id)
             project-id                 (-> properties :project_id)
             property-id                (-> properties :selected)
-            property-details           (get-property-details property-id properties)
+            property-details           (-> properties :selected-property :property)
             {:keys [editable devices]} property-details
             property_data              (:property_data property-details)
+            event-chan                 (om/get-state owner :event-chan)
             datetimepicker-chan        (om/get-state owner :datetimepicker-chan)
             refresh-chan               (om/get-shared owner :refresh)]
         (html
@@ -378,7 +398,11 @@
                    "Uploads"]])]
               ;; Overview
               (when (= active-tab :overview)
-                [:div.col-md-12 (om/build property-details-form properties)])
+                [:div.col-md-12
+                 (om/build bs/alert (:alert properties))
+                 (if (:editing properties)
+                   (om/build property-details-form (:selected-property properties) {:opts {:event-chan event-chan}})
+                   (om/build property-details-display (:selected-property properties) {:opts {:event-chan event-chan}}))])
               ;; Devices
               (when (= active-tab :devices)
                 [:div.col-md-12 (om/build devices/devices-div properties)])

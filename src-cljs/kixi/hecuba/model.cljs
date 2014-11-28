@@ -16,6 +16,7 @@
                              :sort-asc true}
                  :editing false
                  :edited-row nil
+                 :new-programme {}
                  :adding-programme false
                  :alert {}}
     :projects {:name     "Projects"
@@ -25,7 +26,8 @@
                            :sort-asc true}
                :editing false
                :edited-row nil
-               :adding-project false}
+               :adding-project false
+               :new-project {}}
     :properties {:name     "Properties"
                  :data     []
                  :selected nil
@@ -34,6 +36,9 @@
                              :sort-asc true}
                  :adding-property false
                  :active-tab :overview
+                 :new-property {}
+                 :editing false
+                 :selected-property {}
                  :alert {}
                  :devices {:name "Devices"
                            :header   {:cols {[:location :name] {:label "Name"}
@@ -45,6 +50,7 @@
                            :selected nil
                            :sort-spec {:sort-key :description
                                        :sort-asc true}
+                           :new-device {}
                            :adding false
                            :editing false
                            :edited-device nil}
