@@ -36,33 +36,27 @@
 (defn location-input [cursor owner]
   (let [location (-> cursor :device :location)]
     [:div
-     [:div
-      [:label.control-label {:for "location"} "Location"]
-      [:div.col-md-offset-1
-       [:div.form-group
-        [:label.control-label {:for "name"} "Name"]
-        [:div
-         [:input {:defaultValue (get location :name "")
-                  :on-change #(om/set-state! owner [:device :location :name] (.-value (.-target %1)))
-                  :class "form-control"
-                  :type "text"
-                  :id "location_name"}]]]
-       [:div.form-group
-        [:label.control-label {:for "latitude"} "Latitude"]
-        [:div
-         [:input {:defaultValue (get location :latitude "")
-                  :on-change #(om/set-state! owner [:device :location :latitude] (.-value (.-target %1)))
-                  :class "form-control"
-                  :type "number"
-                  :id "location_latitude"}]]]
-       [:div.form-group
-        [:label.control-label {:for "longitude"} "Longitude"]
-        [:div
-         [:input {:defaultValue (get location :longitude "")
-                  :on-change #(om/set-state! owner [:device :location :longitude] (.-value (.-target %1)))
-                  :class "form-control"
-                  :type "number"
-                  :id "location_longitude"}]]]]]]))
+     [:div.form-group
+      [:label.control-label {:for "name"} "Location Name"]
+      [:input {:defaultValue (get location :name "")
+               :on-change #(om/set-state! owner [:device :location :name] (.-value (.-target %1)))
+               :class "form-control"
+               :type "text"
+               :id "location_name"}]]
+     [:div.form-group
+      [:label.control-label {:for "latitude"} "Latitude"]
+      [:input {:defaultValue (get location :latitude "")
+               :on-change #(om/set-state! owner [:device :location :latitude] (.-value (.-target %1)))
+               :class "form-control"
+               :type "number"
+               :id "location_latitude"}]]
+     [:div.form-group
+      [:label.control-label {:for "longitude"} "Longitude"]
+      [:input {:defaultValue (get location :longitude "")
+               :on-change #(om/set-state! owner [:device :location :longitude] (.-value (.-target %1)))
+               :class "form-control"
+               :type "number"
+               :id "location_longitude"}]]]))
 
 (defn alert [class body status id owner]
   [:div {:id id :class class :style {:display (if status "block" "none")}}

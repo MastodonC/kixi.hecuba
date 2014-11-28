@@ -183,45 +183,40 @@
 (defn address-control [data owner keys]
   [:div
    [:div.form-group
-    [:label.control-label.col-md-2 {:for "address_street"} "Street Address"]
-    [:div.col-md-10
-     [:input {:defaultValue (get-in data (conj keys :address_street) "")
-              :on-change #(handle-change owner (conj keys :address_street) %1)
-              :class "form-control"
-              :type "text"
-              :id "address_street"}]]]
+    [:label.control-label {:for "address_street"} "Street Address"]
+    [:input {:defaultValue (get-in data (conj keys :address_street) "")
+             :on-change #(handle-change owner (conj keys :address_street) %1)
+             :class "form-control"
+             :type "text"
+             :id "address_street"}]]
    [:div.form-group
-    [:label.control-label.col-md-2 {:for "address_street_two"} "Street Address 2"]
-    [:div.col-md-10
-     [:input {:defaultValue (get-in data (conj keys :address_street_two) "")
-              :on-change #(handle-change owner (conj keys :address_street_two) %1)
-              :class "form-control"
-              :type "text"
-              :id "address_street_two"}]]]
+    [:label.control-label {:for "address_street_two"} "Street Address 2"]
+    [:input {:defaultValue (get-in data (conj keys :address_street_two) "")
+             :on-change #(handle-change owner (conj keys :address_street_two) %1)
+             :class "form-control"
+             :type "text"
+             :id "address_street_two"}]]
    [:div.form-group
-    [:label.control-label.col-md-2 {:for "address_city"} "City"]
-    [:div.col-md-10
-     [:input {:defaultValue (get-in data (conj keys :address_city) "")
-              :on-change #(handle-change owner (conj keys :address_city)  %1)
-              :class "form-control"
-              :type "text"
-              :id "address_city"}]]]
+    [:label.control-label {:for "address_city"} "City"]
+    [:input {:defaultValue (get-in data (conj keys :address_city) "")
+             :on-change #(handle-change owner (conj keys :address_city)  %1)
+             :class "form-control"
+             :type "text"
+             :id "address_city"}]]
    [:div.form-group
-    [:label.control-label.col-md-2 {:for "address_code"} "Postal Code"]
-    [:div.col-md-10
-     [:input {:defaultValue (get-in data (conj keys :address_code) "")
-              :on-change #(handle-change owner (conj keys :address_code) %1)
-              :class "form-control"
-              :type "text"
-              :id "address_code"}]]]
+    [:label.control-label {:for "address_code"} "Postal Code"]
+    [:input {:defaultValue (get-in data (conj keys :address_code) "")
+             :on-change #(handle-change owner (conj keys :address_code) %1)
+             :class "form-control"
+             :type "text"
+             :id "address_code"}]]
    [:div.form-group
-    [:label.control-label.col-md-2 {:for "address_country"} "Country"]
-    [:div.col-md-10
-     [:input {:defaultValue (get-in data (conj keys :address_country) "")
-              :on-change #(handle-change owner (conj keys :address_country) %1)
-              :class "form-control"
-              :type "text"
-              :id "address_country"}]]]])
+    [:label.control-label {:for "address_country"} "Country"]
+    [:input {:defaultValue (get-in data (conj keys :address_country) "")
+             :on-change #(handle-change owner (conj keys :address_country) %1)
+             :class "form-control"
+             :type "text"
+             :id "address_country"}]]])
 
 (defn address-static-text [property_data]
   [:div.form-group
