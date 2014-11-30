@@ -167,70 +167,65 @@
           [:td organisation]
           [:td project_code]])))))
 
-(defmulti projects-table  (fn [fetching] fetching))
+(defmulti projects-table  (fn [projects owner opts] (:fetching projects)))
 
-(defmethod projects-table :fetching [_]
-  (fn [projects owner opts]
-    (om/component
-     (html
-      (bs/fetching-row projects)))))
+(defmethod projects-table :fetching [projects owner opts]
+  (om/component
+   (html
+    (bs/fetching-row projects))))
 
-(defmethod projects-table :no-data [_]
-  (fn [projects owner opts]
-    (om/component
-     (html
-      (bs/no-data-row projects)))))
+(defmethod projects-table :no-data [projects owner opts]
+  (om/component
+   (html
+    (bs/no-data-row projects))))
 
-(defmethod projects-table :error [_]
-  (fn [projects owner opts]
-    (om/component
-     (html
-      (bs/error-row projects)))))
+(defmethod projects-table :error [projects owner opts]
+  (om/component
+   (html
+    (bs/no-data-row projects))))
 
-(defmethod projects-table :has-data [_]
-  (fn [projects owner {:keys [editing-chan]}]
-    (reify
-      om/IInitState
-      (init-state [_]
-        (log "has data init-state")
-        {:th-chan (chan)})
-      om/IWillMount
-      (will-mount [_]
-        (go-loop []
-          (let [{:keys [th-chan]}           (om/get-state owner)
-                sort-spec                   (:sort-spec @projects)
-                {:keys [sort-key sort-asc]} sort-spec
-                th-click                    (<! th-chan)]
-            (if (= th-click sort-key)
-              (om/update! projects :sort-spec {:sort-key th-click
-                                               :sort-asc (not sort-asc)})
-              (om/update! projects :sort-spec {:sort-key th-click
-                                               :sort-asc true})))
-          (recur)))
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         (let [table-id   "projects-table"
-               history    (om/get-shared owner :history)
-               th-chan    (om/get-state owner :th-chan)
-               sort-spec  (:sort-spec projects)
-               {:keys [sort-key sort-asc]} sort-spec]
-           [:div.row
-            [:div.col-md-12
-             [:table {:className "table table-hover"}
-              [:thead
-               [:tr
-                (bs/sorting-th sort-spec th-chan "Name" :name)
-                (bs/sorting-th sort-spec th-chan "Type" :type)
-                (bs/sorting-th sort-spec th-chan "Organisation" :organisation)
-                (bs/sorting-th sort-spec th-chan "Project Code" :project_code)]]
-              [:tbody
-               (om/build-all project-row (if sort-asc
-                                           (sort-by sort-key (:data projects))
-                                           (reverse (sort-by sort-key (:data projects))))
-                             {:opts {:table-id table-id
-                                     :editing-chan editing-chan}
-                              :key :project_id})]]]]))))))
+(defmethod projects-table :has-data [projects owner {:keys [editing-chan]}]
+  (reify
+    om/IInitState
+    (init-state [_]
+      {:th-chan (chan)})
+    om/IWillMount
+    (will-mount [_]
+      (go-loop []
+        (let [{:keys [th-chan]}           (om/get-state owner)
+              sort-spec                   (:sort-spec @projects)
+              {:keys [sort-key sort-asc]} sort-spec
+              th-click                    (<! th-chan)]
+          (if (= th-click sort-key)
+            (om/update! projects :sort-spec {:sort-key th-click
+                                             :sort-asc (not sort-asc)})
+            (om/update! projects :sort-spec {:sort-key th-click
+                                             :sort-asc true})))
+        (recur)))
+    om/IRenderState
+    (render-state [_ state]
+      (html
+       (let [table-id   "projects-table"
+             history    (om/get-shared owner :history)
+             th-chan    (om/get-state owner :th-chan)
+             sort-spec  (:sort-spec projects)
+             {:keys [sort-key sort-asc]} sort-spec]
+         [:div.row
+          [:div.col-md-12
+           [:table {:className "table table-hover"}
+            [:thead
+             [:tr
+              (bs/sorting-th sort-spec th-chan "Name" :name)
+              (bs/sorting-th sort-spec th-chan "Type" :type)
+              (bs/sorting-th sort-spec th-chan "Organisation" :organisation)
+              (bs/sorting-th sort-spec th-chan "Project Code" :project_code)]]
+            [:tbody
+             (om/build-all project-row (if sort-asc
+                                         (sort-by sort-key (:data projects))
+                                         (reverse (sort-by sort-key (:data projects))))
+                           {:opts {:table-id table-id
+                                   :editing-chan editing-chan}
+                            :key :project_id})]]]])))))
 
 (defmethod projects-table :default [_]
   (fn [projects owner opts]
@@ -283,7 +278,7 @@
               (om/build (project-edit-form projects) (-> projects :edited-row)))]
            [:div#projects-div
             (when-not (or editing adding-project)
-              (om/build (projects-table (:fetching projects)) projects {:opts {:editing-chan editing-chan}}))]
+              (om/build projects-table projects {:opts {:editing-chan editing-chan}}))]
            [:div#project-detail-div
             (when (and selected (not (or adding-project editing)))
               (om/build (project-detail projects editing-chan) selected-project))]]])))))

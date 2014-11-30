@@ -66,7 +66,7 @@
                  ;; ClojureScript dependencies
                  [cljs-ajax "0.2.3"]
                  ;; [cljs-ajax "0.2.6"]
-                 [om "0.8.0-alpha1"]
+                 [om "0.8.0-beta1"]
                  [com.andrewmcveigh/cljs-time "0.1.6"]
                  [sablono "0.2.22"]
 
