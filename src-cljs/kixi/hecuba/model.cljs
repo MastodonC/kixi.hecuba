@@ -27,9 +27,11 @@
                :editing false
                :edited-row nil
                :adding-project false
-               :new-project {}}
+               :new-project {}
+               :fetching :no-data}
     :properties {:name     "Properties"
                  :data     []
+                 :fetching :no-data
                  :selected nil
                  :sort-spec {:sort-key :property_code
                              :sort-fn :property_code
