@@ -192,6 +192,7 @@
    ;; Entity image/document upload (same code, different upload based on uri.
    (index-routes :entity-images-index [:entity_id] (entity-uploads/index store s3 pipeline-head))
    (index-routes :entity-documents-index [:entity_id] (entity-uploads/index store s3 pipeline-head))
+   (resource-route :entity-documents-resource [:entity_id :file_name] (entity-uploads/resource store))
 
    ;; Usernames
    (index-routes :username-index (users/index store))
