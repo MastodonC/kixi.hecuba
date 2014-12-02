@@ -24,7 +24,7 @@
              (s/optional-key :name)                       (s/maybe s/Str)
              (s/optional-key :parent_id)                  (s/maybe s/Str)
              (s/optional-key :location)                   (s/maybe Location)
-             (s/optional-key :metadata)                   (s/maybe {s/Keyword s/Str})
+             (s/optional-key :metadata)                   (s/maybe {s/Keyword s/Any})
              (s/optional-key :privacy)                    (s/maybe s/Str)
              (s/optional-key :metering_point_id)          (s/maybe s/Str)
              (s/optional-key :synthetic)                  (s/maybe s/Bool)

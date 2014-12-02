@@ -110,8 +110,7 @@
      (html  [:tr
              {:onClick   (fn [_ _]
                            (history/update-token-ids! history :properties entity_id)
-                           (common/fixed-scroll-to-element "property-details-div")
-                           (put! selected-row-chan @property))
+                           (common/fixed-scroll-to-element "property-details-div"))
               :className (if (:selected property) "success")
               :id        (str table-id "-selected")}
              [:td (when-let [uri (:uri (first (:photos property)))]
