@@ -110,6 +110,7 @@
      (html  [:tr
              {:onClick   (fn [_ _]
                            (history/update-token-ids! history :properties entity_id)
+                           (put! selected-row-chan @property)
                            (common/fixed-scroll-to-element "property-details-div"))
               :className (if (:selected property) "success")
               :id        (str table-id "-selected")}
@@ -160,9 +161,16 @@
   (reify
     om/IInitState
     (init-state [_]
-      {:th-chan (chan)})
+      {:th-chan (chan)
+       :selected-row-chan (chan)})
     om/IWillMount
     (will-mount [_]
+      ;; Put selected property into :selected-property cursor
+      (go-loop []
+        (let [selected-row-chan (om/get-state owner :selected-row-chan)
+              row               (<! selected-row-chan)]
+          (om/update! properties [:selected-property :property] row))
+        (recur))
       (go-loop []
         (let [{:keys [th-chan]}                   (om/get-state owner)
               {:keys [sort-key sort-fn sort-asc]} (:sort-spec @properties)
@@ -199,7 +207,8 @@
             (om/build-all property-row (if sort-asc
                                          (sort-by sort-fn (:data properties))
                                          (reverse (sort-by sort-fn (:data properties))))
-                          {:opts {:table-id table-id}})]]])))))
+                          {:opts {:table-id table-id
+                                  :selected-row-chan (om/get-state owner :selected-row-chan)}})]]])))))
 
 (defmethod properties-table :default [properties owner]
   (om/component
