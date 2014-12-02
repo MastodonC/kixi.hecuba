@@ -130,6 +130,8 @@
                                  merged-property-data   (common/deep-merge existing-property-data
                                                                            new-propery-data)
                                  entity                 (-> edited-data
+                                                            (assoc :project_id (or (:project_id edited-data)
+                                                                                   (:project_id existing-property)))
                                                             (cond-> (seq new-propery-data) (assoc-in [:property_data]
                                                                                                      merged-property-data)))]
                              (save-form refresh-chan event-chan entity selected-property-id)))} "Save"]

@@ -3,6 +3,7 @@
    [clojure.java.io :as io]
    [clojure.data.csv :as csv]
    [clojure.string :as string]
+   [clojure.set :as set]
    [clojure.core.match :refer (match)]
    [clojure.tools.logging :as log]
    [cheshire.core :as json]
@@ -12,6 +13,7 @@
    [kixi.hecuba.security :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
    [kixi.hecuba.api :as api :refer (decode-body authorized? content-type-from-context)]
    [kixi.hecuba.web-paths :as p]
+   [kixi.hecuba.storage.uuid :refer (uuid-str)]
    [kixi.hecuba.storage.db :as db]
    [kixi.hecuba.data :as data]
    [kixi.hecuba.data.programmes :as programmes]
@@ -26,6 +28,7 @@
 
 (def ^:private entities-index-path (p/index-path-string :entities-index))
 (def ^:private entity-resource-path (p/resource-path-string :entity-resource))
+(def ^:private project-entities-index (p/resource-path-string :project-entities-index))
 
 ;; curl -v -H "Content-Type: application/json" -H 'Accept: application/edn' -X GET -u support-test@mastodonc.com:password 127.0.0.1:8010/4/entities/?q=TSB119
 
@@ -234,10 +237,24 @@
       (log/error t "Malformed entity index.")
       [true {:malformed-msg "Could not parse entity data."}])))
 
+(defn all-profile-ids [entities]
+  (set (mapcat #(map (fn [p] (str (:property_code %) ":" (:profile_id p))) (:profiles %)) entities)))
+
+;; check that all things with profile and entity ids have matches in the data store
+(defn entities-exist? [existing-entities posted-entities]
+  (let [existing-entity_ids    (set (keep #(:entity_id %) existing-entities))
+        posted-with-entity_ids (set (filter #(:entity_id %) posted-entities))
+        existing-profile_ids   (all-profile-ids existing-entities)
+        posted-profile_ids     (all-profile-ids posted-entities)]
+    (and (nil? (set/difference existing-entity_ids posted-profile_ids))
+         (nil? (set/difference existing-profile_ids posted-profile_ids)))))
+
+;; project_id, all entity_ids and profile_ids must exist
 (defn index-exists? [store ctx]
   (if (= :post (-> ctx :request :request-method))
     (if-let [project_id (-> ctx :request :route-params :project_id)]
-      (projects/get-by-id (:hecuba-session store) project_id)
+      (and (seq (projects/get-by-id (:hecuba-session store) project_id))
+           (entities-exist? (::items ctx) (:entities ctx)))
       false)
     (seq (-> ctx ::items :entities))))
 
@@ -245,37 +262,69 @@
   (let [query-profile (assoc profile :user_id user_id)]
     (profiles/insert (:hecuba-session store) query-profile)))
 
-(defn store-entity [entity user_id store]
-  (let [query-entity (assoc entity :user_id user_id)]
+(defn enrich-with-profile-id [profile existing-profiles]
+  (if-let [matching-profile (some #(when (or (and (:profile_id profile)
+                                                  (= (:profile_id profile) (:profile_id %)))
+                                             (and (-> profile :profile_data :event_type)
+                                                  (= (-> profile :profile_data :event_type)
+                                                     (-> % :profile_data :event_type))
+                                                  (= (:timestamp profile) (:timestamp %))))
+                                     %)
+                                  existing-profiles)]
+    (assoc profile :profile_id (:profile_id matching-profile))
+    (assoc profile :profile_id (uuid-str))))
+
+(defn enrich-with-ids [entity existing-entities]
+  (if-let [matching-entity (some #(when (or (and (:entity_id entity) (= (:entity_id entity) (:entity_id %)))
+                                            (and (:property_code entity) (= (:property_code entity) (:property_code %))))
+                                    %)
+                                 existing-entities)]
+    (-> entity
+        (assoc :entity_id (:entity_id matching-entity))
+        (assoc :profiles (mapv #(-> %
+                                    (enrich-with-profile-id (:profiles matching-entity))
+                                    (assoc :entity_id (:entity_id matching-entity)))
+                               (:profiles entity))))
+    (let [entity_id (uuid-str)]
+      (-> entity
+          (assoc :entity_id entity_id)
+          (assoc :profiles (mapv #(assoc %
+                                    :profile_id (uuid-str)
+                                    :entity_id entity_id)
+                                 (:profiles entity)))))))
+
+(defn store-entity [entity existing-entities user_id store]
+  (let [query-entity (-> entity
+                         (assoc :user_id user_id)
+                         (enrich-with-ids (-> existing-entities :entities :entities)))
+        entity_id (:entity_id query-entity)]
     (entities/insert (:hecuba-session store) query-entity)
-    (log/info "inserted: " query-entity)
+    (log/infof "upserted entity_id: %s entity: %s" entity_id query-entity)
     (-> query-entity
         (search/searchable-entity (:hecuba-session store))
         (search/->elasticsearch (:search-session store)))
-    (log/info "updated elastic search")))
+    (log/infof "updated elastic search for entity_id %s" entity_id)))
 
+;; We'll have a seq of entities with attached profiles by this
+;; point. We need to add UUIDs to the ones that don't have them. If
+;; they match with existing things in this project (in ::items) then
+;; use that id. If not, then generate a UUID.
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [request entities profiles]} ctx
+          existing-entities (::items ctx)
           username (sec/session-username (:session request))]
-      (mapv #(store-profile % username store) profiles)
-      (mapv #(store-entity % username store) entities)
-      {:entity_id (-> entities first :entity_id)})))
+      {:entities (mapv #(store-entity % existing-entities username store) entities)})))
 
 (defn index-handle-created [ctx]
-  (let [request (:request ctx)
-        id      (:entity_id ctx)]
-    (if id
-      (let [location (format entity-resource-path id)]
-        (when-not location
-          (throw (ex-info "No path resolved for Location header"
-                          {:entity_id id})))
-        (ring-response {:headers {"Location" location}
-                        :body (json/encode {:location location
-                                            :status "OK"
-                                            :version "4"})}))
-      (ring-response {:status 422
-                      :body "Provide valid projectId and propertyCode."}))))
+  (let [entities (:entities ctx)]
+    (let [location (if (< 1 (count entities))
+                     (format project-entities-index (-> entities first :project_id))
+                     (format entity-resource-path (-> entities first :entity_id)))]
+      {:headers {"Location" location}
+       :body {:location location
+              :status "OK"
+              :version "4"}})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Resource
@@ -370,7 +419,7 @@
   :authorized? (authorized? store)
   :allowed? (partial index-allowed? store)
   :exists? (partial index-exists? store)
-  :malformed? #(index-malformed? %)
+  :malformed? index-malformed?
   :handle-malformed index-handle-malformed
   :post! (partial index-post! store)
   :handle-created index-handle-created
@@ -384,7 +433,7 @@
   :allowed? (resource-allowed? store)
   :exists? (partial resource-exists? store)
   :handle-ok (partial resource-handle-ok store)
-  :malformed? #(resource-malformed? %)
+  :malformed? resource-malformed?
   :handle-malformed #(select-keys % [:malformed-msg :errors])
   :put! (partial resource-put! store)
   :respond-with-entity? (partial resource-respond-with-entity)

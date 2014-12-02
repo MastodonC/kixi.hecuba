@@ -6,6 +6,7 @@
             [kixi.hecuba.storage.db :as db]
             [cheshire.core :as json]
             [kixi.hecuba.data.devices :as devices]
+            [kixi.hecuba.data.profiles :as profiles]
             [kixi.hecuba.api :refer (update-stringified-list)]
             [clojure.tools.logging :as log]
             [hickory.core :as hickory]
@@ -137,8 +138,9 @@
    (s/optional-key :name) s/Str
    (s/optional-key :notes) [s/Str]
    (s/optional-key :photos) [s/Str]
-   (s/optional-key :project_id) s/Str
-   (s/optional-key :property_code) s/Str
+   (s/optional-key :profiles) (s/maybe [(s/maybe {s/Any s/Any})])
+   :project_id s/Str
+   (s/optional-key :property_code) (s/maybe s/Str)
    (s/optional-key :property_data) {s/Keyword s/Any}
    (s/optional-key :retrofit_completion_date) s/Str ;; sc/ISO-Date-Time
    :user_id s/Str})
@@ -151,15 +153,21 @@
   )
 
 (defn insert [session entity]
-  (let [insertable-entity (su/select-keys-by-schema entity InsertableEntity)]
+  (let [insertable-entity (-> entity (dissoc :profiles) (su/select-keys-by-schema InsertableEntity))
+        profiles          (:profiles entity)]
     (s/validate InsertableEntity insertable-entity)
+    (mapv #(profiles/insert session %) profiles)
     (db/execute session (hayt/insert :entities (hayt/values (encode-for-insert insertable-entity))))))
 
 (defn update [session id entity]
-  (let [updateable-entity (su/select-keys-by-schema entity InsertableEntity)]
+  (let [updateable-entity (su/select-keys-by-schema entity InsertableEntity)
+        profiles          (:profiles entity)]
     (s/validate UpdateableEntity (assoc updateable-entity :entity_id id))
+    (mapv #(profiles/update session (:profile_id %) %) profiles)
     (db/execute session (hayt/update :entities
-                                     (hayt/set-columns (encode-for-update updateable-entity))
+                                     (hayt/set-columns (-> updateable-entity
+                                                           (dissoc :entity_id)
+                                                           encode-for-update))
                                      (hayt/where [[= :id id]])))))
 
 (defn get-by-id
