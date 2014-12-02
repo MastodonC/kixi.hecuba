@@ -11,7 +11,9 @@
             [kixi.hecuba.data.parents :as parents]
             [kixi.hecuba.data.entities.search :as search]
             [clojure.edn :as edn]
-            [cheshire.core :as json]))
+            [cheshire.core :as json]
+            [kixi.hecuba.data.entities :as entities]
+            [clojure.java.io :as io]))
 
 (defn do-map
   "Map with side effects."
@@ -141,3 +143,47 @@
                     (log/errorf "Could not parse location %s for device %s as edn."
                                 location (:id d)))))))))
       (search/refresh-search (:hecuba-session store) (:search-session store)))))
+
+(defn migrate-doc [doc]
+  (let [doc-edn (json/decode doc true)
+        privacy (:privacy doc-edn)]
+    (if (seq privacy)
+      (-> doc-edn
+          (assoc :public? (if (= privacy "Private") false true))
+          (assoc :path (str "media-resources/" (:token doc-edn) "/documents/" (:file_name doc-edn))))
+      doc-edn)))
+
+;; Deletes old documents first and then adds new ones. This is a workaround for the issue
+;; where setting documents column to a new list throws an error  "extraneous input 'documents' expecting K_WHERE" :
+;; UPDATE entities SET documents = ['{"token":"683f2d71c33af03e6d77f8bac1bfdff97c34076a","privacy":"Public","file_size":18025,"id":1557,"name":"SAP Summary","attachable_type":"Property","public?":true,"content_type":"application/pdf","attachable_id":53,"file_name"}'] documents WHERE id = '0a737cfd3225b484fb94b5040701f9345d05ef40';
+(defn migrate-documents
+  "Migrate documents from old format of storage to the new one."
+  [{:keys [store]}]
+  (db/with-session [session (:hecuba-session store)]
+    (let [entities (db/execute session (hayt/select :entities))]
+      (doseq [e entities]
+        (let [id    (:id e)
+              where [[= :id id]]]
+          (when-let [documents (seq (:documents e))]
+            (let [updated-docs (mapv migrate-doc documents)]
+              ;; Delete all existing documents
+              (entities/update session id {:documents nil :user_id "support@mastodonc.com"})
+              ;; Insert new documents
+              (doseq [doc updated-docs]
+                (entities/add-document session id doc)))))))
+    (search/refresh-search (:hecuba-session store) (:search-session store))))
+
+(defn doc-report
+  "Produce a report of all docs in the database: their old and new path"
+  [{:keys [store]}]
+  (db/with-session [session (:hecuba-session store)]
+    (let [entities (entities/get-all session)
+          documents (apply concat (keep (fn [entity]
+                                          (when-let [documents (seq (:documents entity))]
+                                            (let [id (:entity_id entity)]
+                                              (map (fn [doc]
+                                                     {:id id
+                                                      :old-path (:file_name doc)
+                                                      :new-path (str "media-resources/" id "/documents/" (:file_name doc))}) documents))))
+                                        entities))]
+      (spit "/Users/annapawlicka/report.txt" (prn-str documents)))))

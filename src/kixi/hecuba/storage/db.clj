@@ -31,6 +31,7 @@
 (defn new-cluster [opts]
   (->Cluster (merge ClusterDefaults opts)))
 
+;; TODO Delete execute-async and upgrade alia.
 (defn ->raw-with-logging
   "Log all CQL - because it's always useful.
    This logs the raw CQL to a special kixi.hecuba.storage.db.CQL logger"

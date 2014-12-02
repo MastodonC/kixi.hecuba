@@ -18,7 +18,8 @@
    [kixi.hecuba.data.users      :as users]
    [kixi.hecuba.web-paths       :as p]
    [clojure.java.io             :as io]
-   [clj-time.core               :as t]))
+   [clj-time.core               :as t]
+   [kixi.hecuba.data.entities.search :as search]))
 
 (def ^:private entity-resource-path (p/resource-path-string :entity-resource))
 
@@ -33,7 +34,7 @@
      :entity_id entity_id}))
 
 (defn allowed?* [programme-id project-id allowed-programmes allowed-projects role request-method]
-  (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
+  (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s role: %s request-method: %s"
              programme-id project-id allowed-programmes allowed-projects role request-method)
   (match  [(has-admin? role)
            (has-programme-manager? programme-id allowed-programmes)
@@ -76,11 +77,11 @@
 (defn index-allowed? [store]
   (fn [ctx]
     (let [{:keys [request-method session params]} (:request ctx)
-          {:keys [projects programmes roles]} (sec/current-authentication session)
+          {:keys [projects programmes role]} (sec/current-authentication session)
           project_id (:project_id (:entity ctx))
           programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
       (if (and project_id programme_id)
-        (allowed?* programme_id project_id programmes projects roles request-method)
+        (allowed?* programme_id project_id programmes projects role request-method)
         true))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -133,8 +134,34 @@
                     :headers {"Location" (format entity-resource-path entity_id)}
                     :body    "Accepted"}}))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; RESOURCES
+(defn resource-allowed? [store]
+  (fn [ctx]
+    (let [{:keys [request-method params session]} (:request ctx)
+          {:keys [entity_id file_name]} params
+          {:keys [projects programmes role]} (sec/current-authentication session)
+          entity (entities/get-by-id (:hecuba-session store) entity_id)
+          project_id (:project_id entity)
+          programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
+      [(allowed?* programme_id project_id programmes projects role request-method) {:file_name file_name
+                                                                                    :entity entity
+                                                                                    :entity_id entity_id}])))
+
+(defn resource-exists? [store]
+  (fn [ctx]
+    (let [{:keys [entity_id file_name entity]} ctx
+          document-idx (first (keep-indexed #(when (= (:file_name %2) file_name) %1) (:documents entity)))]
+      (when document-idx
+        {:document-idx document-idx
+         :entity entity}))))
+
+(defn resource-delete! [store]
+  (fn [ctx]
+    (db/with-session [session (:hecuba-session store)]
+      (let [{:keys [entity_id document-idx]} ctx]
+        (entities/delete-document session entity_id document-idx)
+        ;; update ES
+        (-> (search/searchable-entity-by-id entity_id session)
+            (search/->elasticsearch (:search-session store)))))))
 
 (defresource index [store s3 pipe]
   :allowed-methods #{:get :post}
@@ -144,3 +171,11 @@
   :malformed? #(index-malformed? %)
   :post! (partial index-post! store s3 pipe)
   :handle-created index-handle-created)
+
+(defresource resource [store]
+  :allowed-methods #{:delete}
+  :exists? (resource-exists? store)
+  :available-media-types #{"application/json" "application/edn"}
+  :authorized? (authorized? store)
+  :allowed? (resource-allowed? store)
+  :delete! (resource-delete! store))

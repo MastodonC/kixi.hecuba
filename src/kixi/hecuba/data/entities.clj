@@ -196,6 +196,11 @@
                                      (hayt/set-columns {:documents [+ [(json/encode document)]]})
                                      (hayt/where [[= :id id]]))))
 
+(defn delete-document [session id idx]
+  (db/execute session (hayt/delete :entities
+                                   (hayt/columns {:documents idx})
+                                   (hayt/where [[= :id id]]))))
+
 (defn has-location? [{:keys [property_data] :as e}]
   (when (and property_data
              (contains? property_data :latitude)

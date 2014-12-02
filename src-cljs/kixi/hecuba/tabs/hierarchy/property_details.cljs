@@ -20,7 +20,8 @@
             [ajax.core :refer [GET PUT]]
             [kixi.hecuba.widgets.fileupload :as file]
             [kixi.hecuba.widgets.measurementsupload :as measurementsupload]
-            [kixi.hecuba.tabs.hierarchy.tech-icons :as icons]))
+            [kixi.hecuba.tabs.hierarchy.tech-icons :as icons]
+            [clojure.string :as str]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Property Details Helpers
@@ -51,6 +52,15 @@
                             (history/update-token-ids! history :properties nil)
                             (om/update! properties :editing false))
                           (error-handler properties)))
+
+(defn delete-document [refresh-chan event-chan property-id file-name]
+  (log "Deleting: " file-name)
+  (common/delete-resource (str "/4/entities/" property-id "/documents/" file-name)
+                          (fn [_]
+                            (log "Deleted!")
+                            (put! refresh-chan {:event :property}))
+                          (fn [{:keys [status status-text]}]
+                            (put! event-chan {:event :error :value status-text}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; property-details-form
@@ -176,7 +186,7 @@
     (render-state [_ state]
       (let [history                 (om/get-shared owner :history)
             refresh-chan            (om/get-shared owner :refresh)
-            selected-property-id    (:entity_id property)
+            selected-property-id    (:entity_id (:property property))
             {:keys [project_id
                     property_data
                     editable]} (:property property)]
@@ -237,7 +247,31 @@
                [:h3 "Photos"]
                [:p
                 (for [photo photos]
-                  [:img.img-thumbnail {:src (:uri photo)}])]])]]])))))
+                  [:img.img-thumbnail {:src (:uri photo)}])]])
+            (when-let [documents (seq (:documents (:property property)))]
+              [:div.col-md-12
+               [:h3 "Documents"]
+               [:table.table.borderless
+                [:tbody
+                 (for [doc documents]
+                   (let [{:keys [public? uri]} doc]
+                     ;; TOFIX downloading files straight from s3 doesn't return appropriate header so the file
+                     ;; is being opened in the browser instead of being downloaded. Should we go through the API
+                     ;; or just straight to s3?
+                     (when (or public? editable)
+                       (let [[_ _ _ _ _ _ file_name] (str/split uri #"/")]
+                         (when (and uri file_name) ;; Don't display invalid links
+                           [:tr
+                            [:td
+                             [:a {:href uri} file_name]]
+                            [:td (when editable [:div.button.btn.btn-danger.btn-xs
+                                                 {:on-click (fn [_]
+                                                              (let [response (js/confirm (str "Are you sure you want to delete "
+                                                                                              file_name "?"))]
+                                                                (when response
+                                                                  (delete-document refresh-chan event-chan
+                                                                                   selected-property-id file_name))))}
+                                                 "Delete"])]])))))]]])]]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CSV measurements template (with & without data)
@@ -321,6 +355,7 @@
     (will-mount [_]
       (let [history      (om/get-shared owner :history)
             refresh-chan (om/get-shared owner :refresh)]
+        (log "property-details-div: did-mount")
 
         ;; Chart data button
         (go-loop []
