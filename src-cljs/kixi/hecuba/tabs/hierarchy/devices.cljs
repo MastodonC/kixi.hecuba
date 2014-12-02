@@ -162,7 +162,7 @@
 
 (defn save-edited-device [event-chan existing-device refresh-chan owner property_id device_id]
   (let [{:keys [device sensors]} (om/get-state owner)
-        device (-> (common/deep-merge existing-device device)
+        device (-> device
                    (update-in [:privacy] str))
         readings (into [] (map (fn [[k v]] (assoc v :sensor_id k)) sensors))]
     (put-edited-device event-chan refresh-chan owner (assoc device :readings readings)

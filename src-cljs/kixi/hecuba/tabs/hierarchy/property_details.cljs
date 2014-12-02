@@ -119,16 +119,20 @@
            [:div.row
             [:div.col-md-6
              [:div.btn-toolbar
-              [:button.btn.btn-default {:type "button"
-                                        :class (str "btn btn-success")
-                                        :onClick (fn [_ _]
-                                                   (let [edited-data          (om/get-state owner :property)
-                                                         existing-property    (:property @property)
-                                                         merged-property-data (common/deep-merge (:property_data existing-property)
-                                                                                                 (:property_data edited-data))
-                                                         entity               (assoc-in edited-data [:property_data]
-                                                                                        merged-property-data)]
-                                                     (save-form refresh-chan event-chan entity selected-property-id)))} "Save"]
+              [:button.btn.btn-default
+               {:type "button"
+                :class (str "btn btn-success")
+                :onClick (fn [_ _]
+                           (let [edited-data            (om/get-state owner :property)
+                                 existing-property      (:property @property)
+                                 existing-property-data (:property_data existing-property)
+                                 new-propery-data       (:property_data edited-data)
+                                 merged-property-data   (common/deep-merge existing-property-data
+                                                                           new-propery-data)
+                                 entity                 (-> edited-data
+                                                            (cond-> (seq new-propery-data) (assoc-in [:property_data]
+                                                                                                     merged-property-data)))]
+                             (save-form refresh-chan event-chan entity selected-property-id)))} "Save"]
               [:button.btn.btn-default {:type "button"
                                         :class (str "btn btn-danger")
                                         :onClick (fn [_ _] (put! event-chan {:event :edit :value false}))} "Cancel"]]]
