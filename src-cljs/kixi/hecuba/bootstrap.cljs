@@ -211,6 +211,13 @@
              :type "text"
              :id "address_code"}]]
    [:div.form-group
+    [:label.control-label {:for "address_region"} "Region"]
+    [:input {:defaultValue (get-in data (conj keys :address_region) "")
+             :on-change #(handle-change owner (conj keys :address_region) %1)
+             :class "form-control"
+             :type "text"
+             :id "address_region"}]]
+   [:div.form-group
     [:label.control-label {:for "address_country"} "Country"]
     [:input {:defaultValue (get-in data (conj keys :address_country) "")
              :on-change #(handle-change owner (conj keys :address_country) %1)
