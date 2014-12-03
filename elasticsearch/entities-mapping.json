@@ -2,7 +2,12 @@
   "entity" : {
     "properties" : {
       "address" : {
-        "type" : "string"
+        "type" : "string",
+        "fields" : {
+            "lower_case_sort" : {
+                "type" : "string",
+                "analyzer" : "case_insensitive_sort"}
+        }
       },
       "address_region" : {
         "type" : "string"
@@ -43,12 +48,25 @@
         "type" : "string",
         "index" : "not_analyzed"
       },
+      "programme_name" : {
+         "type" : "string",
+         "fields" : {
+             "lower_case_sort" : {
+                 "type" : "string",
+                 "analyzer" : "case_insensitive_sort"}
+         }
+      },
       "project_id" : {
         "type" : "string",
         "index" : "not_analyzed"
       },
       "project_name" : {
-        "type" : "string"
+        "type" : "string",
+        "fields" : {
+            "lower_case_sort" : {
+                "type" : "string",
+                "analyzer" : "case_insensitive_sort"}
+        }
       },
       "project_organisation" : {
         "type" : "string"
@@ -57,7 +75,12 @@
         "type" : "string"
       },
       "property_code" : {
-        "type" : "string"
+        "type" : "string",
+        "fields" : {
+            "lower_case_sort" : {
+                "type" : "string",
+                "analyzer" : "case_insensitive_sort"}
+        }
       },
       "property_type" : {
         "type" : "string"
