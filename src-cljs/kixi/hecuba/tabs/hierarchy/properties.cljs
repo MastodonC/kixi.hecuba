@@ -31,9 +31,13 @@
   (common/post-resource "/4/entities/"
                         property
                         (fn [response]
-                          (let [[_ _ _ entity_id] (str/split (get (js->clj response) "location") #"/")]
+                          (log response)
+                          (let [response-edn      (js->clj response)
+                                headers           (get response-edn "headers")
+                                [_ _ _ entity_id _] (str/split (get headers "Location") #"/")]
                             (put! refresh-chan {:event :new-property :id entity_id}))
-                          (om/update! properties :adding-property false))
+                          (om/update! properties :adding-property false)
+                          (om/update! properties :new-property {}))
                         (error-handler properties)))
 
 (defn property-add-form [properties refresh-chan project_id]

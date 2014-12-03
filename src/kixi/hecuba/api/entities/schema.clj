@@ -242,7 +242,7 @@
                 :representation {:media-type "application/json"}}]
          [false {:entities [(assoc entity
                               :project_id project_id
-                              :entity_id (uuid/add-entity-id))]
+                              :entity_id (or (:entity_id entity) (uuid/uuid-str)))]
                  :representation {:media-type "application/json"}}])))
   ([entity]
      (if-let [project_id (:project_id entity)]
