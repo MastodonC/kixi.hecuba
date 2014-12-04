@@ -303,7 +303,8 @@
     (-> query-entity
         (search/searchable-entity (:hecuba-session store))
         (search/->elasticsearch (:search-session store)))
-    (log/infof "updated elastic search for entity_id %s" entity_id)))
+    (log/infof "updated elastic search for entity_id %s" entity_id)
+    {:entity_id entity_id :project_id (:project_id entity)}))
 
 ;; We'll have a seq of entities with attached profiles by this
 ;; point. We need to add UUIDs to the ones that don't have them. If
@@ -312,12 +313,12 @@
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [request entities profiles]} ctx
-          existing-entities (::items ctx)
+          existing-entities (-> ctx ::items :entities :entities)
           username (sec/session-username (:session request))]
-      {:entities (mapv #(store-entity % existing-entities username store) entities)})))
+      {:posted-entities (mapv #(store-entity % existing-entities username store) entities)})))
 
 (defn index-handle-created [ctx]
-  (let [entities (:entities ctx)]
+  (let [entities (:posted-entities ctx)]
     (let [location (if (< 1 (count entities))
                      (format project-entities-index (-> entities first :project_id))
                      (format entity-resource-path (-> entities first :entity_id)))]
