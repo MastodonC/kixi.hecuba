@@ -285,15 +285,28 @@
                    (om/update! data [:properties :uploads :files] d))
         :headers {"Accept" "application/edn"}}))
 
-(defn search-properties [data page size query]
-  (log "Searching for: " query)
-  (om/update! data :fetching true)
-  (GET (str "/4/entities/?q=" (js/encodeURIComponent query) "&page=" page "&size=" size)
-       {:handler (fn [response]
-                   (let [entities (:entities response)]
-                     (om/update! data :data (into [] entities))
-                     (om/update! data :stats {:total_hits (:total_hits response)
-                                              :page (:page response)})
-                     (om/update! data :fetching false)))
-        :headers {"Accept" "application/edn"}
-        :response-format :text}))
+(defn search-properties
+  ([data page size query]
+   (log "Searching for: " query)
+   (om/update! data :fetching true)
+   (GET (str "/4/entities/?q=" (js/encodeURIComponent query) "&page=" page "&size=" size)
+        {:handler (fn [response]
+                    (let [entities (:entities response)]
+                      (om/update! data :data (into [] entities))
+                      (om/update! data :stats {:total_hits (:total_hits response)
+                                               :page (:page response)})
+                      (om/update! data :fetching false)))
+         :headers {"Accept" "application/edn"}
+         :response-format :text}))
+  ([data page size query sort]
+   (log "Searching for: " query "with sort: " sort)
+   (om/update! data :fetching true)
+   (GET (str "/4/entities/?q=" (js/encodeURIComponent query) "&page=" page "&size=" size sort)
+        {:handler (fn [response]
+                    (let [entities (:entities response)]
+                      (om/update! data :data (into [] entities))
+                      (om/update! data :stats {:total_hits (:total_hits response)
+                                               :page (:page response)})
+                      (om/update! data :fetching false)))
+         :headers {"Accept" "application/edn"}
+         :response-format :text})))

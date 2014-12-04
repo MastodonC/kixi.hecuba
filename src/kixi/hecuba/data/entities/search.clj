@@ -63,6 +63,7 @@
     (-> entity
         (assoc-in [:full_entity :programme_name] name)
         (assoc :public_access public_access)
+        (assoc :programme_name name)
         (assoc-in [:full_entity :public_access] public_access))))
 
 (defn profile-search-fields [entity db-session]
@@ -119,6 +120,15 @@
 
 ;; See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
 (defn search-entities
+  ([query-string from size sort-key sort-order search-session]
+   (search/search search-session
+                    "entities"
+                    "entity"
+                    :query {:query_string
+                            {:query query-string}}
+                    :size size
+                    :from from
+                    :sort {sort-key sort-order}))
   ([query-string filter-map from size search-session]
      (let [query {:query {:filtered
                           {:query

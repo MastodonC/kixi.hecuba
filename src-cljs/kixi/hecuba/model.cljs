@@ -8,7 +8,9 @@
              :data []
              :selected nil
              :fetching false
-             :stats {}}
+             :stats {}
+             :sort-spec {:sort-key :programme_name
+                         :sort-asc true}}
     :programmes {:name     "Programmes"
                  :data     []
                  :selected nil

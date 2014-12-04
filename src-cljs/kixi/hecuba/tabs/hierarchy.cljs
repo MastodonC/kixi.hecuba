@@ -205,6 +205,17 @@
 (defn search []
   (om/ref-cursor (-> (om/root-cursor app-model) :search)))
 
+(defn order-key [sort-asc]
+  (if sort-asc "asc" "desc"))
+
+(defn get-sort-str [th-click sort-asc]
+  (str "&sort_key=" (str (name th-click) ".lower_case_sort")
+       "&sort_order=" (order-key sort-asc)))
+
+(defn update-sort [cursor th-click sort-asc term results-size]
+  (om/update! cursor :sort-spec {:sort-key th-click :sort-asc sort-asc})
+  (data/search-properties cursor 0 results-size term (get-sort-str th-click sort-asc)))
+
 (defn search-input [cursor owner]
   (om/component
    (let [history (om/get-shared owner :history)]
@@ -221,9 +232,12 @@
                                 (om/update! cursor :term nil)
                                 (om/update! cursor :data [])))
                  :on-key-press (fn [e] (when (= (.-keyCode e) 13)
-                                         (om/update! cursor :term (om/get-state owner :value))
                                          ;; Get page 0, 10 items
-                                         (data/search-properties cursor 0 10 (om/get-state owner :value))))}]
+                                         (let [term (om/get-state owner :value)
+                                               {:keys [sort-key sort-asc]} (:sort-spec @cursor)]
+                                           (om/update! cursor :term term)
+                                           (data/search-properties cursor 0 10 term
+                                                                   (get-sort-str sort-key sort-asc)))))}]
         [:span.input-group-btn
          [:button {:type "button"
                    :class "btn btn-primary"
@@ -261,12 +275,24 @@
   (reify
     om/IInitState
     (init-state [_]
-      {:results-size 10})
+      {:results-size 10
+       :th-chan (chan)})
+    om/IWillMount
+    (will-mount [_]
+      (go-loop []
+        (let [{:keys [th-chan results-size]}  (om/get-state owner)
+              {:keys [sort-key sort-asc]}     (:sort-spec @cursor)
+              th-click                        (<! th-chan)]
+          (if (= th-click sort-key)
+            (update-sort cursor th-click (not sort-asc) (:term @cursor) results-size)
+            (update-sort cursor th-click true (:term @cursor) results-size)))
+        (recur)))
     om/IRenderState
     (render-state [_ state]
-      (let [{:keys [results-size]} (om/get-state owner)
-            {:keys [data term stats]} cursor
-            {:keys [total_hits page]} stats]
+      (let [{:keys [results-size th-chan]}      (om/get-state owner)
+            {:keys [data term stats sort-spec]} cursor
+            {:keys [sort-key sort-asc]}         sort-spec
+            {:keys [total_hits page]}           stats]
         (html
          [:div.row#results-div
           [:div.col-md-12 {:style {:padding-top "10px"} :id "found-properties-table"}
@@ -279,8 +305,12 @@
                  [:div
                   [:table.table.table-hover.table-condensed
                    [:thead
-                    [:tr [:th "Photo"] [:th "Programme Name"] [:th "Project Name"]
-                     [:th "Property ID"][:th "Address"] [:th "Technologies"]]]
+                    [:tr [:th "Photo"]
+                     (bs/sorting-th sort-spec th-chan "Programme Name" :programme_name)
+                     (bs/sorting-th sort-spec th-chan "Project Name" :project_name)
+                     (bs/sorting-th sort-spec th-chan "Property ID" :property_code)
+                     (bs/sorting-th sort-spec th-chan "Address" :address)
+                     [:th "Technologies"]]]
                    [:tbody
                     (om/build-all found-property-row data {:key :entity_id})]]
                   [:nav
@@ -289,12 +319,16 @@
                      [:a {:class (if (= page 0) "previous disabled" "previous hover")
                           :on-click (fn [_]
                                       (when-not (= page 0)
-                                        (data/search-properties cursor (dec page) results-size term)))} "Previous"]]
+                                        (data/search-properties cursor (dec page) results-size term
+                                                                (get-sort-str sort-key sort-asc))))}
+                      "Previous"]]
                     [:li {:style {:padding-right "5px"}}
                      [:a {:class (if-not more-to-load? "next disabled" "next hover")
                           :on-click (fn [_]
                                       (when more-to-load?
-                                        (data/search-properties cursor (inc page) results-size term)))} "Next"]]]]]
+                                        (data/search-properties cursor (inc page) results-size term
+                                                                (get-sort-str sort-key sort-asc))))}
+                      "Next"]]]]]
 
                  [:div [:div.col-md-12.text-center [:p.lead {:style {:padding-top 30}} "No results."]]])))]])))))
 

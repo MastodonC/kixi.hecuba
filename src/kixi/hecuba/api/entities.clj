@@ -102,7 +102,10 @@
            page-number    (or (:page params) 0)
            page-size      (or (:size params) default-page-size)
            from           (* page-number page-size)
-           results        (search/search-entities query-string from page-size (:search-session store))
+           {:keys [sort_key sort_order]} params
+           results        (if (and sort_key sort_order)
+                            (search/search-entities query-string from page-size sort_key sort_order (:search-session store))
+                            (search/search-entities query-string from page-size (:search-session store)))
            total_hits     (esr/total-hits results)
            file-bucket    (-> store :s3 :file-bucket)
            parsed-results (parse-entities results nil nil role file-bucket)]
