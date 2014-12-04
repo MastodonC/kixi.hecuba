@@ -313,7 +313,7 @@
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [request entities profiles]} ctx
-          existing-entities (-> (::items ctx) :entities :entities)
+          existing-entities (-> ctx ::items :entities :entities)
           username (sec/session-username (:session request))]
       {:posted-entities (mapv #(store-entity % existing-entities username store) entities)})))
 

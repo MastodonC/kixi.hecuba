@@ -31,7 +31,6 @@
   (common/post-resource "/4/entities/"
                         property
                         (fn [response]
-                          (log response)
                           (let [response-edn      (js->clj response)
                                 headers           (get response-edn "headers")
                                 [_ _ _ entity_id _] (str/split (get headers "Location") #"/")]
