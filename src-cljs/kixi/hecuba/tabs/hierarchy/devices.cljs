@@ -74,13 +74,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Adding new sensor
 
-(defn sensor-period-dropdown [owner]
+(defn sensor-period-dropdown [owner keys default]
   [:div.form-group
    [:label.control-label {:for "period-select"} "Period"]
    [:div.required
-    [:select.form-control {:on-change #(om/set-state! owner [:sensor :period] (.-value (.-target %)))}
+    [:select.form-control {:default-value default
+                           :on-change #(om/set-state! owner keys (.-value (.-target %)))}
      (for [item ["Select period" "CUMULATIVE" "INSTANT" "PULSE"]]
-       [:option item])]]])
+       [:option {:value item} item])]]])
 
 (defn put-new-sensor [event-chan refresh-chan owner sensor property_id device_id]
   (common/put-resource (str "/4/entities/" property_id "/devices/" device_id)
@@ -142,7 +143,7 @@
               (bs/text-input-control cursor owner [:sensor :type] "Type" true)
               (bs/text-input-control cursor owner [:sensor :alias] "Header Rows")
               (bs/text-input-control cursor owner [:sensor :unit] "Unit" true)
-              (sensor-period-dropdown owner)
+              (sensor-period-dropdown owner [:sensor :period] "Select period")
               (bs/text-input-control cursor owner [:sensor :resolution] "Resolution")
               (bs/checkbox cursor owner [:sensor :actual_annual] "Calculated Field")]]]))))))
 
@@ -202,7 +203,8 @@
      (text-input-control cursor owner [:sensors sensor_id] :type "Type")
      (text-input-control cursor owner [:sensors sensor_id] :alias "Header Rows")
      (text-input-control cursor owner [:sensors sensor_id] :unit "Unit")
-     (text-input-control cursor owner [:sensors sensor_id] :period "Period")
+     [:div {:style {:padding-left "15px"}}
+      (sensor-period-dropdown owner [:sensors sensor_id :period] (:period cursor))]
      (text-input-control cursor owner [:sensors sensor_id] :resolution "Resolution")
      (checkbox cursor owner [:sensors sensor_id] :actual_annual "Calculated Field")]))
 
@@ -338,7 +340,7 @@
              (bs/text-input-control nil owner [:sensor :type] "Type" true)
              (bs/text-input-control nil owner [:sensor :alias] "Header Rows")
              (bs/text-input-control nil owner [:sensor :unit] "Unit" true)
-             (sensor-period-dropdown owner)
+             (sensor-period-dropdown owner [:sensor :period] "Select period")
              (bs/text-input-control nil owner [:sensor :resolution] "Resolution")
              (bs/checkbox nil owner [:sensor :actual_annual] "Calculated Field")]]]])))))
 
