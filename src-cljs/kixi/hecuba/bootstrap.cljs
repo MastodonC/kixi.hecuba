@@ -75,17 +75,14 @@
   (apply dom/div #js {:className "form-group has-feedback"}
          xs))
 
-(defn dropdown [id opts]
-  (dom/div #js {:className "dropdown"}
-           (dom/button #js {:id id :className "btn dropdown-toggle sr-only"
-                            :type "button" :data-toggle "dropdown"}
-                       "Dropdown"
-                       (dom/span #js {:className "caret"}))
-           (apply dom/ul #js {:className "dropdown-menu"
-                              :role "menu"
-                              :aria-labelledby "dropdownMenu1"}
-                  (map #(dom/li nil (dom/a #js {:role "menuitem" :tabIndex "-1" :href "#"} %)) opts)
-  )))
+(defn dropdown [cursor owner keys items default-value label]
+  [:div.form-group
+   [:label.control-label {:for label} label]
+   [:div.required
+    [:select.form-control {:default-value default-value
+                           :on-change #(om/set-state! owner keys (.-value (.-target %)))}
+     (for [{:keys [value display]} items]
+       [:option {:value value} display])]]])
 
 (defn accordion-panel [href id title component]
   (dom/div #js {:className "panel panel-default"}
