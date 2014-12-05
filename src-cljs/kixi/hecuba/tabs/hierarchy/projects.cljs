@@ -9,7 +9,11 @@
    [kixi.hecuba.bootstrap :as bs]
    [kixi.hecuba.common :refer (log) :as common]
    [kixi.hecuba.tabs.hierarchy.data :refer (fetch-projects)]
-   [sablono.core :as html :refer-macros [html]]))
+   [sablono.core :as html :refer-macros [html]]
+   [kixi.hecuba.model :refer (app-model)]))
+
+(defn programmes []
+  (om/ref-cursor (-> (om/root-cursor app-model) :programmes :data)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; projects
@@ -34,12 +38,16 @@
                             (om/update! projects-data :adding-project false))
                           (error-handler projects-data))))
 
-(defn put-edited-project [projects-data refresh-chan owner project programme_id project_id]
+(defn put-edited-project [history projects-data refresh-chan owner project programme_id project_id]
   (let [url (str "/4/programmes/" programme_id  "/projects/" project_id)]
     (common/put-resource url
                          (assoc project :updated_at (common/now->str))
                          (fn [_]
-                           (put! refresh-chan {:event :projects})
+                           (if-let [new-programme-id (:programme_id project)]
+                             (do
+                               (history/update-token-ids! history :programmes new-programme-id)
+                               (history/update-token-ids! history :projects project_id))
+                             (put! refresh-chan {:event :projects}))
                            (om/update! projects-data :alert {:status false})
                            (om/update! projects-data :editing false))
                          (error-handler projects-data))))
@@ -89,9 +97,13 @@
 (defn project-edit-form [projects-data]
   (fn [cursor owner]
     (om/component
-     (let [{:keys [project_id programme_id]} (:project cursor)
-           history (om/get-shared owner :history)
-           refresh-chan (om/get-shared owner :refresh)]
+     (let [{:keys [project_id
+                   programme_id]} (:project cursor)
+           history                (om/get-shared owner :history)
+           refresh-chan           (om/get-shared owner :refresh)
+           all-programmes         (om/observe owner (programmes))
+           available-programmes   (sort-by :display (mapv #(hash-map :display (:name %)
+                                                                     :value (:programme_id %)) all-programmes))]
        (html
         [:div
          [:h3 (:name cursor)]
@@ -103,7 +115,7 @@
                        :class "btn btn-success"
                        :onClick (fn [_]
                                   (let [project (om/get-state owner [:project])]
-                                    (put-edited-project projects-data refresh-chan owner project
+                                    (put-edited-project history projects-data refresh-chan owner project
                                                         programme_id project_id)))} "Save"]
              [:button {:type "button"
                        :class "btn btn-danger"
@@ -115,6 +127,7 @@
                  "Delete Project"]]]
            (om/build bs/alert (-> projects-data :alert))
            [:div.col-md-4
+            (bs/dropdown cursor owner [:project :programme_id] available-programmes programme_id "Programme")
             (bs/text-input-control cursor owner [:project :name] "Project Name")
             (bs/text-input-control cursor owner [:project :organisation] "Organisation")
             (bs/text-input-control cursor owner [:project :project_code] "Project Code")
