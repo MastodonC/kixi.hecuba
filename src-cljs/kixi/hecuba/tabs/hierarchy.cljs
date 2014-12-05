@@ -216,35 +216,54 @@
   (om/update! cursor :sort-spec {:sort-key th-click :sort-asc sort-asc})
   (data/search-properties cursor 0 results-size term (get-sort-str th-click sort-asc)))
 
-(defn search-input [cursor owner]
+(def filters
+  [{:display "Properties with photovoltaics "             :value "photovoltaics" :filter "photovoltaics:true"}
+   {:display "Field built_form either a House or a Flat " :value "house_or_flat" :filter "built_form:(House OR Flat)"}])
+
+(defn set-filter [cursor filter]
+  (om/update! cursor :term (:filter filter)))
+
+(defn search-filter [cursor owner]
   (om/component
-   (let [history (om/get-shared owner :history)]
-     (html
-      [:div {:style {:padding-top "10px"}}
-       [:div.input-group.input-group-md
-        [:input {:type "text"
-                 :default-value (:term cursor)
-                 :class "form-control input-md"
-                 :on-change (fn [e]
-                              (om/set-state! owner :value (.-value (.-target e)))
-                              (when (empty? (.-value (.-target e)))
-                                (om/update! cursor :selected nil)
-                                (om/update! cursor :term nil)
-                                (om/update! cursor :data [])))
-                 :on-key-press (fn [e] (when (= (.-keyCode e) 13)
-                                         ;; Get page 0, 10 items
-                                         (let [term (om/get-state owner :value)
-                                               {:keys [sort-key sort-asc]} (:sort-spec @cursor)]
-                                           (om/update! cursor :term term)
-                                           (data/search-properties cursor 0 10 term
-                                                                   (get-sort-str sort-key sort-asc)))))}]
-        [:span.input-group-btn
-         [:button {:type "button"
-                   :class "btn btn-primary"
-                   :onClick (fn [_]
-                              (om/update! cursor :term (om/get-state owner :value))
-                              (data/search-properties cursor 0 10 (om/get-state owner :value)))}
-          [:span.glyphicon.glyphicon-search]]]]]))))
+   (html
+    [:div.input-group-btn
+     [:button.btn.btn-default.dropdown-toggle {:data-toggle "dropdown" :type "button"} "Filters "
+      [:span.caret]]
+     [:ul.dropdown-menu {:role "menu"}
+      (for [{:keys [display value filter] :as option} filters]
+        [:li [:a {:on-click #(set-filter cursor option)} display]])]])))
+
+(defn search-input [cursor owner]
+  (reify
+    om/IRender
+    (render [_]
+      (let [history (om/get-shared owner :history)]
+        (html
+         [:div {:style {:padding-top "10px"}}
+          [:div.input-group
+           (om/build search-filter cursor)
+           [:input {:type "text"
+                    :value (:term cursor)
+                    :class "form-control"
+                    :on-change (fn [e]
+                                 (om/update! cursor :term  (.-value (.-target e)))
+                                 (when (empty? (.-value (.-target e)))
+                                   (om/update! cursor :selected nil)
+                                   (om/update! cursor :stats {})
+                                   (om/update! cursor :term nil)
+                                   (om/update! cursor :data [])))
+                    :on-key-press (fn [e] (when (= (.-keyCode e) 13)
+                                            ;; Get page 0, 10 items
+                                            (let [term (:term @cursor)
+                                                  {:keys [sort-key sort-asc]} (:sort-spec @cursor)]
+                                              (data/search-properties cursor 0 10 term
+                                                                      (get-sort-str sort-key sort-asc)))))}]
+           [:span.input-group-btn
+            [:button {:type "button"
+                      :class "btn btn-primary"
+                      :onClick (fn [_]
+                                 (data/search-properties cursor 0 10 (:term @cursor)))}
+             [:span.glyphicon.glyphicon-search]]]]])))))
 
 (defn found-property-row [cursor owner]
   (om/component
@@ -368,7 +387,7 @@
        (let [{:keys [search programmes projects properties]} data]
          [:div
           (om/build search-input search)
-          (when (-> search :term) (om/build search-results search))
+          (when (-> search :stats seq) (om/build search-results search))
           (om/build programmes/programmes-div programmes)
           (om/build projects/projects-div projects)
           (om/build properties/properties-div properties)
