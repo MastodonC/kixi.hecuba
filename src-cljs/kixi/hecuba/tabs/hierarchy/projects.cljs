@@ -102,8 +102,10 @@
            history                (om/get-shared owner :history)
            refresh-chan           (om/get-shared owner :refresh)
            all-programmes         (om/observe owner (programmes))
-           available-programmes   (sort-by :display (mapv #(hash-map :display (:name %)
-                                                                     :value (:programme_id %)) all-programmes))]
+           available-programmes   (sort-by :display (keep (fn [p]
+                                                            (when (:editable p)
+                                                              (hash-map :display (:name p)
+                                                                        :value (:programme_id p)))) all-programmes))]
        (html
         [:div
          [:h3 (:name cursor)]
