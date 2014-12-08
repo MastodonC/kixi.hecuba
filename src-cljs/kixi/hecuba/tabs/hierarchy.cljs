@@ -217,8 +217,10 @@
   (data/search-properties cursor 0 results-size term (get-sort-str th-click sort-asc)))
 
 (def filters
-  [{:display "Properties with photovoltaics "             :value "photovoltaics" :filter "photovoltaics:true"}
-   {:display "Field built_form either a House or a Flat " :value "house_or_flat" :filter "built_form:(House OR Flat)"}])
+  [{:display "Properties with photovoltaics " :filter "photovoltaics:true"}
+   {:display "Field built_form either a House or a Flat " :filter "built_form:(House OR Flat)"}
+   {:display "Project name like \"Eco-retrofit Ealing\"" :filter "project_name:\"Eco-retrofit Ealing\""}
+   {:display "Project name like \"Eco-retrofit Ealing\" and properties with photovoltaics" :filter "project_name:\"Eco-retrofit Ealing\" AND photovoltaics:true"}])
 
 (defn set-filter [cursor filter]
   (om/update! cursor :term (:filter filter)))
