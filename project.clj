@@ -40,7 +40,7 @@
                  [hickory "0.5.4"]
 
                  ;; elasticsearch integration
-                 [clojurewerkz/elastisch "2.1.0-beta4"]
+                 [clojurewerkz/elastisch "2.1.0"]
 
                  ;; authn and authz
                  [com.cemerick/friend "0.2.1" :exclusions [org.clojure/core.cache

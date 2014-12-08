@@ -17,7 +17,7 @@
   hecuba/Elasticsearch
   (hecuba/-upsert [this index mapping-type id doc]
     (try
-      (doc/upsert (:search-session this) index mapping-type id doc)
+      (doc/upsert (:search-session this) index mapping-type id doc {:refresh true})
       (catch Throwable t
         (log/errorf t "Could not upsert index: %s mapping-type: %s id: %s doc: %s" index mapping-type id doc)
         (throw t))))

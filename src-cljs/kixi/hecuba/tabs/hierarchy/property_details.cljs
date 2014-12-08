@@ -21,7 +21,11 @@
             [kixi.hecuba.widgets.fileupload :as file]
             [kixi.hecuba.widgets.measurementsupload :as measurementsupload]
             [kixi.hecuba.tabs.hierarchy.tech-icons :as icons]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [kixi.hecuba.model :refer (app-model)]))
+
+(defn projects []
+  (om/ref-cursor (-> (om/root-cursor app-model) :projects :data)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Property Details Helpers
@@ -32,18 +36,22 @@
                                    :class "alert alert-danger"
                                    :text "Failed to delete property."})))
 
-(defn put-resource [refresh-chan event-chan property_id property]
+(defn put-resource [refresh-chan event-chan history property_id property]
   (PUT  (str "/4/entities/" property_id)
         {:headers {"Content-Type" "application/edn"}
          :handler (fn [_]
-                    (put! event-chan {:event :edit :value false})
-                    (put! refresh-chan {:event :property}))
+                    (if-let [new-project-id (:project_id property)]
+                      (do
+                        (history/update-token-ids! history :projects new-project-id)
+                        (history/update-token-ids! history :properties property_id))
+                      (put! refresh-chan {:event :property}))
+                    (put! event-chan {:event :edit :value false}))
          :error-handler (fn [{:keys [status status-text]}]
                           (put! event-chan {:event :error :value status-text}))
          :params property}))
 
-(defn save-form [refresh-chan event-chan entity property_id]
-  (put-resource refresh-chan event-chan property_id entity))
+(defn save-form [refresh-chan event-chan history entity property_id]
+  (put-resource refresh-chan event-chan history property_id entity))
 
 (defn delete-property [properties entity_id history refresh-chan]
   (common/delete-resource (str "/4/entities/" entity_id)
@@ -120,7 +128,12 @@
             selected-property-id    (:entity_id (:property property))
             {:keys [project_id
                     property_data
-                    editable]} property]
+                    editable]} (:property property)
+            all-projects            (om/observe owner (projects))
+            available-projects      (sort-by :display (keep (fn [p]
+                                                              (when (:editable p)
+                                                                (hash-map :display (:name p)
+                                                                          :value (:project_id p)))) all-projects))]
         (html
          [:div
 
@@ -144,7 +157,7 @@
                                                                                    (:project_id existing-property)))
                                                             (cond-> (seq new-propery-data) (assoc-in [:property_data]
                                                                                                      merged-property-data)))]
-                             (save-form refresh-chan event-chan entity selected-property-id)))} "Save"]
+                             (save-form refresh-chan event-chan history entity selected-property-id)))} "Save"]
               [:button.btn.btn-default {:type "button"
                                         :class (str "btn btn-danger")
                                         :onClick (fn [_ _] (put! event-chan {:event :edit :value false}))} "Cancel"]]]
@@ -155,6 +168,7 @@
              "Delete Property"]]
            [:div {:id "overview-alert"}]
            [:div.col-md-6
+            (bs/dropdown property owner [:property :project_id] available-projects project_id "Project")
             (bs/text-input-control property owner [:property :property_code] "Property Code")
             (bs/address-control property owner [:property :property_data])
             (bs/text-input-control property owner [:property :property_data :property_type] "Property Type")
@@ -355,8 +369,6 @@
     (will-mount [_]
       (let [history      (om/get-shared owner :history)
             refresh-chan (om/get-shared owner :refresh)]
-        (log "property-details-div: did-mount")
-
         ;; Chart data button
         (go-loop []
           (let [datetimepicker-chan (om/get-state owner :datetimepicker-chan)
