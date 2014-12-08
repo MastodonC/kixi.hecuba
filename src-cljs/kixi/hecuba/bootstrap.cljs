@@ -235,3 +235,12 @@
        (if sort-asc
          [:i.fa.fa-sort-asc]
          [:i.fa.fa-sort-desc]))]))
+
+(defn status-label [status privacy calculated-field]
+  [:div
+   [:div
+    (if (= status "OK")
+      [:span {:class "label label-success"} status]
+      [:span {:class "label label-danger"} status])]
+   (when (= "true" privacy) [:div {:class "fa fa-key"}])
+   (when (= true calculated-field) [:div {:class "fa fa-magic"}])])

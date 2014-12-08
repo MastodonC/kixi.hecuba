@@ -21,15 +21,6 @@
 
 (def amon-date (tf/formatter "yyyy-MM-dd'T'HH:mm:ssZ"))
 
-(defn status-label [status privacy calculated-field]
-  [:div
-   [:div
-    (if (= status "OK")
-      [:span {:class "label label-success"} status]
-      [:span {:class "label label-danger"} status])]
-   (when (= "true" privacy) [:div {:class "fa fa-key"}])
-   (when (= true calculated-field) [:div {:class "fa fa-magic"}])])
-
 (defn form-row [sensors]
   (fn [sensor owner {:keys [table-id selected-chan]}]
     (reify
@@ -56,7 +47,7 @@
             [:td (common/location-col location)]
             [:td (if-let [t (common/unparse-date lower_ts "yyyy-MM-dd")] t "")]
             [:td (if-let [t (common/unparse-date upper_ts "yyyy-MM-dd")] t "")]
-            [:td (status-label status privacy actual_annual)]]))))))
+            [:td (bs/status-label status privacy actual_annual)]]))))))
 
 (defn flatten-device [device]
   (let [device-keys   (->> device keys (remove #(= % :readings)))
