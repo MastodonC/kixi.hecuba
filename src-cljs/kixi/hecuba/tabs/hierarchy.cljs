@@ -162,6 +162,8 @@
         (om/update! data [:properties :downloads :files] [])
         ;; Update sensors tab
         (om/update! data [:properties :sensors :selected] #{})
+        (om/update! data [:properties :devices :selected] {})
+        (om/update! data [:properties :devices :selected-device] {})
         (om/update! data [:properties :sensors :alert] {})
         (om/update! data [:properties :chart :sensors] #{})
         (om/update! data [:properties :chart :units] {})

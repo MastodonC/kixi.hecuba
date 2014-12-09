@@ -55,6 +55,7 @@
                            :sort-spec {:sort-key :description
                                        :sort-asc true}
                            :new-device {}
+                           :selected-device {}
                            :adding false
                            :editing false
                            :edited-device nil}
