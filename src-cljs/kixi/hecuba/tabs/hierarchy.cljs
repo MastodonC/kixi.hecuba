@@ -184,7 +184,14 @@
       (when (or (not= start-date old-start-date)
                 (not= end-date old-end-date))
         (log "Setting date range to: " start-date end-date)
-        (om/update! data [:properties :chart :range] {:start-date start-date :end-date end-date}))
+        (om/update! data [:properties :chart :range] {:start-date start-date :end-date end-date})
+        ;; If sensors are selected and there's nothing in old history, load sensors tab as default
+        ;; and fetch measurements.
+        (when (and (-> @data :properties :chart :sensors seq)
+                   (empty? old-nav)
+                   start-date end-date properties)
+          (om/update! data [:properties :active-tab] :sensors)
+          (data/fetch-measurements (:properties data) properties (into #{} (str/split sensors #";")) start-date end-date)))
 
       (when (and programmes (seq (-> @data :programmes :data)))
         (let [selected-programme (first (filter #(= (:programme_id %) programmes) (-> @data :programmes :data)))]
