@@ -3,7 +3,7 @@
   (:require [cljs.core.async :refer [<! >! chan put!]]
             [om.core :as om :include-macros true]
             [sablono.core :as html :refer-macros [html]]
-            [kixi.hecuba.bootstrap :refer (static-text) :as bs]
+            [kixi.hecuba.bootstrap :as bs]
             [kixi.hecuba.tabs.hierarchy.data :refer (fetch-property fetch-devices fetch-sensors)]
             [clojure.string :as string]
             [kixi.hecuba.common :refer (log delete-resource) :as common]
@@ -27,6 +27,11 @@
              :on-change #(om/set-state! owner (conj path key) (.-value (.-target %1)))
              :class "form-control"
              :type "text"}]]])
+
+(defn static-text [data keys label]
+  [:div.form-group {:style {:padding-left "15px"}}
+   [:label {:for label} label]
+   [:p {:class "form-control-static"} (get-in data keys "")]])
 
 (defn checkbox [cursor owner path key label]
   [:div.checkbox {:style {:padding-left "15px"}}
@@ -211,6 +216,15 @@
      (text-input-control cursor owner [:sensors sensor_id] :resolution "Resolution")
      (checkbox cursor owner [:sensors sensor_id] :actual_annual "Calculated Field")]))
 
+(defn synthetic-sensor-edit-div [cursor owner]
+  (let [sensor_id   (:sensor_id cursor)]
+    [:div
+     [:li.list-group-item
+      (static-text cursor [:type] "Type")
+      (static-text cursor [:unit] "Unit")
+      (static-text cursor [:period] "Period")
+      (checkbox cursor owner [:sensors sensor_id] :actual_annual "Calculated Field")]]))
+
 (defn privacy-checkbox [cursor owner keys label]
   [:div.checkbox
    [:label
@@ -231,7 +245,8 @@
             device_id    (-> cursor :device :device_id)
             refresh-chan (om/get-shared owner :refresh)
             event-chan   (om/get-state owner :event-chan)
-            {:keys [status text]} state]
+            {:keys [status text]} state
+            synthetic?   (-> cursor :device :synthetic)]
         (html
          [:div
           (alert "alert alert-danger" [:p text] status "edit-device-form-alert" owner)
@@ -250,23 +265,30 @@
                         :class (str "btn btn-danger")
                         :onClick (fn [_]
                                    (put! event-chan {:event :editing :value false}))} "Cancel"]
-              [:button {:type "button"
-                        :class "btn btn-danger pull-right"
-                        :onClick (fn [_]
-                                   (delete-device property_id device_id event-chan refresh-chan))}
-               "Delete Device"]]]
+              (when-not synthetic?
+                [:button {:type "button"
+                          :class "btn btn-danger pull-right"
+                          :onClick (fn [_]
+                                     (delete-device property_id device_id event-chan refresh-chan))}
+                 "Delete Device"])]]
             [:h3 "Device"]
             (bs/static-text cursor [:device :device_id] "Device ID")
-            (bs/text-input-control cursor owner [:device :description] "Unique Description")
-            (bs/text-input-control cursor owner [:device :name] "Further Description")
-            (location-input cursor owner)
-            (privacy-checkbox cursor owner [:device :privacy] "Private")
+            (if-not synthetic?
+              [:div
+               (bs/text-input-control cursor owner [:device :description] "Unique Description")
+               (bs/text-input-control cursor owner [:device :name] "Further Description")
+               (location-input cursor owner)
+               (privacy-checkbox cursor owner [:device :privacy] "Private")]
+              [:div
+               (bs/static-text cursor [:device :description] "Unique Description")])
             [:h3 "Sensors"]
-            (let [sensors (into [] (remove #(:synthetic %) (:readings (:device cursor))))]
+            (let [sensors (into [] (:readings (:device cursor)))]
               (if (seq sensors)
                 [:ul.list-group
                  (for [sensor  sensors]
-                   (sensor-edit-div property_id sensor owner event-chan refresh-chan))]
+                   (if (:synthetic sensor)
+                     (synthetic-sensor-edit-div sensor owner)
+                     (sensor-edit-div property_id sensor owner event-chan refresh-chan)))]
                 [:p "No sensors found."]))]]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -388,13 +410,14 @@
              [:h3 "Sensors"]
              [:table.table.borderless
               [:thead
-               [:tr [:th "Type"] [:th "Header Rows"] [:th "Unit"] [:th "Period"]
+               [:tr [:th "Type"] [:th "Synthetic?"] [:th "Header Rows"] [:th "Unit"] [:th "Period"]
                 [:th "Resolution"] [:th "Calculated Field"]]]
               [:tbody
-               (for [sensor (remove :synthetic (:readings device))]
+               (for [sensor (:readings device)]
                  (let [{:keys [alias actual_annual]} sensor]
                    [:tr
                     [:td (:type sensor)]
+                    [:td (if (:synthetic sensor) "Yes" "No")]
                     [:td alias]
                     [:td (:unit sensor)]
                     [:td (:period sensor)]
@@ -421,7 +444,7 @@
             [:td (common/location-col location)]
             [:td (privacy-label privacy)]
             [:td (count (filter #(not (:synthetic %)) (:readings cursor)))]
-            [:td (string/join ", " (mapv :type (filter #(not (:synthetic %)) (:readings cursor))))]
+            [:td (string/join ", " (mapv :type (:readings cursor)))]
             [:td device_id]]))))))
 
 
@@ -452,8 +475,7 @@
         (let [sort-spec                   (:sort-spec cursor)
               {:keys [sort-key sort-asc]} sort-spec
               th-chan                     (om/get-state owner :th-chan)
-              ;; Don't show synthethic devices as they can't be edited by the user
-              devices                     (into [] (remove #(:synthetic %) (fetch-devices (-> properties :selected) properties)))
+              devices                     (into [] (fetch-devices (-> properties :selected) properties))
               table-id                    "sensors-table"]
           (html
            [:div.col-md-12 {:style {:overflow "auto"}}
