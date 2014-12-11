@@ -12,7 +12,7 @@
          [:div.form-group
           [:label.control-label {:for label} label]
           [:div
-           [:input {:default-value (:_value cursor)
+           [:input {:value (:_value cursor)
                     :class "form-control"
                     :type "text"
                     :on-change (fn [e] (let [value (.-value (.-target e))]

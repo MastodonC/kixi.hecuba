@@ -310,3 +310,17 @@
                       (om/update! data :fetching false)))
          :headers {"Accept" "application/edn"}
          :response-format :text})))
+
+(defn fetch-profile
+  ([data k entity_id profile_id parse-fn]
+   (log "Fetching profile with id: " profile_id " for entity: " entity_id)
+   (GET (str "/4/entities/" entity_id "/profiles/" profile_id)
+        {:handler (fn [response] (om/update! data k (parse-fn response)))
+         :headers {"Accept" "application/edn"}
+         :response-format :text}))
+  ([data k entity_id profile_id]
+   (log "Fetching profile with id: " profile_id " for entity: " entity_id)
+   (GET (str "/4/entities/" entity_id "/profiles/" profile_id)
+        {:handler (fn [response] (om/update! data k response))
+         :headers {"Accept" "application/edn"}
+         :response-format :text})))

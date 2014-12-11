@@ -27,6 +27,46 @@
                            m))
                          cursor))
 
+(defn update-map [m]
+  (prn "updating map: " m)
+  (into {} (map (fn [[k v]] {k {:_value v}}) m)))
+
+(defn unparse
+  [profile]
+  (clojure.walk/postwalk (fn [m]
+                           (cond
+                            (and (map? m)
+                                 (not (empty? m))
+                                 (every? (fn [v] (prn "v: " v) (and (not (coll? v))
+                                                                    (not (nil? v))
+                                                                    (not (keyword? v)))) (vals m)))
+                            (update-map m)
+                            :else m))
+                         profile))
+
+
+(deftest unparse-test
+  (testing "Unparse function"
+    (println "Testing unparsing")
+
+    (let [m1 {:timestamp 1
+              :profile_data {:event_type "Intervention"
+                             :footprint 1}
+              :floors [{:floor_type 10}
+                       {:construction 5}]}
+          m2 {:bar 1
+              :moo {:event 2
+                    :ter 1}
+              :floors [{:area 10}]}]
+
+      (is (= {:timestamp 1
+              :profile_data {:event_type {:_value "Intervention"}
+                             :footprint {:_value 1}}
+              :floors [{:floor_type {:_value 10}}
+                       {:construction {:_value 5}}]} (unparse m1)))
+      (is (= {:bar 1
+              :moo {:event {:_value 2} :ter {:_value 1}}
+              :floors [{:area {:_value 10}}]} (unparse m2))))))
 
 (deftest parse-test
   (testing "Parse function"

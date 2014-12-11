@@ -360,4 +360,5 @@
                              :est_percentage_exported {}}]})
 
 (def app-model (atom
-                {:new-profile (assoc profile-schema :alert {})}))
+                {:new-profile (assoc profile-schema :alert {})
+                 :edited-profile {}}))

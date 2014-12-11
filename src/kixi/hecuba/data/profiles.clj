@@ -8,12 +8,14 @@
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.data :refer [parse-item parse-list] :as data]
             [kixi.hecuba.schema-utils :as su]
-            [cheshire.core :as json]))
+            [cheshire.core :as json]
+            [kixi.hecuba.time :as time]))
 
 (defn decode [profile]
   (-> profile
       (assoc :profile_id (:id profile))
       (dissoc :id)
+      (cond-> (:timestamp profile) (update-in [:timestamp] time/db-to-iso))
       ;; id text,
       ;; airflow_measurements list<text>,
       (parse-list :airflow_measurements)
