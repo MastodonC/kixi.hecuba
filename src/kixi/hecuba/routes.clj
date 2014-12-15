@@ -91,6 +91,10 @@
   (log/infof "App Session: %s" (:session req))
   {:status 200 :body (slurp (io/resource "site/new_profile.html"))})
 
+(defn edit-profile [req]
+  (log/infof "App Session: %s" (:session req))
+  {:status 200 :body (slurp (io/resource "site/edit_profile.html"))})
+
 (defn index-routes
   ([route handler]
      (routes
@@ -255,6 +259,12 @@
    (GET "/profile/:entity_id" [entity_id]
         (friend/wrap-authorize
          new-profile
+         #{:kixi.hecuba.security/project-manager}))
+
+   ;; Edit profile
+   (GET "/profile/:entity_id/:profile_id" [entity_id profile_id]
+        (friend/wrap-authorize
+         edit-profile
          #{:kixi.hecuba.security/project-manager}))
 
    ;; AMON API Routes

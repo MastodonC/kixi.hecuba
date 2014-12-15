@@ -67,7 +67,7 @@
                  [cljs-ajax "0.2.3"]
                  ;; [cljs-ajax "0.2.6"]
                  [om "0.8.0-beta1"]
-                 [com.andrewmcveigh/cljs-time "0.1.6"]
+                 [com.andrewmcveigh/cljs-time "0.2.4"]
                  [sablono "0.2.22"]
 
                  [lein-figwheel "0.1.5-SNAPSHOT"]

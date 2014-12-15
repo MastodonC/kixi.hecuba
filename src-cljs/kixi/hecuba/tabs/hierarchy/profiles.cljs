@@ -8,26 +8,6 @@
             [kixi.hecuba.tabs.hierarchy.profiles.forms :as pf]
             [cljs.core.async :refer [<! >! chan put!]]))
 
-(defn merge-element [profile edited-profile keys]
-  (if (and (= 0 (last keys)) (= (count (get-in profile (drop-last keys))) 0))
-    (assoc-in profile (into [] (drop-last keys)) [(get-in edited-profile keys)])
-    (assoc-in profile keys (merge (get-in profile keys) (get-in edited-profile keys)))))
-
-(defn put-profile [property_details refresh-chan profile edited-profile keys]
-  (let [entity_id  (:entity_id @property_details)
-        profile_id (:profile_id profile)
-        resource   (merge-element profile edited-profile keys)]
-    (common/put-resource (str "/4/entities/" entity_id "/profiles/" profile_id)
-                         (-> resource
-                             (assoc :entity_id entity_id)
-                             (dissoc :editing :timestamp :adding))
-                         (fn [_] (put! refresh-chan {:event :property}))
-                         (fn [{:keys [status status-text]}]
-                           (om/update! property_details [:profiles :alert]
-                                       {:status true
-                                        :class "alert alert-danger"
-                                        :text status-text})))))
-
 (defn displayable? [d]
   (and d
        (not (re-find #"\w" d))))
@@ -54,1030 +34,6 @@
              [:h3.text-center [:span category ]
               [:br ] [:small timestamp]]]))]))))
 
-(defn panel-heading [property_details owner profile title {:keys [add-btn edit-btn]} keys]
-  (let [{:keys [editing adding]} (om/get-state owner)
-        editable (:editable profile)
-        refresh-chan (om/get-shared owner :refresh)]
-    [:div.btn-toolbar
-     title
-     (when (and edit-btn editable)
-       [:button {:type "button" :class (str "btn btn-primary btn-xs pull-right "
-                                            (when (or adding editing) "hidden"))
-                 :on-click (fn [_] (om/set-state! owner :editing true))}
-        [:div {:class "fa fa-pencil-square-o"}]])
-     (when (and add-btn editable)
-       [:button {:type "button" :class (str "btn btn-primary btn-xs pull-right "
-                                            (when (or adding editing) "hidden"))
-                 :on-click (fn [_] (om/set-state! owner :adding true))}
-        [:div {:class "fa fa-plus"}]])
-     [:button {:type "button" :class (str "btn btn-danger btn-xs pull-right "
-                                          (if (or (and adding add-btn)
-                                                  (and editing edit-btn)) "" "hidden"))
-               :on-click (fn [_]
-                           (om/set-state! owner :editing false)
-                           (om/set-state! owner :adding false))} "Cancel"]
-     [:button {:type "button" :class (str "btn btn-success btn-xs pull-right "
-                                          (if (or (and editing edit-btn)
-                                                  (and adding add-btn)) "" "hidden"))
-               :on-click (fn [_]
-                           (let [edited-properties (om/get-state owner)
-                                 entity_id (:entity_id @property_details)]
-                             (put-profile property_details refresh-chan @profile edited-properties keys)
-                             (om/set-state! owner :editing false)
-                             (om/set-state! owner :adding false)))} "Save"]]))
-
-(defn should-show? [owner profiles keys]
-  (or
-   (om/get-state owner :editing)
-   (om/get-state owner :adding)
-   (some (fn [profile] (some #(seq (str (val %))) (select-keys profile keys))) profiles)))
-
-(defn description-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:intervention_start_date
-                                        :intervention_completion_date
-                                        :intervention_description])]
-            (for [profile profiles]
-              [:div {:class (profile-column-width)}
-               (let [keys [:profile_data]]
-                 (bs/panel
-                  (panel-heading property_details owner profile "Description" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                      (pf/description owner profile keys))))]))])))))
-
-(defn occupancy-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:occupancy_total
-                                        :occupancy_under_18
-                                        :occupancy_18_to_60
-                                        :occupancy_over_60
-                                        :occupant_change])]
-            (for [profile profiles]
-              (let [keys [:profile_data]]
-                [:div {:class (profile-column-width)}
-                 (bs/panel
-                  (panel-heading property_details owner profile "Occupancy" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                      (pf/occupancy owner profile keys)))])))])))))
-
-(defn measurements-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:footprint :external_perimeter
-                                        :gross_internal_area :number_of_storeys
-                                        :total_volume :total_rooms
-                                        :bedroom_count :habitable_rooms
-                                        :inadequate_heating :heated_habitable_rooms])]
-            (for [profile profiles]
-              (let [keys [:profile_data]]
-                [:div {:class (profile-column-width)}
-                 (bs/panel
-                  (panel-heading property_details owner profile "Measurements" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                    (pf/measurements owner profile keys)))])))])))))
-
-(defn energy-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:ber :ter :primary_energy_requirement
-                                        :space_heating_requirement
-                                        :annual_space_heating_requirement
-                                        :renewable_contribution_heat
-                                        :renewable_contribution_elec
-                                        :electricity_meter_type :mains_gas
-                                        :electricity_storage_present
-                                        :heat_storage_present])]
-            (for [profile profiles]
-              (let [keys [:profile_data]]
-                [:div {:class (profile-column-width)}
-                 (bs/panel
-                  (panel-heading property_details owner profile "Energy" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                    (pf/energy owner profile keys)))])))])))))
-
-(defn passivhaus-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:passive_solar_strategy
-                                        :used_passivehaus_principles])]
-            (for [profile profiles]
-              (let [keys [:profile_data]]
-                [:div {:class (profile-column-width)}
-                 (bs/panel
-                  (panel-heading property_details owner profile "PassivHaus" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                    (pf/passivhaus owner profile keys)))])))])))))
-
-(defn efficiency-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:pipe_lagging :draught_proofing
-                                        :draught_proofing_location])]
-            (for [profile profiles]
-              (let [keys [:profile_data]]
-                [:div {:class (profile-column-width)}
-                 (bs/panel
-                  (panel-heading property_details owner profile "Efficiency" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                    (pf/efficiency owner profile keys)))])))])))))
-
-(defn flats-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:flat_floors_in_block
-                                        :flat_floor_position :flat_heat_loss_corridor
-                                        :flat_heat_loss_corridor_other
-                                        :flat_length_sheltered_wall
-                                        :flat_floor_heat_loss_type])]
-            (for [profile profiles]
-              (let [keys [:profile_data]]
-                [:div {:class (profile-column-width)}
-                 (bs/panel
-                  (panel-heading property_details owner profile "Flats" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                    (pf/flats owner profile keys)))])))])))))
-
-(defn fireplaces-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:open_fireplaces :sealed_fireplaces])]
-            (for [profile profiles]
-              (let [keys [:profile_data]]
-                [:div {:class (profile-column-width)}
-                 (bs/panel
-                  (panel-heading property_details owner profile "Fireplaces" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                    (pf/fireplaces owner profile keys)))])))])))))
-
-(defn glazing-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:glazing_area_glass_only
-                                        :glazing_area_percentage
-                                        :multiple_glazing_type
-                                        :multiple_glazing_area_percentage
-                                        :multiple_glazing_u_value
-                                        :multiple_glazing_type_other
-                                        :frame_type :frame_type_other])]
-            (for [profile profiles]
-              (let [keys [:profile_data]]
-                [:div {:class (profile-column-width)}
-                 (bs/panel
-                  (panel-heading property_details owner profile "Glazing" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                    (pf/glazing owner profile keys)))])))])))))
-
-(defn issues-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:moisture_condensation_mould_strategy
-                                        :appliances_strategy
-                                        :cellar_basement_issues])]
-            (for [profile profiles]
-              (let [keys [:profile_data]]
-                [:div {:class (profile-column-width)}
-                 (bs/panel
-                  (panel-heading property_details owner profile "Issues" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                    (pf/issues owner profile keys)))])))])))))
-
-(defn lessons-learnt-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:thermal_bridging_strategy
-                                        :airtightness_and_ventilation_strategy
-                                        :overheating_cooling_strategy
-                                        :controls_strategy
-                                        :lighting_strategy
-                                        :water_saving_strategy
-                                        :innovation_approaches])]
-            (for [profile profiles]
-              (let [keys [:profile_data]]
-                [:div {:class (profile-column-width)}
-                 (bs/panel
-                  (panel-heading property_details owner profile "Lesson Learnt" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                    (pf/lessons-learnt owner profile keys)))])))])))))
-
-(defn project-details-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:total_budget_new_build
-                                        :estimated_cost_new_build
-                                        :final_cost_new_build
-                                        :construction_time_new_build
-                                        :design_guidance
-                                        :planning_considerations
-                                        :total_budget])]
-            (for [profile profiles]
-              (let [keys [:profile_data]]
-                [:div {:class (profile-column-width)}
-                 (bs/panel
-                  (panel-heading property_details owner profile "Project Details" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                    (pf/project-details owner profile keys)))])))])))))
-
-(defn coheating-test-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:co_heating_loss
-                                        :co_heating_performed_on
-                                        :co_heating_assessor
-                                        :co_heating_equipment])]
-            (for [profile profiles]
-              (let [keys [:profile_data]]
-                [:div {:class (profile-column-width)}
-                 (bs/panel
-                  (panel-heading property_details owner profile "Coheating Test" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                    (pf/coheating-test owner profile keys)))])))])))))
-
-(defn dwelling-u-values-summary-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:best_u_value_for_doors
-                                        :best_u_value_for_floors
-                                        :best_u_value_for_other
-                                        :best_u_value_for_roof
-                                        :best_u_value_for_walls
-                                        :best_u_value_for_windows
-                                        :best_u_value_party_walls
-                                        :dwelling_u_value_other])]
-            (for [profile profiles]
-              (let [keys [:profile_data]]
-                [:div {:class (profile-column-width)}
-                 (bs/panel
-                  (panel-heading property_details owner profile "Dwelling U-values Summary" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                    (pf/dwelling-u-values-summary owner profile keys)))])))])))))
-
-(defn air-tightness-test-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:air_tightness_assessor
-                                        :air_tightness_equipment
-                                        :air_tightness_performed_on
-                                        :air_tightness_rate])]
-            (for [profile profiles]
-              (let [keys [:profile_data]]
-                [:div {:class (profile-column-width)}
-                 (bs/panel
-                  (panel-heading property_details owner profile "Air Tightness Test" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                    (pf/air-tightness-test owner profile keys)))])))])))))
-
-(defn bus-survey-information-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:profile_temperature_in_summer
-                                        :profile_temperature_in_winter
-                                        :profile_air_in_summer
-                                        :profile_air_in_winter
-                                        :profile_lightning
-                                        :profile_noise
-                                        :profile_comfort
-                                        :profile_design
-                                        :profile_needs
-                                        :profile_health
-                                        :profile_image_to_visitors
-                                        :profile_productivity
-                                        :profile_bus_summary_index
-                                        :profile_bus_report_url])]
-            (for [profile profiles]
-              (let [keys [:profile_data]]
-                [:div {:class (profile-column-width)}
-                 (bs/panel
-                  (panel-heading property_details owner profile "BUS Survey Information" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                    (pf/bus-survey-information owner profile keys)))])))])))))
-
-(defn sap-results-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:sap_rating
-                                        :sap_performed_on
-                                        :sap_assessor
-                                        :sap_version_issue
-                                        :sap_version_year
-                                        :sap_regulations_date
-                                        :sap_software])]
-            (for [profile profiles]
-              (let [keys [:profile_data]]
-                [:div {:class (profile-column-width)}
-                 (bs/panel
-                  (panel-heading property_details owner profile "SAP Results" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                    (pf/sap-results owner profile keys)))])))])))))
-
-(defn energy-costs-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (let [display? (should-show? owner (mapv #(get % :profile_data) profiles)
-                                       [:gas_cost
-                                        :electricity_cost])]
-            (for [profile profiles]
-              (let [keys [:profile_data]]
-                [:div {:class (profile-column-width)}
-                 (bs/panel
-                  (panel-heading property_details owner profile "Energy Costs" {:add-btn false :edit-btn true} keys)
-                  (when display?
-                    (pf/energy-costs owner profile keys)))])))])))))
-
-;; Fields containing lists
-
-(defn conservatories-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding    (om/get-state owner :adding)
-                   position  (count (:conservatories profile))
-                   key       [:conservatories position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Conservatories" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/conservatory owner profile key)
-                  (if-let [conservatories (seq (:conservatories profile))]
-                    (let [profile (assoc profile :conservatories (vec conservatories))]
-                      :div
-                      (for [c conservatories]
-                        (when (seq c)
-                          (let [keys [:conservatories (.indexOf (to-array conservatories) c)]]
-                            (bs/panel
-                             (panel-heading property_details owner profile "Conservatory" {:add-btn false :edit-btn true} keys)
-                             (pf/conservatory owner profile keys))))))
-                    [:p "No conservatories."]))))])])))))
-
-(defn extensions-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding    (om/get-state owner :adding)
-                   position  (count (:extensions profile))
-                   key       [:extensions position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Extensions" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/extension owner profile key)
-                  (if-let [extensions (seq (:extensions profile))]
-                    (let [profile (assoc profile :extensions (vec extensions))]
-                      [:div
-                       (for [item extensions]
-                         (when (seq item)
-                           (let [keys [:extensions (.indexOf (to-array extensions) item)]]
-                             (bs/panel
-                              (panel-heading property_details owner profile "Extension" {:add-btn false :edit-btn true} keys)
-                              (pf/extension owner profile keys)))))])
-                    [:p "No extensions."]))))])])))))
-
-(defn heating-systems-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding   (om/get-state owner :adding)
-                   position (count (:heating_systems profile))
-                   key      [:heating_systems position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Heating Systems" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/heating-system owner profile key)
-                  (if-let [heating-systems (seq (:heating_systems profile))]
-                    (let [profile (assoc profile :heating_systems (vec heating-systems))]
-                      [:div
-                       (for [item heating-systems]
-                         (let [keys [:heating_systems (.indexOf (to-array heating-systems) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Heating System" {:add-btn false :edit-btn true} keys)
-                            (pf/heating-system owner profile keys))))])
-                    [:p "No heating systems."]))))])])))))
-
-(defn hot-water-systems-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding   (om/get-state owner :adding)
-                   position (count (:hot_water_systems profile))
-                   key      [:hot_water_systems position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Hot Water Systems" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/hot-water-system owner profile key)
-                  (if-let [hot-water-systems (seq (:hot_water_systems profile))]
-                    (let [profile (assoc profile :hot_water_systems (vec hot-water-systems))]
-                      [:div
-                       (for [item hot-water-systems]
-                         (let [keys [:hot_water_systems (.indexOf (to-array hot-water-systems) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Hot Water System" {:add-btn false :edit-btn true} keys)
-                            (pf/hot-water-system owner profile keys))))])
-                    [:p "No hot water systems."]))))])])))))
-
-(defn storeys-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding   (om/get-state owner :adding)
-                   position (count (:storeys profile))
-                   key      [:storeys position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Storeys" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/storey owner profile key)
-                  (if-let [storeys (seq (:storeys profile))]
-                    (let [profile (assoc profile :storeys (vec storeys))]
-                      [:div
-                       (for [item storeys]
-                         (let [keys [:storeys (.indexOf (to-array storeys) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Storey" {:add-btn false :edit-btn true} keys)
-                            (pf/storey owner profile keys))))])
-                      [:p "No storeys recorded."]))))])])))))
-
-(defn walls-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding   (om/get-state owner :adding)
-                   position (count (:walls profile))
-                   key      [:walls position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Walls" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/wall owner profile key)
-                  (if-let [walls   (seq (:walls profile))]
-                    (let [profile (assoc profile :walls (vec walls))]
-                      [:div
-                       (for [item walls]
-                         (let [keys [:walls (.indexOf (to-array walls) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Wall" {:add-btn false :edit-btn true} keys)
-                            (pf/wall owner profile keys))))])
-                    [:p "No walls recorded."]))))])])))))
-
-(defn roofs-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding   (om/get-state owner :adding)
-                   position (count (:roofs profile))
-                   key      [:roofs position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Roofs" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/roof owner profile key)
-                  (if-let [roofs (seq (:roofs profile))]
-                    (let [profile (assoc profile :roofs (vec roofs))]
-                      [:div
-                       (for [item roofs]
-                         (let [keys [:roofs (.indexOf (to-array roofs) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Roof" {:add-btn false :edit-btn true} keys)
-                            (pf/roof owner profile keys))))])
-                    [:p "No roofs recorded."]))))])])))))
-
-(defn window-sets-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding   (om/get-state owner :adding)
-                   position (count (:window_sets profile))
-                   key      [:window_sets position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Window Sets" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/window owner profile key)
-                  (if-let [window-sets (seq (:window_sets profile))]
-                    (let [profile (assoc profile :window_sets (vec window-sets))]
-                      [:div
-                       (for [item window-sets]
-                         (let [keys [:window_sets (.indexOf (to-array window-sets) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Window Set" {:add-btn false :edit-btn true} keys)
-                            (pf/window owner profile keys))))])
-                    [:p "No window sets recorded."]))))])])))))
-
-(defn door-sets-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding (om/get-state owner :adding)
-                   position (count (:door_sets profile))
-                   key [:door_sets position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Door Sets" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/door owner profile key)
-                  (if-let [door-sets (seq (:door_sets profile))]
-                    (let [profile (assoc profile :door_sets (vec door-sets))]
-                      [:div
-                       (for [item door-sets]
-                         (let [keys [:door_sets (.indexOf (to-array door-sets) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Door Set" {:add-btn false :edit-btn true} keys)
-                            (pf/door owner profile keys))))])
-                    [:p "No door sets recorded."]))))])])))))
-
-(defn floors-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding   (om/get-state owner :adding)
-                   position (count (:floors profile))
-                   key      [:floors position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Floors" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/floor owner profile key)
-                  (if-let [floors (seq (:floors profile))]
-                    (let [profile (assoc profile :floors (vec floors))]
-                      [:div
-                       (for [item floors]
-                         (let [keys [:floors (.indexOf (to-array floors) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Floor" {:add-btn false :edit-btn true} keys)
-                            (pf/floor owner profile keys))))])
-                    [:p "No floors recorded."]))))])])))))
-
-(defn roof-rooms-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding   (om/get-state owner :adding)
-                   position (count (:roof_rooms profile))
-                   key      [:roof_rooms position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Roof Rooms" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/roof-room owner profile key)
-                  (if-let [roof-rooms (seq (:roof_rooms profile))]
-                    (let [profile (assoc profile :roof_rooms (vec roof-rooms))]
-                      [:div
-                       (for [item roof-rooms]
-                         (let [keys [:roof_rooms (.indexOf (to-array roof-rooms) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Roof Room" {:add-btn false :edit-btn true} keys)
-                            (pf/roof-room owner profile keys))))])
-                    [:p "No roof rooms recorded."]))))])])))))
-
-(defn low-energy-lights-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding   (om/get-state owner :adding)
-                   position (count (:low_energy_lights profile))
-                   key      [:low_energy_lights position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Low Energy Lights" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/low-energy-lights owner profile key)
-                  (if-let [low-energy-lights (seq (:low_energy_lights profile))]
-                    (let [profile (assoc profile :low_energy_lights (vec low-energy-lights))]
-                      [:div
-                       (for [item low-energy-lights]
-                         (let [keys [:low_energy_lights (.indexOf (to-array low-energy-lights) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Low Energy Light" {:add-btn false :edit-btn true} keys)
-                            (pf/low-energy-lights owner profile keys))))])
-                    [:p "No low energy lights recorded."]))))])])))))
-
-(defn ventilation-systems-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding   (om/get-state owner :adding)
-                   position (count (:ventilation_systems profile))
-                   key      [:ventilation_systems position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Ventilation Systems" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/ventilation-system owner profile key)
-                  (if-let [ventilation-systems (seq (:ventilation_systems profile))]
-                    (let [profile (assoc profile :ventilation_systems (vec ventilation-systems))]
-                      [:div
-                       (for [item ventilation-systems]
-                         (let [keys [:ventilation_systems (.indexOf (to-array ventilation-systems) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Ventilation System" {:add-btn false :edit-btn true} keys)
-                            (pf/ventilation-system owner profile keys))))])
-                    [:p "No ventilation systems lights recorded."]))))])])))))
-
-(defn airflow-measurements-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding   (om/get-state owner :adding)
-                   position (count (:airflow_measurements profile))
-                   key      [:airflow_measurements position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Air Flow Measurements" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/airflow-measurement owner profile key)
-                  (if-let [airflow-measurements (seq (:airflow_measurements profile))]
-                    (let [profile (assoc profile :airflow_measurements (vec airflow-measurements) )]
-                      [:div
-                       (for [item airflow-measurements]
-                         (let [keys [:airflow_measurements (.indexOf (to-array airflow-measurements) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Air Flow Measurements" {:add-btn false :edit-btn true} keys)
-                            (pf/airflow-measurement owner profile keys))))])
-                    [:p "No air flow measurements recorded."]))))])])))))
-
-(defn photovoltaic-panels-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding   (om/get-state owner :adding)
-                   position (count (:photovoltaics profile))
-                   key      [:photovoltaics position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Photovoltaic Panels" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/photovoltaic-panel owner profile key)
-                  (if-let [photovoltaic-panels (seq (:photovoltaics profile))]
-                    (let [profile (assoc profile :photovoltaics (vec photovoltaic-panels))]
-                      [:div
-                       (for [item photovoltaic-panels]
-                         (let [keys [:photovoltaics (.indexOf (to-array photovoltaic-panels) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Photovoltaic Panel" {:add-btn false :edit-btn true} keys)
-                            (pf/photovoltaic-panel owner profile keys))))])
-                    [:p "No Photovoltaic-Panels recorded."]))))])])))))
-
-(defn solar-thermal-panels-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding   (om/get-state owner :adding)
-                   position (count (:solar_thermals profile))
-                   key      [:solar_thermals position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Solar Thermal Panels" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/solar-thermal-panel owner profile key)
-                  (if-let [solar-thermal-panels (seq (:solar_thermals profile))]
-                    (let [profile (assoc profile :solar_thermals (vec solar-thermal-panels))]
-                      [:div
-                       (for [item solar-thermal-panels]
-                         (let [keys [:solar_thermals (.indexOf (to-array solar-thermal-panels) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Solar Thermal Panel" {:add-btn false :edit-btn true} keys)
-                            (pf/solar-thermal-panel owner profile keys))))])
-                    [:p "No solar thermal panels recorded."]))))])])))))
-
-(defn wind-turbines-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding   (om/get-state owner :adding)
-                   position (count (:wind_turbines profile))
-                   key      [:wind_turbines position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Wind Turbines" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/wind-turbine owner profile key)
-                  (if-let [wind-turbines (seq (:wind_turbines profile))]
-                    (let [profile (assoc profile :wind_turbines (vec wind-turbines))]
-                      [:div
-                       (for [item wind-turbines]
-                         (let [keys [:wind_turbines (.indexOf (to-array wind-turbines) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Wind Turbine" {:add-btn false :edit-btn true} keys)
-                            (pf/wind-turbine owner profile keys))))])
-                    [:p "No wind turbines recorded."]))))])])))))
-
-(defn small-hydro-plants-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding   (om/get-state owner :adding)
-                   position (count (:small_hydros profile))
-                   key      [:small_hydros position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Small Hydro Plants" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/small-hydros-plant owner profile key)
-                  (if-let [small-hydro-plants (seq (:small_hydros profile))]
-                    (let [profile (assoc profile :small_hydros (vec small-hydro-plants))]
-                      [:div
-                       (for [item small-hydro-plants]
-                         (let [keys [:small_hydros (.indexOf (to-array small-hydro-plants) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Small Hydro Plant" {:add-btn false :edit-btn true} keys)
-                            (pf/small-hydros-plant owner profile keys))))])
-                    [:p "No small hydro plants recorded."]))))])])))))
-
-(defn heat-pumps-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding (om/get-state owner :adding)
-                   position (count (:heat_pumps profile))
-                   key [:heat_pumps position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Heat Pumps" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/heat-pump owner profile key)
-                  (if-let [heat-pumps (seq (:heat_pumps profile))]
-                    (let [profile (assoc profile :heat_pumps (vec heat-pumps))]
-                      [:div
-                       (for [item heat-pumps]
-                         (let [keys [:heat_pumps (.indexOf (to-array heat-pumps) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Heat Pump" {:add-btn false :edit-btn true} keys)
-                            (pf/heat-pump owner profile keys))))])
-                    [:p "No heat pumps recorded."]))))])])))))
-
-(defn biomass-boilers-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding   (om/get-state owner :adding)
-                   position (count (:biomasses profile))
-                   key      [:biomasses position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All Biomass Boilers" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/biomass-boiler owner profile key)
-                  (if-let [biomass-boilers (seq (:biomasses profile))]
-                    (let [profile (assoc profile :biomasses (vec biomass-boilers))]
-                      [:div
-                       (for [item biomass-boilers]
-                         (let [keys [:biomasses (.indexOf (to-array biomass-boilers) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "Biomass Boiler" {:add-btn false :edit-btn true} keys)
-                            (pf/biomass-boiler owner profile keys))))])
-                    [:p "No biomass boilers recorded."]))))])])))))
-
-(defn mCHP-systems-row [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          (for [profile profiles]
-            [:div {:class (profile-column-width)}
-             (let [adding (om/get-state owner :adding)
-                   position (count (:chps profile))
-                   key [:chps position]]
-               (bs/panel
-                (panel-heading property_details owner profile "All mCHP Systems" {:add-btn true :edit-btn false} key)
-                (if adding
-                  (pf/mCHP-system owner profile key)
-                  (if-let [mCHP-systems (seq (:chps profile))]
-                    (let [profile (assoc profile :chps (vec mCHP-systems))]
-                      [:div
-                       (for [item mCHP-systems]
-                         (let [keys [:chps (.indexOf (to-array mCHP-systems) item)]]
-                           (bs/panel
-                            (panel-heading property_details owner profile "mCHP System" {:add-btn false :edit-btn true} keys)
-                            (pf/mCHP-system owner profile keys))))])
-                    [:p "No mCHP systems recorded."]))))])])))))
-
-(defn profile-rows [property_details]
-  (fn [profiles owner]
-    (reify
-      om/IRenderState
-      (render-state [_ state]
-        (html
-         [:div.col-md-12
-          [:form {:role "form"}
-           ;; profile property_details
-           (om/build header-row profiles)
-           (om/build (description-row property_details) profiles)
-           (om/build (occupancy-row property_details) profiles)
-           (om/build (measurements-row property_details) profiles)
-           (om/build (energy-row property_details) profiles)
-           (om/build (efficiency-row property_details) profiles)
-           (om/build (passivhaus-row property_details) profiles)
-           (om/build (flats-row property_details) profiles)
-           (om/build (fireplaces-row property_details) profiles)
-           (om/build (glazing-row property_details) profiles)
-           (om/build (issues-row property_details) profiles)
-           (om/build (sap-results-row property_details) profiles)
-           (om/build (lessons-learnt-row property_details) profiles)
-           (om/build (dwelling-u-values-summary-row property_details) profiles)
-           (om/build (air-tightness-test-row property_details) profiles)
-           (om/build (bus-survey-information-row property_details) profiles)
-           (om/build (project-details-row property_details) profiles)
-           (om/build (energy-costs-row property_details) profiles)
-           ;; (om/build documents profiles)
-
-           ;; dwelling details
-           (om/build (conservatories-row property_details) profiles)
-           (om/build (extensions-row property_details) profiles)
-           (om/build (heating-systems-row property_details) profiles)
-           (om/build (hot-water-systems-row property_details) profiles)
-           (om/build (storeys-row property_details) profiles)
-           (om/build (walls-row property_details) profiles)
-           (om/build (roofs-row property_details) profiles)
-           (om/build (window-sets-row property_details) profiles)
-           (om/build (door-sets-row property_details) profiles)
-           (om/build (floors-row property_details) profiles)
-           (om/build (roof-rooms-row property_details) profiles)
-           (om/build (low-energy-lights-row property_details) profiles)
-           (om/build (ventilation-systems-row property_details) profiles)
-           (om/build (airflow-measurements-row property_details) profiles)
-
-           ;; renewable energy systems
-           (om/build (photovoltaic-panels-row property_details) profiles)
-           (om/build (solar-thermal-panels-row property_details) profiles)
-           (om/build (wind-turbines-row property_details) profiles)
-           (om/build (small-hydro-plants-row property_details) profiles)
-           (om/build (heat-pumps-row property_details) profiles)
-           (om/build (biomass-boilers-row property_details) profiles)
-           (om/build (mCHP-systems-row property_details) profiles)]])))))
-
 (defn profile-comparator [x y]
   (let [order (zipmap ["pre-retrofit" "planned retrofit" "post retrofit" ;; R4F
                        "as designed" "as built" ;; BPE
@@ -1089,6 +45,67 @@
         (compare (:timestamp x) (:timestamp y))
         (compare x-ind y-ind))
       (compare (:timestamp x) (:timestamp y)))))
+
+(defn should-show-row? [profiles keys]
+  (some (fn [profile] (-> profile (get-in keys) str seq)) profiles))
+
+(defn should-show? [profiles keys]
+  (some (fn [profile] (some #(-> profile (get-in (conj [:profile_data] (:k %))) str seq) keys)) profiles))
+
+(defn should-show-list? [profiles keys]
+  (some (fn [profile] (-> profile (get-in keys) seq)) profiles))
+
+(defn should-show-row-in-list? [field i profiles k]
+  (some (fn [profile]
+          (let [l (get-in profile field)
+                size (count l)]
+            (when (<= i size)
+              (-> l (get i) (get k))))) profiles))
+
+(defn longest-list [profiles field]
+  (apply max (map #(count (get-in % field)) profiles)))
+
+(defn profile-section-list [label-all label profiles field keys]
+  (when (should-show-list? profiles field)
+    [:div
+     [:tr.active [:td {:id label :col-span (inc (count profiles))} [:h4 label-all]]] ;; main label
+     [:div
+      (let [items-in-list (longest-list profiles field)]
+        (for [i (range items-in-list)]
+          [:div
+           [:tr [:td {:col-span (inc (count profiles))} [:h5 label]]] ;; list label
+           (for [{:keys [k v]} keys]
+             (when (should-show-row-in-list? field i profiles k)
+               [:tr
+                [:td v]
+                (for [p profiles]
+                  (if (<= i (count (get-in p field)))
+                    [:td [:p.form-control-static (get-in p (conj field i k))]]
+                    [:td]))]))]))]]))
+
+(defn profile-section [label profiles keys]
+  (when (should-show? profiles keys)
+    [:div
+     [:tr.active [:td {:col-span (inc (count profiles))} [:h4 label]]]
+     (for [{:keys [k v]} keys]
+       (when (should-show-row? profiles [:profile_data k])
+         [:tr
+          [:td v]
+          (for [p profiles]
+            ;; TOFIX Profiles contain URLs that are long and not broken into multiple lines inside of a bootstrap table.
+            ;; I've tried several solution and only the below or setting word-wrap to "break-all" worked. "Break-all" doesn't require setting min and max on the column
+            ;; and can be used with col-md-x to specify width. But it works on the entire table which means all words are being broken.
+            [:td {:style {:word-wrap "break-word" :min-width "200px" :max-width "200px"}} [:p.form-control-static (get-in p [:profile_data k] "")]])]))]))
+
+(defn profile-header [profile]
+  [:th.col-md-3 {:style {:word-wrap "break-word"}}
+   [:div
+    [:h4 (when (:editable profile)
+       [:button {:type "button"
+                 :class "btn btn-primary btn-xs"
+                 :on-click (fn [_] (set! (.-location js/window) (str "/profile/" (:entity_id profile) "/" (:profile_id profile))))}
+        [:div {:class "fa fa-pencil-square-o"}]])]
+    (get-in profile [:profile_data :event_type] "")]])
 
 (defn profiles-div [property-details owner]
   (reify
@@ -1113,9 +130,79 @@
                      :title "Download Profiles"
                      :href (str "/4/entities/" selected-property-id "/profiles/?type=csv")}])])]
           [:div {:id "alert"} (om/build bs/alert (:alert profiles))]
-          [:div
+          [:div.table-responsive
            (if (seq profiles)
-             (om/build (profile-rows property-details) profiles)
+             [:table.table.table-condensed
+              [:thead
+               [:tr
+                [:th.col-md-4 ""]
+                (for [profile profiles]
+                  (profile-header profile))]]
+              [:tbody
+               (profile-section "Description" profiles (:description pf/fields))
+               (profile-section "Occupancy" profiles (:occupancy pf/fields))
+               (profile-section "Measurements" profiles (:measurements pf/fields))
+               (profile-section "Energy" profiles (:energy pf/fields))
+               (profile-section "PassivHaus" profiles (:passivhaus pf/fields))
+               (profile-section "Efficiency" profiles (:efficiency pf/fields))
+               (profile-section "Flats" profiles (:flats pf/fields))
+               (profile-section "Fireplaces" profiles (:fireplaces pf/fields))
+               (profile-section "Glazing" profiles (:glazing pf/fields))
+               (profile-section "Issues" profiles (:issues pf/fields))
+               (profile-section "Lessons Learnt" profiles (:lessons-learnt pf/fields))
+               (profile-section "Project Details" profiles (:project-details pf/fields))
+               (profile-section "Coheating Test" profiles (:coheating-test pf/fields))
+               (profile-section "Dwelling U-values Summary" profiles (:dwelling-summary pf/fields))
+               (profile-section "Air Tightness Test" profiles (:air-tightness-test pf/fields))
+               (profile-section "BUS Survey Information" profiles (:bus-survey pf/fields))
+               (profile-section "SAP Results" profiles (:sap-results pf/fields))
+               (profile-section "Energy Costs" profiles (:energy-costs pf/fields))
+
+               ;; Fields containing lists
+
+               (profile-section-list "All Conservatories" "Conservatory" profiles
+                                     [:conservatories] (:conservatories pf/fields))
+               (profile-section-list "All Extensions" "Extenstion" profiles
+                                     [:extensions] (:extensions pf/fields))
+               (profile-section-list "All Heating Systems" "Heating System" profiles
+                                     [:heating_systems] (:heating_systems pf/fields))
+               (profile-section-list "All Hot Water Systems" "Hot Water System" profiles
+                                     [:hot_water_systems] (:hot_water_systems pf/fields))
+               (profile-section-list "All Storeys" "Storey" profiles
+                                     [:storeys] (:storeys pf/fields))
+               (profile-section-list "All Walls" "Wall" profiles
+                                     [:walls] (:walls pf/fields))
+               (profile-section-list "All Roofs" "Roof" profiles
+                                     [:roofs] (:roofs pf/fields))
+               (profile-section-list "All Window Sets" "Window Set" profiles
+                                     [:window_sets] (:window_sets pf/fields))
+               (profile-section-list "All Door Sets" "Door Set" profiles
+                                     [:door_sets] (:door_sets pf/fields))
+               (profile-section-list "All Floors" "Floor" profiles
+                                     [:floors] (:floors pf/fields))
+               (profile-section-list "All Roof Rooms" "Roof Rooms" profiles
+                                     [:roof_rooms] (:roof_rooms pf/fields))
+               (profile-section-list "All Low Energy Lights" "Low Energy Lights" profiles
+                                     [:low_energy_lights] (:low_energy_lights pf/fields))
+               (profile-section-list "All Ventilation Systems" "Ventilation System" profiles
+                                     [:ventilation_systems] (:ventilation_systems pf/fields))
+               (profile-section-list "All Air Flow Measurements" "Air Flow Measurements" profiles
+                                     [:airflow_measurements] (:airflow_measurements pf/fields))
+               (profile-section-list "All Photovoltaic Panels" "Photovoltaic Panels" profiles
+                                     [:photovoltaics] (:photovoltaics pf/fields))
+               (profile-section-list "All Solar Thermal Panels" "Solar Thermal Panels" profiles
+                                     [:solar_thermals] (:solar_thermals pf/fields))
+               (profile-section-list "All Wind Turbines" "Wind Turbines" profiles
+                                     [:wind_turbines] (:wind_turbines pf/fields))
+               (profile-section-list "All Small Hydro Plants" "Small Hydro Plants" profiles
+                                     [:small_hydros] (:small_hydros pf/fields))
+               (profile-section-list "All Heat Pumps" "Heat Pumps" profiles
+                                     [:heat_pumps] (:heat_pumps pf/fields))
+               (profile-section-list "All Biomass Boilers" "Biomass Boilers" profiles
+                                     [:biomasses] (:biomasses pf/fields))
+               (profile-section-list "All mCHP Systems" "mCHP Systems" profiles
+                                     [:chps] (:chps pf/fields))]]
+
              [:div.col-md-12.text-center
               [:p.lead {:style {:padding-top 30}}
                "No profile properties to display"]])]])))))
