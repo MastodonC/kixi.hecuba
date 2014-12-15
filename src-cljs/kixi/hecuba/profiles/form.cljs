@@ -42,7 +42,7 @@
   (into {} (map (fn [[k v]] {k {:_value v}}) m)))
 
 (defn unparse
-  "Walk through entire profile and put all values inside of :_value. Omit empty collections or nil values"
+  "Walk through entire profile and put all values inside of :_value. Omit empty collections or nil values. Om components work off trees, so we need to nest values of input fields inside of a map."
   [profile]
   (clojure.walk/postwalk (fn [m]
                            (cond

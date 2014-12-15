@@ -8,7 +8,7 @@
 
 (defn non-empty? [n] (if (coll? n) (seq n) n))
 
-;; This is a function copied from new_profile.cljs. Test should be moved to cljs tests once they are set up.
+;; These are functions copied from forms.cljs. Test should be moved to cljs tests once they are set up.
 (defn parse
   "Remove all empty elements from the nested data structure and flatten :_value elements."
   [cursor]
@@ -28,7 +28,6 @@
                          cursor))
 
 (defn update-map [m]
-  (prn "updating map: " m)
   (into {} (map (fn [[k v]] {k {:_value v}}) m)))
 
 (defn unparse
@@ -37,9 +36,9 @@
                            (cond
                             (and (map? m)
                                  (not (empty? m))
-                                 (every? (fn [v] (prn "v: " v) (and (not (coll? v))
-                                                                    (not (nil? v))
-                                                                    (not (keyword? v)))) (vals m)))
+                                 (every? (fn [v] (and (not (coll? v))
+                                                      (not (nil? v))
+                                                      (not (keyword? v)))) (vals m)))
                             (update-map m)
                             :else m))
                          profile))

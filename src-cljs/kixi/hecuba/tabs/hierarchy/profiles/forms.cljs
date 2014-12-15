@@ -78,13 +78,20 @@
                               {:k :co_heating_performed_on :v "Dates Performed"}
                               {:k :co_heating_assessor :v "Assessor Used"}
                               {:k :co_heating_equipment :v "Equipment"}]
-             :dwelling-summary [{:k :best_u_value_for_doors :v "Predominant U Value For Doors"}
-                                {:k :best_u_value_for_floors :v "Predominant U Value For Floors"}
-                                {:k :best_u_value_for_other :v "Predominant U Value For Other"}
-                                {:k :best_u_value_for_roof :v "Predominant U Value For Roof"}
-                                {:k :best_u_value_for_walls :v "Predominant U Value For Walls"}
-                                {:k :best_u_value_for_windows :v "Predominant U Value For Windows"}
-                                {:k :best_u_value_party_walls :v "Predominant U Value Party Walls"}
+             :dwelling-summary [{:k :predominant_u_value_for_doors :v "Predominant U Value For Doors"}
+                                {:k :predominant_u_value_for_floors :v "Predominant U Value For Floors"}
+                                {:k :predominant_u_value_for_other :v "Predominant U Value For Other"}
+                                {:k :predominant_u_value_for_roof :v "Predominant U Value For Roof"}
+                                {:k :predominant_u_value_for_walls :v "Predominant U Value For Walls"}
+                                {:k :predominant_u_value_for_windows :v "Predominant U Value For Windows"}
+                                {:k :predominant_u_value_party_walls :v "Predominant U Value Party Walls"}
+                                {:k :best_u_value_for_doors :v "Best U Value For Doors"}
+                                {:k :best_u_value_for_floors :v "Best U Value For Floors"}
+                                {:k :best_u_value_for_other :v "Best U Value For Other"}
+                                {:k :best_u_value_for_roof :v "Best U Value For Roof"}
+                                {:k :best_u_value_for_walls :v "Best U Value For Walls"}
+                                {:k :best_u_value_for_windows :v "Best U Value For Windows"}
+                                {:k :best_u_value_party_walls :v "Best U Value Party Walls"}
                                 {:k :dwelling_u_value_other :v "Dwelling U Value Other"}]
              :air-tightness-test [{:k :air_tightness_assessor :v "Air Tightness Assessor"}
                                   {:k :air_tightness_equipment :v "Air Tightness Equipment"}
@@ -369,8 +376,7 @@
                     {:k :capacity_thermal :v "Capacity Thermal"}
                     {:k :est_annual_generation :v "Est Annual Generation"}
                     {:k :est_percentage_thermal_requirement_met :v "Est Percentage Thermal Requirement Met"}
-                    {:k :est_percentage_exported :v "Est Percentage Exported"}]}
-             )
+                    {:k :est_percentage_exported :v "Est Percentage Exported"}]})
 
 (defn format-time-inst [t format]
   (if (nil? t)
