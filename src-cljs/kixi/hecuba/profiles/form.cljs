@@ -56,11 +56,12 @@
                          profile))
 
 (defn fix-timestamp [profile]
-  (if-let [timestamp (:timestamp profile)]
-    (let [raw       (tf/parse (tf/formatter "yyyy-MM-dd") timestamp)
+  (let [timestamp (:timestamp profile)]
+    (if (seq timestamp)
+      (let [raw       (tf/parse (tf/formatter "yyyy-MM-dd") timestamp)
           formatted (tf/unparse (tf/formatter "yyyy-MM-dd'T'HH:mm:ss.SSSZ") raw)]
-      (assoc profile :timestamp formatted))
-    profile))
+        (assoc profile :timestamp formatted))
+      (dissoc profile :timestamp))))
 
 (defn panel-heading [cursor title key]
   [:div.btn-toolbar
