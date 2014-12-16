@@ -67,45 +67,41 @@
 
 (defn profile-section-list [label-all label profiles field keys]
   (when (should-show-list? profiles field)
-    [:div
-     [:tr.active [:td {:id label :col-span (inc (count profiles))} [:h4 label-all]]] ;; main label
-     [:div
-      (let [items-in-list (longest-list profiles field)]
-        (for [i (range items-in-list)]
-          [:div
-           [:tr [:td {:col-span (inc (count profiles))} [:h5 label]]] ;; list label
-           (for [{:keys [k v]} keys]
-             (when (should-show-row-in-list? field i profiles k)
-               [:tr
-                [:td v]
-                (for [p profiles]
-                  (if (<= i (count (get-in p field)))
-                    [:td [:p.form-control-static (get-in p (conj field i k))]]
-                    [:td]))]))]))]]))
+    (cons [:tr.active [:td {:col-span (inc (count profiles))} [:h4 label-all]]] ;; main label
+          (let [items-in-list (longest-list profiles field)]
+            (apply concat (keep (fn [i]
+                                  (cons
+                                   [:tr [:td {:col-span (inc (count profiles))} [:h5.subheader label]]] ;; list label
+                                   (keep (fn [{:keys [k v]}]
+                                           (when (should-show-row-in-list? field i profiles k)
+                                             (into [] (cons :tr (cons [:td v]
+                                                                      (for [p profiles]
+                                                                        (if (<= i (count (get-in p field)))
+                                                                          [:td (get-in p (conj field i k) "")]
+                                                                          [:td ""]))))))) keys)))
+                                (range items-in-list)))))))
 
 (defn profile-section [label profiles keys]
   (when (should-show? profiles keys)
-    [:div
-     [:tr.active [:td {:col-span (inc (count profiles))} [:h4 label]]]
-     (for [{:keys [k v]} keys]
-       (when (should-show-row? profiles [:profile_data k])
-         [:tr
-          [:td v]
-          (for [p profiles]
-            ;; TOFIX Profiles contain URLs that are long and not broken into multiple lines inside of a bootstrap table.
-            ;; I've tried several solution and only the below or setting word-wrap to "break-all" worked. "Break-all" doesn't require setting min and max on the column
-            ;; and can be used with col-md-x to specify width. But it works on the entire table which means all words are being broken.
-            [:td {:style {:word-wrap "break-word" :min-width "200px" :max-width "200px"}} [:p.form-control-static (get-in p [:profile_data k] "")]])]))]))
+    (list [:tr.active [:td {:col-span (inc (count profiles))} [:h4 label]]]
+          (for [{:keys [k v]} keys]
+            (when (should-show-row? profiles [:profile_data k])
+              [:tr
+               [:td v]
+               (for [p profiles]
+                 ;; TOFIX Profiles contain URLs that are long and not broken into multiple lines inside of a bootstrap table.
+                 ;; I've tried several solution and only the below or setting word-wrap to "break-all" worked. "Break-all" doesn't require setting min and max on the column
+                 ;; and can be used with col-md-x to specify width. But it works on the entire table which means all words are being broken.
+                 [:td {:style {:word-wrap "break-word" :min-width "200px" :max-width "200px"}} (get-in p [:profile_data k] "")])])))))
 
 (defn profile-header [profile]
   [:th.col-md-3 {:style {:word-wrap "break-word"}}
-   [:div
-    [:h4 (when (:editable profile)
-       [:button {:type "button"
-                 :class "btn btn-primary btn-xs"
-                 :on-click (fn [_] (set! (.-location js/window) (str "/profile/" (:entity_id profile) "/" (:profile_id profile))))}
-        [:div {:class "fa fa-pencil-square-o"}]])]
-    (get-in profile [:profile_data :event_type] "")]])
+   (when (:editable profile)
+     [:button {:type "button"
+               :class "btn btn-primary btn-xs"
+               :on-click (fn [_] (set! (.-location js/window) (str "/profile/" (:entity_id profile) "/" (:profile_id profile))))}
+      [:div {:class "fa fa-pencil-square-o"}]])
+   (get-in profile [:profile_data :event_type] "")])
 
 (defn profiles-div [property-details owner]
   (reify
