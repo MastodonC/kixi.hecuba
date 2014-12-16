@@ -70,6 +70,21 @@
                           (fn [{:keys [status status-text]}]
                             (put! event-chan {:event :error :value status-text}))))
 
+(defn save-edited-document [event-chan refresh-chan properties property-id edited-data]
+  (let [{:keys [document public?]} edited-data
+        {:keys [uri]}              document
+        [_ _ _ _ _ _ file_name]    (str/split uri #"/")
+        resource {:public? public?}]
+    (log "Saving edited document: " resource)
+    (common/put-resource (str "/4/entities/" property-id "/documents/" file_name)
+                         resource
+                         (fn [_]
+                           (log "Edited!")
+                           (put! event-chan {:event :document-privacy :value nil})
+                           (put! refresh-chan {:event :property}))
+                         (fn [{:keys [status status-text]}]
+                           (put! event-chan {:event :error :value status-text})))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; property-details-form
 
@@ -191,6 +206,64 @@
             (bs/text-area-control property owner [:property :property_data :monitoring_policy] "Monitoring Policy")
             (bs/text-area-control property owner [:property :property_data :other_notes] "Other Notes")]]])))))
 
+(defn documents-view [{:keys [documents property_id editable]} owner {:keys [event-chan]}]
+  (om/component
+   (let [refresh-chan (om/get-shared owner :refresh)]
+     (html
+      [:div.col-md-12
+       [:h3 "Documents"]
+       [:table.table.borderless
+        [:tbody
+         (for [doc documents]
+           (let [{:keys [public? uri]} doc]
+             ;; TOFIX downloading files straight from s3 doesn't return appropriate header so the file
+             ;; is being opened in the browser instead of being downloaded. Should we go through the API
+             ;; or just straight to s3?
+             (when (or public? editable)
+               (let [[_ _ _ _ _ _ file_name] (str/split uri #"/")]
+                 (when (and uri file_name) ;; Don't display invalid links
+                   [:tr
+                    [:td.col-sm-4
+                     [:a {:href uri} file_name]]
+                    [:td.col-sm-2 (if public? "Public" "Private")]
+                    [:td.col-sm-4 [:div.btn-toolbar
+                                   (when editable [:div.button.btn.btn-primary.btn-xs
+                                                   {:on-click (fn [_] (put! event-chan {:event :document-privacy :value doc}))}
+                                                   "Edit privacy"])
+
+                                   (when editable [:div.button.btn.btn-danger.btn-xs
+                                                   {:on-click (fn [_]
+                                                                (let [response (js/confirm (str "Are you sure you want to delete "
+                                                                                                file_name "?"))]
+                                                                  (when response
+                                                                    (delete-document refresh-chan event-chan
+                                                                                     property_id file_name))))}
+                                                   "Delete"])]]])))))]]]))))
+
+(defn edit-document-view [cursor owner {:keys [event-chan]}]
+  (om/component
+   (html
+    (let [{:keys [public? uri]}   cursor
+          [_ _ _ _ _ _ file_name] (str/split uri #"/")]
+      [:div.col-md-12 {:style {:padding-top "10px"}}
+       [:div.panel.panel-default
+        [:div.panel-body
+         [:h4 "Editing document " file_name]
+         [:div.btn-toolbar
+          [:div.button.btn.btn-danger.btn-xs
+           {:on-click (fn [_] (put! event-chan {:event :document-privacy :value nil}))}
+           "Cancel"]
+          [:div.button.btn.btn-success.btn-xs
+           {:on-click (fn [_] (put! event-chan {:event :save-document :value {:document cursor
+                                                                              :public? (om/get-state owner :public?)}}))}
+           "Save"]]
+         [:div.checkbox
+          [:label
+           [:input {:type "checkbox"
+                    :defaultChecked public?
+                    :on-change #(om/set-state! owner :public? (.-checked (.-target %1)))}
+            "Public?"]]]]]]))))
+
 (defn property-details-display [property owner {:keys [event-chan]}]
   (reify
     om/IInitState
@@ -262,30 +335,13 @@
                [:p
                 (for [photo photos]
                   [:img.img-thumbnail {:src (:uri photo)}])]])
-            (when-let [documents (seq (:documents (:property property)))]
-              [:div.col-md-12
-               [:h3 "Documents"]
-               [:table.table.borderless
-                [:tbody
-                 (for [doc documents]
-                   (let [{:keys [public? uri]} doc]
-                     ;; TOFIX downloading files straight from s3 doesn't return appropriate header so the file
-                     ;; is being opened in the browser instead of being downloaded. Should we go through the API
-                     ;; or just straight to s3?
-                     (when (or public? editable)
-                       (let [[_ _ _ _ _ _ file_name] (str/split uri #"/")]
-                         (when (and uri file_name) ;; Don't display invalid links
-                           [:tr
-                            [:td
-                             [:a {:href uri} file_name]]
-                            [:td (when editable [:div.button.btn.btn-danger.btn-xs
-                                                 {:on-click (fn [_]
-                                                              (let [response (js/confirm (str "Are you sure you want to delete "
-                                                                                              file_name "?"))]
-                                                                (when response
-                                                                  (delete-document refresh-chan event-chan
-                                                                                   selected-property-id file_name))))}
-                                                 "Delete"])]])))))]]])]]])))))
+            (let [documents (:documents (:property property))]
+              (when (seq documents)
+                (if (not (:edited-document property))
+                  (om/build documents-view {:property_id selected-property-id
+                                            :documents documents
+                                            :editable editable} {:opts {:event-chan event-chan}})
+                  (om/build edit-document-view (:edited-document property) {:opts {:event-chan event-chan}}))))]]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CSV measurements template (with & without data)
@@ -390,7 +446,9 @@
               :edit   (om/update! properties :editing value)
               :error  (om/update! properties :alert {:status true
                                                      :class "alert alert-danger"
-                                                     :text value})))
+                                                     :text value})
+              :document-privacy (om/update! properties [:selected-property :edited-document] value)
+              :save-document    (save-edited-document event-chan refresh-chan properties (-> @properties :selected) value)))
           (recur))))
     om/IDidUpdate
     (did-update [_ prev-props _]
