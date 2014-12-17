@@ -220,7 +220,7 @@
              ;; is being opened in the browser instead of being downloaded. Should we go through the API
              ;; or just straight to s3?
              (when (or public? editable)
-               (let [[_ _ _ _ _ _ file_name] (str/split uri #"/")]
+               (let [file_name (last (str/split uri #"/"))]
                  (when (and uri file_name) ;; Don't display invalid links
                    [:tr
                     [:td.col-sm-4
@@ -244,7 +244,7 @@
   (om/component
    (html
     (let [{:keys [public? uri]}   cursor
-          [_ _ _ _ _ _ file_name] (str/split uri #"/")]
+          file_name (last (str/split uri #"/"))]
       [:div.col-md-12 {:style {:padding-top "10px"}}
        [:div.panel.panel-default
         [:div.panel-body
