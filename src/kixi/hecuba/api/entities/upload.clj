@@ -6,7 +6,7 @@
    [kixipipe.pipeline           :as pipe]
    [kixipipe.storage.s3]
    [kixi.hecuba.security        :refer (has-admin? has-programme-manager? has-project-manager? has-user?) :as sec]
-   [kixi.hecuba.api        :refer (authorized? content-type-from-context)]
+   [kixi.hecuba.api             :refer (authorized? content-type-from-context decode-body)]
    [liberator.core              :refer (defresource)]
    [liberator.representation    :refer (ring-response)]
    [qbits.hayt                  :as hayt]
@@ -136,7 +136,9 @@
 
 (defn resource-allowed? [store]
   (fn [ctx]
-    (let [{:keys [request-method params session]} (:request ctx)
+    (let [request (:request ctx)
+          {:keys [request-method params session]} request
+          body   (decode-body request)
           {:keys [entity_id file_name]} params
           {:keys [projects programmes role]} (sec/current-authentication session)
           entity (entities/get-by-id (:hecuba-session store) entity_id)
@@ -144,6 +146,7 @@
           programme_id (when project_id (:programme_id (projects/get-by-id (:hecuba-session store) project_id)))]
       [(allowed?* programme_id project_id programmes projects role request-method) {:file_name file_name
                                                                                     :entity entity
+                                                                                    :body body
                                                                                     :entity_id entity_id}])))
 
 (defn resource-exists? [store]
@@ -153,6 +156,16 @@
       (when document-idx
         {:document-idx document-idx
          :entity entity}))))
+
+(defn resource-put! [store]
+  (fn [ctx]
+    (db/with-session [session (:hecuba-session store)]
+      (let [{:keys [body entity_id document-idx]} ctx]
+        (log/info "Updating doc with idx: " document-idx " and data: " body)
+        (entities/update-document session entity_id document-idx body)
+        ;; update ES
+        (-> (search/searchable-entity-by-id entity_id session)
+            (search/->elasticsearch (:search-session store)))))))
 
 (defn resource-delete! [store]
   (fn [ctx]
@@ -173,9 +186,10 @@
   :handle-created index-handle-created)
 
 (defresource resource [store]
-  :allowed-methods #{:delete}
+  :allowed-methods #{:delete :put}
   :exists? (resource-exists? store)
   :available-media-types #{"application/json" "application/edn"}
   :authorized? (authorized? store)
   :allowed? (resource-allowed? store)
-  :delete! (resource-delete! store))
+  :delete! (resource-delete! store)
+  :put! (resource-put! store))

@@ -201,6 +201,16 @@
                                    (hayt/columns {:documents idx})
                                    (hayt/where [[= :id id]]))))
 
+(defn update-document
+  "Updates document at given index in a list. Retrieves raw document data and merges it with edited data.
+  This avoids overwriting existing information."
+  [session id idx edited-data]
+  (let [documents    (:documents (first (db/execute session (hayt/select :entities (hayt/where [[= :id id]])))))
+        raw-document (when (seq documents) (nth documents idx))
+        updated-doc  (merge (json/decode raw-document true) edited-data)]
+    (when raw-document
+      (db/execute-prepared session (str "UPDATE entities SET documents[" idx "] = '" (json/encode updated-doc) "' WHERE id = '" id "';")))))
+
 (defn has-location? [{:keys [property_data] :as e}]
   (when (and property_data
              (contains? property_data :latitude)
