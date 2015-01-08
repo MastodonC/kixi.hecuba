@@ -187,7 +187,8 @@
     (assoc-in ctx [:representation :media-type] "text/csv")))
 
 (defn headers-content-disposition [filename]
-  {"Content-Disposition" (str "attachment; filename=" filename)})
+  {"Content-Disposition" (str "attachment; filename=" filename)
+   "Content-Type" "text/csv"})
 
 ;; from https://github.com/weavejester/medley/blob/master/src/medley/core.cljx Thx @weavejester
 (defn dissoc-in
