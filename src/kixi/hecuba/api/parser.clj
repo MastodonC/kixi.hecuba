@@ -21,7 +21,7 @@
           association-schema (:schema association)]
       (map
        (fn [attr]
-         [(str (name association-name) "_" (name attr)) (item (name attr))])
+         [(str (name association-name) "_" (name attr)) (attr item)])
        association-schema))))
 
 (defn explode-associated-items [association items]
@@ -33,28 +33,28 @@
   (let [association-name   (name (:name association))
         association-schema (:schema association)]
     (apply concat
-    (keep-indexed
-      (fn [index item]
-         (let [item-name         (str association-name "_" index)
-               named-association (assoc association :name item-name)]
-           (if (empty? association-schema)
-             [item-name item]
-             (explode-nested-item named-association item))))
-      items))))
+           (keep-indexed
+            (fn [index item]
+              (let [item-name         (str association-name "_" index)
+                    named-association (assoc association :name item-name)]
+                (if (empty? association-schema)
+                  [item-name item]
+                  (explode-nested-item named-association item))))
+            items))))
 
 (defn explode-and-sort-by-schema [item schema]
   "Take a (profile) item from the datastore and converts into a list
   of pairs (represented as a vector) where the first element is the
   exploded key for the attribute and the second is the value"
   (let [exploded-item
-         (mapcat
-           (fn [attr]
-             (let [t (attribute-type attr)]
-               (case t
-                 :attribute          (list [(name attr) (item attr)])
-                 :nested-item        (explode-nested-item attr (item (:name attr)))
-                 :associated-items   (explode-associated-items attr (item (:name attr))))))
-           schema)]
+        (mapcat
+         (fn [attr]
+           (let [t (attribute-type attr)]
+             (case t
+               :attribute          (list [(name attr) (item attr)])
+               :nested-item        (explode-nested-item attr (item (:name attr)))
+               :associated-items   (explode-associated-items attr (item (:name attr))))))
+         schema)]
     exploded-item))
 
 (defn extract-attribute [attr-key input]
@@ -76,15 +76,15 @@
   (let [association-name   (:name   attr)
         association-schema (:schema attr)
         nested-item (reduce
-                      (fn [nested-item nested-attr]
-                        (let [nested-attr-name (name nested-attr)
-                              exploded-attr-name (str (name association-name) "_" nested-attr-name)
-                              exploded-attr-value (input exploded-attr-name)]
-                          (if (seq exploded-attr-value)
-                            (conj nested-item { nested-attr exploded-attr-value})
-                            nested-item)))
-                      {}
-                      association-schema)]
+                     (fn [nested-item nested-attr]
+                       (let [nested-attr-name (name nested-attr)
+                             exploded-attr-name (str (name association-name) "_" nested-attr-name)
+                             exploded-attr-value (input exploded-attr-name)]
+                         (if (seq exploded-attr-value)
+                           (conj nested-item { nested-attr exploded-attr-value})
+                           nested-item)))
+                     {}
+                     association-schema)]
     (when (seq nested-item)
       {association-name nested-item})))
 
