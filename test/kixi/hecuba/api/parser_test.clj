@@ -101,6 +101,34 @@
                                      :insulation_product :uvalue :location :area :created_at :updated_at]}
                items       [{:construction "Cavity"}]]
            (explode-associated-items association items))))
+  (is (= [["door_sets_0_door_type" "Solid (< 30% glazing)"]
+          ["door_sets_0_door_type_other" nil]
+          ["door_sets_0_frame_type" nil]
+          ["door_sets_0_frame_type_other" nil]
+          ["door_sets_0_percentage_glazing" nil]
+          ["door_sets_0_area" nil]
+          ["door_sets_0_location" nil]
+          ["door_sets_0_uvalue" "1"]
+          ["door_sets_0_created_at" nil]
+          ["door_sets_0_updated_at" nil]
+          ["door_sets_1_door_type" "Solid (< 30% glazing)"]
+          ["door_sets_1_door_type_other" "Test"]
+          ["door_sets_1_frame_type" nil]
+          ["door_sets_1_frame_type_other" nil]
+          ["door_sets_1_percentage_glazing" nil]
+          ["door_sets_1_area" nil]
+          ["door_sets_1_location" nil]
+          ["door_sets_1_uvalue" nil]
+          ["door_sets_1_created_at" nil]
+          ["door_sets_1_updated_at" nil]]
+
+       (let  [association {:name :door_sets, :type :associated-items,
+                           :schema [:door_type :door_type_other :frame_type
+                                    :frame_type_other :percentage_glazing :area
+                                    :location :uvalue :created_at :updated_at]}
+              items [{:uvalue "1" :door_type "Solid (< 30% glazing)"}
+                     {:door_type "Solid (< 30% glazing)", :door_type_other "Test"}]]
+         (explode-associated-items association items))))
   (is (= []
          (let [association {:name :storeys, :type :associated-items,
                             :schema [:storey_type :storey :heat_loss_w_per_k
