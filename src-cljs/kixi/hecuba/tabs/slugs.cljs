@@ -17,7 +17,6 @@
            (:address_street_two property_data)
            (:address_city property_data)
            (:address_code property_data)
-           (:address_region property_data)
            (:address_country property_data)]))
 
 (defn postal-address-html
