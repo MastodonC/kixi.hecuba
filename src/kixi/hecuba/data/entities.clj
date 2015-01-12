@@ -111,15 +111,16 @@
       (decode-tech-icons session)))
 
 (defn decode [entity session]
-  (-> entity
-      (assoc :entity_id (:id entity))
-      (dissoc :id)
-      (cond-> (:property_data entity) (decode-property-data session)
-              (:notes entity) (decode-list :notes)
-              (:documents entity) (decode-list :documents)
-              (:photos entity) (decode-list :photos)
-              (:devices entity) (decode-edn-map :devices)
-              (:metering_point_ids entity) (decode-entry :metering_point_ids))))
+  (when entity
+    (-> entity
+        (assoc :entity_id (:id entity))
+        (dissoc :id)
+        (cond-> (:property_data entity) (decode-property-data session)
+                (:notes entity) (decode-list :notes)
+                (:documents entity) (decode-list :documents)
+                (:photos entity) (decode-list :photos)
+                (:devices entity) (decode-edn-map :devices)
+                (:metering_point_ids entity) (decode-entry :metering_point_ids)))))
 
 ;; See hecuba-schema.cql
 (def InsertableEntity
