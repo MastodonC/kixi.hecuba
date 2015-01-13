@@ -14,6 +14,7 @@
             [cheshire.core :as json]
             [kixi.hecuba.data.entities :as entities]
             [kixi.hecuba.data.projects :as projects]
+            [kixi.hecuba.data.profiles :as profiles-data]
             [kixi.hecuba.api.profiles :as profiles-api]
             [kixi.hecuba.api.profiles.schema :as profiles-schema]
             [clojure.java.io :as io]))
@@ -261,12 +262,37 @@
                                                                :entity-data  (dissoc entity-data :profiles)
                                                                :profiles     profiles))))))
                                            (partition 2 (line-seq rdr)))))]
-      (println "Number of entities to update: " (count entities-with-profiles))
+      (log/info "Number of entities to update: " (count entities-with-profiles))
       (doseq [entity entities-with-profiles] ;; 22 profiles
         (let [profiles-to-insert (map #(-> (hash-map :entity_id (:entity_id entity)
                                                      :profile_data (extract-profile-data %))
                                            (kixi.hecuba.storage.uuid/add-profile-id))
                                       (:profiles entity))]
           (doseq [profile profiles-to-insert]
-            (println "Attempting to store profile with id" (:profile_id profile))
+            (log/info "Attempting to store profile with id" (:profile_id profile))
             (profiles-api/store-profile profile "support@mastodonc.com" store)))))))
+
+
+;; R4F id: "c94a2f01d89708fb406fed83665ccb1c36e441a5"
+(defn delete-r4f-profiles [{:keys [store]}]
+  (db/with-session [session (:hecuba-session store)]
+    (let [project-ids        (into #{} (map :project_id (projects/get-all session "c94a2f01d89708fb406fed83665ccb1c36e441a5")))
+          all-entities       (entities/get-all session)
+          r4f-entities       (filter #(contains? project-ids (:project_id %)) all-entities)
+          entity-ids         (into #{} (map :entity_id r4f-entities))
+          profiles-to-delete (->> (mapcat #(profiles-data/get-profiles % session) entity-ids)
+                                  (map :profile_id))
+          _(log/info "Number of profiles to delete: " (count profiles-to-delete))
+          report             (reduce (fn [{:keys [deleted failed]} profile_id]
+                                       (if-let [error (seq (profiles-data/delete session profile_id))]
+                                         {:deleted deleted :failed (conj failed {:id profile_id :error error})}
+                                         {:deleted (conj deleted profile_id) :failed failed}))
+                                     {:deleted [] :failed []}
+                                     profiles-to-delete)]
+
+      (log/info "Report: " report)
+      ;; Refresh ES
+      (doseq [entity r4f-entities]
+        (-> entity
+            (search/searchable-entity session)
+            (search/->elasticsearch (:search-session store)))))))
