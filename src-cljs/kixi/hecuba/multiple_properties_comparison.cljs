@@ -6,7 +6,9 @@
    [ajax.core :refer (GET POST)]
    [clojure.string :as str]
    [cljs.reader :as reader]
-   [kixi.hecuba.bootstrap :as bootstrap]
+   [kixi.hecuba.bootstrap :as bs]
+   [kixi.hecuba.tabs.hierarchy :as hierarchy]
+   [kixi.hecuba.tabs.hierarchy.data :as data]
    [kixi.hecuba.widgets.chart :as chart]
    [kixi.hecuba.widgets.datetimepicker :as dtpicker]
    [kixi.hecuba.common :refer (interval log) :as common]
@@ -15,13 +17,18 @@
    [kixi.hecuba.tabs.slugs :as slugs]
    [cljs-time.format :as tf]
    [cljs-time.coerce :as tc]
-   [cljs-time.core :as t]))
+   [cljs-time.core :as t]
+   [kixi.hecuba.tabs.hierarchy.tech-icons :as icons]))
 
 (def data-model
   (atom
-   {:search {:data []
+   {:search {:term nil
+             :data []
+             :selected nil
              :fetching false
-             :stats {}}
+             :stats {}
+             :sort-spec {:sort-key :programme_name
+                         :sort-asc true}}
     :properties {:data []
                  :selected #{}
                  :fetching false}
@@ -198,6 +205,7 @@
 
       ;; Clear down
       (when-not entities
+        (om/update! data [:properties :selected] #{})
         (om/update! data [:chart :measurements] [])
         (om/update! data [:chart :all-groups] [])
         (om/update! data [:sensors :data] [])
@@ -247,9 +255,9 @@
     (render-state [_ {:keys [selected-chan]}]
       (let [{:keys [type device_id parent-device unit lower_ts upper_ts selected
                     property-data]} sensor
-            history   (om/get-shared owner :history)
-            entity_id (:entity_id parent-device)
-            id        (str entity_id "~" device_id "~" type)]
+                    history   (om/get-shared owner :history)
+                    entity_id (:entity_id parent-device)
+                    id        (str entity_id "~" device_id "~" type)]
         (html
          [:tr {:class (when selected "success")
                :onClick (fn [_]
@@ -325,7 +333,7 @@
           (fetching-row)
           [:div
            [:div {:id "sensors-unit-alert"}
-            (om/build bootstrap/alert (-> sensors :alert))]
+            (om/build bs/alert (-> sensors :alert))]
            [:table.table.table-hover.table-condensed {:style {:font-size "85%"}}
             [:thead [:tr
                      [:th "Photo"]
@@ -417,7 +425,7 @@
                                   (when value
                                     (put! search-chan value))))} "Go"]]]]))))
 
-(defn search-row [property owner]
+(defn found-property-row [property owner]
   (reify
     om/IRenderState
     (render-state [_ {:keys [selected-search-chan]}]
@@ -435,33 +443,82 @@
           [:td [:p {:class "form-control-static col-md-10"} (slugs/postal-address-html property_data)]]
           [:td entity_id]
           [:td project_name]
-          [:td project_id]])))))
+          [:td.tech-icon-container-sm (for [ti (-> property_data :technology_icons)]
+                                        (icons/tech-icon ti))]])))))
 
-(defn properties-search-table [search owner opts]
+(defn order-key [sort-asc]
+  (if sort-asc "asc" "desc"))
+
+(defn get-sort-str [th-click sort-asc]
+  (str "&sort_key=" (str (name th-click) ".lower_case_sort")
+       "&sort_order=" (order-key sort-asc)))
+
+(defn update-sort [cursor th-click sort-asc term results-size]
+  (om/update! cursor :sort-spec {:sort-key th-click :sort-asc sort-asc})
+  (data/search-properties cursor 0 results-size term (get-sort-str th-click sort-asc)))
+
+(defn properties-search-table [cursor owner opts]
   (reify
+    om/IInitState
+    (init-state [_]
+      {:results-size 10
+       :th-chan (chan)})
+    om/IWillMount
+    (will-mount [_]
+      (go-loop []
+        (let [{:keys [th-chan results-size]}  (om/get-state owner)
+              {:keys [sort-key sort-asc]}     (:sort-spec @cursor)
+              th-click                        (<! th-chan)]
+          (if (= th-click sort-key)
+            (update-sort cursor th-click (not sort-asc) (:term @cursor) results-size)
+            (update-sort cursor th-click true (:term @cursor) results-size)))
+        (recur)))
     om/IRenderState
     (render-state [_ state]
-      (html
-       [:div.col-md-12
-        (if (:fetching search)
-          (fetching-row)
-          [:div
-           [:h4 "Search for a property:"]
-           (om/build input-box nil {:init-state {:search-chan (:search-chan opts)}})
-           (om/build search-stats (:stats search))
-           [:div.col-md-12 {:style {:overflow "auto"}}
-            [:table {:class "table table-hover table-condensed" :style {:font-size "85%"}}
-             [:thead
-              [:tr
-               [:th "Photo"]
-               [:th "Property Code"]
-               [:th "Property Address"]
-               [:th "Property Id"]
-               [:th "Project Name"]
-               [:th "Project ID"]]]
-             [:tbody
-              (om/build-all search-row (:data search)
-                            {:key :entity_id :init-state {:selected-search-chan (:selected-search-chan opts)}})]]]])]))))
+      (let [{:keys [results-size th-chan]}      (om/get-state owner)
+            {:keys [data term stats sort-spec]} cursor
+            {:keys [sort-key sort-asc]}         sort-spec
+            {:keys [total_hits page]}           stats]
+        (html
+         [:div.col-md-12
+          (if (:fetching cursor)
+            (fetching-row)
+            [:div
+             [:h4 "Search for a property:"]
+             (om/build hierarchy/search-input cursor)
+             (when (seq data)
+               [:h4 (str "We've found " total_hits (if (= total_hits 1) " matching property." " matching properties."))])
+             (let [results-left  (- total_hits (* (inc page) results-size))
+                   more-to-load? (pos? results-left)]
+               (when (seq data)
+                 [:div
+                  [:table.table.table-hover.table-condensed
+                   [:thead
+                    [:tr [:th "Photo"]
+                     (bs/sorting-th sort-spec th-chan "Property Code" :property_code)
+                     (bs/sorting-th sort-spec th-chan "Address" :address)
+                     (bs/sorting-th sort-spec th-chan "Property ID" :property_code)
+                     (bs/sorting-th sort-spec th-chan "Project Name" :project_name)
+                     [:th "Technologies"]]]
+                   [:tbody
+                    (om/build-all found-property-row data {:key :entity_id
+                                                           :init-state {:selected-search-chan (:selected-search-chan opts)}})]]
+                  [:nav
+                   [:ul.pager
+                    [:li {:style {:padding-right "5px"}}
+                     [:a {:class (if (= page 0) "previous disabled" "previous hover")
+                          :on-click (fn [_]
+                                      (when-not (= page 0)
+                                        (data/search-properties cursor (dec page) results-size term
+                                                                (get-sort-str sort-key sort-asc))))}
+                      "Previous"]]
+                    [:li {:style {:padding-right "5px"}}
+                     [:a {:class (if-not more-to-load? "next disabled" "next hover")
+                          :on-click (fn [_]
+                                      (when more-to-load?
+                                        (data/search-properties cursor (inc page) results-size term
+                                                                (get-sort-str sort-key sort-asc))))}
+                      "Next"]]]]]))])])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Chart summaries
@@ -498,30 +555,30 @@
             description                (-> measurements first (aget "description"))]
         (html
          [:div {:style {:font-size "80%"}}
-          (bootstrap/panel border "panel-info"
-           [:div [:p {:style {:word-wrap "break-word" :font-size "80%"}} type]
-            [:p {:style {:word-wrap "break-word" :font-size "80%"}} description]]
-           [:div
-            (if mouseover
-              [:dl
-               [:dt "Timestamp:"] [:dd timestamp]
-               [:dt "Value:"] [:dd value]]
-              (let [unit               (-> measurements first (aget "unit"))
-                    series             (js->clj measurements)
-                    values             (keep #(let [v (get % "value")]
-                                                (cond (nil? v) nil
-                                                      (number? v) v
-                                                      (re-matches #"[-+]?\d+(\.\d+)?" v) (js/parseFloat v))) series)
-                    measurements-min   (apply min values)
-                    measurements-max   (apply max values)
-                    measurements-sum   (reduce + values)
-                    measurements-count (count values)
-                    measurements-mean  (if (not= 0 measurements-count) (/ measurements-sum measurements-count) "NA")]
-                [:table.table.table-hover.table-condensed
-                 [:tr [:td "Minimum"] [:td.number (str (.toFixed (js/Number. measurements-min) 3))] [:td unit]]
-                 [:tr [:td "Maximum"] [:td.number (str (.toFixed (js/Number. measurements-max) 3))] [:td unit]]
-                 [:tr [:td "Average (Mean)"] [:td.number (str (.toFixed (js/Number. measurements-mean) 3))] [:td unit]]
-                 [:tr [:td "Range"] [:td.number (str (.toFixed (js/Number. (- measurements-max measurements-min)) 3))] [:td unit]]]))])])))))
+          (bs/panel border "panel-info"
+                    [:div [:p {:style {:word-wrap "break-word" :font-size "80%"}} type]
+                     [:p {:style {:word-wrap "break-word" :font-size "80%"}} description]]
+                    [:div
+                     (if mouseover
+                       [:dl
+                        [:dt "Timestamp:"] [:dd timestamp]
+                        [:dt "Value:"] [:dd value]]
+                       (let [unit               (-> measurements first (aget "unit"))
+                             series             (js->clj measurements)
+                             values             (keep #(let [v (get % "value")]
+                                                         (cond (nil? v) nil
+                                                               (number? v) v
+                                                               (re-matches #"[-+]?\d+(\.\d+)?" v) (js/parseFloat v))) series)
+                             measurements-min   (apply min values)
+                             measurements-max   (apply max values)
+                             measurements-sum   (reduce + values)
+                             measurements-count (count values)
+                             measurements-mean  (if (not= 0 measurements-count) (/ measurements-sum measurements-count) "NA")]
+                         [:table.table.table-hover.table-condensed
+                          [:tr [:td "Minimum"] [:td.number (str (.toFixed (js/Number. measurements-min) 3))] [:td unit]]
+                          [:tr [:td "Maximum"] [:td.number (str (.toFixed (js/Number. measurements-max) 3))] [:td unit]]
+                          [:tr [:td "Average (Mean)"] [:td.number (str (.toFixed (js/Number. measurements-mean) 3))] [:td unit]]
+                          [:tr [:td "Range"] [:td.number (str (.toFixed (js/Number. (- measurements-max measurements-min)) 3))] [:td unit]]]))])])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Entire view
@@ -570,7 +627,7 @@
         (go-loop []
           (let [{:keys [id selected]} (<! selected-property-chan)
                 selected-properties ((if selected conj disj) (-> @data :properties :selected) id)
-                selected-sensors (filter #(let [[entity_id _ _] (str/split % "-")]
+                selected-sensors (filter #(let [[entity_id _ _] (str/split % "~")]
                                             (some #{entity_id} selected-properties)) (-> @data :sensors :selected))]
             (om/transact! data [:properties :data] (fn [d] (into [] (remove #(= (:entity_id %) id) d))))
             (history/update-token-ids! history
@@ -602,15 +659,15 @@
       (html
        [:div.col-md-12 {:style {:padding-top "10px"}}
         [:div.panel-group {:id "accordion"}
-         (bootstrap/accordion-panel  "#collapseOne" "collapseOne" "Search"
-                                     (om/build properties-search-table (:search data)
-                                               {:opts {:selected-search-chan selected-search-chan
-                                                       :search-chan search-chan}}))
-         (bootstrap/accordion-panel  "#collapseTwo" "collapseTwo" "Selected Properties"
-                                     (om/build properties-table (:properties data)
-                                               {:opts {:selected-property-chan selected-property-chan}}))
-         (bootstrap/accordion-panel  "#collapseThree" "collapseThree" "Sensors"
-                                     (om/build sensors-table (:sensors data) {:opts {:chart-range-chan chart-range-chan}}))]
+         (bs/accordion-panel  "#collapseOne" "collapseOne" "Search"
+                              (om/build properties-search-table (:search data)
+                                        {:opts {:selected-search-chan selected-search-chan
+                                                :search-chan search-chan}}))
+         (bs/accordion-panel  "#collapseTwo" "collapseTwo" "Selected Properties"
+                              (om/build properties-table (:properties data)
+                                        {:opts {:selected-property-chan selected-property-chan}}))
+         (bs/accordion-panel  "#collapseThree" "collapseThree" "Sensors"
+                              (om/build sensors-table (:sensors data) {:opts {:chart-range-chan chart-range-chan}}))]
         [:br]
         [:div.panel-group
          [:div.panel.panel-default
@@ -647,7 +704,7 @@
                          (for [[series colours] right-with-colours]
                            (let [c (chan (sliding-buffer 100))]
                              (om/build chart-summary {:measurements (clj->js series)} {:init-state {:chan (tap mult-chan c)}
-                                                                                        :opts {:border colours}})))))]])
+                                                                                       :opts {:border colours}})))))]])
                  (no-data-row))))]]]]))))
 
 (when-let [charting (.getElementById js/document "charting")]
