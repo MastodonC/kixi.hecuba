@@ -4,11 +4,14 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
-  :plugins [[lein-cljsbuild "1.0.3"]
+  :plugins [[lein-cljsbuild "1.0.4"]
             [lein-environ "1.0.0"]]
 
+  ;; Enable the lein hooks for: clean, compile, test, and jar.
+  ;; :hooks [leiningen.cljsbuild]
+
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [org.clojure/data.csv "0.1.2"]
+                 [org.clojure/tools.macro "0.1.5"]
                  [org.clojure/core.match "0.2.2"]
 
                  [joda-time "2.4"]
@@ -28,16 +31,28 @@
                  [ch.qos.logback/logback-classic "1.1.2" :exclusions [org.slf4j/slf4j-api]]
                  [commons-logging "1.1.3"]
 
-                 ;; tools.trace for liberator
+                 ;; liberator
                  [org.clojure/tools.trace "0.7.8"]
-
-                 [org.clojure/clojurescript "0.0-2356"]
-                 [org.clojure/core.async "0.1.346.0-17112a-alpha" :scope "provided"]
-
                  [compojure "1.1.8"]
+                 [liberator "0.12.2"]
 
-                 ;; to deal with some legacy html data
+                 ;; Data
+                 [org.clojure/data.csv "0.1.2"]
+                 [cheshire "5.3.1"]
+                 [org.clojure/data.json "0.2.5"]
+                 [roul "0.2.0"]
+                 [com.stuartsierra/frequencies "0.1.0"]
+                 [clj-time "0.8.0"]
                  [hickory "0.5.4"]
+
+                 ;; Cassandra
+                 [cc.qbits/alia "2.1.2"]
+                 ;; add lz4 to avoid startup warning.
+                 [net.jpountz.lz4/lz4 "1.2.0"]
+                 ;; Required for Cassandra (possibly only OSX)
+                 [org.xerial.snappy/snappy-java "1.1.1.3"]
+
+                 [kixi/pipe "0.17.12"]
 
                  ;; elasticsearch integration
                  [clojurewerkz/elastisch "2.1.0"]
@@ -57,46 +72,36 @@
                  ;; EDN reader with location metadata - for configuration
                  [org.clojure/tools.reader "0.8.8"]
 
-                 [liberator "0.12.2"]
-                 [cheshire "5.3.1"]
-
-                 ;; Required for Cassandra (possibly only OSX)
-                 [org.xerial.snappy/snappy-java "1.1.1.3"]
-
                  ;; ClojureScript dependencies
+
+                 [org.clojure/clojurescript "0.0-2665" :scope "provided"]
+                 [org.clojure/core.async "0.1.346.0-17112a-alpha" :scope "provided"]
+
                  [cljs-ajax "0.2.3"]
                  ;; [cljs-ajax "0.2.6"]
-                 [om "0.8.0-beta1"]
+                 [org.om/om "0.8.0"]
                  [com.andrewmcveigh/cljs-time "0.2.4"]
                  [sablono "0.2.22"]
 
+                 ;; Dev environment
                  [lein-figwheel "0.1.5-SNAPSHOT"]
                  [enlive "1.1.5"]
                  [environ "1.0.0"]
-                 [ankha "0.1.4"]
+                 [ankha "0.1.4"]]
 
-                 [cc.qbits/alia "2.1.2"]
-                 ;; add lz4 to avoid startup warning.
-                 [net.jpountz.lz4/lz4 "1.2.0"]
-
-                 [org.clojure/tools.macro "0.1.5"]
-
-                 [roul "0.2.0"]
-                 [com.stuartsierra/frequencies "0.1.0"]
-                 [clj-time "0.8.0"]
-                 [org.clojure/data.json "0.2.5"]
-
-                 [kixi/pipe "0.17.12"]]
-
-  :source-paths ["src" "src-cljs"]
+  :source-paths ["src/clj" "src/cljs"]
+  :test-paths ["test/clj" "test/cljs"]
   :resource-paths ["resources" "out"]
+  ;; overridding protection on :clean-targets to allow for deleting "out"
+  :clean-targets ^{:protect false} ["target" "out"]
+
+  :min-lein-version "2.5.0"
 
   :jvm-opts ["-Duser.timezone=UTC" "-XX:MaxPermSize=128m" "-Xmx2G" "-XX:+UseCompressedOops" "-XX:+HeapDumpOnOutOfMemoryError"]
   ;; "-XX:+PrintGC"  "-XX:+PrintGCDetails" "-XX:+PrintGCTimeStamps"
 
   :profiles {:dev {:source-paths ["dev"]
-                   :dependencies [
-                                  [ring-mock "0.1.5"]
+                   :dependencies [[ring-mock "0.1.5"]
                                   [org.clojure/tools.namespace "0.2.5"]
                                   [javax.servlet/servlet-api "2.5"]
                                   [org.clojure/test.check "0.5.9"]]
@@ -104,9 +109,7 @@
                               :port 3449
                               :css-dirs ["resources/site/css"]}
                    :env {:is-dev false}
-                   :plugins [[com.cemerick/austin "0.1.4"]
-                             [lein-figwheel "0.1.5-SNAPSHOT"]]}
-             :uberjar {:main kixi.hecuba.controller.main :aot [kixi.hecuba.controller.main]}}
+                   :plugins [[lein-figwheel "0.1.5-SNAPSHOT"]]}}
 
   :exclusions [[org.clojure/clojure]
                [org.clojure/clojurescript]
@@ -115,17 +118,20 @@
                [org.clojure/tools.logging]
                [joda-time]]
 
-  ;; FIXME: We need to define a cljsbuild test key for the hooks to work
-  ;; :hooks [leiningen.cljsbuild]
-  :cljsbuild {:builds [{:id "dev"
-                        :source-paths ["src-cljs"]
-                        :jar true
-                        :compiler {:output-to "out/cljs/hecuba.js"
-                                   :source-map "out/cljs/hecuba.map.js"
-                                   :output-dir "out/cljs"
-                                   :optimizations :none
-                                   :preamble ["react/react.min.js"]
-                                   :externs ["react/externs/react.js"]}}]}
+  :cljsbuild {:builds {:hecuba {:source-paths ["src/cljs" "env/prod/cljs" "env/dev/cljs"]
+                                :jar true
+                                :compiler {:output-to "out/cljs/hecuba.js"
+                                           :source-map "out/cljs/hecuba.map.js"
+                                           :output-dir "out/cljs"
+                                           :optimizations :none
+                                           :pretty-print true}}
+                       :test {:source-paths ["src/cljs" "test/cljs"]
+                              :notify-command ["phantomjs" "phantom/unit-test.js" "phantom/unit-test.html"]
+                              :compiler {:output-to "target/testable.js"
+                                         :preamble ["react/react.min.js" "vendor/d3.v3.min.js"]
+                                         :optimizations :whitespace
+                                         :pretty-print  true}}}
+              :test-commands {"test" ["phantomjs" "phantom/unit-test.js" "phantom/unit-test.html"]}}
 
   ;; lein test - runs default
   ;; lein test :http-tests  - runs just http-tests

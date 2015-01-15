@@ -1,150 +1,6 @@
-(ns kixi.hecuba.parse-test
-  (:use clojure.test)
-  (:require [clojure.test.check.generators :as gen]
-            [clojure.test.check :as tc]
-            [schema.core :as s]
-            [schema_gen.core :as sg]
-            [clojure.test.check.properties :as prop]))
-
-(defn non-empty? [n] (if (coll? n) (seq n) n))
-
-;; These are functions copied from forms.cljs. Test should be moved to cljs tests once they are set up.
-(defn parse
-  "Remove all empty elements from the nested data structure and flatten :_value elements."
-  [cursor]
-  (clojure.walk/postwalk (fn [m]
-                           (cond
-                            (:_value m)
-                            (:_value m)
-
-                            (map? m)
-                            (reduce-kv (fn [agg k v] (if (non-empty? v) (assoc agg k v) agg)) {} m)
-
-                            (and (coll? m) (not (keyword? (first m))))
-                            (into (empty m) (filter non-empty? m))
-
-                            :else
-                            m))
-                         cursor))
-
-(defn update-map [m]
-  (into {} (map (fn [[k v]] {k {:_value v}}) m)))
-
-(defn unparse
-  [profile]
-  (clojure.walk/postwalk (fn [m]
-                           (cond
-                            (and (map? m)
-                                 (not (empty? m))
-                                 (every? (fn [v] (and (not (coll? v))
-                                                      (not (nil? v))
-                                                      (not (keyword? v)))) (vals m)))
-                            (update-map m)
-                            :else m))
-                         profile))
-
-
-(deftest unparse-test
-  (testing "Unparse function"
-    (println "Testing unparsing")
-
-    (let [m1 {:timestamp 1
-              :profile_data {:event_type "Intervention"
-                             :footprint 1}
-              :floors [{:floor_type 10}
-                       {:construction 5}]}
-          m2 {:bar 1
-              :moo {:event 2
-                    :ter 1}
-              :floors [{:area 10}]}]
-
-      (is (= {:timestamp 1
-              :profile_data {:event_type {:_value "Intervention"}
-                             :footprint {:_value 1}}
-              :floors [{:floor_type {:_value 10}}
-                       {:construction {:_value 5}}]} (unparse m1)))
-      (is (= {:bar 1
-              :moo {:event {:_value 2} :ter {:_value 1}}
-              :floors [{:area {:_value 10}}]} (unparse m2))))))
-
-(deftest parse-test
-  (testing "Parse function"
-    (println "Testing parsing")
-
-    (let [m1 {:timestamp 1
-              :profile_data {:event_type {:_value "Intervention"}
-                             :footprint {:_value 1}
-                             :ber {}}
-              :floors [{:floor_type {:_value 10}
-                        :construction {}}
-                       {:uvalue {}, :construction {:_value 5}}],
-              :roofs [{:roof_type {}}]}
-          m2 {:bar 1
-              :moo {:event {:_value 2}
-                    :ter {:_value 1} :ber {} :project {}}
-              :floors [{:area {:_value 10} :height {}}]
-              :roofs [{:area {}} {:area {}}]}]
-      (is (= {:timestamp 1
-              :profile_data {:event_type "Intervention"
-                             :footprint 1}
-              :floors [{:floor_type 10}
-                       {:construction 5}]} (parse m1)))
-      (is (= {:bar 1
-              :moo {:event 2
-                    :ter 1}
-              :floors [{:area 10}]} (parse m2))))))
-
-(def value {:_value (s/one s/Str "s")})
-
-(def profile
-  {:timestamp value
-   :profile_data {:ber value :ter {}}
-   :conservatories [{:area value}]})
-
-(defn gen-profile [] (sg/generate-examples profile))
-
-(deftest parse-generated-profiles-test
-  (testing
-      (let [profiles (gen-profile)]
-        (doseq [profile profiles]
-          (let [parsed (parse profile)]
-            (is (and (nil? (get-in parsed [:timestamp :_value]))
-                     (nil? (get-in parsed [:conservatories :area :_value]))
-                     (nil? (get-in parsed [:profile_data :ber :_value]))
-                     (nil? (get-in parsed [:profile_data :ter :_value])))))
-          (is (false? (and (nil? (get-in profile [:timestamp :_value]))
-                           (nil? (get-in profile [:conservatories :area :_value]))
-                           (nil? (get-in profile [:profile_data :ber :_value]))
-                           (nil? (get-in profile [:profile_data :ter :_value])))))))))
-
-(defn should-show-list? [profiles keys]
-  (some (fn [profile] (-> profile (get-in keys) seq)) profiles))
-
-(defn should-show-row-in-list? [field i profiles k]
-  (some (fn [profile]
-          (let [l (get-in profile field)
-                size (count l)]
-            (when (<= i size)
-              (-> l (get i) (get k))))) profiles))
-
-(defn longest-list [profiles field]
-  (apply max (map #(count (get-in % field)) profiles)))
-
-(defn profile-section-list [label-all label profiles field keys]
-  (when (should-show-list? profiles field)
-    (cons [:tr.active [:td {:col-span (inc (count profiles))} [:h4 label-all]]] ;; main label
-          (let [items-in-list (longest-list profiles field)]
-            (apply concat (keep (fn [i]
-                                  (cons
-                                   [:tr [:td {:col-span (inc (count profiles))} [:h5 label]]] ;; list label
-                                   (keep (fn [{:keys [k v]}]
-                                           (when (should-show-row-in-list? field i profiles k)
-                                             (into [] (cons :tr (cons [:td v]
-                                                                      (for [p profiles]
-                                                                        (if (<= i (count (get-in p field)))
-                                                                          [:td (get-in p (conj field i k) "")]
-                                                                          [:td ""]))))))) keys)))
-                                (range items-in-list)))))))
+(ns kixi.hecuba.tabs.hierarchy.profiles-test
+  (:require [cljs.test :refer-macros [deftest testing is]]
+            [kixi.hecuba.tabs.hierarchy.profiles :as profiles]))
 
 (deftest profile-section-list-test
   (testing
@@ -327,7 +183,7 @@
             expected '( [:tr.active
                          [:td {:col-span 3} [:h4 "All Ventilation Systems"]]]
                         [:tr
-                         [:td {:col-span 3} [:h5 "Ventilation System"]]]
+                         [:td {:col-span 3} [:h5.subheader "Ventilation System"]]]
                          [:tr
                           [:td "Approach"]
                           [:td "Mechanical"]
@@ -352,4 +208,4 @@
                           [:td "Operational Settings"]
                           [:td "Factory settings"]
                           [:td "Factory settings"]])]
-        (is (= expected (profile-section-list label-all label profiles field keys))))))
+        (is (= expected (profiles/profile-section-list label-all label profiles field keys))))))
