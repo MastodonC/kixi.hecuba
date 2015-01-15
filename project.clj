@@ -108,7 +108,7 @@
                    :figwheel {:http-server-root "cljs"
                               :port 3449
                               :css-dirs ["resources/site/css"]}
-                   :env {:is-dev true}
+                   :env {:is-dev false}
                    :plugins [[lein-figwheel "0.1.5-SNAPSHOT"]]}}
 
   :exclusions [[org.clojure/clojure]
