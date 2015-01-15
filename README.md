@@ -24,7 +24,7 @@ Then you'll need to compile the clojurescipt. That can be done with
 cljsbuild like this
 
 ```
-lein cljsbuild auto
+lein cljsbuild auto hecuba
 ```
 
 This will recompile your clojurescript each time you save. The server
@@ -33,8 +33,16 @@ app needs to be bounced by doing ```reset``` as above.
 If you pull from github, you'll still probably want to restart your
 nrepl session though.
 
+To clean the build do:
+
+```
+lein clean
+```
+
+This will delete both clj and cljs from `target` and `out` directories.
+
 You can also use figwheel:
-Instead of running ``` lein cljsbuild auto ``` and reloading the
+Instead of running ``` lein cljsbuild auto hecuba``` and reloading the
 website, update ``` project.clj ``` to have this:
 
 ```
@@ -44,7 +52,7 @@ website, update ``` project.clj ``` to have this:
 and run:
 
 ```
-lein figwheel
+lein figwheel hecuba
 ```
 
 Each time you save your cljs files, figwheel will recompile and
@@ -52,6 +60,23 @@ refresh the website for you.
 
 Environment should be set to ``` {:is-dev false} ``` before
 deployment to the server.
+For production deployment please compile once:
+
+```
+lein cljsbuild once hecuba
+```
+
+To run Clojure tests do:
+
+```
+lein test
+```
+
+To run ClojureScript tests:
+
+```
+lein cljsbuild test
+```
 
 ## Dev environment
 
