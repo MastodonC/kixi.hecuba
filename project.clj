@@ -108,7 +108,7 @@
                    :figwheel {:http-server-root "cljs"
                               :port 3449
                               :css-dirs ["resources/site/css"]}
-                   :env {:is-dev false}
+                   :env {:is-dev true}
                    :plugins [[lein-figwheel "0.1.5-SNAPSHOT"]]}}
 
   :exclusions [[org.clojure/clojure]
@@ -126,7 +126,6 @@
                                            :optimizations :none
                                            :pretty-print true}}
                        :test {:source-paths ["src/cljs" "test/cljs"]
-                              :notify-command ["phantomjs" "phantom/unit-test.js" "phantom/unit-test.html"]
                               :compiler {:output-to "target/testable.js"
                                          :preamble ["react/react.min.js" "vendor/d3.v3.min.js"]
                                          :optimizations :whitespace
