@@ -35,6 +35,9 @@
     :sensors {:data []
               :selected #{}
               :fetching false
+              :sort-spec {:sort-key :type
+                          :sort-fn :type
+                          :sort-asc true}
               :alert {}
               :units {}}
     :chart {:range {}
@@ -312,41 +315,68 @@
                                       :text "Please limit the number of different units to 2."}))
       (update-sensor history sensors sensor-row selected id unit lower_ts upper_ts chart-range-chan))))
 
+(defmulti sort-function (fn [k] k))
+(defmethod sort-function :property_code [k]
+  (comp :property_code :property_data))
+(defmethod sort-function :default [k]
+  k)
+
 (defn sensors-table [sensors owner {:keys [chart-range-chan]}]
   (reify
     om/IInitState
     (init-state [_]
-      {:selected-chan (chan)})
+      {:selected-chan (chan)
+       :th-chan (chan)})
     om/IWillMount
     (will-mount [_]
-      (let [selected-chan (om/get-state owner :selected-chan)
-            history       (om/get-shared owner :history)]
+      (let [{:keys [selected-chan th-chan]} (om/get-state owner)
+            history       (om/get-shared owner :history)
+            ]
         (go-loop []
           (let [{:keys [selected id unit lower_ts upper_ts sensor-row]} (<! selected-chan)]
             (process-sensor-row-click history sensors sensor-row selected id unit lower_ts upper_ts chart-range-chan))
+          (recur))
+        (go-loop []
+          (let [sort-spec (:sort-spec @sensors)
+                {:keys [sort-key sort-fn sort-asc]} sort-spec
+                th-click  (<! th-chan)]
+            (if (= th-click sort-key)
+              (om/update! sensors :sort-spec {:sort-key th-click
+                                              :sort-fn (sort-function th-click)
+                                              :sort-asc (not sort-asc)})
+              (om/update! sensors :sort-spec {:sort-key th-click
+                                              :sort-fn (sort-function th-click)
+                                              :sort-asc true})))
           (recur))))
     om/IRenderState
     (render-state [_ {:keys [selected-chan]}]
-      (html
-       [:div.col-md-12
-        (if (:entities (:fetching sensors))
-          (fetching-row)
-          [:div
-           [:div {:id "sensors-unit-alert"}
-            (om/build bs/alert (-> sensors :alert))]
-           [:table.table.table-hover.table-condensed {:style {:font-size "85%"}}
-            [:thead [:tr
-                     [:th "Photo"]
-                     [:th "Property Code"]
-                     [:th "Type"]
-                     [:th "Device Id"]
-                     [:th "Unit"]
-                     [:th "Earliest Event"]
-                     [:th "Last Event"]]]
-            [:tbody
-             (if (-> (:fetching sensors))
-               (fetching-row)
-               (om/build-all sensor-row (:data sensors) {:key :id :init-state {:selected-chan selected-chan}}))]]])]))))
+      (let [sort-spec (:sort-spec sensors)
+            {:keys [sort-fn sort-asc]} sort-spec
+            th-chan (om/get-state owner :th-chan)]
+        (html
+         [:div.col-md-12
+          (if (:entities (:fetching sensors))
+            (fetching-row)
+            [:div
+             [:div {:id "sensors-unit-alert"}
+              (om/build bs/alert (-> sensors :alert))]
+             [:table.table.table-hover.table-condensed {:style {:font-size "85%"}}
+              [:thead [:tr
+                       [:th "Photo"]
+                       (bs/sorting-th sort-spec th-chan "Property Code" :property_code)
+                       (bs/sorting-th sort-spec th-chan "Type" :type)
+                       (bs/sorting-th sort-spec th-chan "Device_id" :device_id)
+                       (bs/sorting-th sort-spec th-chan "Unit" :unit)
+                       (bs/sorting-th sort-spec th-chan "Earliest Event" :lower_ts)
+                       (bs/sorting-th sort-spec th-chan "Last Event" :upper_ts)]]
+              [:tbody
+               (if (-> (:fetching sensors))
+                 (fetching-row)
+                 (om/build-all sensor-row
+                               (if sort-asc
+                                 (sort-by sort-fn (:data sensors))
+                                 (reverse (sort-by sort-fn (:data sensors))))
+                               {:key :id :init-state {:selected-chan selected-chan}}))]]])])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Selected properties table
