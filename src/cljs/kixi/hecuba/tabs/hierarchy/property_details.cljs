@@ -30,36 +30,40 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Property Details Helpers
 
-(defn error-handler [properties]
+(defn error-handler [owner]
   (fn [{:keys [status status-text]}]
-    (om/update! properties :alert {:status true
-                                   :class "alert alert-danger"
-                                   :text "Failed to delete property."})))
+    (om/set-state! owner :alert {:status true
+                                 :class "alert alert-danger"
+                                 :text "Failed to delete property."})))
 
 (defn put-resource [refresh-chan event-chan history property_id property]
-  (PUT  (str "/4/entities/" property_id)
-        {:headers {"Content-Type" "application/edn"}
-         :handler (fn [_]
-                    (if-let [new-project-id (:project_id property)]
-                      (do
-                        (history/update-token-ids! history :projects new-project-id)
-                        (history/update-token-ids! history :properties property_id))
-                      (put! refresh-chan {:event :property}))
-                    (put! event-chan {:event :edit :value false}))
-         :error-handler (fn [{:keys [status status-text]}]
-                          (put! event-chan {:event :error :value status-text}))
-         :params property}))
+  (let [updated-property (-> property
+                             (dissoc :selected :editable :slug :entity_id :public_access
+                                     :project_name :programme_id :programme_name :devices
+                                     :calculated_fields_last_calc :calculated_fields_values
+                                     :calculated_fields_labels :photos :notes :metering_point_ids
+                                     :documents :profiles))]
+    (PUT  (str "/4/entities/" property_id)
+          {:headers {"Content-Type" "application/edn"}
+           :handler (fn [_]
+                      (history/update-token-ids! history :projects (:project_id updated-property))
+                      (history/update-token-ids! history :properties property_id)
+                      (put! refresh-chan {:event :property})
+                      (put! event-chan {:event :edit :value false}))
+           :error-handler (fn [{:keys [status status-text]}]
+                            (put! event-chan {:event :error :value status-text}))
+           :params updated-property})))
 
 (defn save-form [refresh-chan event-chan history entity property_id]
   (put-resource refresh-chan event-chan history property_id entity))
 
-(defn delete-property [properties entity_id history refresh-chan]
+(defn delete-property [properties owner entity_id history refresh-chan]
   (common/delete-resource (str "/4/entities/" entity_id)
                           (fn []
                             (put! refresh-chan {:event :properties})
                             (history/update-token-ids! history :properties nil)
                             (om/update! properties :editing false))
-                          (error-handler properties)))
+                          (error-handler owner)))
 
 (defn delete-document [refresh-chan event-chan property-id file-name]
   (log "Deleting: " file-name)
@@ -136,6 +140,9 @@
 
 (defn property-details-form [property owner {:keys [event-chan]}]
   (reify
+    om/IInitState
+    (init-state [_]
+      {:property (:property property)})
     om/IRenderState
     (render-state [_ state]
       (let [history                 (om/get-shared owner :history)
@@ -181,30 +188,29 @@
                       :onClick (fn [_]
                                  (put! event-chan {:event :delete :value selected-property-id}))}
              "Delete Property"]]
-           [:div {:id "overview-alert"}]
            [:div.col-md-6
             (bs/dropdown property owner [:property :project_id] available-projects project_id "Project")
-            (bs/text-input-control property owner [:property :property_code] "Property Code")
-            (bs/address-control property owner [:property :property_data])
-            (bs/text-input-control property owner [:property :property_data :property_type] "Property Type")
-            (bs/text-input-control property owner [:property :property_data :built_form] "Built Form")
-            (bs/text-input-control property owner [:property :property_data :age] "Age")
-            (bs/text-input-control property owner [:property :property_data :ownership] "Ownership")
-            (bs/text-input-control property owner [:property :property_data :project_phase] "Project Phase")
-            (bs/text-input-control property owner [:property :property_data :monitoring_hierarchy] "Monitoring Hierarchy")
-            (bs/text-input-control property owner [:property :property_data :practical_completion_date] "Practical Completion Date")
-            (bs/text-input-control property owner [:property :property_data :construction_date] "Construction Date")
-            (bs/text-input-control property owner [:property :property_data :conservation_area] "Conservation Area")
-            (bs/text-input-control property owner [:property :property_data :listed] "Listed Building")
-            (bs/text-input-control property owner [:property :property_data :terrain] "Terrain")
-            (bs/text-input-control property owner [:property :property_data :degree_day_region] "Degree Day Region")
-            (bs/text-area-control property owner [:property :property_data :description] "Description")
-            (bs/text-area-control property owner [:property :property_data :project_summary] "Project Summary")
-            (bs/text-area-control property owner [:property :property_data :project_team] "Project Team")
-            (bs/text-area-control property owner [:property :property_data :design_strategy] "Design Strategy")
-            (bs/text-area-control property owner [:property :property_data :energy_strategy] "Energy Strategy")
-            (bs/text-area-control property owner [:property :property_data :monitoring_policy] "Monitoring Policy")
-            (bs/text-area-control property owner [:property :property_data :other_notes] "Other Notes")]]])))))
+            (bs/text-input-control owner [:property :property_code] "Property Code")
+            (bs/address-control owner [:property :property_data])
+            (bs/text-input-control owner [:property :property_data :property_type] "Property Type")
+            (bs/text-input-control owner [:property :property_data :built_form] "Built Form")
+            (bs/text-input-control owner [:property :property_data :age] "Age")
+            (bs/text-input-control owner [:property :property_data :ownership] "Ownership")
+            (bs/text-input-control owner [:property :property_data :project_phase] "Project Phase")
+            (bs/text-input-control owner [:property :property_data :monitoring_hierarchy] "Monitoring Hierarchy")
+            (bs/text-input-control owner [:property :property_data :practical_completion_date] "Practical Completion Date")
+            (bs/text-input-control owner [:property :property_data :construction_date] "Construction Date")
+            (bs/text-input-control owner [:property :property_data :conservation_area] "Conservation Area")
+            (bs/text-input-control owner [:property :property_data :listed] "Listed Building")
+            (bs/text-input-control owner [:property :property_data :terrain] "Terrain")
+            (bs/text-input-control owner [:property :property_data :degree_day_region] "Degree Day Region")
+            (bs/text-area-control owner [:property :property_data :description] "Description")
+            (bs/text-area-control owner [:property :property_data :project_summary] "Project Summary")
+            (bs/text-area-control owner [:property :property_data :project_team] "Project Team")
+            (bs/text-area-control owner [:property :property_data :design_strategy] "Design Strategy")
+            (bs/text-area-control owner [:property :property_data :energy_strategy] "Energy Strategy")
+            (bs/text-area-control owner [:property :property_data :monitoring_policy] "Monitoring Policy")
+            (bs/text-area-control owner [:property :property_data :other_notes] "Other Notes")]]])))))
 
 (defn documents-view [{:keys [documents property_id editable]} owner {:keys [event-chan]}]
   (om/component
@@ -220,8 +226,9 @@
              ;; is being opened in the browser instead of being downloaded. Should we go through the API
              ;; or just straight to s3?
              (when (or public? editable)
-               (let [file_name (last (str/split uri #"/"))]
-                 (when (and uri file_name) ;; Don't display invalid links
+               (let [split-uri (str/split uri #"/")
+                     file_name (last split-uri)]
+                 (when (> (count split-uri) 3) ;; Don't display invalid links
                    [:tr
                     [:td.col-sm-4
                      [:a {:href uri} file_name]]
@@ -442,11 +449,11 @@
           (let [event-chan (om/get-state owner :event-chan)
                 {:keys [event value]} (<! event-chan)]
             (case event
-              :delete (delete-property properties value history refresh-chan)
+              :delete (delete-property properties owner value history refresh-chan)
               :edit   (om/update! properties :editing value)
-              :error  (om/update! properties :alert {:status true
-                                                     :class "alert alert-danger"
-                                                     :text value})
+              :error  (om/set-state! owner :alert {:status true
+                                                   :class "alert alert-danger"
+                                                   :text value})
               :document-privacy (om/update! properties [:selected-property :edited-document] value)
               :save-document    (save-edited-document event-chan refresh-chan properties (-> @properties :selected) value)))
           (recur))))
@@ -510,7 +517,7 @@
               ;; Overview
               (when (= active-tab :overview)
                 [:div.col-md-12
-                 (om/build bs/alert (:alert properties))
+                 [:div {:id "overview-alert"} (bs/alert owner)]
                  (if (:editing properties)
                    (om/build property-details-form (:selected-property properties) {:opts {:event-chan event-chan}})
                    (om/build property-details-display (:selected-property properties) {:opts {:event-chan event-chan}}))])
@@ -549,8 +556,7 @@
                    [:div.panel-body
                     [:div
                      [:h4 "Upload measurements CSV"]
-                     [:div {:id "sensors-unit-alert"}
-                      (om/build bs/alert (-> properties :uploads :alert))]
+                     [:div {:id "sensors-unit-alert"} (bs/alert owner)]
                      (let [div-id "measurements-upload"]
                        (om/build (measurementsupload/measurements-upload (str "/4/measurements/for-entity/" property-id "/")
                                                                          div-id)

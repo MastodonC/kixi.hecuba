@@ -348,7 +348,7 @@
             {:keys [status text]} (:alert state)]
           (html
            [:div
-            (alert "alert alert-danger" [:p text] status "edit-dataset-form-alert" owner)
+            [:div {:id "edit-dataset-alert"} (bs/alert owner)]
             [:h3 "Editing dataset"]
             [:form.form-horizontal {:role "form"}
              [:div.col-md-12
@@ -419,7 +419,7 @@
                      event-chan]}    (om/get-state owner)
              {:keys [status text]}   (:alert state)]
          [:div
-          (alert "alert alert-danger" [:p text] status "new-dataset-form-alert" owner)
+          [:div {:id "new-dataset-alert"} (bs/alert owner)]
           [:h3 "Add new dataset"]
           [:form.form-horizontal {:role "form"}
            [:div.col-md-12
@@ -588,9 +588,6 @@
                                     (when (or adding-dataset editing-dataset (not (seq edited-dataset))) "hidden"))
                         :onClick (fn [_] (om/update! datasets :editing-dataset true))}]])]
 
-          ;; Alert
-          [:div {:id "alert-div" :style {:padding-top "10px"}}
-           (om/build bs/alert (:alert datasets))]
           (when (and (seq (:datasets datasets)) (not adding-dataset) (not editing-dataset))
             (om/build datasets-table {:datasets (:datasets datasets)
                                       :sensors (:sensors datasets)}

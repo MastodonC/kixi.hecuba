@@ -18,9 +18,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; projects
 
-(defn error-handler [projects]
+(defn error-handler [owner]
   (fn [{:keys [status status-text]}]
-    (om/update! projects :alert {:status true
+    (om/set-state! owner :alert {:status true
                                  :class "alert alert-danger"
                                  :text status-text})))
 
@@ -35,22 +35,24 @@
                                  :programme_id programme_id)
                           (fn [_]
                             (put! refresh-chan {:event :projects})
+                            (om/update! projects-data :project project)
                             (om/update! projects-data :adding-project false))
                           (error-handler projects-data))))
 
 (defn put-edited-project [history projects-data refresh-chan owner project programme_id project_id]
-  (let [url (str "/4/programmes/" programme_id  "/projects/" project_id)]
+  (let [url             (str "/4/programmes/" programme_id  "/projects/" project_id)
+        updated-project (-> project
+                            (assoc :updated_at (common/now->str))
+                            (dissoc :properties :slug :selected :editable :href))]
     (common/put-resource url
-                         (assoc project :updated_at (common/now->str))
+                         updated-project
                          (fn [_]
-                           (if-let [new-programme-id (:programme_id project)]
-                             (do
-                               (history/update-token-ids! history :programmes new-programme-id)
-                               (history/update-token-ids! history :projects project_id))
-                             (put! refresh-chan {:event :projects}))
+                           (history/update-token-ids! history :programmes (:programme_id updated-project))
+                           (history/update-token-ids! history :projects project_id)
+                           (put! refresh-chan {:event :projects})
                            (om/update! projects-data :alert {:status false})
                            (om/update! projects-data :editing false))
-                         (error-handler projects-data))))
+                         (error-handler owner))))
 
 (defn delete-project [projects-data programme_id project_id history refresh-chan]
   (common/delete-resource (str "/4/programmes/" programme_id  "/projects/" project_id)
@@ -62,83 +64,95 @@
 
 (defn project-add-form [projects programme_id]
   (fn [cursor owner]
-    (om/component
-     (let [refresh-chan (om/get-shared owner :refresh)]
-       (html
-        [:div
-         [:h3 "Add new project"]
-         [:form.form-horizontal {:role "form"}
-          [:div.col-md-6
-           [:div.form-group
-            [:div.btn-toolbar
-             [:button {:class "btn btn-success"
-                       :type "button"
-                       :onClick (fn [_] (let [project (om/get-state owner [:project])]
-                                          (om/update! cursor :project project)
-                                          (if (valid-project? project (:data @projects))
-                                            (post-new-project projects refresh-chan owner project programme_id)
-                                            (om/update! projects :alert {:status true
-                                                                         :class "alert alert-danger"
-                                                                         :text "Please enter unique name of the project."}))))}
-              "Save"]
-             [:button {:type "button"
-                       :class "btn btn-danger"
-                       :onClick (fn [_]
-                                  (om/update! projects :adding-project false))}
-              "Cancel"]]]
-           (om/build bs/alert (-> projects :alert))
-           (bs/text-input-control cursor owner [:project :name] "Project Name" true)
-           (bs/text-input-control cursor owner [:project :description] "Description")
-           (bs/text-input-control cursor owner [:project :organisation] "Organisation")
-           (bs/text-input-control cursor owner [:project :project_code] "Project Code")
-           (bs/text-input-control cursor owner [:project :project_type] "Project Type")
-           (bs/text-input-control cursor owner [:project :type_of] "Type Of")]]])))))
+    (reify
+      om/IInitState
+      (init-state [_]
+        {:project {}
+         :alert {}})
+      om/IRenderState
+      (render-state [_ state]
+        (let [refresh-chan (om/get-shared owner :refresh)]
+          (html
+           [:div
+            [:h3 "Add new project"]
+            [:form.form-horizontal {:role "form"}
+             [:div.col-md-6
+              [:div.form-group
+               [:div.btn-toolbar
+                [:button {:class "btn btn-success"
+                          :type "button"
+                          :onClick (fn [_] (let [project (om/get-state owner [:project])]
+
+                                             (if (valid-project? project (:data @projects))
+                                               (post-new-project projects refresh-chan owner project programme_id)
+                                               (om/set-state! owner :alert {:status true
+                                                                            :class "alert alert-danger"
+                                                                            :text "Please enter unique name of the project."}))))}
+                 "Save"]
+                [:button {:type "button"
+                          :class "btn btn-danger"
+                          :onClick (fn [_]
+                                     (om/update! projects :adding-project false))}
+                 "Cancel"]]]
+              [:div {:id "project-add-alert"} (bs/alert owner)]
+              (bs/text-input-control owner [:project :name] "Project Name" true)
+              (bs/text-input-control owner [:project :description] "Description")
+              (bs/text-input-control owner [:project :organisation] "Organisation")
+              (bs/text-input-control owner [:project :project_code] "Project Code")
+              (bs/text-input-control owner [:project :project_type] "Project Type")
+              (bs/text-input-control owner [:project :type_of] "Type Of")]]]))))))
 
 (defn project-edit-form [projects-data]
   (fn [cursor owner]
-    (om/component
-     (let [{:keys [project_id
-                   programme_id]} (:project cursor)
-           history                (om/get-shared owner :history)
-           refresh-chan           (om/get-shared owner :refresh)
-           all-programmes         (om/observe owner (programmes))
-           available-programmes   (sort-by :display (keep (fn [p]
-                                                            (when (:editable p)
-                                                              (hash-map :display (:name p)
-                                                                        :value (:programme_id p)))) all-programmes))]
-       (html
-        [:div
-         [:h3 (:name cursor)]
-         [:form.form-horizontal {:role "form"}
-          [:div.col-md-12
-           [:div.form-group
-            [:div.btn-toolbar
-             [:button {:type "button"
-                       :class "btn btn-success"
-                       :onClick (fn [_]
-                                  (let [project (om/get-state owner [:project])]
-                                    (put-edited-project history projects-data refresh-chan owner project
-                                                        programme_id project_id)))} "Save"]
-             [:button {:type "button"
-                       :class "btn btn-danger"
-                       :onClick (fn [_] (om/update! projects-data :editing false))} "Cancel"]
-             [:button {:type "button"
+    (reify
+      om/IInitState
+      (init-state [_]
+        {:project (:project cursor)
+         :alert {}})
+      om/IRenderState
+      (render-state [_ state]
+        (let [{:keys [project_id
+                      programme_id]} (:project cursor)
+                      history                (om/get-shared owner :history)
+                      refresh-chan           (om/get-shared owner :refresh)
+                      all-programmes         (om/observe owner (programmes))
+                      available-programmes   (sort-by :display (keep (fn [p]
+                                                                       (when (:editable p)
+                                                                         (hash-map :display (:name p)
+                                                                                   :value (:programme_id p)))) all-programmes))]
+          (html
+           [:div
+            [:h3 (:name cursor)]
+            [:form.form-horizontal {:role "form"}
+             [:div.col-md-12
+              [:div.form-group
+               [:div.btn-toolbar
+                [:button {:type "button"
+                          :class "btn btn-success"
+                          :onClick (fn [_]
+                                     (let [project (om/get-state owner [:project])]
+                                       (put-edited-project history projects-data refresh-chan owner project
+                                                           programme_id project_id)))} "Save"]
+                [:button {:type "button"
+                          :class "btn btn-danger"
+                          :onClick (fn [_] (om/update! projects-data :editing false))} "Cancel"]
+                [:button {:type "button"
                           :class "btn btn-danger pull-right"
                           :onClick (fn [_]
                                      (delete-project projects-data programme_id project_id  history refresh-chan))}
                  "Delete Project"]]]
-           (om/build bs/alert (-> projects-data :alert))
-           [:div.col-md-4
-            (bs/dropdown cursor owner [:project :programme_id] available-programmes programme_id "Programme")
-            (bs/text-input-control cursor owner [:project :name] "Project Name")
-            (bs/text-input-control cursor owner [:project :organisation] "Organisation")
-            (bs/text-input-control cursor owner [:project :project_code] "Project Code")
-            (bs/text-input-control cursor owner [:project :project_type] "Project Type")
-            (bs/text-input-control cursor owner [:project :type_of] "Type Of")
-            (bs/static-text cursor [:project :created_at] "Created At")]
-           [:div.col-md-8
-            (bs/text-area-control cursor owner [:project :description] "Description")
-            (bs/static-text cursor [:project :project_id] "API Project ID")]]]])))))
+              [:div {:id "project-edit-alert"} (bs/alert owner)]
+              [:div.col-md-4
+               (bs/dropdown cursor owner [:project :programme_id] available-programmes programme_id "Programme")
+               (bs/text-input-control owner [:project :name] "Project Name")
+               (bs/text-input-control owner [:project :organisation] "Organisation")
+               (bs/text-input-control owner [:project :project_code] "Project Code")
+               (bs/text-input-control owner [:project :project_type] "Project Type")
+               (bs/text-input-control owner [:project :type_of] "Type Of")
+               (bs/static-text cursor [:project :created_at] "Created At")]
+              [:div.col-md-8
+               (bs/text-area-control owner [:project :description] "Description")
+               (bs/static-text cursor [:project :project_id] "API Project ID")]]]]))))))
 
 (defn project-detail [projects-data editing-chan]
   (fn [cursor owner]
@@ -152,7 +166,6 @@
                       :title "Edit"
                       :class "btn btn-primary pull-right fa fa-pencil-square-o"
                       :onClick (fn [_] (put! editing-chan cursor))}])]
-         (om/build bs/alert (-> projects-data :alert))
          [:div.row
           [:div.col-md-4
            (bs/static-text cursor [:organisation] "Organisation")

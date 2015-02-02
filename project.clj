@@ -74,12 +74,12 @@
 
                  ;; ClojureScript dependencies
 
-                 [org.clojure/clojurescript "0.0-2665" :scope "provided"]
+                 [org.clojure/clojurescript "0.0-2755" :scope "provided"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha" :scope "provided"]
 
                  [cljs-ajax "0.2.3"]
                  ;; [cljs-ajax "0.2.6"]
-                 [org.om/om "0.8.0"]
+                 [org.omcljs/om "0.8.8"]
                  [com.andrewmcveigh/cljs-time "0.2.4"]
                  [sablono "0.2.22"]
 

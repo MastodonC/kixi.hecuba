@@ -125,7 +125,6 @@
                      :class "btn btn-primary fa fa-download"
                      :title "Download Profiles"
                      :href (str "/4/entities/" selected-property-id "/profiles/?type=csv")}])])]
-          [:div {:id "alert"} (om/build bs/alert (:alert profiles))]
           [:div.table-responsive
            (if (seq profiles)
              [:table.table.table-condensed

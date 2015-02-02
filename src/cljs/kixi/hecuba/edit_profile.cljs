@@ -16,27 +16,27 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Entire view of edit profile page
 
-(defn put-edited-profile [cursor profile]
+(defn put-edited-profile [cursor owner profile]
   (let [[_ _ entity_id profile_id] (string/split js/window.location.pathname #"/")]
     (common/put-resource (str "/4/entities/" entity_id "/profiles/" profile_id)
                          (-> profile
                              form/fix-timestamp
                              (assoc :entity_id entity_id))
-                         (fn [_] (om/update! cursor :alert {:status true
-                                                            :class "alert alert-success"
-                                                            :text "Profile edited successfully."})
+                         (fn [_] (om/set-state! owner :alert {:status true
+                                                              :class "alert alert-success"
+                                                              :text "Profile edited successfully."})
                            (.back js/history))
                          (fn [{:keys [status status-text]}]
-                            (om/update! cursor :alert {:status true
-                                                       :class "alert alert-danger"
-                                                       :text status-text})))))
+                            (om/set-state! owner :alert {:status true
+                                                         :class "alert alert-danger"
+                                                         :text status-text})))))
 
-(defn put-if-valid [cursor profile]
+(defn put-if-valid [cursor owner profile]
   (if (form/valid? profile)
-    (put-edited-profile cursor profile)
-    (om/update! cursor :alert {:status true
-                               :class "alert alert-danger"
-                               :text "Please enter event type and make sure energy values are valid numbers."})))
+    (put-edited-profile cursor owner profile)
+    (om/set-state! owner :alert {:status true
+                                 :class "alert alert-danger"
+                                 :text "Please enter event type and make sure energy values are valid numbers."})))
 
 (defn edit-profile-form [cursor owner]
   (reify
@@ -50,7 +50,7 @@
           [:button {:type "button"
                     :class "btn btn-success"
                     :onClick (fn [_] (let [profile (form/parse @cursor)]
-                                       (put-if-valid cursor profile)))}
+                                       (put-if-valid cursor owner profile)))}
            "Save"]
           [:button {:type "button"
                     :class "btn btn-danger"

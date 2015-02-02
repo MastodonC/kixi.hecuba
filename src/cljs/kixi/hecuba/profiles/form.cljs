@@ -82,7 +82,7 @@
        (let [active-item (om/get-state owner :active-item)]
          [:div.col-md-12
           [:div.col-md-12 {:id "alert-div" :style {:padding-top "10px"}}
-           (om/build bs/alert (:alert cursor))]
+           (bs/alert owner)]
           [:form.form-horizontal {:role "form"}
            [:div.form-group
             [:label.control-label.col-md-1 {:for "event_type" :style {:text-align "left"}} "Event Type"]
