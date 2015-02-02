@@ -395,7 +395,7 @@ Authorization: :auth-token
 Content-Type: application/json
 
 {"project_id":"8e9972b9-a90f-44bc-89ce-2bb7b2b281ab",
- "property_code":"KILLMENOW"}
+ "property_code":"TOBEDELETED"}
 ```
 
 Response 201
