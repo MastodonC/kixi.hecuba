@@ -38,7 +38,6 @@
               :sort-spec {:sort-key :type
                           :sort-fn :type
                           :sort-asc true}
-              :alert {}
               :units {}}
     :chart {:range {}
             :measurements []
@@ -304,15 +303,15 @@
       (< (count existing-units) 2)
       (some #(= new-unit %) existing-units)))
 
-(defn process-sensor-row-click [history sensors sensor-row selected id unit lower_ts upper_ts chart-range-chan]
+(defn process-sensor-row-click [history sensors owner sensor-row selected id unit lower_ts upper_ts chart-range-chan]
   (let [existing-units   (into #{} (vals (-> @sensors :units)))]
 
     (if selected
       (if (allowed-unit? existing-units unit)
         (update-sensor history sensors sensor-row selected id unit lower_ts upper_ts chart-range-chan)
-        (om/update! sensors [:alert] {:status true
-                                      :class "alert alert-danger"
-                                      :text "Please limit the number of different units to 2."}))
+        (om/set-state! owner :alert {:status true
+                                     :class "alert alert-danger"
+                                     :text "Please limit the number of different units to 2."}))
       (update-sensor history sensors sensor-row selected id unit lower_ts upper_ts chart-range-chan))))
 
 (defmulti sort-function (fn [k] k))
@@ -334,7 +333,7 @@
             ]
         (go-loop []
           (let [{:keys [selected id unit lower_ts upper_ts sensor-row]} (<! selected-chan)]
-            (process-sensor-row-click history sensors sensor-row selected id unit lower_ts upper_ts chart-range-chan))
+            (process-sensor-row-click history sensors owner sensor-row selected id unit lower_ts upper_ts chart-range-chan))
           (recur))
         (go-loop []
           (let [sort-spec (:sort-spec @sensors)
@@ -358,8 +357,7 @@
           (if (:entities (:fetching sensors))
             (fetching-row)
             [:div
-             [:div {:id "sensors-unit-alert"}
-              (om/build bs/alert (-> sensors :alert))]
+             [:div {:id "sensors-unit-alert"} (bs/alert owner)]
              [:table.table.table-hover.table-condensed {:style {:font-size "85%"}}
               [:thead [:tr
                        [:th "Photo"]

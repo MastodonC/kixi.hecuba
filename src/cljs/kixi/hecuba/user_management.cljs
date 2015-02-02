@@ -55,7 +55,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Save form
 
-(defn post-form [data username selected]
+(defn post-form [data event-chan username selected]
   (let [{:keys [role programmes projects]} selected]
     (let [existing-data (dissoc (-> @data :user) :class :username :data :fetching :typed)
           selected-role (:role selected)
@@ -74,9 +74,9 @@
                              (om/update! data [:user :projects] (:projects parsed))
                              (om/update! data :editing false))
                            (fn [{:keys [status status-text]}]
-                             (om/update! data :alert {:status true
-                                                      :class "alert alert-danger"
-                                                      :text status-text}))))))
+                             (put! event-chan {:event :alert :value {:status true
+                                                                     :class "alert alert-danger"
+                                                                     :text status-text}}))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Username
@@ -85,7 +85,7 @@
   (let [lookup (into {} (map #(hash-map (:programme_id %) (:name %)) programmes))]
     (mapv #(assoc % :programme_name (get lookup (:programme_id %))) projects)))
 
-(defn fetch-projects [data]
+(defn fetch-projects [data event-chan]
   (GET (str "/4/projects/")
        {:handler (fn [response]
                    (om/update! data [:projects :data] (->> response
@@ -95,14 +95,14 @@
                    (om/update! data [:projects :fetching] (if (empty? (-> @data :projects :data))
                                                             :no-data :has-data)))
         :error-handler (fn [{:keys [status status-text]}]
-                         (om/update! data :alert {:status true
-                                                  :class "alert alert-danger"
-                                                  :text status-text})
+                         (put! event-chan {:event :alert :value {:status true
+                                                                 :class "alert alert-danger"
+                                                                 :text status-text}})
                          (om/update! data [:projects :fetching] :error))
         :headers {"Accept" "application/edn"}
         :response-format :text}))
 
-(defn fetch-programmes [data]
+(defn fetch-programmes [data event-chan]
   (GET (str "/4/programmes/")
        {:handler (fn [response]
                    (om/update! data [:programmes :data] (->> response
@@ -111,9 +111,9 @@
                    (om/update! data [:programmes :fetching] (if (empty? (-> @data :programmes :data))
                                                               :no-data :has-data)))
         :error-handler (fn [{:keys [status status-text]}]
-                         (om/update! data :alert {:status true
-                                                  :class "alert alert-danger"
-                                                  :text status-text})
+                         (put! event-chan {:event :alert :value {:status true
+                                                                 :class "alert alert-danger"
+                                                                 :text status-text}})
                          (om/update! data [:programmes :fetching] :error))
         :headers {"Accept" "application/edn"}
         :response-format :text}))
@@ -254,9 +254,9 @@
        [:label.control-label.col-md-2 {:for label} label]
        [:p {:class "form-control-static col-md-10"} data]]))))
 
-(defn fetch-data [data]
-  (fetch-programmes data)
-  (fetch-projects data))
+(defn fetch-data [data event-chan]
+  (fetch-programmes data event-chan)
+  (fetch-projects data event-chan))
 
 (defn clear-form
   "Reset app-state when user deletes their selection."
@@ -280,9 +280,9 @@
       (data/fetch-usernames data)
       (GET "/4/whoami/"
            {:handler (fn [x] (om/update! data :editor x))
-            :error-handler (fn [status status-text] (om/update! data :alert {:status true
-                                                                             :class "alert alert-danger"
-                                                                             :text status-text}))
+            :error-handler (fn [status status-text] (om/set-state! owner :alert {:status true
+                                                                                 :class "alert alert-danger"
+                                                                                 :text status-text}))
             :response-format :json
             :keywords? true})
       (go-loop []
@@ -291,8 +291,8 @@
           (cond
            (= event :dropdown) (let [{:keys [path value]} value]
                                  (om/update! data (into [:selected] path) (reader/read-string value)))
-           (= event :alert) (om/update! data :alert value)
-           (= event :fetch-data) (fetch-data data)
+           (= event :alert) (om/set-state! owner :alert value)
+           (= event :fetch-data) (fetch-data data event-chan)
            (= event :clear-form) (clear-form data)))
         (recur)))
     om/IRenderState
@@ -307,13 +307,13 @@
           (if editing
             [:div
              ;; Alert
-             [:div.col-md-12 [:div {:style {:padding-top "10px"}} (om/build bs/alert (:alert data))]]
+             [:div.col-md-12 [:div {:style {:padding-top "10px"}} (bs/alert owner)]]
              ;; Username
              [:div
               [:div.col-md-6
                (om/build username-selection-form (:user data) {:init-state {:event-chan event-chan}})]
               (when (seq username)
-                [:button.btn.btn-success {:on-click #(post-form data username @selected)} "Save"])]
+                [:button.btn.btn-success {:on-click #(post-form data event-chan username @selected)} "Save"])]
 
              ;; Admin Role - only visible to super admins
              (when (and (= "super-admin" (:role editor)) (not (nil? role)))

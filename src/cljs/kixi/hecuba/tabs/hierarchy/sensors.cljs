@@ -87,7 +87,7 @@
                                    (dissoc units id)
                                    (assoc units id unit))))))
 
-(defn process-click [click property-details history]
+(defn process-click [click property-details owner history]
   (let [{:keys [id unit]} click
         {:keys [sensors property-details chart]} property-details
         already-selected? (contains? (:selected @sensors) id)
@@ -95,9 +95,9 @@
     (if-not already-selected?
       (if (allowed-unit? existing-units unit)
         (update-sensor click chart sensors property-details history false)
-        (om/update! sensors [:alert] {:status true
-                                      :class "alert alert-danger"
-                                      :text "Please limit the number of different units to 2."}))
+        (om/set-state! owner :alert {:status true
+                                     :class "alert alert-danger"
+                                     :text "Please limit the number of different units to 2."}))
       (update-sensor click chart sensors property-details history true))))
 
 (defn sensors-table [property-details owner]
@@ -113,7 +113,7 @@
               history        (om/get-shared owner :history)
               click          (<! selected-chan)]
           (when click
-            (process-click click property-details history)))
+            (process-click click property-details owner history)))
         (recur))
       (go-loop []
         (let [{:keys [th-chan]}           (om/get-state owner)
@@ -138,6 +138,7 @@
             table-id          "sensors-table"]
         (html
          [:div.col-md-12 {:style {:overflow "auto"}}
+          [:div {:id "sensors-table-alert"} (bs/alert owner)]
           [:table {:class "table table-hover table-condensed"}
            [:thead
             [:tr
@@ -257,8 +258,6 @@
         (html
          [:div.col-md-12
           [:h3 "Available sensor data"]
-          [:div {:id "sensors-unit-alert"}
-           (om/build bs/alert (-> property-details :sensors :alert))]
           [:div {:id "sensors-table"}
            (om/build sensors-table property-details)]
 
@@ -266,9 +265,6 @@
           (if (or (not agent/IE)
                   (agent/isVersionOrHigher 9))
             [:div {:id "chart-div"}
-             [:div {:class "col-md-4"}
-              [:div {:id "picker-alert"}
-               (om/build bs/alert (-> property-details :chart :range :alert))]]
              [:div.col-md-12
               [:div.col-md-2
                (when (-> property-details :chart :all-groups seq)
