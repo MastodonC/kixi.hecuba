@@ -24,21 +24,20 @@ and programmes.
 The hecuba API is primarily about managing resources. The primary
 resources in the system are:
 
-* Programmes
-* Projects
-* Entities
-* Profiles
-* Devices
-* Measurements
+* [Programmes](#programmes)
+* [Projects](#projects)
+* [Entities](#entities)
+* [Profiles](#profiles)
+* [Devices](#devices)
+* [Measurements](#measurements)
+* [Dataset Definitions](#datasets)
 
 The fields shown in the replies below are indicative. More fields may
 be returned by the resources.
 
-## Programmes
+## <a name="programmes"></a>Programmes
 
-### GET
-
-#### Index
+### Get Programmes Index
 
 ##### Example request
 
@@ -69,7 +68,7 @@ Authorization: :auth-token
 ]
 ```
 
-#### An individual resource
+### Get Programme Resource
 
 ##### Example request
 
@@ -126,7 +125,7 @@ Response 201 Created
 }
 ```
 
-## Projects
+## <a name="projects"></a>Projects
 
 ### Get Projects
 
@@ -238,9 +237,9 @@ Authorization: :auth-token
 
 Response 201 Created
 
-## Entities
+## <a name="entities"></a>Entities
 
-### Get Entities
+### Get Entities Index
 
 #### Request
 
@@ -287,7 +286,7 @@ After Creating Properties
 }
 ```
 
-### Create entity
+### Create Entity
 
 #### Request
 
@@ -318,7 +317,7 @@ Response 201
 }
 ```
 
-### Get entity
+### Get Entity Resource
 
 #### Request
 ```
@@ -348,7 +347,7 @@ Response 200
 }
 ```
 
-### Edit entity
+### Edit Entity
 
 #### Request
 
@@ -430,7 +429,7 @@ Content-Length: 0
 Server: http-kit
 Date: Mon, 02 Feb 2015 11:36:56 GMT
 
-## Profiles
+## <a name="profiles"></a>Profiles
 
 ### Create Profile
 
@@ -443,7 +442,7 @@ Authorization: :auth-token
 
 {
     "profile_data": {
-        "event_type": "Planned",
+        "event_type": "Planned"
     },
     "timestamp": "2014-01-01T00:00:00.000Z",
     "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82"
@@ -532,7 +531,7 @@ Authorization: :auth-token
                  "daily_standing_charge": 0.2192,
                  "annual_discount": 10.00,
                  "offpeak_periods": [{"start": "00:00", "end": "05:00"},
-                                    {"start": "22:00", "end": "23:59"}]}]
+                                     {"start": "22:00", "end": "23:59"}]}]
 }
 ```
 
@@ -547,6 +546,100 @@ Authorization: :auth-token
 
 #### Response
 
+
+### Get Profiles Index
+
+#### Request
+
+```
+GET http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
+Accept-Encoding: application/json
+Authorization: :auth-token
+```
+
+#### Response
+
+```json
+[
+    {
+        "thermal_images": [],
+        "profile_data": {
+            "event_type": "Planned"
+         },
+        "small_hydros": [],
+        "wind_turbines": [],
+        "ventilation_systems": [],
+        "walls": [],
+        "photovoltaics": [],
+        "roofs": [],
+        "conservatories": [],
+        "chps": [],
+        "solar_thermals": [],
+        "storeys": [],
+        "heat_pumps": [],
+        "airflow_measurements": [],
+        "extensions": [],
+        "low_energy_lights": [],
+        "heating_systems": [],
+        "profile_id": "f561a7f9-f6c1-478f-b03e-8d1a04dc37da",
+        "floors": [],
+        "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82",
+        "roof_rooms": [],
+        "door_sets": [],
+        "timestamp": "2014-01-01T00:00:00+0000",
+        "biomasses": [],
+        "hot_water_systems": [],
+        "window_sets": []
+    }
+]
+```
+
+### Get Profile Resource
+
+#### Request
+
+```
+GET http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/f561a7f9-f6c1-478f-b03e-8d1a04dc37da
+Accept-Encoding: application/json
+Authorization: :auth-token
+```
+
+#### Response
+
+Response 200
+
+```json
+{
+    "thermal_images": [],
+    "profile_data": {
+        "event_type": "Planned"
+    },
+    "small_hydros": [],
+    "wind_turbines": [],
+    "ventilation_systems": [],
+    "walls": [],
+    "photovoltaics": [],
+    "roofs": [],
+    "conservatories": [],
+    "chps": [],
+    "solar_thermals": [],
+    "storeys": [],
+    "heat_pumps": [],
+    "airflow_measurements": [],
+    "extensions": [],
+    "low_energy_lights": [],
+    "heating_systems": [],
+    "profile_id": "f561a7f9-f6c1-478f-b03e-8d1a04dc37da",
+    "floors": [],
+    "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82",
+    "roof_rooms": [],
+    "door_sets": [],
+    "timestamp": "2014-01-01T00:00:00+0000",
+    "biomasses": [],
+    "hot_water_systems": [],
+    "window_sets": []
+}
+```
 ### Edit Profiles
 
 #### Request
@@ -558,8 +651,7 @@ Authorization: :auth-token
 
 {
     "profile_data": {
-        "event_type": "Planned",
-        "timestamp":""
+        "event_type": "Planned"
     },
     "timestamp": "2014-01-01T00:00:00.000Z",
     "profile_id": "f561a7f9-f6c1-478f-b03e-8d1a04dc37da",
@@ -604,67 +696,7 @@ Response 200
 }
 ```
 
-### Get profiles index
-
-#### Request
-
-```
-GET http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
-Accept-Encoding: application/json
-Authorization: :auth-token
-```
-
-#### Response
-
-### Get profile resource
-
-#### Request
-
-```
-GET http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/f561a7f9-f6c1-478f-b03e-8d1a04dc37da
-Accept-Encoding: application/json
-Authorization: :auth-token
-```
-
-#### Response
-
-Response 200
-
-```json
-{
-    "thermal_images": [],
-    "profile_data": {
-        "event_type": "Planned",
-        "timestamp": ""
-    },
-    "small_hydros": [],
-    "wind_turbines": [],
-    "ventilation_systems": [],
-    "walls": [],
-    "photovoltaics": [],
-    "roofs": [],
-    "conservatories": [],
-    "chps": [],
-    "solar_thermals": [],
-    "storeys": [],
-    "heat_pumps": [],
-    "airflow_measurements": [],
-    "extensions": [],
-    "low_energy_lights": [],
-    "heating_systems": [],
-    "profile_id": "f561a7f9-f6c1-478f-b03e-8d1a04dc37da",
-    "floors": [],
-    "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82",
-    "roof_rooms": [],
-    "door_sets": [],
-    "timestamp": "2014-01-01T00:00:00+0000",
-    "biomasses": [],
-    "hot_water_systems": [],
-    "window_sets": []
-}
-```
-
-## Devices
+## <a name="devices"></a>Devices
 
 ### Create device
 
@@ -706,7 +738,7 @@ Response 201
 }
 ```
 
-### GET devices
+### Get Devices Index
 
 #### Request
 
@@ -796,7 +828,7 @@ Authorization: :auth-token
 ]
 ```
 
-### Get Device
+### Get Device Resource
 
 #### Request
 ```
@@ -875,7 +907,7 @@ Response 200
 }
 ```
 
-## Measurements
+## <a name="measurements"></a>Measurements
 
 ### Get daily rollups
 
@@ -901,7 +933,7 @@ Accept-Encoding: application/json
 Authorization: :auth-token
 ```
 
-### POST raw measurements
+### Post new measurements
 
 #### Request
 
@@ -929,3 +961,5 @@ Response 202 Accepted
 ```
 Accepted
 ```
+
+## <a name="datasets"></a>Dataset Definitions

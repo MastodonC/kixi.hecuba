@@ -360,6 +360,40 @@ GET http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
 Accept-Encoding: application/json
 Authorization: :auth-token
 
+# Response 200
+# [
+#     {
+#         "thermal_images": [],
+#         "profile_data": {
+#             "event_type": "Planned",
+#         },
+#         "small_hydros": [],
+#         "wind_turbines": [],
+#         "ventilation_systems": [],
+#         "walls": [],
+#         "photovoltaics": [],
+#         "roofs": [],
+#         "conservatories": [],
+#         "chps": [],
+#         "solar_thermals": [],
+#         "storeys": [],
+#         "heat_pumps": [],
+#         "airflow_measurements": [],
+#         "extensions": [],
+#         "low_energy_lights": [],
+#         "heating_systems": [],
+#         "profile_id": "f561a7f9-f6c1-478f-b03e-8d1a04dc37da",
+#         "floors": [],
+#         "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82",
+#         "roof_rooms": [],
+#         "door_sets": [],
+#         "timestamp": "2014-01-01T00:00:00+0000",
+#         "biomasses": [],
+#         "hot_water_systems": [],
+#         "window_sets": []
+#     }
+# ]
+
 # Get profile resource
 GET http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/f561a7f9-f6c1-478f-b03e-8d1a04dc37da
 Accept-Encoding: application/json
