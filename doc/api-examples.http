@@ -1,0 +1,618 @@
+:auth-token := (format "Basic %s" (base64-encode-string (format "%s:%s" "bruce@mastodonc.com" "password")))
+n
+:hostname = localhost:8010
+
+# Get Programmes
+GET http://:hostname/4/programmes/
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+# Response 200
+# [
+#     {
+#         "description": "Some programme text",
+#         "projects": "/4/programmes/50bdc27d-e6b9-409c-83db-54cf71794de8/projects/",
+#         "lead_page_text": "Someone else again",
+#         "public_access": null,
+#         "home_page_text": "More text",
+#         "lead_organisations": "My Org",
+#         "admin": true,
+#         "editable": true,
+#         "name": "AAA Programme",
+#         "programme_id": "50bdc27d-e6b9-409c-83db-54cf71794de8",
+#         "leaders": "",
+#         "updated_at": "2015-02-01 21:09:26",
+#         "href": "/4/programmes/50bdc27d-e6b9-409c-83db-54cf71794de8",
+#         "created_at": null
+#     }...
+# ]
+
+# Create Programme
+POST http://:hostname/4/programmes/
+Content-Type: application/json
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+{"name":"TEST102"}
+
+# Response 201 Created
+# {
+#     "location": "/4/programmes/9b7ff9c2-f82f-4528-9934-c72eba3bb8fd",
+#     "status": "OK",
+#     "version": "4"
+# }
+
+# Get Programme
+GET http://:hostname/4/programmes/9b7ff9c2-f82f-4528-9934-c72eba3bb8fd
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+# Response 200 OK
+# {
+#     "description": null,
+#     "projects": "/4/programmes/9b7ff9c2-f82f-4528-9934-c72eba3bb8fd/projects/",
+#     "lead_page_text": null,
+#     "public_access": null,
+#     "home_page_text": null,
+#     "lead_organisations": null,
+#     "admin": true,
+#     "editable": true,
+#     "name": "TEST102",
+#     "programme_id": "9b7ff9c2-f82f-4528-9934-c72eba3bb8fd",
+#     "leaders": null,
+#     "updated_at": null,
+#     "created_at": null
+# }
+
+# Edit Programme
+PUT http://:hostname/4/programmes/9b7ff9c2-f82f-4528-9934-c72eba3bb8fd
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+{
+    "description": "Some programme text",
+    "lead_page_text": "Someone else again",
+    "home_page_text": "More text",
+    "lead_organisations": "My Org",
+    "name": "AAA Programme",
+    "programme_id": "50bdc27d-e6b9-409c-83db-54cf71794de8",
+    "leaders": ""
+}
+
+# Response 201 Created
+# This 500s if the JSON doesn't parse.
+
+# Get Projects
+GET http://:hostname/4/programmes/9b7ff9c2-f82f-4528-9934-c72eba3bb8fd/projects
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+# Response 200
+# [
+#     {
+#         "description": null,
+#         "properties": "/4//",
+#         "organisation": null,
+#         "name": "TESTPROJECT",
+#         "programme_id": "9b7ff9c2-f82f-4528-9934-c72eba3bb8fd",
+#         "project_type": null,
+#         "updated_at": null,
+#         "type_of": null,
+#         "project_id": "8e9972b9-a90f-44bc-89ce-2bb7b2b281ab",
+#         "project_code": null,
+#         "href": "/4/programmes/9b7ff9c2-f82f-4528-9934-c72eba3bb8fd/projects/8e9972b9-a90f-44bc-89ce-2bb7b2b281ab",
+#         "created_at": null
+#     }
+# ]
+
+# Create Project
+POST http://:hostname/4/programmes/9b7ff9c2-f82f-4528-9934-c72eba3bb8fd/projects/
+Accept-Encoding: application/json
+Authorization: :auth-token
+Content-Type: application/json
+
+{"name":"TESTPROJECT","programme_id":"9b7ff9c2-f82f-4528-9934-c72eba3bb8fd"}
+
+# Response 201 Created
+# {
+#     "location": "/4/projects/8e9972b9-a90f-44bc-89ce-2bb7b2b281ab",
+#     "status": "OK",
+#     "version": "4"
+# }
+
+# Get Project
+# Just the project should work, but the route isn't there
+# The hyperlink to properties is broken as well
+# GET http://:hostname/4/projects/8e9972b9-a90f-44bc-89ce-2bb7b2b281ab
+GET http://:hostname/4/programmes/9b7ff9c2-f82f-4528-9934-c72eba3bb8fd/projects/8e9972b9-a90f-44bc-89ce-2bb7b2b281ab
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+# Response 200
+# {
+#     "description": null,
+#     "organisation": null,
+#     "name": "TESTPROJECT",
+#     "programme_id": "9b7ff9c2-f82f-4528-9934-c72eba3bb8fd",
+#     "project_type": null,
+#     "updated_at": null,
+#     "type_of": null,
+#     "project_id": "8e9972b9-a90f-44bc-89ce-2bb7b2b281ab",
+#     "project_code": null,
+#     "created_at": null
+# }
+
+# Edit Project
+PUT http://:hostname/4/programmes/9b7ff9c2-f82f-4528-9934-c72eba3bb8fd/projects/8e9972b9-a90f-44bc-89ce-2bb7b2b281ab
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+{
+    "description": "My Project",
+    "organisation": "My Sub Org",
+    "name": "My Project",
+    "programme_id": "9b7ff9c2-f82f-4528-9934-c72eba3bb8fd",
+    "project_type": "New Build",
+    "project_id": "8e9972b9-a90f-44bc-89ce-2bb7b2b281ab",
+    "project_code": "MP001"
+}
+
+# Response 201 Created
+
+# entities
+GET http://:hostname/4/projects/8e9972b9-a90f-44bc-89ce-2bb7b2b281ab/entities
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+# Response 200
+# {
+#     "total_hits": 0,
+#     "page": 0,
+#     "entities": []
+# }
+
+# After Creating Properties
+# {
+#     "total_hits": 2,
+#     "page": 0,
+#     "entities": [
+#         {
+#             "public_access": null,
+#             "editable": true,
+#             "programme_name": "AAA Programme",
+#             "property_code": "PROP01",
+#             "programme_id": "9b7ff9c2-f82f-4528-9934-c72eba3bb8fd",
+#             "documents": [],
+#             "photos": [],
+#             "devices": [],
+#             "profiles": [],
+#             "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82",
+#             "project_id": "8e9972b9-a90f-44bc-89ce-2bb7b2b281ab",
+#             "project_name": "My Project"
+#         }...
+#     ]
+# }
+
+# Create entity
+# POST http://:hostname/4/projects/8e9972b9-a90f-44bc-89ce-2bb7b2b281ab/entities
+POST http://:hostname/4/entities/
+Accept-Encoding: application/json
+Authorization: :auth-token
+Content-Type: application/json
+
+{"project_id":"8e9972b9-a90f-44bc-89ce-2bb7b2b281ab",
+ "property_code":"PROP02"}
+
+# Response 201
+# {
+#     "headers": {
+#         "Location": "/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82"
+#     },
+#     "body": {
+#         "location": "/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82",
+#         "status": "OK",
+#         "version": "4"
+#     }
+# }
+
+# Get entity
+GET http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+# Response 200
+# {
+#     "public_access": null,
+#     "editable": true,
+#     "programme_name": "AAA Programme",
+#     "property_code": "PROP01",
+#     "programme_id": "9b7ff9c2-f82f-4528-9934-c72eba3bb8fd",
+#     "documents": [],
+#     "photos": [],
+#     "devices": [],
+#     "profiles": [],
+#     "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82",
+#     "project_id": "8e9972b9-a90f-44bc-89ce-2bb7b2b281ab",
+#     "project_name": "My Project"
+# }
+
+# Edit entity
+# Fix the validation message when it fails. Always says it is the entity_id failing atm
+PUT http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+{
+    "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82",
+    "project_id": "8e9972b9-a90f-44bc-89ce-2bb7b2b281ab",
+    "property_code": "PROP01",
+    "property_data": {"address_street":"Example Flat, 1 Fake House",
+                      "address_street_two":"Fake Road",
+                      "address_city":"Example Town",
+                      "address_code":"POSTAL CODE",
+                      "address_country":"England",
+                      "project_summary":"Summary Text",
+                      "built_form":"Flat - mid floor",
+                      "other_notes":"Other Notes",
+                      "design_strategy":"Design Strategy",
+                      "construction_start_date":"Jan-08",
+                      "property_type":"Flat",
+                      "project_phase":"Phase 2 (In-use and post occupancy)",
+                      "project_team":"Project Team Notes",
+                      "terrain":"Dense Urban",
+                      "monitoring_policy":"Monitoring Policy Notes",
+                      "monitoring_hierarchy":"3 - whole house monitoring with sub metering & occupant evaluation"}
+}
+
+# 201 Created
+
+# DELETE ENTITY
+POST http://:hostname/4/entities/
+Accept-Encoding: application/json
+Authorization: :auth-token
+Content-Type: application/json
+
+{"project_id":"8e9972b9-a90f-44bc-89ce-2bb7b2b281ab",
+ "property_code":"KILLMENOW"}
+
+# Respnose 201
+# {
+#     "headers": {
+#         "Location": "/4/entities/4c82c5c4-a10e-43d3-8052-ce979ef7ac6a"
+#     },
+#     "body": {
+#         "location": "/4/entities/4c82c5c4-a10e-43d3-8052-ce979ef7ac6a",
+#         "status": "OK",
+#         "version": "4"
+#     }
+# }
+
+DELETE http://:hostname/4/entities/4c82c5c4-a10e-43d3-8052-ce979ef7ac6a
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+# Response 204 No Content
+# HTTP/1.1 204 No Content
+# Content-Type: text/plain
+# Content-Length: 0
+# Server: http-kit
+# Date: Mon, 02 Feb 2015 11:36:56 GMT
+
+# Create Profile
+GET http://localhost:8010/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/f561a7f9-f6c1-478f-b03e-8d1a04dc37da
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+# Edit Profiles
+# 500s when it can't parse the json rather than 400s
+# 500s when it can't parse the date rather than 400s
+# Should handle more ISO like date time formats
+PUT http://localhost:8010/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/f561a7f9-f6c1-478f-b03e-8d1a04dc37da
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+{
+    "profile_data": {
+        "event_type": "Planned",
+        "timestamp":""
+    },
+    "timestamp": "2014-01-01T00:00:00.000Z",
+    "profile_id": "f561a7f9-f6c1-478f-b03e-8d1a04dc37da",
+    "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82"
+
+}
+
+# Response 200
+# {
+#     "thermal_images": [],
+#     "profile_data": {
+#         "event_type": "Planned"
+#     },
+#     "small_hydros": [],
+#     "wind_turbines": [],
+#     "ventilation_systems": [],
+#     "walls": [],
+#     "photovoltaics": [],
+#     "roofs": [],
+#     "conservatories": [],
+#     "chps": [],
+#     "solar_thermals": [],
+#     "storeys": [],
+#     "heat_pumps": [],
+#     "airflow_measurements": [],
+#     "extensions": [],
+#     "low_energy_lights": [],
+#     "heating_systems": [],
+#     "profile_id": "f561a7f9-f6c1-478f-b03e-8d1a04dc37da",
+#     "floors": [],
+#     "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82",
+#     "roof_rooms": [],
+#     "door_sets": [],
+#     "timestamp": "",
+#     "biomasses": [],
+#     "hot_water_systems": [],
+#     "window_sets": []
+# }
+
+# Get profiles index
+# This 404s if there are no profiles for an existing entity rather than returning [] as programmes and projects and entities and devices do
+GET http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+# Get profile resource
+GET http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/f561a7f9-f6c1-478f-b03e-8d1a04dc37da
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+# Response 200
+# {
+#     "thermal_images": [],
+#     "profile_data": {
+#         "event_type": "Planned",
+#         "timestamp": ""
+#     },
+#     "small_hydros": [],
+#     "wind_turbines": [],
+#     "ventilation_systems": [],
+#     "walls": [],
+#     "photovoltaics": [],
+#     "roofs": [],
+#     "conservatories": [],
+#     "chps": [],
+#     "solar_thermals": [],
+#     "storeys": [],
+#     "heat_pumps": [],
+#     "airflow_measurements": [],
+#     "extensions": [],
+#     "low_energy_lights": [],
+#     "heating_systems": [],
+#     "profile_id": "f561a7f9-f6c1-478f-b03e-8d1a04dc37da",
+#     "floors": [],
+#     "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82",
+#     "roof_rooms": [],
+#     "door_sets": [],
+#     "timestamp": "2014-01-01T00:00:00+0000",
+#     "biomasses": [],
+#     "hot_water_systems": [],
+#     "window_sets": []
+# }
+
+# Create device
+POST http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/devices/
+Accept-Encoding: application/json
+Authorization: :auth-token
+Content-Type: application/json
+
+{
+  "readings": [
+    {
+      "user_metadata": {
+        "foo": "bar"
+      },
+      "unit": "kWh",
+      "period": "CUMULATIVE",
+      "accuracy": "0.1",
+      "resolution": "60",
+      "type": "electricityConsumption"
+    }
+  ],
+  "description": "Utility Meters",
+  "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82"
+}
+
+# Response 201
+# {
+#     "location": "/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/devices/cf62ea45-7cf8-431b-9bdc-265ad5a42d01",
+#     "status": "OK",
+#     "version": "4"
+# }
+
+# GET devices
+GET http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/devices/
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+# Response 200 when empty
+# []
+
+# After creating Cumulative Sensor
+# [
+#     {
+#         "description": "Utility Meters",
+#         "readings": [
+#             {
+#                 "min": null,
+#                 "unit": "kWh",
+#                 "user_metadata": null,
+#                 "accuracy": "0.1",
+#                 "sensor_id": "6fbcadc9-1726-44dc-9896-01d30d7c5719",
+#                 "frequency": null,
+#                 "corrected_unit": null,
+#                 "type": "electricityConsumption_differenceSeries",
+#                 "correction_factor": null,
+#                 "upper_ts": null,
+#                 "correction": null,
+#                 "resolution": "60",
+#                 "alias": null,
+#                 "median": 0.0,
+#                 "status": null,
+#                 "max": null,
+#                 "lower_ts": null,
+#                 "correction_factor_breakdown": null,
+#                 "period": "PULSE",
+#                 "synthetic": true,
+#                 "device_id": "cf62ea45-7cf8-431b-9bdc-265ad5a42d01",
+#                 "actual_annual": false
+#             },
+#             {
+#                 "min": null,
+#                 "unit": "kWh",
+#                 "user_metadata": {
+#                     "foo": "bar"
+#                 },
+#                 "accuracy": "0.1",
+#                 "sensor_id": "b09e97fc-1e16-4609-bf7f-b28730845c69",
+#                 "frequency": null,
+#                 "corrected_unit": null,
+#                 "type": "electricityConsumption",
+#                 "correction_factor": null,
+#                 "upper_ts": null,
+#                 "correction": null,
+#                 "resolution": "60",
+#                 "alias": null,
+#                 "median": 0.0,
+#                 "status": null,
+#                 "max": null,
+#                 "lower_ts": null,
+#                 "correction_factor_breakdown": null,
+#                 "period": "CUMULATIVE",
+#                 "synthetic": false,
+#                 "device_id": "cf62ea45-7cf8-431b-9bdc-265ad5a42d01",
+#                 "actual_annual": false
+#             }
+#         ],
+#         "editable": true,
+#         "name": null,
+#         "privacy": null,
+#         "metering_point_id": null,
+#         "parent_id": null,
+#         "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82",
+#         "synthetic": false,
+#         "device_id": "cf62ea45-7cf8-431b-9bdc-265ad5a42d01",
+#         "location": null,
+#         "metadata": null
+#     }
+# ]
+
+# Get Device
+GET http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/devices/cf62ea45-7cf8-431b-9bdc-265ad5a42d01
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+# Response 200
+# {
+#     "description": "Utility Meters",
+#     "readings": [
+#         {
+#             "min": null,
+#             "unit": "kWh",
+#             "user_metadata": null,
+#             "accuracy": "0.1",
+#             "sensor_id": "6fbcadc9-1726-44dc-9896-01d30d7c5719",
+#             "frequency": null,
+#             "corrected_unit": null,
+#             "type": "electricityConsumption_differenceSeries",
+#             "correction_factor": null,
+#             "upper_ts": null,
+#             "correction": null,
+#             "resolution": "60",
+#             "alias": null,
+#             "median": 0.0,
+#             "status": null,
+#             "max": null,
+#             "lower_ts": null,
+#             "correction_factor_breakdown": null,
+#             "period": "PULSE",
+#             "synthetic": true,
+#             "device_id": "cf62ea45-7cf8-431b-9bdc-265ad5a42d01",
+#             "actual_annual": false
+#         },
+#         {
+#             "min": null,
+#             "unit": "kWh",
+#             "user_metadata": {
+#                 "foo": "bar"
+#             },
+#             "accuracy": "0.1",
+#             "sensor_id": "b09e97fc-1e16-4609-bf7f-b28730845c69",
+#             "frequency": null,
+#             "corrected_unit": null,
+#             "type": "electricityConsumption",
+#             "correction_factor": null,
+#             "upper_ts": null,
+#             "correction": null,
+#             "resolution": "60",
+#             "alias": null,
+#             "median": 0.0,
+#             "status": null,
+#             "max": null,
+#             "lower_ts": null,
+#             "correction_factor_breakdown": null,
+#             "period": "CUMULATIVE",
+#             "synthetic": false,
+#             "device_id": "cf62ea45-7cf8-431b-9bdc-265ad5a42d01",
+#             "actual_annual": false
+#         }
+#     ],
+#     "name": null,
+#     "privacy": null,
+#     "metering_point_id": null,
+#     "parent_id": null,
+#     "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82",
+#     "synthetic": false,
+#     "device_id": "cf62ea45-7cf8-431b-9bdc-265ad5a42d01",
+#     "location": null,
+#     "metadata": null
+# }
+
+# sensor - can only delete
+# GET Currently does a 405
+GET http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/devices/cf62ea45-7cf8-431b-9bdc-265ad5a42d01/b09e97fc-1e16-4609-bf7f-b28730845c69
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+# Get daily rollups
+GET http://:hostname/4/entities/1d3f8fbcd69bdc40aa6f8b0df1323b44100d99c3/devices/5f10b63931593f90a1a08729889a0842deda818c/daily_rollups/CO2?startDate=2012-07-05%2000:00:00&endDate=2014-06-16%2000:00:00
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+# Get hourly rollups
+GET http://:hostname/4/entities/1d3f8fbcd69bdc40aa6f8b0df1323b44100d99c3/devices/5f10b63931593f90a1a08729889a0842deda818c/hourly_rollups/CO2?startDate=2014-01-23%2000:00:00&endDate=2014-01-24%2000:00:00
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+# Get raw measurements
+GET http://:hostname/4/entities/1d3f8fbcd69bdc40aa6f8b0df1323b44100d99c3/devices/5f10b63931593f90a1a08729889a0842deda818c/measurements/CO2?startDate=2014-01-23%2000:00:00&endDate=2014-01-24%2000:00:00
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+# POST raw measurements
+POST http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/devices/cf62ea45-7cf8-431b-9bdc-265ad5a42d01/measurements/
+Accept-Encoding: application/json
+Authorization: :auth-token
+Content-Type: application/json
+
+{
+  "measurements": [
+    {
+      "value": "0.5",
+      "timestamp": "2014-05-12T10:30:00Z",
+      "type": "electricityConsumption"
+    }
+  ]
+}
+
+# This should really be JSON coming back
+# Response 202 Accepted
+# Accepted
