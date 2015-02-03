@@ -7,6 +7,7 @@
                    [kixi.hecuba.history :as history]
                    [cljs-time.format :as tf]
                    [kixi.hecuba.common :refer (log) :as common]
+                   [kixi.hecuba.bootstrap :as bs]
                    [ajax.core :refer [GET]]
                    [clojure.string :as str]
                    [sablono.core :as html :refer-macros [html]]))
@@ -22,23 +23,23 @@
      (let [value (.. e -target -value)]
        (om/update! data key value))))
 
-(defn- invalid-dates [data start end]
-  (om/update! data :alert {:status true
-                           :class "alert alert-danger"
-                           :text "End date must be later than start date."}))
+(defn- invalid-dates [owner start end]
+  (om/set-state! owner :alert {:status true
+                               :class "alert alert-danger"
+                               :text "End date must be later than start date."}))
 
 (defn- valid-dates [data history start end date-range-chan]
   (put! date-range-chan {:start-date start :end-date end})
   (history/set-token-search! history [start end]))
 
 (defn evaluate-dates
-  [data history start-date end-date date-range-chan]
+  [data owner history start-date end-date date-range-chan]
   (let [formatter (tf/formatter "yyyy-MM-dd")
         start     (tf/parse formatter start-date)
         end       (tf/parse formatter end-date)]
 
     (cond
-     (t/after? start end)       (invalid-dates data start-date end-date)
+     (t/after? start end)       (invalid-dates owner start-date end-date)
      (= start-date end-date)    (valid-dates data history start-date end-date date-range-chan)
      (not= start-date end-date) (valid-dates data history start-date end-date date-range-chan))))
 
@@ -114,7 +115,8 @@
     (init-state [_]
       {:start-date (-> data :start-date)
        :end-date   (-> data :end-date)
-       :date-move-chan (chan)})
+       :date-move-chan (chan)
+       :alert {}})
     om/IWillMount
     (will-mount [_]
       (go-loop []
@@ -134,6 +136,7 @@
        (let [history (om/get-shared owner :history)]
          [:div
           [:div.col-md-12
+           [:div {:id "picker-alert"} (bs/alert owner)]
            [:form.form-inline {:role "form"}
             [:div.col-md-5
              (datetime-input-control data owner :start-date "Start Date")]
@@ -144,7 +147,7 @@
               {:type "button"
                :id div-id
                :on-click (fn [_ _] (let [{:keys [start-date end-date]} (om/get-state owner)]
-                                     (evaluate-dates data history start-date end-date date-range-chan)))}
+                                     (evaluate-dates data owner history start-date end-date date-range-chan)))}
               "Chart Data"]]]]
           [:div.col-md-12
            [:form.form-inline {:role "form"}

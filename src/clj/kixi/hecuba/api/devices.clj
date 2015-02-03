@@ -268,23 +268,38 @@
 (defn update-existing-sensors
   "Updates original and synthetic sensors (used when unit or period remain the same."
   [session device_id user_id old-sensor new-sensor]
-  (let [new-synthetic-sensors (create-default-sensors {:readings [(dissoc (data/deep-merge old-sensor new-sensor)
-                                                                          :lower_ts :upper_ts :median :status)]})]
-    (doseq [s (:readings new-synthetic-sensors)]
-      (log/infof "Updating sensor: %s : %s" device_id (:type s))
-      (sensors/update session device_id (assoc s :device_id device_id)))))
+  ;; it's not a synthetic sensor - create synthetic sensors
+  (if-not (:synthetic new-sensor)
+    (let [new-synthetic-sensors (create-default-sensors {:readings [(dissoc (data/deep-merge old-sensor new-sensor)
+                                                                            :lower_ts :upper_ts :median :status)]})]
+      (doseq [s (:readings new-synthetic-sensors)]
+        (log/infof "Updating sensor: %s : %s" device_id (:type s))
+        (sensors/update session device_id (assoc s :device_id device_id))))
+    ;; it's a synthetic sensor - don't create synthetic sensors for that sensor, just update its information
+    (let [updated-synthetic-sensor (dissoc (data/deep-merge old-sensor new-sensor)
+                                           :lower_ts :upper_ts :median :status)]
+      (log/infof "Updating sensor: %s : %s" device_id (:type updated-synthetic-sensor))
+      (sensors/update session device_id (assoc updated-synthetic-sensor :device_id device_id)))))
+
+(def user-edited-keys [:type :unit :resolution :period :alias :actual_annual :min :user_metadata :accuracy
+                       :frequency :corrected_unit :correction_factor :correction :max :correction_factor_breakdown])
 
 (defn recreate-sensor
   "Depending on edited fields, either deletes/iserts new synthetic sensors or updates
   the existing onews."
   [session old-device user_id old-sensor new-sensor range]
-  (let [updated-keys   (keys new-sensor)
+  (let [old-sensor-map (select-keys old-sensor user-edited-keys)
+        new-sensor-map (select-keys new-sensor user-edited-keys)
+        ;; Get a sequence of keys that has been updated
+        updated-keys   (-> (clojure.data/diff old-sensor-map new-sensor-map) second keys)
         device_id      (:device_id old-device)]
-    (if (some (into #{} updated-keys) #{:unit :period :type})
-      ;; Recreate because unit, type or period has changed
-      (tidy-up-sensors session old-device user_id old-sensor new-sensor range)
-      ;; Update existing one since nothing crucial has changed
-      (update-existing-sensors session device_id user_id old-sensor new-sensor))))
+    ;; Update only if user editable keys have changed
+    (when (seq updated-keys)
+      (if (some (into #{} updated-keys) #{:unit :period :type})
+        ;; Recreate because unit, type or period has changed
+        (tidy-up-sensors session old-device user_id old-sensor new-sensor range)
+        ;; Update existing one since nothing crucial has changed
+        (update-existing-sensors session device_id user_id old-sensor new-sensor)))))
 
 (defn add-new-sensor
   "Creates new sensors and respective synthetic sensors."
@@ -305,24 +320,22 @@
               entity_id     (-> item :entity_id)
               username      (sec/session-username (-> ctx :request :session))
               user_id       (:id (users/get-by-username session username))
-              device_id     (-> item :device_id)
-              new-body      (create-default-sensors body)]
-          (let [edited-device-data (-> new-body
-                                       (dissoc :editable :readings))]
+              device_id     (-> item :device_id)]
+          (let [edited-device-data (-> body (dissoc :editable :readings))]
             ;; Don't update device if nothing has been changed
             (when (seq edited-device-data)
               (devices/update session entity_id device_id (assoc edited-device-data
                                                             :user_id user_id
                                                             :device_id device_id))))
-          (doseq [new-sensor (:readings body)]
-            (let [old-sensor (first (filter #(= (:sensor_id %) (:sensor_id new-sensor)) (:readings item)))]
-              (if old-sensor
+          (doseq [incoming-sensor (:readings body)]
+            (let [existing-sensor (first (filter #(= (:sensor_id %) (:sensor_id incoming-sensor)) (:readings item)))]
+              (if existing-sensor
                 ;; sensor already exists - need to update/recreate synthetic sensors
-                (let [sensor_id (:sensor_id old-sensor)
+                (let [sensor_id (:sensor_id existing-sensor)
                       {:keys [lower_ts upper_ts]} (sensors/all-sensor-information store device_id sensor_id)]
-                  (recreate-sensor session item user_id old-sensor new-sensor {:start-date lower_ts :end-date upper_ts}))
+                  (recreate-sensor session item user_id existing-sensor incoming-sensor {:start-date lower_ts :end-date upper_ts}))
                 ;; sensor doesn't exist - adding new sensor
-                (add-new-sensor session device_id user_id new-sensor))))
+                (add-new-sensor session device_id user_id incoming-sensor))))
           (-> (search/searchable-entity-by-id entity_id session)
               (search/->elasticsearch (:search-session store)))
           (ring-response {:status 404 :body "Please provide valid entity_id and device_id"}))))))

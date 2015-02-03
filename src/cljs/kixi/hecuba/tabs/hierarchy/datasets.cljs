@@ -173,17 +173,15 @@
   (mapv name (vec (remove nil? (vals (select-keys dataset [:series1 :field]))))))
 (defmethod selected-series :default [dataset])
 
-(defn text-input-control [cursor owner {:keys [path id label required dropdown-chan]}]
-  (om/component
-   (html
-    [:div.form-group
-     [:label.control-label.col-md-2 {:for id} label]
-     [:div {:class (str (if required "required " "") "col-md-10")}
-      [:input {:default-value (get-in cursor path)
-               :on-change #(let [value (.-value (.-target %))]
-                             (put! dropdown-chan {:path path :value value}))
-               :class "form-control"
-               :type "text"}]]])))
+(defn text-input-control [owner path id label required dropdown-chan]
+  [:div.form-group
+   [:label.control-label.col-md-2 {:for id} label]
+   [:div {:class (str (if required "required " "") "col-md-10")}
+    [:input {:value (om/get-state owner path)
+             :on-change #(let [value (.-value (.-target %))]
+                           (put! dropdown-chan {:path path :value value}))
+             :class "form-control"
+             :type "text"}]]])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; DROPDOWNS                                                                             ;;
@@ -328,17 +326,18 @@
   (reify
     om/IInitState
     (init-state [_]
-      {:dropdown-chan (chan)})
+      {:dropdown-chan (chan)
+       :name (:name selected-dataset)})
     om/IWillMount
     (will-mount [_]
       (go-loop []
         (let [{:keys [dropdown-chan]} (om/get-state owner)
-              {:keys [path value]}    (<! dropdown-chan)]
-          (om/update! selected-dataset path (if (= path [:field])
-                                              (str value "~" (-> (filter #(= (:value %) value) available-fields)
-                                                                 first
-                                                                 :unit))
-                                              value)))
+              {:keys [path value]}    (<! dropdown-chan)
+              v (if (= path [:field])
+                  (str value "~" (->> available-fields (filter #(= (:value %) value)) first :unit))
+                  value)]
+          (om/set-state! owner path v)
+          (om/update! selected-dataset path v))
         (recur)))
     om/IRenderState
     (render-state [_ state]
@@ -348,7 +347,7 @@
             {:keys [status text]} (:alert state)]
           (html
            [:div
-            (alert "alert alert-danger" [:p text] status "edit-dataset-form-alert" owner)
+            [:div {:id "edit-dataset-alert"} (bs/alert owner)]
             [:h3 "Editing dataset"]
             [:form.form-horizontal {:role "form"}
              [:div.col-md-12
@@ -383,8 +382,7 @@
                                      (delete-dataset event-chan refresh-chan entity_id selected-dataset))}
                  "Delete Dataset"]]]
               (bs/static-text selected-dataset [:device_id] "ID")
-              (om/build text-input-control selected-dataset {:opts {:id "dataset-name" :path [:name] :required true
-                                                             :label "Name" :dropdown-chan dropdown-chan}})
+              (text-input-control owner [:name] "dataset-name" "Name" true dropdown-chan)
               (om/build dropdown {:default operation :items available-operations}
                         {:opts {:id "operation-dropdown" :required true :label "Operation"
                                 :path [:operation] :dropdown-chan dropdown-chan}})
@@ -404,12 +402,12 @@
     (will-mount [_]
       (go-loop []
         (let [{:keys [dropdown-chan]} (om/get-state owner)
-              {:keys [path value] :as v}    (<! dropdown-chan)]
-          (om/update! new-dataset path (if (= path [:field])
-                                         (str value "~" (-> (filter #(= (:value %) value) available-fields)
-                                                            first
-                                                            :unit))
-                                         value)))
+              {:keys [path value] :as v}    (<! dropdown-chan)
+              v (if (= path [:field])
+                  (str value "~" (->> available-fields (filter #(= (:value %) value)) first :unit))
+                  value)]
+          (om/set-state! owner path v)
+          (om/update! new-dataset path v))
         (recur)))
     om/IRenderState
     (render-state [_ state]
@@ -419,7 +417,7 @@
                      event-chan]}    (om/get-state owner)
              {:keys [status text]}   (:alert state)]
          [:div
-          (alert "alert alert-danger" [:p text] status "new-dataset-form-alert" owner)
+          [:div {:id "new-dataset-alert"} (bs/alert owner)]
           [:h3 "Add new dataset"]
           [:form.form-horizontal {:role "form"}
            [:div.col-md-12
@@ -447,8 +445,7 @@
                         :onClick (fn [_]
                                    (put! event-chan {:event :adding-dataset :value false}))}
                "Cancel"]]]
-            (om/build text-input-control new-dataset {:opts {:id "dataset-name" :path [:name] :required true
-                                                             :label "Name" :dropdown-chan dropdown-chan}})
+            (text-input-control owner [:name] "dataset-name" "Name" true dropdown-chan)
             (om/build dropdown {:default (:operation new-dataset) :items available-operations}
                       {:opts {:id "operation-dropdown" :required true :label "Operation"
                               :path [:operation] :dropdown-chan dropdown-chan}})
@@ -588,9 +585,6 @@
                                     (when (or adding-dataset editing-dataset (not (seq edited-dataset))) "hidden"))
                         :onClick (fn [_] (om/update! datasets :editing-dataset true))}]])]
 
-          ;; Alert
-          [:div {:id "alert-div" :style {:padding-top "10px"}}
-           (om/build bs/alert (:alert datasets))]
           (when (and (seq (:datasets datasets)) (not adding-dataset) (not editing-dataset))
             (om/build datasets-table {:datasets (:datasets datasets)
                                       :sensors (:sensors datasets)}

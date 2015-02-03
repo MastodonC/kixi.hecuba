@@ -260,7 +260,7 @@
     (if validation-failures
       [true {:entity entity
              :malformed-msg "Uploaded data validation failed"
-             :errors (su/validation-error-explain validation-failures)
+             :errors validation-failures
              :representation {:media-type "application/json"}}]
       [false {:entity entity
               :representation {:media-type "application/json"}}])))

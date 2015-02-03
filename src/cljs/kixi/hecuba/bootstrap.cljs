@@ -133,33 +133,31 @@
   (let [value (.-value (.-target e))]
     (om/set-state! owner keys value)))
 
-(defn alert [cursor owner]
-  (om/component
-   (let [{:keys [status text class]} cursor]
-     (html
-      [:div {:style {:display (if status "block" "none")}}
-       [:div {:class class}
-        [:button.close {:type "button"
-                        :onClick (fn [_] (om/update! cursor :status false))}
-         [:span {:class "fa fa-times"}]]
-        text]]))))
+(defn alert [owner]
+  (let [{:keys [status text class]} (om/get-state owner :alert)]
+    [:div {:style {:display (if status "block" "none")}}
+     [:div {:class class}
+      [:button.close {:type "button"
+                      :onClick (fn [_] (om/set-state! owner [:alert :status] false))}
+       [:span {:class "fa fa-times"}]]
+      text]]))
 
-(defn text-input-control [data owner keys label & required]
+(defn text-input-control [owner keys label & required]
   (let [id (str key)]
     [:div.form-group
-     [:label {:for id} label]
+     [:label label]
      [:div {:class (str (if required "required " ""))}
-      [:input {:defaultValue (get-in data keys "")
+      [:input {:value (om/get-state owner keys)
                :on-change #(handle-change owner keys %1)
                :class "form-control"
                :type "text"}]]]))
 
-(defn text-area-control [data owner keys label]
+(defn text-area-control [owner keys label]
   [:div.form-group
-   [:label {:for label} label]
+   [:label label]
    [:textarea.form-control {:id label
                             :name label
-                            :defaultValue (get-in data keys "")
+                            :value (om/get-state owner keys)
                             :on-change #(handle-change owner keys %1)
                             :rows 2}]])
 
@@ -168,55 +166,55 @@
    [:label {:for label} label]
    [:p {:class "form-control-static"} (get-in data keys "")]])
 
-(defn checkbox [data owner keys label]
+(defn checkbox [owner keys label]
   [:div.checkbox
    [:label
     [:input {:type "checkbox"
-             :defaultChecked (let [checked? (get-in data keys)]
+             :defaultChecked (let [checked? (om/get-state owner keys)]
                                (or (= checked? "true") (= checked? true)))
              :on-change #(om/set-state! owner keys (.-checked (.-target %)))}
      label]]])
 
-(defn address-control [data owner keys]
+(defn address-control [owner keys]
   [:div
    [:div.form-group
     [:label.control-label {:for "address_street"} "Street Address"]
-    [:input {:defaultValue (get-in data (conj keys :address_street) "")
+    [:input {:value (om/get-state owner (conj keys :address_street))
              :on-change #(handle-change owner (conj keys :address_street) %1)
              :class "form-control"
              :type "text"
              :id "address_street"}]]
    [:div.form-group
     [:label.control-label {:for "address_street_two"} "Street Address 2"]
-    [:input {:defaultValue (get-in data (conj keys :address_street_two) "")
+    [:input {:value (om/get-state owner (conj keys :address_street_two))
              :on-change #(handle-change owner (conj keys :address_street_two) %1)
              :class "form-control"
              :type "text"
              :id "address_street_two"}]]
    [:div.form-group
     [:label.control-label {:for "address_city"} "City"]
-    [:input {:defaultValue (get-in data (conj keys :address_city) "")
+    [:input {:value (om/get-state owner (conj keys :address_city))
              :on-change #(handle-change owner (conj keys :address_city)  %1)
              :class "form-control"
              :type "text"
              :id "address_city"}]]
    [:div.form-group
     [:label.control-label {:for "address_code"} "Postal Code"]
-    [:input {:defaultValue (get-in data (conj keys :address_code) "")
+    [:input {:value (om/get-state owner (conj keys :address_code))
              :on-change #(handle-change owner (conj keys :address_code) %1)
              :class "form-control"
              :type "text"
              :id "address_code"}]]
    [:div.form-group
     [:label.control-label {:for "address_region"} "Region"]
-    [:input {:defaultValue (get-in data (conj keys :address_region) "")
+    [:input {:value (om/get-state owner (conj keys :address_region))
              :on-change #(handle-change owner (conj keys :address_region) %1)
              :class "form-control"
              :type "text"
              :id "address_region"}]]
    [:div.form-group
     [:label.control-label {:for "address_country"} "Country"]
-    [:input {:defaultValue (get-in data (conj keys :address_country) "")
+    [:input {:value (om/get-state owner (conj keys :address_country))
              :on-change #(handle-change owner (conj keys :address_country) %1)
              :class "form-control"
              :type "text"

@@ -13,11 +13,11 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; programmes
-(defn error-handler [programmes]
+(defn error-handler [owner]
   (fn [{:keys [status status-text]}]
-    (om/update! programmes :alert {:status true
-                                   :class "alert alert-danger"
-                                   :text status-text})))
+    (om/set-state! owner :alert {:status true
+                                 :class "alert alert-danger"
+                                 :text status-text})))
 
 (defn post-new-programme [programmes refresh-chan owner programme]
   (common/post-resource (str "/4/programmes/")
@@ -30,12 +30,15 @@
                         (error-handler programmes)))
 
 (defn put-edited-programme [programmes refresh-chan owner url programme]
-  (common/put-resource url
-                       (assoc programme :updated_at (common/now->str))
-                       (fn [_]
-                         (put! refresh-chan {:event :programmes})
-                         (om/update! programmes :editing false))
-                       (error-handler programmes)))
+  (let [updated-programme (-> programme
+                              (assoc :updated_at (common/now->str))
+                              (dissoc :projects :editable :selected :href :admin :slug))]
+    (common/put-resource url
+                         updated-programme
+                         (fn [_]
+                           (put! refresh-chan {:event :programmes})
+                           (om/update! programmes :editing false))
+                         (error-handler owner))))
 
 (defn valid-programme? [programme programmes]
   (let [programme-name (:name programme)]
@@ -43,71 +46,86 @@
 
 (defn programme-add-form [programmes]
   (fn [cursor owner]
-    (om/component
-     (let [refresh-chan (om/get-shared owner :refresh)]
-       (html
-        [:div
-         [:h3 "Add new programme"]
-         [:form.form-horizontal {:role "form"}
-          [:div.col-md-12
-           [:div.form-group
-            [:div.btn-toolbar
-             [:button.btn.btn-success {:type "button"
-                                       :onClick (fn [_] (let [programme (om/get-state owner :programme)]
-                                                          (om/update! cursor :programme programme)
-                                                          (if (valid-programme? programme (:data @programmes))
-                                                            (post-new-programme programmes refresh-chan owner programme)
-                                                            (om/update! programmes :alert {:status true
-                                                                                           :class "alert alert-danger"
-                                                                                           :text "Please enter name of the programme"}))))}
-              "Save"]
-             [:button.btn.btn-danger {:type "button"
-                                      :onClick (fn [_] (om/update! programmes :adding-programme false))}
-              "Cancel"]]]
-           (om/build alert (-> programmes :alert))
-           [:div.row {:role "form"}
-            [:div.col-md-4
-             (text-input-control cursor owner [:programme :name] "Programme Name" true)
-             (text-input-control cursor owner [:programme :leaders] "Leaders")
-             (text-input-control cursor owner [:programme :lead_organisations] "Lead Organisations")
-             (checkbox cursor owner [:programme :public_access] "Public Access")]
-            [:div.col-md-8
-             (text-area-control cursor owner [:programme :description] "Description")
-             (text-area-control cursor owner [:programme :lead_page_text] "Lead Page Text")]]]]])))))
+    (reify
+      om/IInitState
+      (init-state [_]
+        {:programme {}
+         :alert {}})
+      om/IRenderState
+      (render-state [_ state]
+        (let [refresh-chan (om/get-shared owner :refresh)]
+          (html
+           [:div
+            [:h3 "Add new programme"]
+            [:form.form-horizontal {:role "form"}
+             [:div.col-md-12
+              [:div.form-group
+               [:div.btn-toolbar
+                [:button.btn.btn-success {:type "button"
+                                          :onClick (fn [_] (let [programme (om/get-state owner :programme)]
+                                                             (if (valid-programme? programme (:data @programmes))
+                                                               (post-new-programme programmes refresh-chan owner programme)
+                                                               (om/set-state! owner :alert {:status true
+                                                                                            :class "alert alert-danger"
+                                                                                            :text "Please enter name of the programme"}))))}
+                 "Save"]
+                [:button.btn.btn-danger {:type "button"
+                                         :onClick (fn [_] (om/update! programmes :adding-programme false))}
+                 "Cancel"]]]
+              [:div {:id "programme-add-alert"} (bs/alert owner)]
+              [:div.row {:role "form"}
+               [:div.col-md-4
+                (text-input-control owner [:programme :name] "Programme Name" true)
+                (text-input-control owner [:programme :leaders] "Leaders")
+                (text-input-control owner [:programme :lead_organisations] "Lead Organisations")
+                (checkbox owner [:programme :public_access] "Public Access")]
+               [:div.col-md-8
+                (text-area-control owner [:programme :description] "Description")
+                (text-area-control owner [:programme :lead_page_text] "Lead Page Text")]]]]]))))))
 
 (defn programme-edit-form [programmes refresh-chan]
   (fn [cursor owner]
-    (om/component
-     (let [programme-id (-> programmes :selected)]
-       (html
-        [:div.col-md-12
-         [:h1 (:name cursor)]
-         [:div.col-md-12 [:form.form-horizontal {:role "form"}
-                          [:div.form-group
-                           [:div.btn-toolbar
-                            [:button.btn.btn-success {:type "button"
-                                                      :onClick (fn [_]
-                                                                 (let [programme (om/get-state owner [:programme])
-                                                                       url       (str "/4/programmes/" programme-id)]
-                                                                   (put-edited-programme programmes
-                                                                                         refresh-chan owner
-                                                                                         url programme)))}
-                             "Save"]
-                            [:button.btn.btn-danger {:type "button"
-                                                     :onClick (fn [_] (om/update! programmes :editing false))}
-                             "Cancel"]]]
-                          (om/build alert (-> programmes :alert))]]
-         [:div.row.col-md-12 (static-text cursor [:programme :programme_id] "Programme ID")]
-         [:div.row {:role "form"}
-          [:div.col-md-4
-           (text-input-control cursor owner [:programme :name] "Programme Name" true)
-           (text-input-control cursor owner [:programme :created_at] "Created At")
-           (text-input-control cursor owner [:programme :leaders] "Leaders")
-           (text-input-control cursor owner [:programme :lead_organisations] "Lead Organisations")
-           (checkbox cursor owner [:programme :public_access] "Public Access")]
-          [:div.col-md-8
-           (text-area-control cursor owner [:programme :description] "Description")
-           (text-area-control cursor owner [:programme :lead_page_text] "Lead Page Text")]]])))))
+    (reify
+      om/IInitState
+      (init-state [_]
+        {:programme (:programme cursor)
+         :alert {}})
+      om/IRenderState
+      (render-state [_ state]
+        (let [programme-id (-> programmes :selected)]
+          (html
+           [:div.col-md-12
+            [:h1 (:name cursor)]
+            [:div.col-md-12 [:form.form-horizontal {:role "form"}
+                             [:div.form-group
+                              [:div.btn-toolbar
+                               [:button.btn.btn-success {:type "button"
+                                                         :onClick (fn [_]
+                                                                    (let [programme (om/get-state owner [:programme])
+                                                                          url       (str "/4/programmes/" programme-id)]
+                                                                      (if (seq (:name programme))
+                                                                        (put-edited-programme programmes
+                                                                                              refresh-chan owner
+                                                                                              url programme)
+                                                                        (om/set-state! owner :alert {:status true
+                                                                                                     :class "alert alert-danger"
+                                                                                                     :text "Please enter name of the programme"}))))}
+                                "Save"]
+                               [:button.btn.btn-danger {:type "button"
+                                                        :onClick (fn [_] (om/update! programmes :editing false))}
+                                "Cancel"]]]
+                             [:div {:id "programme-edit-alert"} (bs/alert owner)]]]
+            [:div.row.col-md-12 (static-text cursor [:programme :programme_id] "Programme ID")]
+            [:div.row {:role "form"}
+             [:div.col-md-4
+              (text-input-control owner [:programme :name] "Programme Name" true)
+              (text-input-control owner [:programme :created_at] "Created At")
+              (text-input-control owner [:programme :leaders] "Leaders")
+              (text-input-control owner [:programme :lead_organisations] "Lead Organisations")
+              (checkbox owner [:programme :public_access] "Public Access")]
+             [:div.col-md-8
+              (text-area-control owner [:programme :description] "Description")
+              (text-area-control owner [:programme :lead_page_text] "Lead Page Text")]]]))))))
 
 (defn programme-detail [programmes editing-chan]
   (fn [cursor owner]

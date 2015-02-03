@@ -17,11 +17,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; properties
 
-(defn error-handler [properties]
+(defn error-handler [owner]
   (fn [{:keys [status status-text]}]
-    (om/update! properties :alert {:status true
-                                   :class "alert alert-danger"
-                                   :text status-text})))
+    (om/set-state! owner :alert {:status true
+                                 :class "alert alert-danger"
+                                 :text status-text})))
 
 (defn valid-property? [property properties]
   (let [property_code (:property_code property)]
@@ -37,65 +37,70 @@
                             (put! refresh-chan {:event :new-property :id entity_id}))
                           (om/update! properties :adding-property false)
                           (om/update! properties :new-property {}))
-                        (error-handler properties)))
+                        (error-handler owner)))
 
 (defn property-add-form [properties refresh-chan project_id]
   (fn [cursor owner]
-    (om/component
-     (html
-      [:div
-       [:div
-        [:h3 "Upload Properties"]
-        (let [div-id "properties-upload-form"]
-          (om/build (file/file-upload (str "/4/projects/" project_id "/entities/")
-                                      div-id)
-                    nil {:opts {:method "POST" :refresh? true}}))]
-       [:h3 "Add new property"]
-       [:form.form-horizontal {:role "form"}
-        [:div.col-md-6
-         [:div.form-group
-          [:div.btn-toolbar
-           [:button {:class "btn btn-success"
-                     :type "button"
-                     :onClick (fn [_] (let [property      (om/get-state owner :property)
-                                            property_data (om/get-state owner :property_data)]
-                                        (om/update! cursor :property property)
-                                        (om/update! cursor :property_data property_data)
-                                        (if (valid-property? property (:data @properties))
-                                          (post-new-property properties refresh-chan owner (-> (assoc property :project_id project_id)
-                                                                                  (assoc-if :property_data property_data))
-                                                             project_id)
-                                          (om/update! properties :alert {:status true
-                                                                         :class "alert alert-danger"
-                                                                         :text "Please enter unique property code"}))))}
-            "Save"]
-           [:button {:type "button"
-                     :class "btn btn-danger"
-                     :onClick (fn [_]
-                                (om/update! properties :adding-property false))}
-            "Cancel"]]]
-         (om/build bs/alert (-> properties :alert))
-         (bs/text-input-control cursor owner [:property :property_code] "Property Code" true)
-         (bs/address-control cursor owner [:property_data])
-         (bs/text-input-control cursor owner [:property_data :property_type] "Property Type")
-         (bs/text-input-control cursor owner [:property_data :built_form] "Built Form")
-         (bs/text-input-control cursor owner [:property_data :age] "Age")
-         (bs/text-input-control cursor owner [:property_data :ownership] "Ownership")
-         (bs/text-input-control cursor owner [:property_data :project_phase] "Project Phase")
-         (bs/text-input-control cursor owner [:property_data :monitoring_hierarchy] "Monitoring Hierarchy")
-         (bs/text-input-control cursor owner [:property_data :practical_completion_date] "Practical Completion Date")
-         (bs/text-input-control cursor owner [:property_data :construction_date] "Construction Date")
-         (bs/text-input-control cursor owner [:property_data :conservation_area] "Conservation Area")
-         (bs/text-input-control cursor owner [:property_data :listed] "Listed Building")
-         (bs/text-input-control cursor owner [:property_data :terrain] "Terrain")
-         (bs/text-input-control cursor owner [:property_data :degree_day_region] "Degree Day Region")
-         (bs/text-area-control cursor owner [:property_data :description] "Description")
-         (bs/text-area-control cursor owner [:property_data :project_summary] "Project Summary")
-         (bs/text-area-control cursor owner [:property_data :project_team] "Project Team")
-         (bs/text-area-control cursor owner [:property_data :design_strategy] "Design Strategy")
-         (bs/text-area-control cursor owner [:property_data :energy_strategy] "Energy Strategy")
-         (bs/text-area-control cursor owner [:property_data :monitoring_policy] "Monitoring Policy")
-         (bs/text-area-control cursor owner [:property_data :other_notes] "Other Notes")]]]))))
+    (reify
+      om/IInitState
+      (init-state [_]
+        {:property {}
+         :property_data {}
+         :alert {}})
+      om/IRenderState
+      (render-state [_ state]
+        (html
+         [:div
+          [:div
+           [:h3 "Upload Properties"]
+           (let [div-id "properties-upload-form"]
+             (om/build (file/file-upload (str "/4/projects/" project_id "/entities/")
+                                         div-id)
+                       nil {:opts {:method "POST" :refresh? true}}))]
+          [:h3 "Add new property"]
+          [:form.form-horizontal {:role "form"}
+           [:div.col-md-6
+            [:div.form-group
+             [:div.btn-toolbar
+              [:button {:class "btn btn-success"
+                        :type "button"
+                        :onClick (fn [_] (let [property      (om/get-state owner :property)
+                                               property_data (om/get-state owner :property_data)]
+                                           (if (valid-property? property (:data @properties))
+                                             (post-new-property properties refresh-chan owner (-> (assoc property :project_id project_id)
+                                                                                                  (assoc-if :property_data property_data))
+                                                                project_id)
+                                             (om/set-state! owner :alert {:status true
+                                                                          :class "alert alert-danger"
+                                                                          :text "Please enter unique property code"}))))}
+               "Save"]
+              [:button {:type "button"
+                        :class "btn btn-danger"
+                        :onClick (fn [_]
+                                   (om/update! properties :adding-property false))}
+               "Cancel"]]]
+            [:div {:id "properties-add-alert"} (bs/alert owner)]
+            (bs/text-input-control owner [:property :property_code] "Property Code" true)
+            (bs/address-control owner [:property_data])
+            (bs/text-input-control owner [:property_data :property_type] "Property Type")
+            (bs/text-input-control owner [:property_data :built_form] "Built Form")
+            (bs/text-input-control owner [:property_data :age] "Age")
+            (bs/text-input-control owner [:property_data :ownership] "Ownership")
+            (bs/text-input-control owner [:property_data :project_phase] "Project Phase")
+            (bs/text-input-control owner [:property_data :monitoring_hierarchy] "Monitoring Hierarchy")
+            (bs/text-input-control owner [:property_data :practical_completion_date] "Practical Completion Date")
+            (bs/text-input-control owner [:property_data :construction_date] "Construction Date")
+            (bs/text-input-control owner [:property_data :conservation_area] "Conservation Area")
+            (bs/text-input-control owner [:property_data :listed] "Listed Building")
+            (bs/text-input-control owner [:property_data :terrain] "Terrain")
+            (bs/text-input-control owner [:property_data :degree_day_region] "Degree Day Region")
+            (bs/text-area-control owner [:property_data :description] "Description")
+            (bs/text-area-control owner [:property_data :project_summary] "Project Summary")
+            (bs/text-area-control owner [:property_data :project_team] "Project Team")
+            (bs/text-area-control owner [:property_data :design_strategy] "Design Strategy")
+            (bs/text-area-control owner [:property_data :energy_strategy] "Energy Strategy")
+            (bs/text-area-control owner [:property_data :monitoring_policy] "Monitoring Policy")
+            (bs/text-area-control owner [:property_data :other_notes] "Other Notes")]]])))))
 
 (defn back-to-projects [history]
   (fn [_ _]

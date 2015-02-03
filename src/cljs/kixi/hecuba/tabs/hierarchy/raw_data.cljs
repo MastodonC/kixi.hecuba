@@ -54,7 +54,7 @@
          (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss")))))
 
 (defn get-measurements [raw-data entity_id sensor start-date]
-  (let [[type device_id] (str/split sensor #"-")
+  (let [[type device_id] (str/split sensor #"~")
         start-ts (date->amon-timestamp start-date)
         end-ts   (calculate-end-date start-date)
         url (url-str start-ts end-ts entity_id device_id type)]
@@ -147,7 +147,7 @@
        (let [{:keys [device_id type unit period resolution status
                      parent-device lower_ts upper_ts actual_annual editable]} sensor
              {:keys [description privacy location]} parent-device
-             id (str type "-" device_id)
+             id (str type "~" device_id)
              selected (:selected (om/observe owner (raw-data)))]
          [:tr {:on-click (fn [e]
                            (put! event-chan {:event :sensor-click :value id})
