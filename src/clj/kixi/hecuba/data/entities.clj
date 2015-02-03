@@ -125,25 +125,24 @@
 ;; See hecuba-schema.cql
 (def InsertableEntity
   {:entity_id s/Str
-   (s/optional-key :address_country) s/Str
-   (s/optional-key :address_county) s/Str
-   (s/optional-key :address_region) s/Str
-   (s/optional-key :address_street_two) s/Str
+   (s/optional-key :address_country) (s/maybe s/Str)
+   (s/optional-key :address_county) (s/maybe s/Str)
+   (s/optional-key :address_region) (s/maybe s/Str)
+   (s/optional-key :address_street_two) (s/maybe s/Str)
    (s/optional-key :calculated_fields_labels) (s/maybe {s/Str s/Str})
    (s/optional-key :calculated_fields_last_calc) (s/maybe {s/Str s/Str}) ;; sc/ISO-Date-Time
    (s/optional-key :calculated_fields_values) (s/maybe {s/Str s/Str})
-   (s/optional-key :csv_uploads) [s/Str]
    (s/optional-key :devices) {s/Str s/Any}
    (s/optional-key :documents) [s/Str]
    (s/optional-key :metering_point_ids) [s/Str]
-   (s/optional-key :name) s/Str
+   (s/optional-key :name) (s/maybe s/Str)
    (s/optional-key :notes) [s/Str]
    (s/optional-key :photos) [s/Str]
    (s/optional-key :profiles) (s/maybe [(s/maybe {s/Any s/Any})])
    :project_id s/Str
    (s/optional-key :property_code) (s/maybe s/Str)
    (s/optional-key :property_data) {s/Keyword s/Any}
-   (s/optional-key :retrofit_completion_date) s/Str ;; sc/ISO-Date-Time
+   (s/optional-key :retrofit_completion_date) (s/maybe s/Str) ;; sc/ISO-Date-Time
    :user_id s/Str})
 
 ;; FIXME -Here we make a tweak to the photos to allow alia update
@@ -161,14 +160,15 @@
     (db/execute session (hayt/insert :entities (hayt/values (encode-for-insert insertable-entity))))))
 
 (defn update [session id entity]
-  (let [updateable-entity (su/select-keys-by-schema entity InsertableEntity)
+  (let [insertable-entity (su/select-keys-by-schema entity InsertableEntity)
+        _ (s/validate InsertableEntity (assoc insertable-entity :entity_id id))
+        updateable-entity (-> insertable-entity
+                              (dissoc :entity_id)
+                              encode-for-update)
         profiles          (:profiles entity)]
-    (s/validate UpdateableEntity (assoc updateable-entity :entity_id id))
     (mapv #(profiles/update session (:profile_id %) %) profiles)
     (db/execute session (hayt/update :entities
-                                     (hayt/set-columns (-> updateable-entity
-                                                           (dissoc :entity_id)
-                                                           encode-for-update))
+                                     (hayt/set-columns updateable-entity)
                                      (hayt/where [[= :id id]])))))
 
 (defn get-by-id

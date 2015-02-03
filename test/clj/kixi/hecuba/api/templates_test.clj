@@ -28,9 +28,6 @@
   (-execute [session query opts]
     (swap! state conj [query opts])
     (nth results (swap! results-index inc)))
-  (-execute-async [session query opts]
-    (swap! state conj [query opts :async])
-    (nth results (swap! results-index inc)))
   (-execute-chan [session query opts]
     (swap! state conj [query opts :chan])
     (nth results (swap! results-index inc))))

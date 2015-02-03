@@ -31,7 +31,6 @@
 (defn new-cluster [opts]
   (->Cluster (merge ClusterDefaults opts)))
 
-;; TODO Delete execute-async and upgrade alia.
 (defn ->raw-with-logging
   "Log all CQL - because it's always useful.
    This logs the raw CQL to a special kixi.hecuba.storage.db.CQL logger"
@@ -67,11 +66,6 @@
       (alia/execute (:session this) query opts)
       (catch Throwable t (log/errorf t "Query execution failed: %s opts: %s" query opts)
              (throw t))))
-  (hecuba/-execute-async [this query opts]
-    (try
-      (alia/execute-async (:session this) (->raw-with-logging query) opts)
-      (catch Throwable t (log/errorf t "Query async execution failed: %s opts: %s" (hayt/->raw query) opts)
-             (throw t))))
   (hecuba/-execute-chan [this query opts]
     (try
       (alia/execute-chan (:session this) (->raw-with-logging query) opts)
@@ -90,8 +84,6 @@
   (hecuba/-prepare-statement session statement))
 (defn execute-prepared [session query & [opts]]
   (hecuba/-execute-prepared session query opts))
-(defn execute-async [session query & [opts]]
-  (hecuba/-execute-async session query opts))
 (defn execute-chan [session query & [opts]]
   (hecuba/-execute-chan session query opts))
 

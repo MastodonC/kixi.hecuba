@@ -46,7 +46,7 @@
                  [hickory "0.5.4"]
 
                  ;; Cassandra
-                 [cc.qbits/alia "2.1.2"]
+                 [cc.qbits/alia "2.3.1"]
                  ;; add lz4 to avoid startup warning.
                  [net.jpountz.lz4/lz4 "1.2.0"]
                  ;; Required for Cassandra (possibly only OSX)

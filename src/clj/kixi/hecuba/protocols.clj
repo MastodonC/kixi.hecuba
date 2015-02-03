@@ -5,7 +5,6 @@
   (-execute [session query opts])
   (-prepare-statement [session statement])
   (-execute-prepared [session query opts])
-  (-execute-async [session query opts])
   (-execute-chan [session query opts]))
 
 (defprotocol Elasticsearch
