@@ -334,7 +334,7 @@
         (let [{:keys [dropdown-chan]} (om/get-state owner)
               {:keys [path value]}    (<! dropdown-chan)
               v (if (= path [:field])
-                  (str value "~" (-> (filter #(= (:value %) value) available-fields) first :unit))
+                  (str value "~" (->> available-fields (filter #(= (:value %) value)) first :unit))
                   value)]
           (om/set-state! owner path v)
           (om/update! selected-dataset path v))
@@ -404,7 +404,7 @@
         (let [{:keys [dropdown-chan]} (om/get-state owner)
               {:keys [path value] :as v}    (<! dropdown-chan)
               v (if (= path [:field])
-                  (str value "~" (-> (filter #(= (:value %) value) available-fields) first :unit))
+                  (str value "~" (->> available-fields (filter #(= (:value %) value)) first :unit))
                   value)]
           (om/set-state! owner path v)
           (om/update! new-dataset path v))

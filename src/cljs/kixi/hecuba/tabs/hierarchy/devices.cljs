@@ -145,12 +145,12 @@
 
 (defn save-edited-device [event-chan existing-device refresh-chan owner property_id device_id]
   (let [{:keys [device sensors]} (om/get-state owner)
-        device (-> device
-                   (dissoc :synthetic :editable :metering_point_id :metadata)
-                   (update-in [:privacy] str))
-        readings (into [] (map (fn [[k v]] (-> (assoc v :sensor_id k)
-                                               (dissoc :upper_ts :lower_ts
-                                                       :median :status :synthetic))) sensors))]
+        device   (-> device
+                     (dissoc :editable :metering_point_id :metadata)
+                     (update-in [:privacy] str))
+        readings (mapv (fn [[k v]] (-> (assoc v :sensor_id k)
+                                       (dissoc :upper_ts :lower_ts
+                                               :median :status))) sensors)]
     (put-edited-device event-chan refresh-chan owner (assoc device :readings readings)
                        property_id device_id)
     (put! event-chan {:event :editing :value false})))
@@ -176,7 +176,8 @@
 (defn sensor-edit-div [property_id cursor owner event-chan refresh-chan]
   (let [sensor_id   (:sensor_id cursor)
         sensor-type (:type cursor)
-        device_id   (:device_id cursor)]
+        device_id   (:device_id cursor)
+        period      (:period cursor)]
     [:li.list-group-item
      [:div.row
       [:div.col-md-12 {:style {:padding-bottom "10px"}}
@@ -190,8 +191,10 @@
      (bs/text-input-control owner [:sensors sensor_id :unit] "Unit")
      [:div {:style {:padding-left "15px"}}
       (sensor-period-dropdown owner [:sensors sensor_id :period])]
-     (bs/text-input-control owner [:sensors sensor_id :resolution] "Resolution")
-     (bs/checkbox owner [:sensors sensor_id :actual_annual] "Calculated Field")]))
+     [:div {:style {:padding-bottom "15px"}}
+      (bs/text-input-control owner [:sensors sensor_id :resolution] "Resolution")]
+     (when (not= "CUMULATIVE" period) ;; calculated field for CUMULATIVE period is differenceSeries, which has been created.
+       (bs/checkbox owner [:sensors sensor_id :actual_annual] "Calculated Field"))]))
 
 (defn synthetic-sensor-edit-div [cursor owner]
   (let [sensor_id   (:sensor_id cursor)]
@@ -283,7 +286,7 @@
                           (put! event-chan {:event :alert :value {:status true
                                                                  :class "alert alert-success"
                                                                  :text "Device was created successfully."}}))
-                        (error-handler event-chan)))
+                        (error-handler owner)))
 
 (defn valid-device? [device]
   (not (nil? (:description device)))) ;; entity_id comes from the selection above
