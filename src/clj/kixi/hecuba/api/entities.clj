@@ -299,7 +299,7 @@
 (defn store-entity [entity existing-entities user_id store]
   (let [query-entity (-> entity
                          (assoc :user_id user_id)
-                         (enrich-with-ids (-> existing-entities :entities :entities)))
+                         (enrich-with-ids existing-entities))
         entity_id (:entity_id query-entity)]
     (entities/insert (:hecuba-session store) query-entity)
     (log/infof "upserted entity_id: %s entity: %s" entity_id query-entity)
