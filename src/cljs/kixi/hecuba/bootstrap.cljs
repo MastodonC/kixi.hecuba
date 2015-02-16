@@ -192,7 +192,7 @@
              :type "text"
              :id "address_street_two"}]]
    [:div.form-group
-    [:label.control-label {:for "address_city"} "City"]
+    [:label.control-label {:for "address_city"} "City / Town"]
     [:input {:value (om/get-state owner (conj keys :address_city))
              :on-change #(handle-change owner (conj keys :address_city)  %1)
              :class "form-control"
