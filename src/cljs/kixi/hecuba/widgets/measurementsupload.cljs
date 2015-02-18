@@ -9,7 +9,9 @@
                    {:display "dd-mm-yyyy hh:mm"    :format "dd-MM-yyyy HH:mm"}
                    {:display "yyyy/mm/dd hh:mm"    :format "yyyy/MM/dd HH:mm"}
                    {:display "yyyy-mm-dd hh:mm"    :format "yyyy-MM-dd HH:mm"}
-                   {:display "yyyy-mm-dd hh:mm:ss" :format "yyyy-MM-dd HH:mm:ss"}])
+                   {:display "yyyy-mm-dd hh:mm:ss" :format "yyyy-MM-dd HH:mm:ss"}
+                   {:display "dd/mm/yy hh:mm"      :format "dd/MM/yy HH:mm"}
+                   {:display "dd-mm-yy hh:mm"      :format "dd-MM-yy HH:mm"}])
 
 (defn validate-size-and-upload [uploads owner id url method]
   (if (not js/window.FileReader)
