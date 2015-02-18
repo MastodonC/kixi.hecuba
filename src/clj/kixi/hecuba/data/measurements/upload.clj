@@ -68,6 +68,7 @@
 (defn parse-header-rows [date-parser-fn rows]
   (let [invalid-date? (complement date-parser-fn)]
     (->> rows
+         (map #(map (fn [s] (str/trim s)) %)) ; trim each header field
          (take-while (comp invalid-date? first))
          (remove blank-row?))))
 
