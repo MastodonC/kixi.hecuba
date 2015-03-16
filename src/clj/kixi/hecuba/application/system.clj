@@ -40,7 +40,7 @@
       (combine
        (clojure.tools.reader/read
         (indexing-push-back-reader
-         (java.io.PushbackReader. (io/reader "resources/default.hecuba.edn")))) ;; TODO change path once we deploy from jar
+         (java.io.PushbackReader. (io/reader "default.hecuba.edn"))))
        (clojure.tools.reader/read
         (indexing-push-back-reader
          (java.io.PushbackReader. (io/reader f))))))))
