@@ -5,10 +5,6 @@
 
    ;; Hecuba custom components
 
-   ;; Modular reusable components
-   [modular.core :as mod]
-   [modular.http-kit :refer (new-webserver)]
-
    [kixi.hecuba.controller.pipeline :refer (new-pipeline)]
    [kixipipe.scheduler]
    [kixipipe.storage.s3 :as s3]
@@ -71,7 +67,7 @@
          :scheduler (kixipipe.scheduler/mk-session cfg)
          :web-app (new-web-app cfg)
          :e-mail (new-email (:e-mail cfg)))
-        (mod/system-using
+        (component/system-using
          {:web-app [:store :s3 :pipeline :e-mail]
           :store [:hecuba-session :s3 :search-session :e-mail]
           :pipeline [:store]

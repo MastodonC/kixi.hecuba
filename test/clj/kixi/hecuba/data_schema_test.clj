@@ -3,7 +3,6 @@
             [kixi.hecuba.application.system :as system]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.storage.search :as search]
-            [modular.core :as mod]
             [com.stuartsierra.component :as component]
             [clojure.data.json :as json]
             [clj-http.client :as client]
@@ -19,7 +18,7 @@
         :hecuba-session (db/new-session (:hecuba-session cfg))
         :search-session (search/new-search-session (:search-session cfg)))
         ;:store (db/new-store)
-        (mod/system-using
+        (component/system-using
          {;:store [:hecuba-session :s3 :search-session]
           :hecuba-session [:cluster]}))))
 
@@ -41,7 +40,7 @@
 ;;-----------------------------------
 
 (defn data-test-fixture [tests]
-  (when (connected?) 
+  (when (connected?)
     (reset! system (component/start (new-system)))
     (tests)
     (component/stop @system)
@@ -57,11 +56,11 @@
                            :lead_page_text "lead-text"
                            :public_access "access"
                            :home_page_text nil
-                           :lead_organisations nil 
+                           :lead_organisations nil
                            :name "TEST-prog-insert"
-                           :leaders nil 
-                           :updated_at nil 
-                           :user_id "support@mastodonc.com" 
+                           :leaders nil
+                           :updated_at nil
+                           :user_id "support@mastodonc.com"
                            :created_at nil})
 
 (defn- insert-programme [session prog]
@@ -70,7 +69,7 @@
 
 (defn- get-programme []
   (println "\n Returning programme with id: " (:programme_id programme) "\n"
-           (kixi.hecuba.data.programmes/get-by-id 
+           (kixi.hecuba.data.programmes/get-by-id
             (:hecuba-session system) (:programme_id programme))))
 
 ;;-----------------------------------

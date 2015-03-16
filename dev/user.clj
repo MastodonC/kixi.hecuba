@@ -12,7 +12,7 @@
    [clojure.pprint :refer (pprint)]
    [clojure.reflect :refer (reflect)]
    [clojure.repl :refer (apropos dir doc find-doc pst source)]
-   [modular :refer (system)]))
+   [kixipipe.application       :as kixi]))
 
 (defn init
   "Constructs the current development system."
@@ -22,18 +22,18 @@
   (require '[kixi.hecuba.application.system])
 
   (let [new-system (resolve 'kixi.hecuba.application.system/new-system)]
-    (alter-var-root #'system
+    (alter-var-root #'kixi/system
                     (constantly (new-system)))))
 
 (defn start
   "Starts the current development system."
   []
-  (alter-var-root #'system component/start))
+  (alter-var-root #'kixi/system component/start))
 
 (defn stop
   "Shuts down and destroys the current development system."
   []
-  (alter-var-root #'system
+  (alter-var-root #'kixi/system
                   (fn [s] (when s (component/stop s)))))
 
 (defn go

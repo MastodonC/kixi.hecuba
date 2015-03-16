@@ -1,3 +1,4 @@
+(def cider-nrepl-version "0.8.2")
 (defproject kixi/hecuba "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
@@ -62,12 +63,7 @@
                                                            commons-codec
                                                            commons-logging]]
 
-                 ;; Modular
-                 [juxt/modular "0.2.0" :exclusions [ch.qos.logback/logback-classic
-                                                    org.slf4j/jcl-over-slf4j
-                                                    org.slf4j/jul-to-slf4j
-                                                    org.slf4j/log4j-over-slf4j]]
-                 [juxt.modular/http-kit "0.2.0"]
+                 [http-kit "2.1.16"]
 
                  ;; EDN reader with location metadata - for configuration
                  [org.clojure/tools.reader "0.8.8"]
@@ -87,7 +83,15 @@
                  [lein-figwheel "0.1.5-SNAPSHOT"]
                  [enlive "1.1.5"]
                  [environ "1.0.0"]
-                 [ankha "0.1.4"]]
+                 [ankha "0.1.4"]
+
+                 [javax.servlet/servlet-api "2.5"]
+
+                 ;; do this here to avoid clashes
+                 ;; with local profiles.clj. We need
+                 ;; to choose a consistent version so
+                 ;; we can remote repl with completion.
+                 [cider/cider-nrepl              ~cider-nrepl-version]]
 
   :source-paths ["src/clj" "src/cljs"]
   :test-paths ["test/clj" "test/cljs"]
@@ -103,13 +107,22 @@
   :profiles {:dev {:source-paths ["dev"]
                    :dependencies [[ring-mock "0.1.5"]
                                   [org.clojure/tools.namespace "0.2.5"]
-                                  [javax.servlet/servlet-api "2.5"]
                                   [org.clojure/test.check "0.5.9"]]
                    :figwheel {:http-server-root "cljs"
                               :port 3449
                               :css-dirs ["resources/site/css"]}
-                   :env {:is-dev false}
-                   :plugins [[lein-figwheel "0.1.5-SNAPSHOT"]]}}
+                   :env {:is-dev true}
+                   :plugins [[lein-figwheel "0.1.5-SNAPSHOT"]]}
+             :uberjar {:hooks [leiningen.cljsbuild]
+                       :env {:production true}
+                       :main kixi.hecuba.main
+                       :aot [kixi.hecuba.main]
+                       :omit-source true
+                       :cljsbuild {:builds {:app
+                                            {:source-paths ["env/prod/cljs"]
+                                             :compiler
+                                             {:optimizations :advanced
+                                              :pretty-print false}}}}}}
 
   :exclusions [[org.clojure/clojure]
                [org.clojure/clojurescript]
