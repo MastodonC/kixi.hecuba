@@ -104,6 +104,11 @@
   :jvm-opts ["-Duser.timezone=UTC" "-XX:MaxPermSize=128m" "-Xmx2G" "-XX:+UseCompressedOops" "-XX:+HeapDumpOnOutOfMemoryError"]
   ;; "-XX:+PrintGC"  "-XX:+PrintGCDetails" "-XX:+PrintGCTimeStamps"
 
+  :uberimage {:base-image "mastodonc/basejava"
+              :cmd ["/bin/bash" "/start-hecuba"]
+              :files {"start-hecuba" "docker/start-hecuba.sh"}
+              :tag "mastodonc/kixi.hecuba"}
+
   :profiles {:dev {:source-paths ["dev"]
                    :dependencies [[ring-mock "0.1.5"]
                                   [org.clojure/tools.namespace "0.2.5"]
