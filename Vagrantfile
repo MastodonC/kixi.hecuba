@@ -34,6 +34,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     override.vm.network :forwarded_port, guest: 9042, host: 9042 #Cassandra CQL
     override.vm.network :forwarded_port, guest: 9160, host: 9160 #Cassandra Thrift
     override.vm.network :forwarded_port, guest: 7199, host: 7199 #Cassandra JMX (TODO - confirm)
+    override.vm.network :forwarded_port, guest: 9200, host: 9200 #ElasticSearch
+    override.vm.network :forwarded_port, guest: 9300, host: 9300 #ElasticSearch
 
   end
 
