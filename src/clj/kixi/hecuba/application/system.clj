@@ -14,9 +14,7 @@
    [kixi.hecuba.email :refer (new-email)]
 
    ;; Misc
-   clojure.tools.reader
-   [clojure.pprint :refer (pprint)]
-   [clojure.tools.reader.reader-types :refer (indexing-push-back-reader source-logging-push-back-reader)]
+   [clojure.edn :as edn]
    [clojure.java.io :as io]))
 
 (defn combine
@@ -34,26 +32,14 @@
   ([m1 m2 & more]
     (apply combine (combine m1 m2) more)))
 
+(defn- pushback-reader [x]
+  (java.io.PushbackReader. (io/reader x)))
+
 (defn config []
   (let [f (io/file (System/getProperty "user.home") ".hecuba.edn")]
-    (when (.exists f)
-      (combine
-       (clojure.tools.reader/read
-        (indexing-push-back-reader
-         (java.io.PushbackReader. (io/reader "default.hecuba.edn"))))
-       (clojure.tools.reader/read
-        (indexing-push-back-reader
-         (java.io.PushbackReader. (io/reader f))))))))
-
-
-(defn message [state message]
-  (println message)
-  state)
-
-(defn spy [x]
-  (println "System map is now")
-  (pprint x)
-  x)
+    (combine (edn/read (pushback-reader (io/resource "default.hecuba.edn")))
+             (when (.exists f)
+               (edn/read (pushback-reader (io/input-stream f)))))))
 
 (defn new-system []
   (let [cfg (config)]
