@@ -9,25 +9,10 @@
     </encoder>
   </appender>
 
-  <!-- Simple file output -->
-  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-    <!-- encoder defaults to ch.qos.logback.classic.encoder.PatternLayoutEncoder -->
-    <encoder>
-      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %X{pipejine.q} %logger{36} - %msg%n</pattern>
-    </encoder>
-
-    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <!-- rollover daily -->
-      <fileNamePattern>logs/hecuba-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-      <timeBasedFileNamingAndTriggeringPolicy
-          class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
-        <!-- or whenever the file size reaches 64 MB -->
-        <maxFileSize>64 MB</maxFileSize>
-      </timeBasedFileNamingAndTriggeringPolicy>
-    </rollingPolicy>
-
-    <!-- Safely log to the same file from multiple JVMs. Degrades performance! -->
-    <prudent>false</prudent>
+  <appender name="SYSLOG" class="ch.qos.logback.classic.net.SyslogAppender">
+    <syslogHost>localhost</syslogHost>
+    <facility>LOCAL0</facility>
+    <suffixPattern>%logger{35} %X{pipejine.q} - %message%n</suffixPattern>
   </appender>
 
   <!-- Enable FILE and STDOUT appenders for all log messages.
@@ -35,6 +20,7 @@
   <root level="DEBUG">
     <appender-ref ref="FILE" />
     <appender-ref ref="STDOUT" />
+    <appender-ref ref="SYSLOG" />
     <!-- <appender-ref ref="EMAIL" /> -->
   </root>
 
