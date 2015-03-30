@@ -5,16 +5,6 @@
             [cljs.core.async :refer [put!]]
             [kixi.hecuba.tabs.slugs :as slugs]))
 
-
-(defn checkbox [v cursor on-click]
-  (dom/div
-   #js {:className "checkbox"
-        ;; TODO hack alert!!
-        :style {:margin 0}}
-   (dom/label #js {:className "checkbox-inline"}
-              (dom/input #js {:type "checkbox"
-                              :value v
-                              :onClick on-click}))))
 (defn button
   ([text kind dismiss]
      (button text kind dismiss nil))

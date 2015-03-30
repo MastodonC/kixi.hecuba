@@ -1,5 +1,5 @@
 (ns kixi.hecuba.env.dev
-  (:require [figwheel.client :as figwheel :include-macros true]
+  (:require [figwheel.client :as figwheel]
             [kixi.hecuba.main :as m]))
 
 

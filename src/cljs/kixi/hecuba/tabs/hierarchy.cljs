@@ -273,7 +273,9 @@
             [:button {:type "button"
                       :class "btn btn-primary"
                       :onClick (fn [_]
-                                 (data/search-properties cursor 0 10 (:term @cursor)))}
+                                 (let [{:keys [sort-key sort-asc]} (:sort-spec @cursor)]
+                                   (data/search-properties cursor 0 10 (:term @cursor)
+                                                           (get-sort-str sort-key sort-asc))))}
              [:span.glyphicon.glyphicon-search]]]]])))))
 
 (defn found-property-row [cursor owner]

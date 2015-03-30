@@ -34,7 +34,7 @@
 
                  ;; liberator
                  [org.clojure/tools.trace "0.7.8"]
-                 [compojure "1.1.8"]
+                 [compojure "1.3.2"]
                  [liberator "0.12.2"]
 
                  ;; Data
@@ -70,7 +70,7 @@
 
                  ;; ClojureScript dependencies
 
-                 [org.clojure/clojurescript "0.0-2755" :scope "provided"]
+                 [org.clojure/clojurescript "0.0-2843" :scope "provided"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha" :scope "provided"]
 
                  [cljs-ajax "0.2.3"]
@@ -80,7 +80,7 @@
                  [sablono "0.2.22"]
 
                  ;; Dev environment
-                 [lein-figwheel "0.1.5-SNAPSHOT"]
+                 [lein-figwheel "0.2.5"]
                  [enlive "1.1.5"]
                  [environ "1.0.0"]
                  [ankha "0.1.4"]
@@ -111,13 +111,18 @@
 
   :profiles {:dev {:source-paths ["dev"]
                    :dependencies [[ring-mock "0.1.5"]
+                                  [figwheel "0.2.5"]
+                                  [figwheel-sidecar "0.2.5"]
+                                  [com.cemerick/piggieback "0.1.5"]
+                                  [weasel "0.6.0"]
                                   [org.clojure/tools.namespace "0.2.5"]
                                   [org.clojure/test.check "0.5.9"]]
                    :figwheel {:http-server-root "cljs"
                               :port 3449
                               :css-dirs ["resources/site/css"]}
                    :env {:is-dev true}
-                   :plugins [[lein-figwheel "0.1.5-SNAPSHOT"]]}
+                   :plugins [[lein-figwheel "0.2.5"]]
+                   :cljsbuild {:builds {:hecuba {:source-paths ["env/dev/cljs" "src/cljs"]}}}}
              :uberjar {:hooks [leiningen.cljsbuild]
                        :env {:production true}
                        :main kixi.hecuba.main
@@ -139,7 +144,6 @@
   :cljsbuild {:builds {:hecuba {:source-paths ["src/cljs" "env/prod/cljs" "env/dev/cljs"]
                                 :jar true
                                 :compiler {:output-to "out/cljs/hecuba.js"
-                                           :source-map "out/cljs/hecuba.map.js"
                                            :output-dir "out/cljs"
                                            :optimizations :none
                                            :pretty-print true}}
@@ -147,7 +151,7 @@
                               :compiler {:output-to "target/testable.js"
                                          :preamble ["react/react.min.js" "vendor/d3.v3.min.js"]
                                          :optimizations :whitespace
-                                         :pretty-print  true}}}
+                                         :pretty-print  false}}}
               :test-commands {"test" ["phantomjs" "phantom/unit-test.js" "phantom/unit-test.html"]}}
 
   ;; lein test - runs default
