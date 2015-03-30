@@ -2,7 +2,7 @@
   "Useful functions for interacting with the pipeline from the repl."
   (:require [kixipipe.scheduler       :as s]
             [kixipipe.pipeline        :refer [submit-item shutdown-pipe]]
-            [kixi.application         :as kixi]))
+            [kixipipe.application     :as kixi]))
 
 (defmacro defreplmethods
   [name & options]
