@@ -5,6 +5,7 @@
             [schema-contrib.core :as sc]
             [clj-time.format :as tf]
             [clj-time.coerce :as tc]
+            [kixi.hecuba.time :as kht]
             [kixi.hecuba.storage.db :as db]
             [kixi.hecuba.data :refer [parse-item parse-list] :as data]
             [kixi.hecuba.schema-utils :as su]
@@ -69,7 +70,7 @@
 
 (defn fix-timestamp [profile]
   (if-let [ts (:timestamp profile)]
-    (if-let [d (tf/parse (tf/formatters :date-time) ts)]
+    (if-let [d (kht/auto-parse ts)]
       (assoc profile :timestamp (tc/to-date d))
       profile)
     profile))
@@ -136,7 +137,7 @@
    (s/optional-key :low_energy_lights) [{s/Keyword s/Any}]
    (s/optional-key :photovoltaics) [{s/Keyword s/Any}]
    (s/optional-key :profile_data) {:event_type s/Str
-                                   s/Keyword   s/Str}
+                                   s/Keyword   s/Any}
    (s/optional-key :roof_rooms) [{s/Keyword s/Any}]
    (s/optional-key :roofs) [{s/Keyword s/Any}]
    (s/optional-key :small_hydros) [{s/Keyword s/Any}]
