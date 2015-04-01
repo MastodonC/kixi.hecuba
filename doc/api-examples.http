@@ -299,22 +299,96 @@ Authorization: :auth-token
 # Date: Mon, 02 Feb 2015 11:36:56 GMT
 
 # Create Profile
-GET http://localhost:8010/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/f561a7f9-f6c1-478f-b03e-8d1a04dc37da
+POST http://localhost:8010/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
 Accept-Encoding: application/json
 Authorization: :auth-token
+
+{
+    "profile_data": {
+        "event_type": "Post"
+    },
+    "timestamp": "2014-02-01T00:00:00.000Z",
+    "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82"
+
+}
+
+
+# Create Gas Tariff Profile
+POST http://localhost:8010/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+{
+    "profile_data": {
+        "event_type": "Tariff",
+        "tariff": {
+                        "type": "gas",
+                        "cost_per_kWh": 0.0425,
+                        "daily_standing_charge": 0.1644,
+                        "annual_lump_sum_discount": 5.0
+                  }
+    },
+    "timestamp": "2014-02-01T00:00:00.000Z",
+    "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82"
+
+}
+
+# Create Simple Electricity Tariff Profile
+POST http://localhost:8010/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+{
+    "profile_data": {
+        "event_type": "Tariff",
+        "tariff": {
+                        "type": "electricity",
+                        "cost_per_kWh": 0.13,
+                        "daily_standing_charge": 0.2192,
+                        "annual_lump_sum_discount": 5.0
+                  }
+    },
+    "timestamp": "2014-02-01T00:00:00.000Z",
+    "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82"
+
+}
+
+# Create Time of Use Electricity Tariff Profile
+POST http://localhost:8010/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
+Accept-Encoding: application/json
+Authorization: :auth-token
+
+{
+    "profile_data": {
+        "event_type": "Tariff",
+        "tariff": {
+                        "type": "electricity_time_of_use",
+                        "daily_standing_charge": 0.2192,
+                        "cost_per_on_peak_kWh": 0.15,
+                        "cost_per_off_peak_kWh": 0.06,
+                        "annual_lump_sum_discount": 10.0,
+                        "off_peak_periods": [
+                                                {"start": "00:00", "end": "05:00"},
+                                                {"start": "22:00", "end": "23:59"}
+                                            ]
+
+                  }
+    },
+    "timestamp": "2014-02-01T00:00:00.000Z",
+    "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82"
+
+}
 
 # Edit Profiles
 # 500s when it can't parse the json rather than 400s
 # 500s when it can't parse the date rather than 400s
-# Should handle more ISO like date time formats
 PUT http://localhost:8010/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/f561a7f9-f6c1-478f-b03e-8d1a04dc37da
 Accept-Encoding: application/json
 Authorization: :auth-token
 
 {
     "profile_data": {
-        "event_type": "Planned",
-        "timestamp":""
+        "event_type": "Planned"
     },
     "timestamp": "2014-01-01T00:00:00.000Z",
     "profile_id": "f561a7f9-f6c1-478f-b03e-8d1a04dc37da",
