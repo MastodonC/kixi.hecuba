@@ -192,12 +192,14 @@
           measurements         (db/execute session
                                    (hayt/select :partitioned_measurements (hayt/where where)))]
       (when (seq measurements)
+        (println (first measurements) (last measurements))
         ;; TODO insert this into C* under a synthetic sensor
-        {:value (str (round (find-calc calculation measurements)))
-         :timestamp (tc/to-date end-date)
-         :year (time/get-year-partition-key start-date)
-         :device_id device_id
-         :sensor_id sensor_id})
+        (println
+         {:value (str (round (find-calc calculation measurements)))
+          :timestamp (tc/to-date end-date)
+          :year (time/get-year-partition-key start-date)
+          :device_id device_id
+          :sensor_id sensor_id}))
       end-date)))
 
 (defn min-reading-for-a-day
@@ -206,18 +208,16 @@
   inserted onto C*."
   [store {:keys [sensor range]}]
   (let [{:keys [start-date end-date]} range]
-    (loop [start  start-date]
-      (when-not (t/before? end-date start)
-        (recur (calculate-batch store sensor start (t/plus start (t/days 1)) :min))))))
+    (doseq [timestamp (time/seq-dates start-date end-date (t/days 1))]
+      (calculate-batch store sensor timestamp (t/plus timestamp (t/days 1)) :min))))
 
 (defn min-reading-for-4-weeks
   "Finds the minimum value for a rolling 4 week window.
   Works in batches of a day, and inserts found value into C*."
   [store {:keys [sensor range]}]
   (let [{:keys [start-date end-date]} range]
-    (loop [start  start-date]
-      (when-not (t/before? end-date start)
-        (recur (calculate-batch store sensor (t/minus start (t/weeks 4)) (t/plus start (t/days 1)) :min))))))
+    (doseq [timestamp (time/seq-dates start-date end-date (t/days 1))]
+      (calculate-batch store sensor (t/minus timestamp (t/weeks 4)) (t/plus timestamp (t/days 1)) :min))))
 
 ;;;;;;;;;;; Rollups of measurements ;;;;;;;;;
 
