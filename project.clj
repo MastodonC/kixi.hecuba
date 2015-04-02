@@ -122,14 +122,14 @@
                               :css-dirs ["resources/site/css"]}
                    :env {:is-dev true}
                    :plugins [[lein-figwheel "0.2.5"]]
-                   :cljsbuild {:builds {:hecuba {:source-paths ["env/dev/cljs" "src/cljs"]}}}}
+                   :cljsbuild {:builds {:hecuba {:source-paths ["env/dev/cljs"]}}}}
              :uberjar {:hooks [leiningen.cljsbuild]
                        :env {:production true}
                        :main kixi.hecuba.main
                        :aot [kixi.hecuba.main]
                        :omit-source true
                        :cljsbuild {:builds {:hecuba
-                                            {:source-paths ["env/prod/cljs" "src/cljs"]
+                                            {:source-paths ["env/prod/cljs"]
                                              :compiler
                                              {:optimizations :advanced
                                               :pretty-print false}}}}}}
@@ -141,13 +141,13 @@
                [org.clojure/tools.logging]
                [joda-time]]
 
-  :cljsbuild {:builds {:hecuba {:source-paths ["src/cljs" "env/prod/cljs" "env/dev/cljs"]
+  :cljsbuild {:builds {:hecuba {:source-paths ["src/cljs"]
                                 :jar true
                                 :compiler {:output-to "out/cljs/hecuba.js"
                                            :output-dir "out/cljs"
                                            :optimizations :none
                                            :pretty-print true}}
-                       :test {:source-paths ["src/cljs" "test/cljs"]
+                       :test {:source-paths ["test/cljs"]
                               :compiler {:output-to "target/testable.js"
                                          :preamble ["react/react.min.js" "vendor/d3.v3.min.js"]
                                          :optimizations :whitespace
