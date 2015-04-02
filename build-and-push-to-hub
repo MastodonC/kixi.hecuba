@@ -20,6 +20,6 @@ TAG=git-$(git rev-parse --short=12 HEAD)
 #        don't depend on a fixed version of the parent
 #        docker repos. ie. changes to the parent repo 
 #        will still have the same git sha here. 
-docker tag -f ${IMAGE_NAME} ${IMAGE_NAME}:latest && \ 
-docker tag -f ${IMAGE_NAME} ${IMAGE_NAME}:${TAG} && \
-docker push ${IMAGE_NAME}
+docker tag -f "${IMAGE_NAME}" "${IMAGE_NAME}:latest" && \
+docker tag -f "${IMAGE_NAME}" "${IMAGE_NAME}:${TAG}" && \
+docker push "${IMAGE_NAME}"
