@@ -147,23 +147,3 @@
                                         {:value "2" :reading_metadata {"is-number" "false"}})))
      (is (= "1.5" (calc/difference-value {:value "1" :reading_metadata {"is-number" "true"}}
                                          {:value "2.5" :reading_metadata {"is-number" "true"}})))))
-
-(deftest min-reading-for-sequence-test
-  (testing "It returns the minimum value for a sequence of sensor data."
-    (is (= 0
-           (calc/min-reading-for-sequence
-            (take 10 (g/generate-measurements (g/generate-sensor-sample "CUMULATIVE"))))))
-    (is (= 1
-           (calc/min-reading-for-sequence
-            [{:error nil, :reading_metadata {"is-number" "false"}, :value "Invalid reading", :type "temperatureGround",
-              :timestamp #inst "2014-01-01T00:00:00.000-00:00"}
-             {:reading_metadata {"is-number" "true"}, :error nil, :value "2", :type "temperatureGround",
-              :timestamp #inst "2014-01-01T00:15:00.000-00:00"}
-             {:reading_metadata {"is-number" "true"}, :error nil, :value "4", :type "temperatureGround",
-              :timestamp #inst "2014-01-01T00:30:00.000-00:00"}
-             {:reading_metadata {"is-number" "true"}, :error nil, :value "1", :type "temperatureGround",
-              :timestamp #inst "2014-01-01T00:45:00.000-00:00"}])))
-    (is (nil? (calc/min-reading-for-sequence
-               [])))
-    (is (nil? (calc/min-reading-for-sequence
-            nil)))))
