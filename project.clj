@@ -128,8 +128,8 @@
                        :main kixi.hecuba.main
                        :aot [kixi.hecuba.main]
                        :omit-source true
-                       :cljsbuild {:builds {:app
-                                            {:source-paths ["env/prod/cljs"]
+                       :cljsbuild {:builds {:hecuba
+                                            {:source-paths ["env/prod/cljs" "src/cljs"]
                                              :compiler
                                              {:optimizations :advanced
                                               :pretty-print false}}}}}}
