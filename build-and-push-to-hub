@@ -11,11 +11,15 @@ function assert_git_is_clean() {
 
 assert_git_is_clean
 
-lein do clean, uberimage
+lein do clean, uberimage || exit 1
 
 IMAGE_NAME=mastodonc/kixi.hecuba
 TAG=git-$(git rev-parse --short=12 HEAD)
 
-docker tag -f ${IMAGE_NAME} ${IMAGE_NAME}:latest
-docker tag -f ${IMAGE_NAME} ${IMAGE_NAME}:${TAG}
+# FIXME: the tagging is a little suspect here, 'cos we
+#        don't depend on a fixed version of the parent
+#        docker repos. ie. changes to the parent repo 
+#        will still have the same git sha here. 
+docker tag -f ${IMAGE_NAME} ${IMAGE_NAME}:latest && \ 
+docker tag -f ${IMAGE_NAME} ${IMAGE_NAME}:${TAG} && \
 docker push ${IMAGE_NAME}
