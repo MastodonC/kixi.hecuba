@@ -1,5 +1,5 @@
-(ns kixi.hecuba.data.tariff-calculations
-  "Collection of functions that support tariff calculations."
+(ns kixi.hecuba.data.measurements.calculations
+  "Collection of generic calculations on measurements."
   (:require [kixi.hecuba.data.measurements :as measurements]
             [kixi.hecuba.time              :as time]
             [kixi.hecuba.data.calculate    :as c]

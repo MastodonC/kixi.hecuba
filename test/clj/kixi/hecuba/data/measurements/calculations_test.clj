@@ -1,6 +1,6 @@
-(ns kixi.hecuba.data.tariff-calculations-test
+(ns kixi.hecuba.data.measurements.calculations-test
   (:use clojure.test)
-  (:require [kixi.hecuba.data.tariff-calculations :refer :all]
+  (:require [kixi.hecuba.data.measurements.calculations :refer :all]
             [generators :as g]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
