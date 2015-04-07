@@ -343,6 +343,13 @@
     "KWH2CO2" "co2"))
 
 (defn output-type-for [t operation]
-  (case (.toUpperCase operation)
-    "VOL2KWH" (str t "_kwh")
-    "KWH2CO2" (str t "_co2")))
+  (let [op (if (string? operation)
+             (.toUpperCase operation)
+             operation)]
+    (case op
+      "VOL2KWH" (str t "_kwh")
+      "KWH2CO2" (str t "_co2")
+      :min-for-day (str t "_min_for_day")
+      :max-for-day (str t "_max_for_day")
+      :min-rolling-4-weeks (str t "_min_rolling_4_weeks")
+      :max-rolling-4-weeks (str t "_max_rolling_4_weeks"))))

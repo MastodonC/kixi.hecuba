@@ -2,7 +2,8 @@
   (:require [clj-time.core     :as t]
             [clj-time.coerce   :as tc]
             [clj-time.periodic :as tp]
-            [clj-time.format   :as tf]))
+            [clj-time.format   :as tf]
+            [clj-time.periodic :as p]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -162,3 +163,16 @@
 (defn db-timestamp
   "Returns java.util.Date from String timestamp."
   [t] (.parse (java.text.SimpleDateFormat.  "yyyy-MM-dd'T'HH:mm:ss") t))
+
+
+(defn seq-dates
+  "Returns a sequence of dates between 
+  a start and an end date using a given 
+  interval. Exclusive of the end date."
+  [start end interval]
+  (when (and (instance? org.joda.time.DateTime start)
+             (instance? org.joda.time.DateTime end))
+    (take (-> (org.joda.time.Days/daysBetween
+               start end)
+              (.getDays))
+          (p/periodic-seq start interval))))

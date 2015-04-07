@@ -92,3 +92,18 @@
 
     (testing "No measurements passed."
       (is (thrown? AssertionError (min-max-dates nil))))))
+
+(deftest seq-dates-test
+  (testing "Checks a sequence of dates is created."
+    (is (= [(t/date-time 2012 5 8) (t/date-time 2012 5 9)]
+         (seq-dates (t/date-time 2012 5 8)
+                    (t/date-time 2012 5 10)
+                    (t/days 1))))
+    (is (nil?
+         (seq-dates nil
+                    (t/date-time 2012 5 10)
+                    (t/days 1))))
+    (is (nil?
+         (seq-dates "2012 5 8"
+                    (t/date-time 2012 5 10)
+                    (t/days 1))))))
