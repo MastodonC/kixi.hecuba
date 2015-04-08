@@ -68,7 +68,7 @@
                 {:reading_metadata {"is-number" "true"}, :error nil, :value "1", :type "temperatureGround",
                  :timestamp #inst "2014-01-01T00:03:00.000-00:00"}]]
       (is (= []
-             (extract-period :morning data)))
+             (filter morning? data)))
       (is (= [{:error nil, :reading_metadata {"is-number" "false"}, :value "Invalid reading", :type "temperatureGround",
                :timestamp #inst "2014-01-01T00:00:00.000-00:00"}
               {:reading_metadata {"is-number" "true"}, :error nil, :value "2", :type "temperatureGround",
@@ -79,14 +79,14 @@
                :timestamp #inst "2014-01-01T00:45:00.000-00:00"}
               {:reading_metadata {"is-number" "true"}, :error nil, :value "1", :type "temperatureGround",
                :timestamp #inst "2014-01-01T00:03:00.000-00:00"}]
-             (extract-period :night data)))
+             (filter night? data)))
       (is (= [{:reading_metadata {"is-number" "true"}, :error nil, :value "1", :type "temperatureGround",
                :timestamp #inst "2014-01-01T10:45:00.000-00:00"}
               {:reading_metadata {"is-number" "true"}, :error nil, :value "1", :type "temperatureGround",
                :timestamp #inst "2014-01-01T10:50:00.000-00:00"}
               {:reading_metadata {"is-number" "true"}, :error nil, :value "1", :type "temperatureGround",
                :timestamp #inst "2014-01-01T11:00:00.000-00:00"}]
-             (extract-period :day data)))
+             (filter day? data)))
       (is (= [{:reading_metadata {"is-number" "true"}, :error nil, :value "1", :type "temperatureGround",
                :timestamp #inst "2014-01-01T17:45:00.000-00:00"}]
-             (extract-period :evening data))))))
+             (filter evening? data))))))

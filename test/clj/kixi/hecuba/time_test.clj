@@ -107,3 +107,16 @@
          (seq-dates "2012 5 8"
                     (t/date-time 2012 5 10)
                     (t/days 1))))))
+
+(deftest update-timestamp-test
+  (testing "Testing function that updates the timestamp."
+    (let [timestamp (t/date-time 1990 1 1 10 0 0)]
+      (is (= (t/date-time 1989 1 1 10 0 59)
+             (update-timestamp! timestamp {:year 1989 :seconds 59})))
+      (is (= (t/date-time 1991 10 1 11 0 0)
+             (update-timestamp! timestamp {:year 1991 :month 10 :hour 11})))
+      (is (= (t/date-time 1992 8 22 7 7 7)
+             (update-timestamp! timestamp {:year 1992 :month 8 :day 22 :hour 7 :minutes 7 :seconds 7})))
+      (is (= (t/date-time 1990 1 1 10 0 0)
+             (update-timestamp! timestamp {})))
+      (is (nil? (update-timestamp! nil {}))))))

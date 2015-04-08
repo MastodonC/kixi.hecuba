@@ -9,11 +9,6 @@
             [kixi.hecuba.storage.db        :as db]
             [clojure.tools.logging         :as log]))
 
-(def periods {:night   [{:hour 0 :minutes 0}   {:hour 4 :minutes 30}]
-              :morning [{:hour 5 :minutes 0}   {:hour 10 :minutes 0}]
-              :day     [{:hour 10 :minutes 30} {:hour 17 :minutes 0}]
-              :evening [{:hour 17 :minutes 30} {:hour 23 :minutes 30}]})
-
 (defn min-value
   "Finds the least of a sequence of numbers.
   Returns a numerical value."
@@ -45,21 +40,41 @@
        (keep :value)
        (calculation-fn)))
 
-(defn extract-period
-  "Extracts data for a specific period.
-  Period can be :morning :day :evening or :night."
-  [period xs]
-  (let [timestamp   (->> xs first :timestamp (tc/to-date-time))
-        [start end] (get periods period)
-        start-date  (t/date-time (t/year timestamp) (t/month timestamp) (t/day timestamp)
-                                 (:hour start) (:minutes start))
-        end-date    (t/date-time (t/year timestamp) (t/month timestamp) (t/day timestamp)
-                                 (:hour end) (:minutes end))]
-    (filter #(let [t (tc/to-date-time (:timestamp %))]
-               (and (or (t/before? t end-date)
-                        (= t end-date))
-                    (or (t/after? t start-date)
-                        (= t start-date)))) xs)))
+(defn morning?
+  "Returns true if measurement falls between 5:00 and 10:00.
+  Returns false otherwise."
+  [x]
+  (let [timestamp (tc/to-date-time (:timestamp x))
+        start     (time/update-timestamp! timestamp {:hour 5 :minutes 0 :seconds 0})
+        end       (time/update-timestamp! timestamp {:hour 10 :minutes 0 :seconds 0})]
+    (t/within? (t/interval start end) timestamp)))
+
+(defn day?
+  "Returns true if measurement falls between 10:30 and 17:00.
+  Returns false otherwise."
+  [x]
+  (let [timestamp (tc/to-date-time (:timestamp x))
+        start     (time/update-timestamp! timestamp {:hour 10 :minutes 30 :seconds 0})
+        end       (time/update-timestamp! timestamp {:hour 17 :minutes 0 :seconds 0})]
+    (t/within? (t/interval start end) timestamp)))
+
+(defn evening?
+  "Returns true if measurement falls between 17:30 and 23:30.
+  Returns false otherwise."
+  [x]
+  (let [timestamp (tc/to-date-time (:timestamp x))
+        start     (time/update-timestamp! timestamp {:hour 17 :minutes 30 :seconds 0})
+        end       (time/update-timestamp! timestamp {:hour 23 :minutes 30 :seconds 0})]
+    (t/within? (t/interval start end) timestamp)))
+
+(defn night?
+  "Returns true if measurement falls between 00:00 and 04:30.
+  Returns false otherwise."
+  [x]
+  (let [timestamp (tc/to-date-time (:timestamp x))
+        start     (time/update-timestamp! timestamp {:hour 0 :minutes 0 :seconds 0})
+        end       (time/update-timestamp! timestamp {:hour 4 :minutes 30 :seconds 0})]
+    (t/within? (t/interval start end) timestamp)))
 
 (defmulti calculation (fn [calculation data] calculation))
 
@@ -83,42 +98,42 @@
 
 (defmethod calculation :avg-rolling-4-weeks-morning [_ data]
   (->> data
-       (extract-period :morning)
+       (filter morning?)
        (calculate-reading-from-seq avg-value)))
 
 (defmethod calculation :avg-rolling-4-weeks-day [_ data]
   (->> data
-       (extract-period :day)
+       (filter day?)
        (calculate-reading-from-seq avg-value)))
 
 (defmethod calculation :avg-rolling-4-weeks-evening [_ data]
   (->> data
-       (extract-period :evening)
+       (filter evening?)
        (calculate-reading-from-seq avg-value)))
 
 (defmethod calculation :avg-rolling-4-weeks-night [_ data]
   (->> data
-       (extract-period :night)
+       (filter night?)
        (calculate-reading-from-seq avg-value)))
 
 (defmethod calculation :min-rolling-4-weeks-morning [_ data]
   (->> data
-       (extract-period :morning)
+       (filter morning?)
        (calculate-reading-from-seq min-value)))
 
 (defmethod calculation :min-rolling-4-weeks-day [_ data]
   (->> data
-       (extract-period :day)
+       (filter day?)
        (calculate-reading-from-seq min-value)))
 
 (defmethod calculation :min-rolling-4-weeks-evening [_ data]
   (->> data
-       (extract-period :evening)
+       (filter evening?)
        (calculate-reading-from-seq min-value)))
 
 (defmethod calculation :min-rolling-4-weeks-night [_ data]
   (->> data
-       (extract-period :night)
+       (filter night?)
        (calculate-reading-from-seq min-value)))
 
 (defn calculate-batch
