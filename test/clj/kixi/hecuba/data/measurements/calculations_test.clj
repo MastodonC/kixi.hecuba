@@ -44,7 +44,8 @@
       (is (= 3 (calculation :max-rolling-4-weeks data)))
       (is (= 2.0 (calculation :avg-rolling-4-weeks data)))
       (is (nil? (calculation :min-for-day [])))
-      (is (nil? (calculation :max-for-day nil))))))
+      (is (nil? (calculation :max-for-day nil)))
+      (is (= 2.0 (calculation :avg-rolling-4-weeks-night data))))))
 
 (deftest extract-period-test
   (testing "Extracting data according to a given period."

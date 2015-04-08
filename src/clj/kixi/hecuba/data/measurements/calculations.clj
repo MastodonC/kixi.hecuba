@@ -81,11 +81,45 @@
 (defmethod calculation :avg-rolling-4-weeks [_ data]
   (calculate-reading-from-seq avg-value data))
 
-
 (defmethod calculation :avg-rolling-4-weeks-morning [_ data]
   (->> data
        (extract-period :morning)
        (calculate-reading-from-seq avg-value)))
+
+(defmethod calculation :avg-rolling-4-weeks-day [_ data]
+  (->> data
+       (extract-period :day)
+       (calculate-reading-from-seq avg-value)))
+
+(defmethod calculation :avg-rolling-4-weeks-evening [_ data]
+  (->> data
+       (extract-period :evening)
+       (calculate-reading-from-seq avg-value)))
+
+(defmethod calculation :avg-rolling-4-weeks-night [_ data]
+  (->> data
+       (extract-period :night)
+       (calculate-reading-from-seq avg-value)))
+
+(defmethod calculation :min-rolling-4-weeks-morning [_ data]
+  (->> data
+       (extract-period :morning)
+       (calculate-reading-from-seq min-value)))
+
+(defmethod calculation :min-rolling-4-weeks-day [_ data]
+  (->> data
+       (extract-period :day)
+       (calculate-reading-from-seq min-value)))
+
+(defmethod calculation :min-rolling-4-weeks-evening [_ data]
+  (->> data
+       (extract-period :evening)
+       (calculate-reading-from-seq min-value)))
+
+(defmethod calculation :min-rolling-4-weeks-night [_ data]
+  (->> data
+       (extract-period :night)
+       (calculate-reading-from-seq min-value)))
 
 (defn calculate-batch
   [store {:keys [device_id type sensor_id period]} start-date end-date calculation-type]
@@ -97,13 +131,14 @@
           new-type         (sensors/output-type-for type calculation-type)
           output-sensor_id (:sensor_id (sensors/get-by-type {:device_id device_id :type new-type} session))]
       (when (seq measurements)
+        (log/infof "Calculating %s for device_id %s and sensor_id %s" calculation-type device_id sensor_id)
         (if output-sensor_id
           (let [calculated-sensor {:device_id device_id :sensor_id output-sensor_id}
                 calculated-data   [{:value (str (c/round (calculation calculation-type measurements)))
-                                    :timestamp (tc/to-date end-date)
+                                    :timestamp (tc/to-date start-date)
                                     :month (time/get-month-partition-key start-date)
                                     :device_id device_id
-                                    :sensor_id sensor_id}]]
+                                    :sensor_id output-sensor_id}]]
             (measurements/insert-measurements store calculated-sensor 10 calculated-data)
             (sensors/update-sensor-metadata session calculated-sensor start-date end-date))
           (log/errorf "Could not find the output sensor_id for device_id %s and new type %s" device_id new-type))))))
