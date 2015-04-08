@@ -9,6 +9,11 @@
             [kixi.hecuba.storage.db        :as db]
             [clojure.tools.logging         :as log]))
 
+(def periods {:night   [{:hour 0 :minutes 0}   {:hour 4 :minutes 30}]
+              :morning [{:hour 5 :minutes 0}   {:hour 10 :minutes 0}]
+              :day     [{:hour 10 :minutes 30} {:hour 17 :minutes 0}]
+              :evening [{:hour 17 :minutes 30} {:hour 23 :minutes 30}]})
+
 (defn min-value
   "Finds the least of a sequence of numbers.
   Returns a numerical value."
@@ -40,6 +45,22 @@
        (keep :value)
        (calculation-fn)))
 
+(defn extract-period
+  "Extracts data for a specific period.
+  Period can be :morning :day :evening or :night."
+  [period xs]
+  (let [timestamp   (->> xs first :timestamp (tc/to-date-time))
+        [start end] (get periods period)
+        start-date  (t/date-time (t/year timestamp) (t/month timestamp) (t/day timestamp)
+                                 (:hour start) (:minutes start))
+        end-date    (t/date-time (t/year timestamp) (t/month timestamp) (t/day timestamp)
+                                 (:hour end) (:minutes end))]
+    (filter #(let [t (tc/to-date-time (:timestamp %))]
+               (and (or (t/before? t end-date)
+                        (= t end-date))
+                    (or (t/after? t start-date)
+                        (= t start-date)))) xs)))
+
 (defmulti calculation (fn [calculation data] calculation))
 
 (defmethod calculation :min-for-day [_ data]
@@ -59,6 +80,12 @@
 
 (defmethod calculation :avg-rolling-4-weeks [_ data]
   (calculate-reading-from-seq avg-value data))
+
+
+(defmethod calculation :avg-rolling-4-weeks-morning [_ data]
+  (->> data
+       (extract-period :morning)
+       (calculate-reading-from-seq avg-value)))
 
 (defn calculate-batch
   [store {:keys [device_id type sensor_id period]} start-date end-date calculation-type]
