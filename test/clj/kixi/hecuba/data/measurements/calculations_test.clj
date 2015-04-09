@@ -45,10 +45,13 @@
       (is (= 2.0 (calculation :avg-rolling-4-weeks data)))
       (is (nil? (calculation :min-for-day [])))
       (is (nil? (calculation :max-for-day nil)))
-      (is (= 2.0 (calculation :avg-rolling-4-weeks-night data))))))
+      (is (= 2.0 (calculation :avg-rolling-4-weeks-night data)))
+      (is (= 0 (calculation :min-rolling-4-weeks-night (g/generate-measurements (g/generate-sensor-sample "CUMULATIVE")))))
+      (is (= 499 (calculation :max-rolling-4-weeks-night (g/generate-measurements (g/generate-sensor-sample "CUMULATIVE")))))
+      (is (= 134.5 (calculation :avg-rolling-4-weeks-night (g/generate-measurements (g/generate-sensor-sample "CUMULATIVE"))))))))
 
-(deftest extract-period-test
-  (testing "Extracting data according to a given period."
+(deftest filter-test
+  (testing "Filtering data according to a given period."
     (let [data [{:error nil, :reading_metadata {"is-number" "false"}, :value "Invalid reading", :type "temperatureGround",
                  :timestamp #inst "2014-01-01T00:00:00.000-00:00"}
                 {:reading_metadata {"is-number" "true"}, :error nil, :value "2", :type "temperatureGround",
