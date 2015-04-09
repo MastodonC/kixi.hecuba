@@ -44,37 +44,25 @@
   "Returns true if measurement falls between 5:00 and 10:00.
   Returns false otherwise."
   [x]
-  (let [timestamp (tc/to-date-time (:timestamp x))
-        start     (time/update-timestamp! timestamp {:hour 5 :minutes 0 :seconds 0})
-        end       (time/update-timestamp! timestamp {:hour 10 :minutes 0 :seconds 0})]
-    (t/within? (t/interval start end) timestamp)))
+  (-> x :timestamp tc/to-date-time time/morning?))
 
 (defn day?
   "Returns true if measurement falls between 10:30 and 17:00.
   Returns false otherwise."
   [x]
-  (let [timestamp (tc/to-date-time (:timestamp x))
-        start     (time/update-timestamp! timestamp {:hour 10 :minutes 30 :seconds 0})
-        end       (time/update-timestamp! timestamp {:hour 17 :minutes 0 :seconds 0})]
-    (t/within? (t/interval start end) timestamp)))
+  (-> x :timestamp tc/to-date-time time/day?))
 
 (defn evening?
   "Returns true if measurement falls between 17:30 and 23:30.
   Returns false otherwise."
   [x]
-  (let [timestamp (tc/to-date-time (:timestamp x))
-        start     (time/update-timestamp! timestamp {:hour 17 :minutes 30 :seconds 0})
-        end       (time/update-timestamp! timestamp {:hour 23 :minutes 30 :seconds 0})]
-    (t/within? (t/interval start end) timestamp)))
+  (-> x :timestamp tc/to-date-time time/evening?))
 
 (defn night?
   "Returns true if measurement falls between 00:00 and 04:30.
   Returns false otherwise."
   [x]
-  (let [timestamp (tc/to-date-time (:timestamp x))
-        start     (time/update-timestamp! timestamp {:hour 0 :minutes 0 :seconds 0})
-        end       (time/update-timestamp! timestamp {:hour 4 :minutes 30 :seconds 0})]
-    (t/within? (t/interval start end) timestamp)))
+  (-> x :timestamp tc/to-date-time time/night?))
 
 (defmulti calculation (fn [calculation data] calculation))
 
