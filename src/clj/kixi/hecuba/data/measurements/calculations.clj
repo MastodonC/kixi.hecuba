@@ -40,6 +40,30 @@
        (keep :value)
        (calculation-fn)))
 
+(defn morning?
+  "Returns true if measurement falls between 5:00 and 10:00.
+  Returns false otherwise."
+  [x]
+  (-> x :timestamp tc/to-date-time time/morning?))
+
+(defn day?
+  "Returns true if measurement falls between 10:30 and 17:00.
+  Returns false otherwise."
+  [x]
+  (-> x :timestamp tc/to-date-time time/day?))
+
+(defn evening?
+  "Returns true if measurement falls between 17:30 and 23:30.
+  Returns false otherwise."
+  [x]
+  (-> x :timestamp tc/to-date-time time/evening?))
+
+(defn night?
+  "Returns true if measurement falls between 00:00 and 04:30.
+  Returns false otherwise."
+  [x]
+  (-> x :timestamp tc/to-date-time time/night?))
+
 (defmulti calculation (fn [calculation data] calculation))
 
 (defmethod calculation :min-for-day [_ data]
@@ -51,6 +75,66 @@
 (defmethod calculation :avg-for-day [_ data]
   (calculate-reading-from-seq avg-value data))
 
+(defmethod calculation :min-for-day-morning [_ data]
+  (->> data
+       (filter morning?)
+       (calculate-reading-from-seq min-value)))
+
+(defmethod calculation :min-for-day-day [_ data]
+  (->> data
+       (filter day?)
+       (calculate-reading-from-seq min-value)))
+
+(defmethod calculation :min-for-day-evening [_ data]
+  (->> data
+       (filter evening?)
+       (calculate-reading-from-seq min-value)))
+
+(defmethod calculation :max-for-day-morning [_ data]
+  (->> data
+       (filter morning?)
+       (calculate-reading-from-seq max-value)))
+
+(defmethod calculation :max-for-day-day [_ data]
+  (->> data
+       (filter day?)
+       (calculate-reading-from-seq max-value)))
+
+(defmethod calculation :max-for-day-evening [_ data]
+  (->> data
+       (filter evening?)
+       (calculate-reading-from-seq max-value)))
+
+(defmethod calculation :max-for-day-night [_ data]
+  (->> data
+       (filter night?)
+       (calculate-reading-from-seq max-value)))
+
+(defmethod calculation :min-for-day-night [_ data]
+  (->> data
+       (filter night?)
+       (calculate-reading-from-seq min-value)))
+
+(defmethod calculation :avg-for-day-morning [_ data]
+  (->> data
+       (filter morning?)
+       (calculate-reading-from-seq avg-value)))
+
+(defmethod calculation :avg-for-day-day [_ data]
+  (->> data
+       (filter day?)
+       (calculate-reading-from-seq avg-value)))
+
+(defmethod calculation :avg-for-day-evening [_ data]
+  (->> data
+       (filter evening?)
+       (calculate-reading-from-seq avg-value)))
+
+(defmethod calculation :avg-for-day-night [_ data]
+  (->> data
+       (filter night?)
+       (calculate-reading-from-seq avg-value)))
+
 (defmethod calculation :min-rolling-4-weeks [_ data]
   (calculate-reading-from-seq min-value data))
 
@@ -60,8 +144,68 @@
 (defmethod calculation :avg-rolling-4-weeks [_ data]
   (calculate-reading-from-seq avg-value data))
 
+(defmethod calculation :avg-rolling-4-weeks-morning [_ data]
+  (->> data
+       (filter morning?)
+       (calculate-reading-from-seq avg-value)))
+
+(defmethod calculation :avg-rolling-4-weeks-day [_ data]
+  (->> data
+       (filter day?)
+       (calculate-reading-from-seq avg-value)))
+
+(defmethod calculation :avg-rolling-4-weeks-evening [_ data]
+  (->> data
+       (filter evening?)
+       (calculate-reading-from-seq avg-value)))
+
+(defmethod calculation :avg-rolling-4-weeks-night [_ data]
+  (->> data
+       (filter night?)
+       (calculate-reading-from-seq avg-value)))
+
+(defmethod calculation :min-rolling-4-weeks-morning [_ data]
+  (->> data
+       (filter morning?)
+       (calculate-reading-from-seq min-value)))
+
+(defmethod calculation :min-rolling-4-weeks-day [_ data]
+  (->> data
+       (filter day?)
+       (calculate-reading-from-seq min-value)))
+
+(defmethod calculation :min-rolling-4-weeks-evening [_ data]
+  (->> data
+       (filter evening?)
+       (calculate-reading-from-seq min-value)))
+
+(defmethod calculation :min-rolling-4-weeks-night [_ data]
+  (->> data
+       (filter night?)
+       (calculate-reading-from-seq min-value)))
+
+(defmethod calculation :max-rolling-4-weeks-morning [_ data]
+  (->> data
+       (filter morning?)
+       (calculate-reading-from-seq max-value)))
+
+(defmethod calculation :max-rolling-4-weeks-day [_ data]
+  (->> data
+       (filter day?)
+       (calculate-reading-from-seq max-value)))
+
+(defmethod calculation :max-rolling-4-weeks-evening [_ data]
+  (->> data
+       (filter night?)
+       (calculate-reading-from-seq max-value)))
+
+(defmethod calculation :max-rolling-4-weeks-night [_ data]
+  (->> data
+       (filter morning?)
+       (calculate-reading-from-seq max-value)))
+
 (defn calculate-batch
-  [store {:keys [device_id type sensor_id period]} start-date end-date calculation-type]
+  [store {:keys [device_id type sensor_id period]} start-date end-date calculation-type & [condition]]
   (db/with-session [session (:hecuba-session store)]
     (let [month            (time/get-month-partition-key start-date)
           where            [[= :device_id device_id] [= :sensor_id sensor_id] [= :month month]
@@ -70,13 +214,14 @@
           new-type         (sensors/output-type-for type calculation-type)
           output-sensor_id (:sensor_id (sensors/get-by-type {:device_id device_id :type new-type} session))]
       (when (seq measurements)
+        (log/infof "Calculating %s for device_id %s and sensor_id %s" calculation-type device_id sensor_id)
         (if output-sensor_id
           (let [calculated-sensor {:device_id device_id :sensor_id output-sensor_id}
                 calculated-data   [{:value (str (c/round (calculation calculation-type measurements)))
                                     :timestamp (tc/to-date end-date)
-                                    :month (time/get-month-partition-key start-date)
+                                    :month (time/get-month-partition-key end-date)
                                     :device_id device_id
-                                    :sensor_id sensor_id}]]
+                                    :sensor_id output-sensor_id}]]
             (measurements/insert-measurements store calculated-sensor 10 calculated-data)
             (sensors/update-sensor-metadata session calculated-sensor start-date end-date))
           (log/errorf "Could not find the output sensor_id for device_id %s and new type %s" device_id new-type))))))

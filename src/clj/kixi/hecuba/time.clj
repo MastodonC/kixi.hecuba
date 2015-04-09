@@ -166,8 +166,8 @@
 
 
 (defn seq-dates
-  "Returns a sequence of dates between 
-  a start and an end date using a given 
+  "Returns a sequence of dates between
+  a start and an end date using a given
   interval. Exclusive of the end date."
   [start end interval]
   (when (and (instance? org.joda.time.DateTime start)
@@ -176,3 +176,51 @@
                start end)
               (.getDays))
           (p/periodic-seq start interval))))
+
+(defn update-timestamp
+  "Takes a joda DateTime and a map of parts of the
+  timestamp that are to be updated, e.g.
+  {:year 2011 :hour 14}
+  Returns a copy of this DateTime with those fields
+  updated."
+  [t v]
+  (when t
+    (-> t
+        (cond-> (:year v) (.withYear (:year v)))
+        (cond-> (:month v) (.withMonthOfYear (:month v)))
+        (cond-> (:day v) (.withDayOfMonth (:day v)))
+        (cond-> (:hour v) (.withHourOfDay (:hour v)))
+        (cond-> (:minutes v) (.withMinuteOfHour (:minutes v)))
+        (cond-> (:seconds v) (.withSecondOfMinute (:seconds v))))))
+
+(defn morning?
+  "Returns true if measurement falls between 5:00 and 10:00.
+  Returns false otherwise."
+  [timestamp]
+  (let [start (update-timestamp timestamp {:hour 5 :minutes 0 :seconds 0})
+        end   (update-timestamp timestamp {:hour 10 :minutes 0 :seconds 0})]
+    (t/within? (t/interval start end) timestamp)))
+
+(defn day?
+  "Returns true if measurement falls between 10:30 and 17:00.
+  Returns false otherwise."
+  [timestamp]
+  (let [start (update-timestamp timestamp {:hour 10 :minutes 30 :seconds 0})
+        end   (update-timestamp timestamp {:hour 17 :minutes 0 :seconds 0})]
+    (t/within? (t/interval start end) timestamp)))
+
+(defn evening?
+  "Returns true if measurement falls between 17:30 and 23:30.
+  Returns false otherwise."
+  [timestamp]
+  (let [start (update-timestamp timestamp {:hour 17 :minutes 30 :seconds 0})
+        end   (update-timestamp timestamp {:hour 23 :minutes 30 :seconds 0})]
+    (t/within? (t/interval start end) timestamp)))
+
+(defn night?
+  "Returns true if measurement falls between 00:00 and 04:30.
+  Returns false otherwise."
+  [timestamp]
+  (let [start (update-timestamp timestamp {:hour 0 :minutes 0 :seconds 0})
+        end   (update-timestamp timestamp {:hour 4 :minutes 30 :seconds 0})]
+    (t/within? (t/interval start end) timestamp)))
