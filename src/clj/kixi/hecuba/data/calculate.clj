@@ -19,8 +19,11 @@
 
 ;; Helpers
 
-(defn round [x]
-  (with-precision 3 x))
+(defn round
+  ([x] (with-precision 3 x))
+  ([d precision]
+   (let [factor (Math/pow 10 precision)]
+     (/ (Math/floor (* d factor)) factor))))
 
 (defn merge-sensor-metadata [store sensor]
   (db/with-session [session (:hecuba-session store)]

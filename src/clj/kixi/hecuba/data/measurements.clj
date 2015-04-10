@@ -210,14 +210,24 @@
                              nil))))
        measurements))
 
+(defn where
+  "Takes a map of clauses for database query and returns
+  a vector of vectors, where :start and :end keys are
+  renamed to :timestamp. Follows Hayt rules."
+  [m]
+  (mapv (fn [[k v :as item]] (case k
+                     :start (into [>= :timestamp] [v])
+                     :end (into [< :timestamp] [v])
+                     (into [=] item))) (mapv vec m)))
+
 (defn fetch-measurements
   "Fetches measurements using given where clause and fetch size.
   If fetch size is not provided, uses the default 100.
   Returns a lazy sequence of measurements."
-  [store where & [opts]]
+  [store where-m & [opts]]
   (let [{:keys [fetch-size] :or {fetch-size 100}} opts]
     (db/with-session [session (:hecuba-session store)]
       (db/execute session
                   (hayt/select :partitioned_measurements
-                               (hayt/where where))
-                  {:fetch-size fetch-size})))) 
+                               (hayt/where (where where-m)))
+                  {:fetch-size fetch-size}))))

@@ -120,3 +120,13 @@
       (is (= (t/date-time 1990 1 1 10 0 0)
              (update-timestamp timestamp {})))
       (is (nil? (update-timestamp nil {}))))))
+
+(deftest in-interval?-test
+  (testing "Testing function that checks if timestamp falls in a specified tiem interval."
+    (is (in-interval? (t/date-time 1980 1 1 12 50 0) {:start "10:30" :end "17:20"}))
+    (is (not (in-interval? (t/date-time 1980 1 1 12 50 0) {:start "10:30" :end "10:45"})))
+    (is (in-interval? (t/date-time 1980 1 2 3 50 0) {:start "22:00" :end "5:00"}))
+    (is (in-interval? (t/date-time 1980 1 2 22 01 0) {:start "22:00" :end "5:00"}))
+    (is (not (in-interval? (t/date-time 1980 1 2 21 01 0) {:start "22:00" :end "5:00"})))
+    (is (in-interval? (t/date-time 1980 1 2 10 01 0) {:start "10:00" :end "11:00"}))
+    (is (not (in-interval? (t/date-time 1980 1 2 11 01 0) {:start "10:00" :end "11:00"})))))

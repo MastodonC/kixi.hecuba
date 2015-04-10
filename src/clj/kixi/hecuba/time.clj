@@ -3,7 +3,9 @@
             [clj-time.coerce   :as tc]
             [clj-time.periodic :as tp]
             [clj-time.format   :as tf]
-            [clj-time.periodic :as p]))
+            [clj-time.periodic :as p]
+            [clojure.string    :as str]
+            [clojure.edn       :as edn]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -191,7 +193,15 @@
         (cond-> (:day v) (.withDayOfMonth (:day v)))
         (cond-> (:hour v) (.withHourOfDay (:hour v)))
         (cond-> (:minutes v) (.withMinuteOfHour (:minutes v)))
-        (cond-> (:seconds v) (.withSecondOfMinute (:seconds v))))))
+        (cond-> (:seconds v) (.withSecondOfMinute (:seconds v)))
+        (cond-> (:milliseconds v) (.withMillisOfSecond (:seconds v))))))
+
+(defn in-range?
+  "Takes a timestamp, start and end dates.
+  Returns true if a timestamp is in range.
+  Returns false otherwise."
+  [timestamp start end]
+  (t/within? (t/interval start end) timestamp))
 
 (defn morning?
   "Returns true if measurement falls between 5:00 and 10:00.
@@ -199,7 +209,7 @@
   [timestamp]
   (let [start (update-timestamp timestamp {:hour 5 :minutes 0 :seconds 0})
         end   (update-timestamp timestamp {:hour 10 :minutes 0 :seconds 0})]
-    (t/within? (t/interval start end) timestamp)))
+    (in-range? timestamp start end)))
 
 (defn day?
   "Returns true if measurement falls between 10:30 and 17:00.
@@ -207,7 +217,7 @@
   [timestamp]
   (let [start (update-timestamp timestamp {:hour 10 :minutes 30 :seconds 0})
         end   (update-timestamp timestamp {:hour 17 :minutes 0 :seconds 0})]
-    (t/within? (t/interval start end) timestamp)))
+    (in-range? timestamp start end)))
 
 (defn evening?
   "Returns true if measurement falls between 17:30 and 23:30.
@@ -215,7 +225,7 @@
   [timestamp]
   (let [start (update-timestamp timestamp {:hour 17 :minutes 30 :seconds 0})
         end   (update-timestamp timestamp {:hour 23 :minutes 30 :seconds 0})]
-    (t/within? (t/interval start end) timestamp)))
+    (in-range? timestamp start end)))
 
 (defn night?
   "Returns true if measurement falls between 00:00 and 04:30.
@@ -223,4 +233,26 @@
   [timestamp]
   (let [start (update-timestamp timestamp {:hour 0 :minutes 0 :seconds 0})
         end   (update-timestamp timestamp {:hour 4 :minutes 30 :seconds 0})]
-    (t/within? (t/interval start end) timestamp)))
+    (in-range? timestamp start end)))
+
+(defn in-interval?
+  "Returns true if measurement falls between specified range.
+  Returns false otherwise.
+  Start and end dates might span over two days (before/after midnight)
+  so in those cases we're checking if the timestamp is either
+  before the end date or after the start date."
+  [timestamp {:keys [start end]}]
+  (let [[s-hour s-minutes] (map edn/read-string (str/split start #":"))
+        [e-hour e-minutes] (map edn/read-string (str/split end #":"))
+        start-opts         {:hour s-hour
+                            :minutes s-minutes
+                            :seconds 0}
+        end-opts           {:hour e-hour
+                            :minutes e-minutes
+                            :seconds 0}
+        start              (update-timestamp timestamp start-opts)
+        end                (update-timestamp timestamp end-opts)]
+    (if (t/before? end start) ;; does it cross midnight?
+      (or (t/after? timestamp start)
+          (t/before? timestamp end))
+      (in-range? timestamp start end))))
