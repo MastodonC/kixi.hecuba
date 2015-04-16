@@ -216,18 +216,18 @@
   renamed to :timestamp. Follows Hayt rules."
   [m]
   (mapv (fn [[k v :as item]] (case k
-                     :start (into [>= :timestamp] [v])
-                     :end (into [< :timestamp] [v])
+                     :start [>= :timestamp v]
+                     :end [< :timestamp v]
                      (into [=] item))) (mapv vec m)))
 
 (defn fetch-measurements
   "Fetches measurements using given where clause and fetch size.
   If fetch size is not provided, uses the default 100.
   Returns a lazy sequence of measurements."
-  [store where-m & [opts]]
+  [store args & [opts]]
   (let [{:keys [fetch-size] :or {fetch-size 100}} opts]
     (db/with-session [session (:hecuba-session store)]
       (db/execute session
                   (hayt/select :partitioned_measurements
-                               (hayt/where (where where-m)))
+                               (hayt/where (where args)))
                   {:fetch-size fetch-size}))))

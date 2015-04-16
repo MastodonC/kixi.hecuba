@@ -250,7 +250,7 @@
   [store entity_id]
   (db/with-session [session (:hecuba-session store)]
     (let [profiles (profiles/get-profiles entity_id session)]
-      (mapcat #(hash-map (:timestamp %) (-> % :profile_data :tariff)) profiles))))
+      (map #(select-keys % [:timestamp :profile_data]) profiles))))
 
 (defn tariff-ranges
   "Filters timestamps from tariffs, and creates ranges of datetimes
@@ -277,7 +277,7 @@
   and calculates discounted standing charge.
   Returns a numerical value."
   [daily-standing-charge annual-lump-sum-discount]
-  (float (/ (- (* daily-standing-charge 365) annual-lump-sum-discount) 365)))
+  (float (- daily-standing-charge (/ annual-lump-sum-discount 365))))
 
 (defmulti apply-tariff
   "Processes one day's worth of data (differenceSeries),
@@ -285,15 +285,15 @@
   multiplies it by the consumption for each period.
   Returns a sequence of expenditure measurements."
   (fn [tariff _]
-    (cond
-      (:off-peak-periods tariff) :on-off-peak
-      (:cost-per-kwh tariff) :simple
-      :else :none)))
+    (condp #(%1 %2) tariff
+      :off-peak-periods :on-off-peak
+      :cost-per-kwh     :simple
+      :none)))
 
 (defn day->on-off-periods
   "Takes a sequence of off peak start and end dates, e.g.
   [{:start \"00:00\" :end \"05:00\"}
-   {:start \"22:00\" :end \"23:59\"}]
+  {:start \"22:00\" :end \"23:59\"}]
   and splits measurements into two groups: on and off peak.
   Returns a map with :on and :off keywords and two sequences
   of measurements."
@@ -303,7 +303,7 @@
                                 off-peak-periods)
                         :off :on)
                      measurements)]
-       xs))
+    xs))
 
 (defn apply-on-off-peak
   "Accepts on and off peak cost values and a sequence of
@@ -313,9 +313,9 @@
   numerical value."
   [on-peak-cost off-peak-cost [on off]]
   (cond
-      (and on off) (+ (* on-peak-cost on) (* off-peak-cost off))
-      on           (* on-peak-cost on)
-      off          (* off-peak-cost off)))
+    (and on off) (+ (* on-peak-cost on) (* off-peak-cost off))
+    on           (* on-peak-cost on)
+    off          (* off-peak-cost off)))
 
 (defmethod apply-tariff :on-off-peak [tariff measurements]
   (let [{:keys [cost-per-kwh off-peak-periods
@@ -360,17 +360,17 @@
           output-sensor_id (:sensor_id (sensors/get-by-type {:device_id device_id :type new-type} session))]
       (when (seq measurements)
         (log/infof "Calculating daily expenditure for device_id %s and sensor_id %s" device_id sensor_id)
-         (if output-sensor_id
-             (let [tariff            (match-tariff (first measurements) tariffs)
-                   calculated-sensor {:device_id device_id :sensor_id output-sensor_id}
-                   calculated-data   [{:value (str (c/round (apply-tariff tariffs measurements)))
-                                       :timestamp (tc/to-date end-date)
-                                       :month (time/get-month-partition-key end-date)
-                                       :device_id device_id
-                                       :sensor_id output-sensor_id}]]
-               (measurements/insert-measurements store calculated-sensor 10 calculated-data)
-               (sensors/update-sensor-metadata session calculated-sensor start-date end-date))
-             (log/errorf "Could not find the output sensor_id for device_id %s and new type %s" device_id new-type))))))
+        (if output-sensor_id
+          (let [tariff            (match-tariff (first measurements) tariffs)
+                calculated-sensor {:device_id device_id :sensor_id output-sensor_id}
+                calculated-data   [{:value (str (c/round (apply-tariff tariff measurements)))
+                                    :timestamp (tc/to-date end-date)
+                                    :month (time/get-month-partition-key end-date)
+                                    :device_id device_id
+                                    :sensor_id output-sensor_id}]]
+            (measurements/insert-measurements store calculated-sensor 10 calculated-data)
+            (sensors/update-sensor-metadata session calculated-sensor start-date end-date))
+          (log/errorf "Could not find the output sensor_id for device_id %s and new type %s" device_id new-type))))))
 
 (defn calculate-expenditure-daily
   "Gets tariff map and a map containing
@@ -395,7 +395,7 @@
           calculated-sensor {:device_id device_id :sensor_id output-sensor_id}]
       (when tariff
         (doseq [m measurements]
-          (let [calculated-data  [{:value (str (c/round (apply-tariff tariffs [m])))
+          (let [calculated-data  [{:value (str (c/round (apply-tariff tariff [m])))
                                    :timestamp (tc/to-date end-date)
                                    :month (time/get-month-partition-key end-date)
                                    :device_id device_id
@@ -422,7 +422,7 @@
 
 (defn calculate-expenditure-hourly
   "Accepts store, sensor information, start and end dates and
-   a list of tariffs. Retrieves a day's worth of data and works on it in
+  a list of tariffs. Retrieves a day's worth of data and works on it in
   half an hour batches. Matches appropriate tariff and calculates
   expenditure for each period.
 

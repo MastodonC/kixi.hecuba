@@ -20,7 +20,7 @@
 ;; Helpers
 
 (defn round
-  ([x] (with-precision 3 x))
+  ([d] (with-precision 3 d))
   ([d precision]
    (let [factor (Math/pow 10 precision)]
      (/ (Math/floor (* d factor)) factor))))
