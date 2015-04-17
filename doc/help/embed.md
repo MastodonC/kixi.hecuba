@@ -644,3 +644,37 @@ Here is an example of making a user a programme manager.
 This is what it looks like when you have successfully edited a user.
 
 ![Successful Editing](successful-user-editing.png)
+
+## Property Comparison
+
+Property Comparison tab allows you to compare sensor readings between
+multiple properties. You can only compare properties that you have
+permission to see. To search for a property, please enter its code,
+address or other indentifying information into the search box:
+
+![Initial Search](comparison-search.png)
+
+Next, select a property you want to use for comparison from the list
+of all found properties. That property will be moved to the Selected
+Properties table. To select another property, search and select it the
+same way. To remove the property from your selection, click on it in
+the Selected Properties table.
+
+![Selected Properties](comparison-selected-properties.png)
+
+Sensor table shows all available sensors from selected
+properties. In order to plot their readings on the chart below, select
+the ones you are interested in by clicking on them. You can only
+select maximum two different sensor units - appropriate warning will
+be displayed if you try to select too many different units.
+
+![Selected sensors](comparison-selected-sensors.png)
+
+Once you are happy with your selections, click on Chart Data
+button. Readings will be retrieved from the database and displayed on
+the chart.
+
+![Plotted data](comparison-chart.png)
+
+You can go back to selecting/de-selecting properties and sensors at
+any time.
