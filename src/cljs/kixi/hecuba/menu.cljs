@@ -13,7 +13,7 @@
                                                                                         "programme-manager"
                                                                                         "project-manager"}}
                                {:pathname "/logout" :text "Logout"}
-                               {:pathname "https://github.com/MastodonC/kixi.hecuba/blob/master/doc/documentation.md" :text "Documentation"}]
+                               {:pathname "https://github.com/MastodonC/kixi.hecuba/blob/master/doc/help/embed.md" :text "Help"}]
                        :whoami nil}))
 
 (defn menu [{:keys [menu whoami]} owner]
