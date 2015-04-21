@@ -67,7 +67,9 @@
       :subtract parent-period
       :divide "INSTANT"
       :multiply-series-by-field parent-period
-      :divide-series-by-field parent-period)))
+      :divide-series-by-field parent-period
+      :total-usage-weekly "PULSE"
+      :total-usage-monthly "PULSE")))
 
 (defn synthetic-sensor [sensor_id operation type device_id unit parents]
   {:device_id  device_id
@@ -121,7 +123,7 @@
       :post (let [body (decode-body request)
                   {:keys [operation]} body]
               (if (some #{operation} ["divide" "sum" "subtract" "multiply-series-by-field"
-                                      "divide-series-by-field"])
+                                      "divide-series-by-field" "total-usage-weekly" "total-usage-monthly"])
                 [false {:dataset body}]
                 true))
       :get (if (seq entity_id) false true)
@@ -131,6 +133,7 @@
   (let [{:keys [operation operands name]} body
         sensors  (sensors-for-dataset body store)]
     (when (and (seq entity)
+               (seq operands)
                (= (count operands) (count sensors)))
       [true {::items {:entity_id (:entity_id entity) :sensors sensors :operation operation :operands operands :name name}}])))
 
@@ -160,6 +163,12 @@
 
 (defmethod exists? :divide-series-by-field [entity body store]
   (sensor-and-field-exist? entity body store))
+
+(defmethod exists? :total-usage-weekly [entity body store]
+  (all-sensors-exist? entity body store))
+
+(defmethod exists? :total-usage-monthly [entity body store]
+  (all-sensors-exist? entity body store))
 
 (defmethod exists? :default [entity body store] false)
 
@@ -196,6 +205,10 @@
   (let [{:keys [sensors operands]} item
         [field unit] (string/split (last operands) #"~")]
     (str (:unit (first sensors)) "/" unit)))
+(defmethod get-unit :total-usage-weekly [item]
+  "kWh")
+(defmethod get-unit :total-usage-monthly [item]
+  "kWh")
 
 (defn index-post! [store ctx]
    (db/with-session [session (:hecuba-session store)]

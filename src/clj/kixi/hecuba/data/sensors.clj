@@ -301,10 +301,11 @@
     (db/execute session (hayt/select :sensor_metadata (hayt/where [[= :device_id device_id]])))))
 
 (defn merge-sensor-metadata [store sensor]
-  (db/with-session [session (:hecuba-session store)]
-    (merge (first (db/execute session (hayt/select :sensor_metadata
-                                                   (hayt/where [[= :device_id (:device_id sensor)]
-                                                                [= :sensor_id (:sensor_id sensor)]])))) sensor)))
+  (when (seq sensor)
+    (db/with-session [session (:hecuba-session store)]
+      (merge (first (db/execute session (hayt/select :sensor_metadata
+                                                     (hayt/where [[= :device_id (:device_id sensor)]
+                                                                  [= :sensor_id (:sensor_id sensor)]])))) sensor))))
 
 (defn all-sensor-information
   "Given store,  device_id and type, combines data from sensor and sensor_metadata tables

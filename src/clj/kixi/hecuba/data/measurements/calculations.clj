@@ -454,37 +454,40 @@
 (defn sum-up-expenditure-batch
   "Fetch data for given range and underlying sensor type (calculated expenditure),
   calculate total and insert it int othe database."
-  [store sensor start end calculation-type]
+  [store input-sensor ds start end calculation-type]
   (db/with-session [session (:hecuba-session store)]
-    (let [{:keys [device_id sensor_id type]} sensor
-          new-type                           (sensors/output-type-for type calculation-type)
-          month                              (time/get-month-partition-key start)
-          where                              {:device_id device_id :sensor_id sensor_id :month month
-                                              :start start :end end}
-          measurements                       (measurements/parse-measurements (measurements/fetch-measurements store where))
-          output-sensor_id                   (:sensor_id (sensors/get-by-type {:device_id device_id :type new-type} session))]
+    (let [{:keys [device_id sensor_id]} input-sensor
+          month                         (time/get-month-partition-key start)
+          where                         {:device_id device_id :sensor_id sensor_id :month month
+                                         :start start :end end}
+          measurements                  (measurements/parse-measurements (measurements/fetch-measurements store where))]
       (when (seq measurements)
-        (if output-sensor_id
-          ;; calculate total
-          (sum-up-expenditure store {:sensor_id output-sensor_id :device_id device_id} start end measurements)
-          (log/errorf "Could not find the output sensor_id for device_id %s and new type %s" device_id type))))))
+        (sum-up-expenditure store (select-keys ds [:sensor_id :device_id]) start end measurements)))))
 
-(defmulti total-usage (fn [_ item] (:usage-period item)))
+(defmulti total-usage
+  "Calculates total usage over a specified time range.
+  Uses measurements for sensors specified in :sensors keyword,
+  writes calculated measurements to output sensor specified in
+  :ds keyword.
 
-(defmethod total-usage :weekly
-  [store {:keys [sensor range]}]
+  Assumes that user has selected differenceSeries for calculation
+  either via UI or via API."
+  (fn [_ item] (-> item :ds :operation keyword)))
+
+(defmethod total-usage :total-usage-weekly
+  [store {:keys [sensors range ds]}]
   (db/with-session [session (:hecuba-session store)]
-    (let [{:keys [start-date end-date]} range
-          sensor                        (sensors/get-by-id sensor session)]
-      (log/infof "Calculating total weekly usage for device_id %s and sensor_id %s" (:device_id sensor) (:sensor_id sensor))
+    (let [{:keys [start-date end-date]} range]
+      (log/infof "Calculating total weekly usage for device_id %s and sensor_id %s" (:device_id sensors) (:sensor_id sensors))
       (doseq [timestamp (time/seq-dates start-date end-date (t/days 7))]
-        (sum-up-expenditure-batch store sensor timestamp (t/plus timestamp (t/days 7)) :total-usage-weekly)))))
+        (sum-up-expenditure-batch store sensors ds timestamp
+                                  (t/plus timestamp (t/days 7)) :total-usage-weekly)))))
 
-(defmethod total-usage :monthly
-  [store {:keys [sensor range]}]
+(defmethod total-usage :total-usage-monthly
+  [store {:keys [sensors range ds]}]
   (db/with-session [session (:hecuba-session store)]
-    (let [{:keys [start-date end-date]} range
-          sensor                        (sensors/get-by-id sensor session)]
-      (log/infof "Calculating total monthly usage for device_id %s and sensor_id %s" (:device_id sensor) (:sensor_id sensor))
+    (let [{:keys [start-date end-date]} range]
+      (log/infof "Calculating total monthly usage for device_id %s and sensor_id %s" (:device_id sensors) (:sensor_id sensors))
       (doseq [timestamp (time/seq-dates start-date end-date (t/days 30))]
-        (sum-up-expenditure-batch store sensor timestamp (t/plus timestamp (t/days 30)) :total-usage-monthly)))))
+        (sum-up-expenditure-batch store sensors ds timestamp
+                                  (t/plus timestamp (t/days 30)) :total-usage-monthly)))))
