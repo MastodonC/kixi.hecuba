@@ -379,4 +379,6 @@
       :max-rolling-4-weeks-day (str t "_max_rolling_4_weeks_day")
       :max-rolling-4-weeks-evening (str t "_max_rolling_4_weeks_evening")
       :max-rolling-4-weeks-night (str t "_max_rolling_4_weeks_night")
-      :tariff (str t "_expenditure"))))
+      :tariff (str t "_expenditure")
+      :total-usage-weekly (str t "_total_usage_weekly")
+      :total-usage-monthly (str t "_total_usage_monthly"))))
