@@ -389,10 +389,9 @@
       (doseq [timestamp (time/seq-dates start-date end-date (t/days 1))]
         (daily-batch store sensor timestamp (t/plus timestamp (t/days 1)) tariffs)))))
 
-(defn daily->hourly
-  "Assume we process one day’s worth of data at a time and that day’s consumption
-  is split up into a number of consumption readings (e.g. 48 half-hour records).
-  We then need to work out the unit rate tariff that applies to each time period."
+(defn raw-readings-expenditure
+  "Process one day’s worth of data at a time using raw measurements.
+  Works out the unit rate tariff that applies to each time period."
   [store device_id output-sensor_id start-date end-date tariffs measurements]
   (db/with-session [session (:hecuba-session store)]
     (let [tariff            (match-tariff (first measurements) tariffs)
@@ -421,7 +420,7 @@
       (when (seq measurements)
         (log/infof "Calculating hourly expenditure for device_id %s and sensor_id %s" device_id sensor_id)
         (if output-sensor_id
-          (daily->hourly store device_id output-sensor_id start-date end-date tariffs measurements)
+          (raw-readings-expenditure store device_id output-sensor_id start-date end-date tariffs measurements)
           (log/errorf "Could not find the output sensor_id for device_id %s and new type %s" device_id new-type))))))
 
 (defn calculate-expenditure-hourly
