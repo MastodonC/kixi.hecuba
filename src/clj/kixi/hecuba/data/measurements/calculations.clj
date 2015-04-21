@@ -327,12 +327,12 @@
          measurements/parse-measurements
          (day->on-off-periods off-peak-periods)
          (map (fn [[period xs]]
-                (apply + (map :value (filter #(number? (:value %)) xs)))))
+                (reduce + (map :value (filter #(number? (:value %)) xs)))))
          (apply-on-off-peak cost-per-on-peak-kwh cost-per-off-peak-kwh))))
 
 (defmethod apply-tariff :simple [tariff measurements]
   (let [{:keys [cost-per-kwh]} tariff
-        total-consumption (apply + (map :value (filter #(number? (:value %)) (measurements/parse-measurements measurements))))]
+        total-consumption (reduce + (map :value (filter #(number? (:value %)) (measurements/parse-measurements measurements))))]
     (-> total-consumption
         (* cost-per-kwh))))
 
@@ -443,7 +443,7 @@
   [store calculated-sensor start end measurements]
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [sensor_id device_id]} calculated-sensor
-          calculated-data  [{:value (str (apply + (map :value (filter #(number? (:value %)) measurements))))
+          calculated-data  [{:value (str (reduce + (map :value (filter #(number? (:value %)) measurements))))
                              :timestamp (tc/to-date end)
                              :month (time/get-month-partition-key end)
                              :device_id device_id
