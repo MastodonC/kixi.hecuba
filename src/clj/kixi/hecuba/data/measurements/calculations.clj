@@ -6,6 +6,7 @@
             [kixi.hecuba.data.calculate    :as c]
             [clj-time.coerce               :as tc]
             [clj-time.core                 :as t]
+            [clj-time.periodic             :as tp]
             [kixi.hecuba.data.sensors      :as sensors]
             [kixi.hecuba.data.devices      :as devices]
             [kixi.hecuba.storage.db        :as db]
@@ -270,7 +271,9 @@
   "Finds tariff that matches period of a measurement."
   [m tariffs]
   (let [t (-> m :timestamp tc/to-date-time)]
-    (some #(when (time/in-range? t (:start %) (:end %)) (:tariff %)) (tariff-ranges tariffs))))
+    (some #(when (and (:tariff %)
+                      (time/in-range? t (:start %) (:end %)))
+             (:tariff %)) (tariff-ranges tariffs))))
 
 (defn discounted-standing-charge
   "Gets daily standing charge and total annual lump-sum discount
@@ -356,7 +359,7 @@
           where            {:device_id device_id :sensor_id sensor_id :month month
                             :start start-date :end end-date}
           measurements     (measurements/fetch-measurements store where)
-          new-type         (sensors/output-type-for type :tariff)
+          new-type         (sensors/output-type-for (:type sensor) :tariff)
           output-sensor_id (:sensor_id (sensors/get-by-type {:device_id device_id :type new-type} session))]
       (when (seq measurements)
         (log/infof "Calculating daily expenditure for device_id %s and sensor_id %s" device_id sensor_id)
@@ -381,7 +384,8 @@
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [start-date end-date]} range
           entity_id                     (:entity_id (devices/get-by-id session (:device_id sensor)))
-          tariffs                       (read-tariffs store entity_id)]
+          tariffs                       (read-tariffs store entity_id)
+          sensor                        (sensors/get-by-id sensor session)]
       (doseq [timestamp (time/seq-dates start-date end-date (t/days 1))]
         (daily-batch store sensor timestamp (t/plus timestamp (t/days 1)) tariffs)))))
 
@@ -434,3 +438,54 @@
           tariffs                       (read-tariffs store entity_id)]
       (doseq [timestamp (time/seq-dates start-date end-date (t/days 1))]
         (expenditure-hourly store sensor timestamp (t/plus timestamp (t/days 1)) tariffs)))))
+
+(defn sum-up-expenditure
+  "Calculate total and insert it into the database. Update output sensor's dirty dates."
+  [store calculated-sensor start end measurements]
+  (db/with-session [session (:hecuba-session store)]
+    (let [{:keys [sensor_id device_id]} calculated-sensor
+          calculated-data  [{:value (str (apply + (map :value (filter #(number? (:value %)) measurements))))
+                             :timestamp (tc/to-date end)
+                             :month (time/get-month-partition-key end)
+                             :device_id device_id
+                             :sensor_id sensor_id}]]
+      (measurements/insert-measurements store calculated-sensor 10 calculated-data)
+      (sensors/update-sensor-metadata session calculated-sensor start end))))
+
+(defn sum-up-expenditure-batch
+  "Fetch data for given range and underlying sensor type (calculated expenditure),
+  calculate total and insert it int othe database."
+  [store sensor start end calculation-type]
+  (db/with-session [session (:hecuba-session store)]
+    (let [{:keys [device_id sensor_id type]} sensor
+          new-type                           (sensors/output-type-for type calculation-type)
+          month                              (time/get-month-partition-key start)
+          where                              {:device_id device_id :sensor_id sensor_id :month month
+                                              :start start :end end}
+          measurements                       (measurements/parse-measurements (measurements/fetch-measurements store where))
+          output-sensor_id                   (:sensor_id (sensors/get-by-type {:device_id device_id :type new-type} session))]
+      (when (seq measurements)
+        (if output-sensor_id
+          ;; calculate total
+          (sum-up-expenditure store {:sensor_id output-sensor_id :device_id device_id} start end measurements)
+          (log/errorf "Could not find the output sensor_id for device_id %s and new type %s" device_id type))))))
+
+(defmulti total-usage (fn [_ item] (:usage-period item)))
+
+(defmethod total-usage :weekly
+  [store {:keys [sensor range]}]
+  (db/with-session [session (:hecuba-session store)]
+    (let [{:keys [start-date end-date]} range
+          sensor                        (sensors/get-by-id sensor session)]
+      (log/infof "Calculating total weekly usage for device_id %s and sensor_id %s" (:device_id sensor) (:sensor_id sensor))
+      (doseq [timestamp (time/seq-dates start-date end-date (t/days 7))]
+        (sum-up-expenditure-batch store sensor timestamp (t/plus timestamp (t/days 7)) :total-usage-weekly)))))
+
+(defmethod total-usage :monthly
+  [store {:keys [sensor range]}]
+  (db/with-session [session (:hecuba-session store)]
+    (let [{:keys [start-date end-date]} range
+          sensor                        (sensors/get-by-id sensor session)]
+      (log/infof "Calculating total monthly usage for device_id %s and sensor_id %s" (:device_id sensor) (:sensor_id sensor))
+      (doseq [timestamp (time/seq-dates start-date end-date (t/days 30))]
+        (sum-up-expenditure-batch store sensor timestamp (t/plus timestamp (t/days 30)) :total-usage-monthly)))))

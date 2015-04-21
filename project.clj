@@ -43,7 +43,7 @@
                  [org.clojure/data.json "0.2.5"]
                  [roul "0.2.0"]
                  [com.stuartsierra/frequencies "0.1.0"]
-                 [clj-time "0.8.0"]
+                 [clj-time "0.9.0"]
                  [hickory "0.5.4"]
 
                  ;; Cassandra

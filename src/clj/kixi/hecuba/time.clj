@@ -174,10 +174,7 @@
   [start end interval]
   (when (and (instance? org.joda.time.DateTime start)
              (instance? org.joda.time.DateTime end))
-    (take (-> (org.joda.time.Days/daysBetween
-               start end)
-              (.getDays))
-          (p/periodic-seq start interval))))
+    (p/periodic-seq start end interval)))
 
 (defn update-timestamp
   "Takes a joda DateTime and a map of parts of the
