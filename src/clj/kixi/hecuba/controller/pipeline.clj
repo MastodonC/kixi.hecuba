@@ -1,27 +1,28 @@
 (ns kixi.hecuba.controller.pipeline
   "Pipeline for scheduled jobs."
-  (:require [kixipipe.pipeline                      :refer [defnconsumer produce-item produce-items submit-item] :as p]
-            [pipejine.core                          :as pipejine :refer [new-queue producer-of]]
-            [clojure.tools.logging                  :as log]
-            [kixipipe.storage.s3                    :as s3]
-            [kixi.hecuba.data.batch-checks          :as checks]
-            [kixi.hecuba.data.calculate             :as calculate]
-            [kixi.hecuba.data.calculated-fields     :as fields]
-            [kixi.hecuba.data.measurements.download :as measurements-download]
-            [kixi.hecuba.data.measurements.upload   :as measurements-upload]
-            [kixi.hecuba.data.entities.upload       :as entities-upload]
-            [kixi.hecuba.data.sensors               :as sensors]
-            [kixi.hecuba.time                       :as time]
-            [clj-time.core                          :as t]
-            [clj-time.coerce                        :as tc]
-            [com.stuartsierra.component             :as component]
-            [kixi.hecuba.data.datasets              :as dd]
-            [kixi.hecuba.api.datasets               :as datasets]
-            [kixi.hecuba.storage.db                 :as db]
-            [kixi.hecuba.data.devices               :as devices]
-            [kixi.hecuba.data.entities.search       :as search]
-            [clojure.string                         :as string]
-            [clojure.edn                            :as edn]))
+  (:require [kixipipe.pipeline                          :refer [defnconsumer produce-item produce-items submit-item] :as p]
+            [pipejine.core                              :as pipejine :refer [new-queue producer-of]]
+            [clojure.tools.logging                      :as log]
+            [kixipipe.storage.s3                        :as s3]
+            [kixi.hecuba.data.batch-checks              :as checks]
+            [kixi.hecuba.data.calculate                 :as calculate]
+            [kixi.hecuba.data.calculated-fields         :as fields]
+            [kixi.hecuba.data.measurements.download     :as measurements-download]
+            [kixi.hecuba.data.measurements.upload       :as measurements-upload]
+            [kixi.hecuba.data.measurements.calculations :as mc]
+            [kixi.hecuba.data.entities.upload           :as entities-upload]
+            [kixi.hecuba.data.sensors                   :as sensors]
+            [kixi.hecuba.time                           :as time]
+            [clj-time.core                              :as t]
+            [clj-time.coerce                            :as tc]
+            [com.stuartsierra.component                 :as component]
+            [kixi.hecuba.data.datasets                  :as dd]
+            [kixi.hecuba.api.datasets                   :as datasets]
+            [kixi.hecuba.storage.db                     :as db]
+            [kixi.hecuba.data.devices                   :as devices]
+            [kixi.hecuba.data.entities.search           :as search]
+            [clojure.string                             :as string]
+            [clojure.edn                                :as edn]))
 
 (defn build-pipeline [store]
   (let [fanout-q                (new-queue {:name "fanout-q" :queue-size 50})
@@ -58,7 +59,8 @@
                                  :synthetic-readings (produce-item item synthetic-readings-q)
                                  :difference-series  (produce-item item difference-series-q)
                                  :convert-to-co2     (produce-item item convert-to-co2-q)
-                                 :convert-to-kwh     (produce-item item convert-to-kwh-q))
+                                 :convert-to-kwh     (produce-item item convert-to-kwh-q)
+                                 :total-usage        (produce-item item synthetic-readings-q))
           :calculated-fields (condp = type
                                :actual-annual (produce-item item actual-annual-q))
           :upload (condp = type
@@ -76,8 +78,8 @@
           (log/info  "Calculating median for: " device_id type)
           (checks/median-calculation store item)
           (sensors/reset-date-range store sensor :median_calc_check
-                                 (:start-date range)
-                                 (:end-date range)))))
+                                    (:start-date range)
+                                    (:end-date range)))))
 
     (defnconsumer median-calculation-q [item]
       (log/info "Starting median calculation.")
@@ -94,8 +96,8 @@
           (log/info  "Checking if mislabelled: " device_id type)
           (checks/mislabelled-sensors store item)
           (sensors/reset-date-range store sensor :mislabelled_sensors_check
-                                 (:start-date range)
-                                 (:end-date range)))))
+                                    (:start-date range)
+                                    (:end-date range)))))
 
     (defnconsumer mislabelled-sensors-q [item]
       (log/info "Starting mislabelled sensors check.")
@@ -113,8 +115,8 @@
           (try
             (calculate/difference-series store item)
             (sensors/reset-date-range store sensor :difference_series
-                                   (:start-date range)
-                                   (:end-date range))
+                                      (:start-date range)
+                                      (:end-date range))
             (catch Throwable t
               (log/errorf t "FAILED to calculate Difference Series for Sensor: %s:%s Start: %s End: %s" device_id type (:start-date range) (:end-date range))
               (throw t)))
@@ -141,8 +143,8 @@
           (log/info  "Converting to co2: " device_id type)
           (calculate/kWh->co2 store item)
           (sensors/reset-date-range store sensor :co2
-                                 (:start-date range)
-                                 (:end-date range)))))
+                                    (:start-date range)
+                                    (:end-date range)))))
 
     (defnconsumer convert-to-co2-q [item]
       (log/info "Starting conversion from kWh to co2.")
@@ -161,8 +163,8 @@
           (log/info  "Converting to kWh: " device_id type)
           (calculate/gas-volume->kWh store item)
           (sensors/reset-date-range store sensor :kwh
-                                 (:start-date range)
-                                 (:end-date range)))))
+                                    (:start-date range)
+                                    (:end-date range)))))
 
     (defnconsumer convert-to-kwh-q [item]
       (log/info "Starting conversion from vol to kwh.")
@@ -181,8 +183,8 @@
             (calculate/hourly-rollups store item)
             (calculate/daily-rollups store item)
             (sensors/reset-date-range store sensor :rollups
-                                   (:start-date range)
-                                   (:end-date range))
+                                      (:start-date range)
+                                      (:end-date range))
             (db/with-session [session (:hecuba-session store)]
               (let [{:keys [device_id]} sensor
                     {:keys [entity_id]} (devices/get-by-id session device_id)]
@@ -233,6 +235,10 @@
       (let [{:keys [operands]} ds
             [field unit] (string/split (last operands) #"~")]
         (calculate/calculate-dataset store ds sensors range (edn/read-string field))))
+    (defmethod synthetic-readings :total-usage-weekly [store item]
+      (mc/total-usage store item))
+    (defmethod synthetic-readings :total-usage-monthly [store item]
+      (mc/total-usage store item))
 
     (defmulti sensors-for-dataset (fn [ds store] (keyword (:operation ds))))
     (defmethod sensors-for-dataset :sum [ds store]
@@ -247,6 +253,12 @@
     (defmethod sensors-for-dataset :divide-series-by-field [ds store]
       (let [{:keys [operands]} ds]
         (datasets/sensors-for-dataset {:operands (take 1 operands)} store)))
+    (defmethod sensors-for-dataset :total-usage-weekly [ds store]
+      (let [{:keys [operands]} ds]
+        (first (datasets/sensors-for-dataset ds store))))
+    (defmethod sensors-for-dataset :total-usage-monthly [ds store]
+      (let [{:keys [operands]} ds]
+        (first (datasets/sensors-for-dataset ds store))))
 
     (defnconsumer synthetic-readings-q [item]
       (log/info "Starting synthetic readings job.")
@@ -258,8 +270,8 @@
                   synthetic-sensor (sensors/all-sensor-information store device_id sensor_id)]
               (when-let [range (time/start-end-dates :calculated_datasets synthetic-sensor)]
                 (synthetic-readings store (assoc item
-                                            :range range
-                                            :ds ds :sensors sensors))
+                                                 :range range
+                                                 :ds ds :sensors sensors))
                 (sensors/reset-date-range store {:device_id device_id :sensor_id sensor_id} :calculated_datasets
                                           (:start-date range)
                                           (:end-date range))
@@ -287,13 +299,13 @@
                               new-range))
 
           (sensors/reset-date-range store sensor :actual_annual_calculation
-                                 (:start-date range)
-                                 (:end-date range))
+                                    (:start-date range)
+                                    (:end-date range))
           (db/with-session [session (:hecuba-session store)]
-              (let [{:keys [device_id]} sensor
-                    {:keys [entity_id]} (devices/get-by-id session device_id)]
-                (-> (search/searchable-entity-by-id entity_id session)
-                    (search/->elasticsearch (:search-session store))))))))
+            (let [{:keys [device_id]} sensor
+                  {:keys [entity_id]} (devices/get-by-id session device_id)]
+              (-> (search/searchable-entity-by-id entity_id session)
+                  (search/->elasticsearch (:search-session store))))))))
 
     (defnconsumer actual-annual-q [item]
       (log/info "Starting calculation of actual annual use.")
@@ -342,7 +354,7 @@
                             :end-date (tc/from-date upper_ts)})
                 new-item (assoc item :sensor s :range range)]
             (when range
-               (calculate-fn store new-item))))))
+              (calculate-fn store new-item))))))
 
     (defnconsumer recalculate-q [item]
       (let [sensors     (sensors/all-sensors store)
