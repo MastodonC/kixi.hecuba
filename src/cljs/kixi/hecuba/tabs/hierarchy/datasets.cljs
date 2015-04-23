@@ -110,12 +110,46 @@
 ;; HELPERS                                                                               ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def available-operations [{:display "Sum multiple series"      :value "sum"}
-                           {:display "Subtract multiple series" :value "subtract"}
-                           {:display "Divide multiple series"   :value "divide"}
-                           {:display "Multiply series by field" :value "multiply-series-by-field"}
-                           {:display "Divide series by field"   :value "divide-series-by-field"}
-                           {:display "Select operation"         :value "none"}])
+(def available-operations [{:display "Sum multiple series"                         :value "sum"}
+                           {:display "Subtract multiple series"                    :value "subtract"}
+                           {:display "Divide multiple series"                      :value "divide"}
+                           {:display "Multiply series by field"                    :value "multiply-series-by-field"}
+                           {:display "Divide series by field"                      :value "divide-series-by-field"}
+                           {:display "Select operation"                            :value "none"}
+                           {:display "Total usage - weekly"                        :value "total-usage-weekly"}
+                           {:display "Total usage - monthly"                       :value "total-usage-monthly"}
+                           {:display "Tariff calculation - hourly"                 :value "tariff-calculation-hourly"}
+                           {:display "Tariff calculation - daily"                  :value "tariff-calculation-daily"}
+                           {:display "Minimum value for a day"                     :value "min-for-day"}
+                           {:display "Minimum value for a day - morning"           :value "min-for-day-morning"}
+                           {:display "Minimum value for a day - day"               :value "min-for-day-day"}
+                           {:display "Minimum value for a day - evening"           :value "min-for-day-afteroon"}
+                           {:display "Minimum value for a day - night"             :value "min-for-day-night"}
+                           {:display "Minimum value for rolling 4 weeks"           :value "min-rolling-4-weeks"}
+                           {:display "Minimum value for rolling 4 weeks - morning" :value "min-rolling-4-weeks-morning"}
+                           {:display "Minimum value for rolling 4 weeks - day"     :value "min-rolling-4-weeks-day"}
+                           {:display "Minimum value for rolling 4 weeks - evening" :value "min-rolling-4-weeks-evening"}
+                           {:display "Minimum value for rolling 4 weeks - night"   :value "min-rolling-4-weeks-night"}
+                           {:display "Average value for a day"                     :value "avg-for-day"}
+                           {:display "Average value for a day - morning"           :value "avg-for-day-morning"}
+                           {:display "Average value for a day - day"               :value "avg-for-day-day"}
+                           {:display "Average value for a day - evening"           :value "avg-for-day-evening"}
+                           {:display "Average value for a day - night"             :value "avg-for-day-night"}
+                           {:display "Average value for rolling 4 weeks"           :value "avg-rolling-4-weeks"}
+                           {:display "Average value for rolling 4 weeks - morning" :value "avg-rolling-4-weeks-morning"}
+                           {:display "Average value for rolling 4 weeks - day"     :value "avg-rolling-4-weeks-average"}
+                           {:display "Average value for rolling 4 weeks - evening" :value "avg-rolling-4-weeks-average"}
+                           {:display "Average value for rolling 4 weeks - night"   :value "avg-rolling-4-weeks-average"}
+                           {:display "Maximum value for a day"                     :value "max-for-day"}
+                           {:display "Maximum value for a day - morning"           :value "max-for-day-morning"}
+                           {:display "Maximum value for a day - day"               :value "max-for-day-day"}
+                           {:display "Maximum value for a day - evening"           :value "max-for-day-evening"}
+                           {:display "Maximum value for a day - night"             :value "max-for-day-night"}
+                           {:display "Maximum value for rolling 4 weeks"           :value "max-rolling-4-weeks"}
+                           {:display "Maximum value for rolling 4 weeks - morning" :value "max-rolling-4-weeks-morning"}
+                           {:display "Maximum value for rolling 4 weeks - day"     :value "max-rolling-4-weeks-day"}
+                           {:display "Maximum value for rolling 4 weeks - evening" :value "max-rolling-4-weeks-evening"}
+                           {:display "Maximum value for rolling 4 weeks - night"   :value "max-rolling-4-weeks-night"}])
 
 (def available-fields [{:display "Total occupancy"  :value "occupancy_total" :unit "occupancy"}
                        {:display "Total volume"     :value "total_volume" :unit "m3"}
@@ -123,6 +157,7 @@
                        {:display "Electricity cost" :value "electricity_cost" :unit "£"}
                        {:display "Gas cost"         :value "gas_cost" :unit "£"}
                        {:display "Select field"     :value "none"}])
+
 (defn enrich [itm series]
   (let [[device_id sensor_id] (string/split itm #"~")
         {:keys [period unit]} (first (filter #(and (= (:device_id %) device_id) (= (:sensor_id %) sensor_id)) series))
@@ -171,7 +206,8 @@
   (mapv name (vec (remove nil? (vals (select-keys dataset [:series1 :field]))))))
 (defmethod selected-series "divide-series-by-field" [dataset]
   (mapv name (vec (remove nil? (vals (select-keys dataset [:series1 :field]))))))
-(defmethod selected-series :default [dataset])
+(defmethod selected-series :default [dataset]
+  (mapv name (vec (remove nil? (vals (select-keys dataset [:series1]))))))
 
 (defn text-input-control [owner path id label required dropdown-chan]
   [:div.form-group
@@ -314,10 +350,13 @@
                {:opts {:id "field-dropdown" :required true :label "Field"
                        :path [:field] :dropdown-chan dropdown-chan}})])))
 
-(defmethod dropdowns :default [_ owner all-series]
+(defmethod dropdowns :default [{:keys [operation items dataset]} owner {:keys [dropdown-chan]}]
   (om/component
    (html
-    [:div])))
+    [:div
+     (om/build dropdown {:default (:series1 dataset) :items items}
+               {:opts {:id "series-dropdown" :required true :label "Series"
+                       :path [:series1] :dropdown-chan dropdown-chan}})])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Edit dataset

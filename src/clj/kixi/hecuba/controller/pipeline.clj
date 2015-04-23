@@ -60,7 +60,8 @@
                                  :difference-series  (produce-item item difference-series-q)
                                  :convert-to-co2     (produce-item item convert-to-co2-q)
                                  :convert-to-kwh     (produce-item item convert-to-kwh-q)
-                                 :total-usage        (produce-item item synthetic-readings-q))
+                                 :total-usage        (produce-item item synthetic-readings-q)
+                                 :tariff-calculation (produce-item item synthetic-readings-q))
           :calculated-fields (condp = type
                                :actual-annual (produce-item item actual-annual-q))
           :upload (condp = type
@@ -236,9 +237,73 @@
             [field unit] (string/split (last operands) #"~")]
         (calculate/calculate-dataset store ds sensors range (edn/read-string field))))
     (defmethod synthetic-readings :total-usage-weekly [store item]
-      (mc/total-usage store item))
+      (mc/total-usage-calculation store item))
     (defmethod synthetic-readings :total-usage-monthly [store item]
-      (mc/total-usage store item))
+      (mc/total-usage-calculation store item))
+    (defmethod synthetic-readings :tariff-calculation-hourly [store item]
+      (mc/expenditure-calculation-hourly store item))
+    (defmethod synthetic-readings :tariff-calculation-daily [store item]
+      (mc/expenditure-calculation-daily store item))
+    (defmethod synthetic-readings :min-for-day [store item]
+      (mc/reading-for-a-day store item))
+    (defmethod synthetic-readings :avg-for-day [store item]
+      (mc/reading-for-a-day store item))
+    (defmethod synthetic-readings :max-for-day [store item]
+      (mc/reading-for-a-day store item))
+    (defmethod synthetic-readings :min-for-day-morning [store item]
+      (mc/reading-for-a-day store item))
+    (defmethod synthetic-readings :min-for-day-day [store item]
+      (mc/reading-for-a-day store item))
+    (defmethod synthetic-readings :min-for-day-evening [store item]
+      (mc/reading-for-a-day store item))
+    (defmethod synthetic-readings :min-for-day-night [store item]
+      (mc/reading-for-a-day store item))
+    (defmethod synthetic-readings :avg-for-day-morning [store item]
+      (mc/reading-for-a-day store item))
+    (defmethod synthetic-readings :avg-for-day-day [store item]
+      (mc/reading-for-a-day store item))
+    (defmethod synthetic-readings :avg-for-day-evening [store item]
+      (mc/reading-for-a-day store item))
+    (defmethod synthetic-readings :avg-for-day-night [store item]
+      (mc/reading-for-a-day store item))
+    (defmethod synthetic-readings :max-for-day-morning [store item]
+      (mc/reading-for-a-day store item))
+    (defmethod synthetic-readings :max-for-day-day [store item]
+      (mc/reading-for-a-day store item))
+    (defmethod synthetic-readings :max-for-day-evening [store item]
+      (mc/reading-for-a-day store item))
+    (defmethod synthetic-readings :max-for-day-night [store item]
+      (mc/reading-for-a-day store item))
+    (defmethod synthetic-readings :min-rolling-4-weeks [store item]
+      (mc/reading-rolling-for-4-weeks store item))
+    (defmethod synthetic-readings :avg-rolling-4-weeks [store item]
+      (mc/reading-rolling-for-4-weeks store item))
+    (defmethod synthetic-readings :max-rolling-4-weeks [store item]
+      (mc/reading-rolling-for-4-weeks store item))
+    (defmethod synthetic-readings :min-rolling-4-weeks-morning [store item]
+      (mc/reading-rolling-for-4-weeks store item))
+    (defmethod synthetic-readings :min-rolling-4-weeks-day [store item]
+      (mc/reading-rolling-for-4-weeks store item))
+    (defmethod synthetic-readings :min-rolling-4-weeks-evening [store item]
+      (mc/reading-rolling-for-4-weeks store item))
+    (defmethod synthetic-readings :min-rolling-4-weeks-night [store item]
+      (mc/reading-rolling-for-4-weeks store item))
+    (defmethod synthetic-readings :avg-rolling-4-weeks-morning [store item]
+      (mc/reading-rolling-for-4-weeks store item))
+    (defmethod synthetic-readings :avg-rolling-4-weeks-day [store item]
+      (mc/reading-rolling-for-4-weeks store item))
+    (defmethod synthetic-readings :avg-rolling-4-weeks-evening [store item]
+      (mc/reading-rolling-for-4-weeks store item))
+    (defmethod synthetic-readings :avg-rolling-4-weeks-night [store item]
+      (mc/reading-rolling-for-4-weeks store item))
+    (defmethod synthetic-readings :max-rolling-4-weeks-morning [store item]
+      (mc/reading-rolling-for-4-weeks store item))
+    (defmethod synthetic-readings :max-rolling-4-weeks-day [store item]
+      (mc/reading-rolling-for-4-weeks store item))
+    (defmethod synthetic-readings :max-rolling-4-weeks-evening [store item]
+      (mc/reading-rolling-for-4-weeks store item))
+    (defmethod synthetic-readings :max-rolling-4-weeks-night [store item]
+      (mc/reading-rolling-for-4-weeks store item))
 
     (defmulti sensors-for-dataset (fn [ds store] (keyword (:operation ds))))
     (defmethod sensors-for-dataset :sum [ds store]
@@ -253,10 +318,7 @@
     (defmethod sensors-for-dataset :divide-series-by-field [ds store]
       (let [{:keys [operands]} ds]
         (datasets/sensors-for-dataset {:operands (take 1 operands)} store)))
-    (defmethod sensors-for-dataset :total-usage-weekly [ds store]
-      (let [{:keys [operands]} ds]
-        (first (datasets/sensors-for-dataset ds store))))
-    (defmethod sensors-for-dataset :total-usage-monthly [ds store]
+    (defmethod sensors-for-dataset :default [ds store]
       (let [{:keys [operands]} ds]
         (first (datasets/sensors-for-dataset ds store))))
 
