@@ -240,10 +240,8 @@
       (mc/total-usage-calculation store item))
     (defmethod synthetic-readings :total-usage-monthly [store item]
       (mc/total-usage-calculation store item))
-    (defmethod synthetic-readings :tariff-calculation-hourly [store item]
-      (mc/expenditure-calculation-hourly store item))
-    (defmethod synthetic-readings :tariff-calculation-daily [store item]
-      (mc/expenditure-calculation-daily store item))
+    (defmethod synthetic-readings :tariff-calculation [store item]
+      (mc/expenditure-calculation-raw store item))
     (defmethod synthetic-readings :min-for-day [store item]
       (mc/reading-for-a-day store item))
     (defmethod synthetic-readings :avg-for-day [store item]

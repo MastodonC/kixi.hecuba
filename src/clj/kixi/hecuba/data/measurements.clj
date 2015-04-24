@@ -225,7 +225,7 @@
   If fetch size is not provided, uses the default 100.
   Returns a lazy sequence of measurements."
   [store args & [opts]]
-  (assert (map? args) "Where clause passed must be a map!")
+  {:pre [(map? args)]}
   (let [{:keys [fetch-size] :or {fetch-size 100}} opts]
     (db/with-session [session (:hecuba-session store)]
       (db/execute session
