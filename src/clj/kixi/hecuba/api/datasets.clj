@@ -69,7 +69,9 @@
       :multiply-series-by-field parent-period
       :divide-series-by-field parent-period
       :total-usage-weekly "PULSE"
-      :total-usage-monthly "PULSE")))
+      :total-usage-monthly "PULSE"
+      :tariff-calculation "PULSE"
+      "PULSE")))
 
 (defn synthetic-sensor [sensor_id operation type device_id unit parents]
   {:device_id  device_id
@@ -123,7 +125,17 @@
       :post (let [body (decode-body request)
                   {:keys [operation]} body]
               (if (some #{operation} ["divide" "sum" "subtract" "multiply-series-by-field"
-                                      "divide-series-by-field" "total-usage-weekly" "total-usage-monthly"])
+                                      "divide-series-by-field" "total-usage-weekly" "total-usage-monthly"
+                                      "tariff-calculation"
+                                      "min-for-day" "min-for-day-morning" "min-for-day-day" "min-for-day-afteroon"
+                                      "min-for-day-night" "avg-for-day" "avg-for-day-morning" "avg-for-day-day"
+                                      "avg-for-day-evening" "avg-for-day-night" "max-for-day" "max-for-day-morning"
+                                      "max-for-day-day" "max-for-day-evening" "max-for-day-night"
+                                      "min-rolling-4-weeks" "min-rolling-4-weeks-morning" "min-rolling-4-weeks-day"
+                                      "min-rolling-4-weeks-evening" "min-rolling-4-weeks-night" "avg-rolling-4-weeks"
+                                      "avg-rolling-4-weeks-morning" "avg-rolling-4-weeks-average" "avg-rolling-4-weeks-average"
+                                      "avg-rolling-4-weeks-average" "max-rolling-4-weeks" "max-rolling-4-weeks-morning"
+                                      "max-rolling-4-weeks-day" "max-rolling-4-weeks-evening" "max-rolling-4-weeks-night"])
                 [false {:dataset body}]
                 true))
       :get (if (seq entity_id) false true)
@@ -164,13 +176,10 @@
 (defmethod exists? :divide-series-by-field [entity body store]
   (sensor-and-field-exist? entity body store))
 
-(defmethod exists? :total-usage-weekly [entity body store]
+;; Default for e.g. min-for-day, max-for-day, min-for-day-morning,
+;; total-usage-weekly, tariff-calculation-weekly, etc.
+(defmethod exists? :default [entity body store]
   (all-sensors-exist? entity body store))
-
-(defmethod exists? :total-usage-monthly [entity body store]
-  (all-sensors-exist? entity body store))
-
-(defmethod exists? :default [entity body store] false)
 
 (defn index-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -205,10 +214,8 @@
   (let [{:keys [sensors operands]} item
         [field unit] (string/split (last operands) #"~")]
     (str (:unit (first sensors)) "/" unit)))
-(defmethod get-unit :total-usage-weekly [item]
-  "kWh")
-(defmethod get-unit :total-usage-monthly [item]
-  "kWh")
+(defmethod get-unit :default [item]
+  (:unit (first (:sensors item))))
 
 (defn index-post! [store ctx]
    (db/with-session [session (:hecuba-session store)]
