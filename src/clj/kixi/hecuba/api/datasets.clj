@@ -215,6 +215,10 @@
   (let [{:keys [sensors operands]} item
         [field unit] (string/split (last operands) #"~")]
     (str (:unit (first sensors)) "/" unit)))
+(defmethod get-unit :tariff-calculation-with-standing-charges [item]
+  "£")
+(defmethod get-unit :tariff-calculation-without-standing-charges [item]
+  "£")
 (defmethod get-unit :default [item]
   (:unit (first (:sensors item))))
 
