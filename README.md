@@ -106,9 +106,31 @@ You will still run your hecuba instance local to your machine (not in the vagran
 
 ### First Time Test Data
 
-+ Work out what the hostname you should use to connect to cassandra is. Look at the output of ``netstat -tln``, find the line that says something like ``aaa.bbb.ccc.ddd:9042``. (note this might be an ipv6 address depending on how your network is configured). This is the address to use in your hecuba config file and in the commands below. If the address is ``127.0.0.1`` you can omit the address from the commands below, since that's the default.
++ Log into the vagrant box using ``vagrant ssh``
++ Copy the contents of hecuba-schema.cql onto the box you've ssh'd
+  into using vi or similar.
++ create the test schema ``cqlsh kixi-dev -f cql/hecuba-schema.cql``
+* Start cqlsh with the right hostname ``cqlsh kixi-dev``
 
-On your machine (not the vagrant box):
+Note: You'll need to install Elastic Search in your vagrant box:
+1) Follow instructions from https://www.digitalocean.com/community/tutorials/how-to-install-elasticsearch-on-an-ubuntu-vps
+2) Change the name of the cluster in /etc/elasticsearch/elasticsearch.yml from test to hecuba
+
+
+
+Back on your host machine do the following:
+
++ Start a repl in your favourite way.
++ Start the application with (go)
++ Add your user account: (kixi.hecuba.security/add-user! (:store kixi/system) "Username" "username@mastodonc.com" "password" :kixi.hecuba.security/super-admin {} {})
++ (require 'etl)
++ (etl/load-user-data) to create the users
++ (etl/load-csv system) to add some test programmes, projects, etc
+
+## Start an EC2 instance
+
++ make sure you have foreman installed
++ add the aws plugin ``vagrant plugin install vagrant-aws``
 
 + create the test schema ``cqlsh aaa.bbb.ccc.ddd -f cql/hecuba-schema.cql`` (this might show an error the first time you run it about the test namespace not existing, you can ignore that error)
 + At the shell prompt, create the Elastic Search schema by running ``scripts/build-es-schema.sh``
