@@ -123,9 +123,11 @@ Back on your host machine do the following:
 + Start a repl in your favourite way.
 + Start the application with (go)
 + Add your user account: (kixi.hecuba.security/add-user! (:store kixi/system) "Username" "username@mastodonc.com" "password" :kixi.hecuba.security/super-admin {} {})
-+ (require 'etl)
-+ (etl/load-user-data) to create the users
-+ (etl/load-csv system) to add some test programmes, projects, etc
++ To populate Cassandra with data, run the following script:
+  ```
+  $ cd scripts
+  $ ./contextual_data.sh
+  ```
 
 ## Start an EC2 instance
 
