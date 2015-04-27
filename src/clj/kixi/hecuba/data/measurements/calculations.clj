@@ -229,20 +229,22 @@
   inserted onto C*."
   [store {:keys [sensors range ds] :as item}]
   (let [{:keys [start-date end-date]}           range
-        {:keys [operation device_id sensor_id]} ds]
+        {:keys [operation device_id sensor_id]} ds
+        sensor                                  (first sensors)]
     (log/infof "Calculating %s for device_id %s and sensor_id %s" operation device_id sensor_id)
     (doseq [timestamp (time/seq-dates start-date end-date (t/days 1))]
-      (calculate-batch store sensors ds timestamp (t/plus timestamp (t/days 1)) operation))))
+      (calculate-batch store sensor ds timestamp (t/plus timestamp (t/days 1)) operation))))
 
 (defn reading-rolling-for-4-weeks
   "Performs calculation for a rolling 4 week window.
   Works in batches of a day, and inserts found value into C*."
   [store {:keys [sensors range ds]}]
   (let [{:keys [start-date end-date]}           range
-        {:keys [operation device_id sensor_id]} ds]
+        {:keys [operation device_id sensor_id]} ds
+        sensor                                  (first sensors)]
     (log/infof "Calculating %s for device_id %s and sensor_id %s" operation device_id sensor_id)
     (doseq [timestamp (time/seq-dates start-date end-date (t/days 1))]
-      (calculate-batch store sensors ds (t/minus timestamp (t/weeks 4)) (t/plus timestamp (t/days 1)) operation))))
+      (calculate-batch store sensor ds (t/minus timestamp (t/weeks 4)) (t/plus timestamp (t/days 1)) operation))))
 
 ;;;;;;;;;;;;;;; Tariffs ;;;;;;;;;;;;;;;;;;
 
@@ -287,10 +289,10 @@
   works out unit tariff from the tariff map provided and
   multiplies it by the consumption for each period.
   Returns a sequence of expenditure measurements."
-  (fn [tariff _]
+  (fn [tariff _ _]
     (condp #(%1 %2) tariff
-      :off-peak-periods :on-off-peak
-      :cost-per-kwh     :simple
+      :off_peak_periods :on-off-peak
+      :cost_per_kwh     :simple
       :none)))
 
 (defn day->on-off-periods
@@ -308,6 +310,23 @@
                      measurements)]
     xs))
 
+(defn add-standing-charge
+  "Gets tariff information (a map) and calculated expenditure,
+  and adds discounted standing charge."
+  [tariff expenditure]
+  (let [{:keys [daily_standing_charge annual_lump_sum_discount]} tariff
+        standing-charge (discounted-standing-charge daily_standing_charge annual_lump_sum_discount)]
+    (+ expenditure standing-charge)))
+
+(defn add-standing-charge-if-selected
+  "Adds standing charge to calculated expenditure if
+  the operation selected requires so. Returns raw expenditure
+  otherwise."
+  [operation tariff expenditure]
+  (if (= :tariff-calculation-with-standing-charges operation)
+    (add-standing-charge tariff expenditure)
+    expenditure))
+
 (defn apply-on-off-peak
   "Accepts on and off peak cost values and a sequence of
   measurements grouped by the peak, first one being on,
@@ -320,23 +339,25 @@
     on           (* on-peak-cost on)
     off          (* off-peak-cost off)))
 
-(defmethod apply-tariff :on-off-peak [tariff measurements]
-  (let [{:keys [cost-per-kwh off-peak-periods
-                cost-per-on-peak-kwh cost-per-off-peak-kwh]} tariff]
+(defmethod apply-tariff :on-off-peak [tariff measurements operation]
+  (let [{:keys [cost_per_kwh off_peak_periods
+                cost_per_on_peak_kwh cost_per_off_peak_kwh]} tariff]
     (->> measurements
          measurements/parse-measurements
-         (day->on-off-periods off-peak-periods)
+         (day->on-off-periods off_peak_periods)
          (map (fn [[period xs]]
                 (reduce + (map :value (filter #(number? (:value %)) xs)))))
-         (apply-on-off-peak cost-per-on-peak-kwh cost-per-off-peak-kwh))))
+         (apply-on-off-peak cost_per_on_peak_kwh cost_per_off_peak_kwh)
+         (add-standing-charge-if-selected operation tariff))))
 
-(defmethod apply-tariff :simple [tariff measurements]
-  (let [{:keys [cost-per-kwh]} tariff
+(defmethod apply-tariff :simple [tariff measurements operation]
+  (let [{:keys [cost_per_kwh]} tariff
         total-consumption (reduce + (map :value (filter #(number? (:value %)) (measurements/parse-measurements measurements))))]
-    (-> total-consumption
-        (* cost-per-kwh))))
+    (->> total-consumption
+         (* cost_per_kwh)
+         (add-standing-charge-if-selected operation tariff))))
 
-(defmethod apply-tariff :none [tariff measurements]
+(defmethod apply-tariff :none [_ _ _]
   nil)
 
 ;;;;;;;;;;;;;;;;; Expenditure ;;;;;;;;;;;;;;;;;;;;
@@ -349,7 +370,7 @@
     (let [tariff            (match-tariff (first measurements) tariffs)]
       (when tariff
         (doseq [m measurements]
-          (let [calculated-data  [{:value (str (c/round (apply-tariff tariff [m])))
+          (let [calculated-data  [{:value (str (c/round (apply-tariff tariff [m] (:operation sensor))))
                                    :timestamp (tc/to-date end-date)
                                    :month (time/get-month-partition-key end-date)
                                    :device_id device_id
@@ -379,12 +400,14 @@
   [store {:keys [sensors range ds]}]
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [start-date end-date]} range
-          entity_id                     (:entity_id (devices/get-by-id session (:device_id sensors)))
+          sensor                        (first sensors)
+          {:keys [device_id sensor_id]} sensor
+          entity_id                     (:entity_id (devices/get-by-id session device_id))
           tariffs                       (read-tariffs store entity_id)
-          {:keys [device_id sensor_id]} sensors]
-      (log/infof "Calculating expenditure for device_id %s and sensor_id %s" device_id sensor_id)
+          operation                     (-> ds :operation keyword)]
+      (log/infof "Calculating expenditure as %s for device_id %s and sensor_id %s" operation device_id sensor_id)
       (doseq [timestamp (time/seq-dates start-date end-date (t/days 1))]
-        (expenditure store sensors ds timestamp (t/plus timestamp (t/days 1)) tariffs)))))
+        (expenditure store sensor (assoc ds :operation operation) timestamp (t/plus timestamp (t/days 1)) tariffs)))))
 
 ;;;;;;;;;;;;;;;; Total usage ;;;;;;;;;;;;;;;;;;;
 
@@ -427,17 +450,19 @@
 (defmethod total-usage-calculation :total-usage-weekly
   [store {:keys [sensors range ds]}]
   (db/with-session [session (:hecuba-session store)]
-    (let [{:keys [start-date end-date]} range]
-      (log/infof "Calculating total weekly usage for device_id %s and sensor_id %s" (:device_id sensors) (:sensor_id sensors))
+    (let [{:keys [start-date end-date]} range
+          sensor (first sensors)]
+      (log/infof "Calculating total weekly usage for device_id %s and sensor_id %s" (:device_id sensor) (:sensor_id sensor))
       (doseq [timestamp (time/seq-dates start-date end-date (t/days 7))]
-        (total-usage-batch store sensors ds timestamp
+        (total-usage-batch store sensor ds timestamp
                            (t/plus timestamp (t/days 7)) :total-usage-weekly)))))
 
 (defmethod total-usage-calculation :total-usage-monthly
   [store {:keys [sensors range ds]}]
   (db/with-session [session (:hecuba-session store)]
-    (let [{:keys [start-date end-date]} range]
-      (log/infof "Calculating total monthly usage for device_id %s and sensor_id %s" (:device_id sensors) (:sensor_id sensors))
+    (let [{:keys [start-date end-date]} range
+          sensor (first sensors)]
+      (log/infof "Calculating total monthly usage for device_id %s and sensor_id %s" (:device_id sensor) (:sensor_id sensor))
       (doseq [timestamp (time/seq-dates start-date end-date (t/days 30))]
-        (total-usage-batch store sensors ds timestamp
+        (total-usage-batch store sensor ds timestamp
                            (t/plus timestamp (t/days 30)) :total-usage-monthly)))))

@@ -118,7 +118,9 @@
                            {:display "Select operation"                            :value "none"}
                            {:display "Total usage - weekly"                        :value "total-usage-weekly"}
                            {:display "Total usage - monthly"                       :value "total-usage-monthly"}
-                           {:display "Tariff calculation"                          :value "tariff-calculation"}
+                           {:display "Tariff calculation - with standing charges"  :value "tariff-calculation-with-standing-charges"}
+                           {:display "Tariff calculation - without standing charges"
+                            :value "tariff-calculation-without-standing-charges"}
                            {:display "Minimum value for a day"                     :value "min-for-day"}
                            {:display "Minimum value for a day - morning"           :value "min-for-day-morning"}
                            {:display "Minimum value for a day - day"               :value "min-for-day-day"}
