@@ -93,18 +93,27 @@ We are using Vagrant to manage dev environments.
 ### First Time Test Data
 
 + Log into the vagrant box using ``vagrant ssh``
-+ Copy the contents of hecuba-schema.sql onto the box you've ssh'd
++ Copy the contents of hecuba-schema.cql onto the box you've ssh'd
   into using vi or similar.
-+ create the test schema ``cqlsh kixi-dev -f hecuba-schema.sql``
++ create the test schema ``cqlsh kixi-dev -f cql/hecuba-schema.cql``
 * Start cqlsh with the right hostname ``cqlsh kixi-dev``
+
+Note: You'll need to install Elastic Search in your vagrant box:
+1) Follow instructions from https://www.digitalocean.com/community/tutorials/how-to-install-elasticsearch-on-an-ubuntu-vps
+2) Change the name of the cluster in /etc/elasticsearch/elasticsearch.yml from test to hecuba
+
+
 
 Back on your host machine do the following:
 
 + Start a repl in your favourite way.
 + Start the application with (go)
-+ (require 'etl)
-+ (etl/load-user-data) to create the users
-+ (etl/load-csv system) to add some test programmes, projects, etc
++ Add your user account: (kixi.hecuba.security/add-user! (:store kixi/system) "Username" "username@mastodonc.com" "password" :kixi.hecuba.security/super-admin {} {})
++ To populate Cassandra with data, run the following script:
+  ```
+  $ cd scripts
+  $ ./contextual_data.sh
+  ```
 
 ## Start an EC2 instance
 
