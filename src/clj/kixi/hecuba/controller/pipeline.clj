@@ -240,7 +240,9 @@
       (mc/total-usage-calculation store item))
     (defmethod synthetic-readings :total-usage-monthly [store item]
       (mc/total-usage-calculation store item))
-    (defmethod synthetic-readings :tariff-calculation [store item]
+    (defmethod synthetic-readings :tariff-calculation-with-standing-charges [store item]
+      (mc/expenditure-calculation-raw store item))
+    (defmethod synthetic-readings :tariff-calculation-without-standing-charges [store item]
       (mc/expenditure-calculation-raw store item))
     (defmethod synthetic-readings :min-for-day [store item]
       (mc/reading-for-a-day store item))
@@ -318,7 +320,7 @@
         (datasets/sensors-for-dataset {:operands (take 1 operands)} store)))
     (defmethod sensors-for-dataset :default [ds store]
       (let [{:keys [operands]} ds]
-        (first (datasets/sensors-for-dataset ds store))))
+        (datasets/sensors-for-dataset ds store)))
 
     (defnconsumer synthetic-readings-q [item]
       (log/info "Starting synthetic readings job.")

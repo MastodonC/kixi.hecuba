@@ -136,7 +136,7 @@
 (deftest apply-tariff-test
   (testing "Testing calculation of standard tariff."
     (is (= 0.08
-           (calculate/round (apply-tariff {:cost-per-kwh 0.13 :type :electricity :daily-standing-charge 0.2192
+           (calculate/round (apply-tariff {:cost_per_kwh 0.13 :type :electricity :daily_standing_charge 0.2192
                                            :annual-lump-sum-discount 5.0}
                                           [{:device_id "aa8392871e0f0a5dc23fb1f89f58b765d85674aa",
                                             :sensor_id "Electricity consumption_differenceSeries",
@@ -172,15 +172,16 @@
                                             :timestamp #inst "2013-09-28T20:30:00.000-00:00",
                                             :error nil,
                                             :reading_metadata {"is-number" "true", "median-spike" "n-a"},
-                                            :value "0.02"}])
+                                            :value "0.02"}]
+                                          :tariff-calculation-without-standing-charges)
                             2)))
-    (is (= 0.06
+    (is (= 0.25
            (calculate/round (apply-tariff {:type "electricity_time_of_use"
-                                           :daily-standing-charge 0.2192
-                                           :cost-per-on-peak-kwh 0.15
-                                           :cost-per-off-peak-kwh 0.06
-                                           :annual-lump-sum-discount 10.0
-                                           :off-peak-periods [{:start "00:00" :end "05:00"}
+                                           :daily_standing_charge 0.2192
+                                           :cost_per_on_peak_kwh 0.15
+                                           :cost_per_off_peak_kwh 0.06
+                                           :annual_lump_sum_discount 10.0
+                                           :off_peak_periods [{:start "00:00" :end "05:00"}
                                                               {:start "22:00" :end "23:59"}]}
                                           [{:device_id "aa8392871e0f0a5dc23fb1f89f58b765d85674aa",
                                             :sensor_id "Electricity consumption_differenceSeries",
@@ -216,7 +217,8 @@
                                             :timestamp #inst "2013-09-28T05:30:00.000-00:00",
                                             :error nil,
                                             :reading_metadata {"is-number" "true", "median-spike" "n-a"},
-                                            :value "0.02"}])
+                                            :value "0.02"}]
+                                          :tariff-calculation-with-standing-charges)
                             2)))))
 
 (deftest day->on-off-periods-test

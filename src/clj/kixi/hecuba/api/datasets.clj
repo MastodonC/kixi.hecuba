@@ -126,7 +126,8 @@
                   {:keys [operation]} body]
               (if (some #{operation} ["divide" "sum" "subtract" "multiply-series-by-field"
                                       "divide-series-by-field" "total-usage-weekly" "total-usage-monthly"
-                                      "tariff-calculation"
+                                      "tariff-calculation-with-standing-charges"
+                                      "tariff-calculation-without-standing-charges"
                                       "min-for-day" "min-for-day-morning" "min-for-day-day" "min-for-day-afteroon"
                                       "min-for-day-night" "avg-for-day" "avg-for-day-morning" "avg-for-day-day"
                                       "avg-for-day-evening" "avg-for-day-night" "max-for-day" "max-for-day-morning"
@@ -214,6 +215,10 @@
   (let [{:keys [sensors operands]} item
         [field unit] (string/split (last operands) #"~")]
     (str (:unit (first sensors)) "/" unit)))
+(defmethod get-unit :tariff-calculation-with-standing-charges [item]
+  "£")
+(defmethod get-unit :tariff-calculation-without-standing-charges [item]
+  "£")
 (defmethod get-unit :default [item]
   (:unit (first (:sensors item))))
 
