@@ -660,6 +660,49 @@ on the sensor.
 
 ![Calculated Field](calculated-field.png)
 
+# Automatically created synthetic sensors
+
+There is a number of synthetic sensors that are automatically created
+when a new sensor is created.
+
+Synthetic sensors based on the period:
+- CUMULATIVE - triggers creation of difference series sensor and
+automatic calculation of difference series for that sensor
+- INSTANT - no synthetic sensor is created.
+- PULSE - triggers creation of a synthetic sensor that is based on the
+original unit of the sensor. Details are described below.
+
+Synthetic sensors based on the unit:
+- kWh - triggers creation of co2 sensor and automatic calculation of
+kWh measurements to co2.
+- m^3 - triggers creation of kWh sensor and automatic calculation of
+m^3 measurements to kWh.
+- ft^3 - triggers creation of kWh sensor and automatic calculation of
+ft^3 measurements to kWh.
+
+If sensor's unit or period has been changed by the user, appropriate
+synthetic sensors will be updated/deleted/created automatically.
+
+Synthetic sensors are flagged as such on both the UI and in the
+response from the API. Type of each sensor is created by appending
+appropriate keyword to the original type, e.g.
+
+type: electricityConsumption period: CUMULATIVE unit: kWh
+becomes:
+type: electricityConsumption_differenceSeries period: PULSE unit: kWh
+
+type: gasConsumption period: PULSE unit: kWh
+becomes:
+type: gasConsumption_co2 period: PULSE unit: co2
+
+type: gasConsumption period: PULSE unit: ft3
+becomes:
+type: gasConsumption_kwh period: PULSE unit: kwh
+
+type: gasConsumption_kwh period: PULSE unit: kwh
+becomes:
+type: gasConsumption_kwh_co2 period: PULSE unit: co2
+
 # User Management
 
 Click on the User Management Tab to see the User Management
