@@ -4,7 +4,7 @@
 # Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
 VAGRANTFILE_API_VERSION = "2"
 
-KIXI_DEV_VERSION="1.0.5"
+KIXI_DEV_VERSION="1.0.6"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.box = "kixi-dev-" + KIXI_DEV_VERSION
