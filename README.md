@@ -92,14 +92,8 @@ We are using Vagrant to manage dev environments.
 
 ### First Time Test Data
 
-+ Log into the vagrant box using ``vagrant ssh``
-+ Copy the contents of hecuba-schema.sql onto the box you've ssh'd
-  into using vi or similar.
-+ create the test schema ``cqlsh kixi-dev -f hecuba-schema.sql``
-* Start cqlsh with the right hostname ``cqlsh kixi-dev``
-
-Back on your host machine do the following:
-
++ ElasticSearch and Cassandra are now running in the virtual machine, but their ports are forwarded back to the host, so you can access them directly from the host.
++ Create the test schema ``cqlsh -f hecuba-schema.sql``
 + Start a repl in your favourite way.
 + Start the application with (go)
 + (require 'etl)
