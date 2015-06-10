@@ -74,7 +74,6 @@
                                :property_code "1a2b3c4d"}
         entity_url            (:location (:body (read-response (post-resource (str hostname "/4/entities/")
                                                                        "application/json" entity))))
-        _ (log/error ">>>>>>" entity_url)
         [_ _ _ entity_id]     (string/split entity_url #"/")
         ;; DEVICE
         device                {:description "External air temperature sensor"
