@@ -82,8 +82,8 @@ lein cljsbuild test
 
 We are using Vagrant to manage dev environments.
 
-+ Install VirtualBox v4.3.8 from [here](https://www.virtualbox.org/wiki/Downloads) or preferably via your OS's package manager.
-+ Install Vagrant v. 1.4.3 from [here](http://www.vagrantup.com/) or preferably via your OS's package manager.
++ Install VirtualBox v4.3.28 (correct as of 10th June 2015) from [here](https://www.virtualbox.org/wiki/Downloads) or preferably via your OS's package manager.
++ Install Vagrant v. 1.7.2 (correct as of 10th June 2015) from [here](http://www.vagrantup.com/) or preferably via your OS's package manager.
 + install the vbguest plugin so Virtual Box guest additions will updated
   for you ``vagrant plugin install vagrant-vbguest``
 + ``cd ${PROJECT_HOME}``
