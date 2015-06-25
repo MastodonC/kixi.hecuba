@@ -1,0 +1,15 @@
+{
+  :cassandra-session {:keyspace :test}
+  :hecuba-session {:keyspace :test}
+  :search-session {:host "127.0.0.1" :name "hecuba"}
+  :s3          {:access-key ""
+                               :secret-key ""
+                               :file-bucket "mc-test-hecuba-uploads"
+                               :status-bucket "hecuba-status"
+                               :download-dir "/tmp"}
+  :cljs-builder {:output-dir "target/cljs/src"}
+  :users [{:name "mastodon"
+                     :username "support@mastodonc.com"
+                     :password "password"
+                     :role :kixi.hecuba.security/admin}]
+  :etl {:data-directory "/home/neale/workspace/kixi.hecuba.migration/data"}} 
