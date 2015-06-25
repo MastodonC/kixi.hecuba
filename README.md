@@ -99,6 +99,7 @@ We are using Vagrant to manage dev environments.
 + Start the application with (go)
 + (require '[etl :as etl])
 + (etl/load-test-data) to create data
++ web interface is at http://localhost:8010
 
 ## Start an EC2 instance
 
