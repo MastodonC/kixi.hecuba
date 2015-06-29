@@ -94,7 +94,7 @@ We are using Vagrant to manage dev environments.
 
 + ElasticSearch and Cassandra are now running in the virtual machine, but their ports are forwarded back to the host, so you can access them directly from the host.
 + Copy the example edn file to your home directory (.hecuba.edn)
-+ Create the test schema (you can do it from your host machine) ``cqlsh -f cql/hecuba-schema.sql``
++ Create the test schema (you can do it from your host machine) ``cqlsh -f cql/hecuba-schema.cql``
 + Start a repl in your favourite way.
 + Start the application with (go)
 + (require '[etl :as etl])
