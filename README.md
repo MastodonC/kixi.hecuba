@@ -97,8 +97,15 @@ We are using Vagrant to manage dev environments.
 + Create the test schema (you can do it from your host machine) ``cqlsh -f cql/hecuba-schema.cql``
 + Start a repl in your favourite way.
 + Start the application with (go)
-+ (require '[etl :as etl])
-+ (etl/load-test-data) to create data
++ add user:
+
+    (kixi.hecuba.security/add-user! (:store kixi/system) "Elise Huard" "elise@mastodonc.com" "password" :kixi.hecuba.security/admin {} {})
+
++ load test data:
+
+    (require '[etl :as etl])
+    (etl/load-test-data)
+
 + web interface is at http://localhost:8010
 
 ## Start an EC2 instance
