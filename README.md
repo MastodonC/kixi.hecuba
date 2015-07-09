@@ -92,19 +92,25 @@ We are using Vagrant to manage dev environments.
 
 ### First Time Test Data
 
-+ Log into the vagrant box using ``vagrant ssh``
-+ Copy the contents of hecuba-schema.sql onto the box you've ssh'd
-  into using vi or similar.
-+ create the test schema ``cqlsh kixi-dev -f hecuba-schema.sql``
-* Start cqlsh with the right hostname ``cqlsh kixi-dev``
-
-Back on your host machine do the following:
-
++ ElasticSearch and Cassandra are now running in the virtual machine, but their ports are forwarded back to the host, so you can access them directly from the host.
++ Copy the example edn file (resources/default.hecuba.edn) to your home directory (.hecuba.edn) and adapt
++ Create the test schema (you can do it from your host machine) ``cqlsh -f cql/hecuba-schema.cql``
 + Start a repl in your favourite way.
 + Start the application with (go)
-+ (require 'etl)
-+ (etl/load-user-data) to create the users
-+ (etl/load-csv system) to add some test programmes, projects, etc
++ add user:
+
+```
+    (kixi.hecuba.security/add-user! (:store kixi/system) "Elise Huard" "elise@mastodonc.com" "password" :kixi.hecuba.security/admin {} {})
+```
+
++ load test data:
+
+```
+    (require '[etl :as etl])
+    (etl/load-test-data)
+```
+
++ web interface is at http://localhost:8010
 
 ## Start an EC2 instance
 
