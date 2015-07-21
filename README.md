@@ -89,12 +89,28 @@ We are using Vagrant to manage dev environments.
 + ``cd ${PROJECT_HOME}``
 + ``vagrant up`` (This will download stuff the first time and will be slow, after that it will be quicker)
 + You will now have all the services required running in a virtual machine with the ports forwarded for access from your local machine
++ You will need to install a cassandra _client_ only on your local machine. (You should not be running a cassandra locally as the ports will clash with those forwarded from the vagrant machine).
 
 ### First Time Test Data
 
 + Work out what the hostname you should use to connect to cassandra is. Look at the output of ``netstat -tln``, find the line that says something like ``aaa.bbb.ccc.ddd:9042``. (note this might be an ipv6 address depending on how your network is configured). This is the address to use in your hecuba config file and in the commands below.
-+ create the test schema ``cqlsh aaa.bbb.ccc.ddd -f hecuba-schema.sql`` (this might show an error the first time you run it about the test namespace not existing, you can ignore that error
++ create the test schema ``cqlsh aaa.bbb.ccc.ddd -f hecuba-schema.sql`` (this might show an error the first time you run it about the test namespace not existing, you can ignore that error)
 + Start cqlsh with the right hostname ``cqlsh aaa.bbb.ccc.ddd``
++ Create a file ``~/.hecuba.edn``` with the following contents:
+```
+{
+ ;; TODO - confirm that contact-points is correct key.
+ :cassandra-session {:contact-points ["<the address you found above>"] :keyspace :test}
+ :hecuba-session {:contact-points ["<the address you found above>"] :keyspace :test}
+ :search-session {:host :host "<the address you found above>" :name "hecuba"}
+ :s3          {:access-key "<your personal AWS access key DO NOT SHARE KEYS!>"
+               :secret-key "<your personal AWS secret key DO NOT SHARE KEYS!>"
+               ;; you will need to create these buckets.
+               :file-bucket "mc-<yourname>-hecuba-uploads"
+               :status-bucket "mc-<yourname>-hecuba-status"
+               :download-dir "/tmp"}
+}
+```
 
 Back on your host machine do the following:
 
