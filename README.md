@@ -92,11 +92,9 @@ We are using Vagrant to manage dev environments.
 
 ### First Time Test Data
 
-+ Log into the vagrant box using ``vagrant ssh``
-+ Copy the contents of hecuba-schema.sql onto the box you've ssh'd
-  into using vi or similar.
-+ create the test schema ``cqlsh kixi-dev -f hecuba-schema.sql``
-* Start cqlsh with the right hostname ``cqlsh kixi-dev``
++ Work out what the hostname you should use to connect to cassandra is. Look at the output of ``netstat -tln``, find the line that says something like ``aaa.bbb.ccc.ddd:9042``. (note this might be an ipv6 address depending on how your network is configured). This is the address to use in your hecuba config file and in the commands below.
++ create the test schema ``cqlsh aaa.bbb.ccc.ddd -f hecuba-schema.sql`` (this might show an error the first time you run it about the test namespace not existing, you can ignore that error
++ Start cqlsh with the right hostname ``cqlsh aaa.bbb.ccc.ddd``
 
 Back on your host machine do the following:
 
