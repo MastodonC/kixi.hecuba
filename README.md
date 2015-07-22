@@ -100,7 +100,7 @@ You will still run your hecuba instance local to your machine (not in the vagran
 
 ### First Time Test Data
 
-+ Work out what the hostname you should use to connect to cassandra is. Look at the output of ``netstat -tln``, find the line that says something like ``aaa.bbb.ccc.ddd:9042``. (note this might be an ipv6 address depending on how your network is configured). This is the address to use in your hecuba config file and in the commands below.
++ Work out what the hostname you should use to connect to cassandra is. Look at the output of ``netstat -tln``, find the line that says something like ``aaa.bbb.ccc.ddd:9042``. (note this might be an ipv6 address depending on how your network is configured). This is the address to use in your hecuba config file and in the commands below. If the address is ``127.0.0.1`` you can omit the address from the commands below, since that's the default.
 
 On your machine (not the vagrant box):
 
@@ -112,7 +112,7 @@ On your machine (not the vagrant box):
 {
  :cassandra-session {:keyspace :test}
  :hecuba-session {:keyspace :test}
- :search-session {:host :host "<the address you found above>" :name "hecuba"}
+ :search-session {:host "<the address you found above>" :name "hecuba"}
  :s3          {:access-key "<your personal AWS access key DO NOT SHARE KEYS!>"
                :secret-key "<your personal AWS secret key DO NOT SHARE KEYS!>"
                ;; you will need to create these buckets.
