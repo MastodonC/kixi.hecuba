@@ -82,6 +82,13 @@ lein cljsbuild test
 
 We are using Vagrant to manage dev environments.
 
+The goal of the Vagrant setup is to provide, in a simple 'black box' that just works™, all the services that you need to run hecuba.
+
+You shouldn't need to login to the vagrant box at all, everything is forwarded outside the box.
+
+You will still run your hecuba instance local to your machine (not in the vagrant box).
+
+
 + Install VirtualBox v4.3.28 (correct as of 10th June 2015) from [here](https://www.virtualbox.org/wiki/Downloads) or preferably via your OS's package manager.
 + Install Vagrant v. 1.7.2 (correct as of 10th June 2015) from [here](http://www.vagrantup.com/) or preferably via your OS's package manager.
 + install the vbguest plugin so Virtual Box guest additions will updated
@@ -94,6 +101,9 @@ We are using Vagrant to manage dev environments.
 ### First Time Test Data
 
 + Work out what the hostname you should use to connect to cassandra is. Look at the output of ``netstat -tln``, find the line that says something like ``aaa.bbb.ccc.ddd:9042``. (note this might be an ipv6 address depending on how your network is configured). This is the address to use in your hecuba config file and in the commands below.
+
+On your machine (not the vagrant box):
+
 + create the test schema ``cqlsh aaa.bbb.ccc.ddd -f hecuba-schema.sql`` (this might show an error the first time you run it about the test namespace not existing, you can ignore that error)
 + Start cqlsh with the right hostname ``cqlsh aaa.bbb.ccc.ddd``
 + Create the Elastic Search schema by running ``scripts/build-es-schema.sh``
