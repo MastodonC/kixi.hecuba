@@ -96,6 +96,7 @@ We are using Vagrant to manage dev environments.
 + Work out what the hostname you should use to connect to cassandra is. Look at the output of ``netstat -tln``, find the line that says something like ``aaa.bbb.ccc.ddd:9042``. (note this might be an ipv6 address depending on how your network is configured). This is the address to use in your hecuba config file and in the commands below.
 + create the test schema ``cqlsh aaa.bbb.ccc.ddd -f hecuba-schema.sql`` (this might show an error the first time you run it about the test namespace not existing, you can ignore that error)
 + Start cqlsh with the right hostname ``cqlsh aaa.bbb.ccc.ddd``
++ Create the Elastic Search schema by running ``scripts/build-es-schema.sh``
 + Create a file ``~/.hecuba.edn``` with the following contents:
 ```
 {
@@ -117,7 +118,7 @@ Back on your host machine do the following:
 + Start a repl in your favourite way.
 + Start the application with (go)
 + (require 'etl)
-+ (kixi.hecuba.security/add-user! (:store kixipipe.application/system) "Mastodon" "mastodon" "password" :kixi.hecuba.security/super-admin  #{} #{} )
++ (kixi.hecuba.security/add-user! (:store kixipipe.application/system) "Mastodon" "support@mastodonc.com" "password" :kixi.hecuba.security/super-admin  #{} #{} )
 + (etl/load-test-data)
 
 ## Support
