@@ -99,9 +99,8 @@ We are using Vagrant to manage dev environments.
 + Create a file ``~/.hecuba.edn``` with the following contents:
 ```
 {
- ;; TODO - confirm that contact-points is correct key.
- :cassandra-session {:contact-points ["<the address you found above>"] :keyspace :test}
- :hecuba-session {:contact-points ["<the address you found above>"] :keyspace :test}
+ :cassandra-session {:keyspace :test}
+ :hecuba-session {:keyspace :test}
  :search-session {:host :host "<the address you found above>" :name "hecuba"}
  :s3          {:access-key "<your personal AWS access key DO NOT SHARE KEYS!>"
                :secret-key "<your personal AWS secret key DO NOT SHARE KEYS!>"
@@ -109,6 +108,7 @@ We are using Vagrant to manage dev environments.
                :file-bucket "mc-<yourname>-hecuba-uploads"
                :status-bucket "mc-<yourname>-hecuba-status"
                :download-dir "/tmp"}
+               
 }
 ```
 
@@ -117,21 +117,8 @@ Back on your host machine do the following:
 + Start a repl in your favourite way.
 + Start the application with (go)
 + (require 'etl)
-+ (etl/load-user-data) to create the users
-+ (etl/load-csv system) to add some test programmes, projects, etc
-
-## Start an EC2 instance
-
-+ make sure you have foreman installed
-+ add the aws plugin ``vagrant plugin install vagrant-aws``
-
-```
-$ gem install foreman
-```
-
-+ copy env.example into .env and edit your AWS credentials in there
-+ ``foreman run vagrant up --provider=aws``
-
++ (kixi.hecuba.security/add-user! (:store kixipipe.application/system) "Mastodon" "mastodon" "password" :kixi.hecuba.security/super-admin  #{} #{} )
++ (etl/load-test-data)
 
 ## Support
 
