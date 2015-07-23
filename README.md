@@ -105,8 +105,7 @@ You will still run your hecuba instance local to your machine (not in the vagran
 On your machine (not the vagrant box):
 
 + create the test schema ``cqlsh aaa.bbb.ccc.ddd -f hecuba-schema.sql`` (this might show an error the first time you run it about the test namespace not existing, you can ignore that error)
-+ Start cqlsh with the right hostname ``cqlsh aaa.bbb.ccc.ddd``
-+ Create the Elastic Search schema by running ``scripts/build-es-schema.sh``
++ At the shell prompt, create the Elastic Search schema by running ``scripts/build-es-schema.sh``
 + Create a file ``~/.hecuba.edn``` with the following contents:
 ```
 {
