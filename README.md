@@ -118,10 +118,6 @@ On your machine (not the vagrant box):
                :file-bucket "mc-<yourname>-hecuba-uploads"
                :status-bucket "mc-<yourname>-hecuba-status"
                :download-dir "/tmp"}
-:users [{:name "mastodon"
-          :username "support@mastodonc.com"
-          :password "password"
-          :role :kixi.hecuba.security/admin}]                
 }
 ```
 
@@ -130,7 +126,6 @@ Back on your host machine do the following:
 + Start a repl in your favourite way.
 + Start the application with (go)
 + (require 'etl)
-+ (kixi.hecuba.security/add-user! (:store kixipipe.application/system) "Mastodon" "support@mastodonc.com" "password" :kixi.hecuba.security/super-admin  #{} #{} )
 + (etl/load-test-data)
 
 ## Support
