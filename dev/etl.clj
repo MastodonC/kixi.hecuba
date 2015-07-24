@@ -11,7 +11,12 @@
             [generators :as generators]
             [org.httpkit.client :refer (request) :rename {request http-request}]
             [clojure.string :as string]
-            [clojure.data.json :as json]))
+            [clojure.data.json :as json]
+            [kixi.hecuba.security :as sec]
+            [kixipipe.application]))
+
+(def credentials
+  {:username "support@mastodonc.com" :password "password"})
 
 (defn- config []
   (let [f (io/file (System/getProperty "user.home") ".hecuba.edn")]
@@ -27,17 +32,13 @@
     (let [new-metadata (walk/stringify-keys (read-string metadata))]
       new-metadata)))
 
-(defn- get-credentials []
-  (let [cred (first (filter #(= "mastodon" (:name %)) (:users (config))))]
-    [(:username cred) (:password cred)]))
-
 (defn post-resource [post-uri content-type data]
   (let [response
         @(http-request
           {:method :post
            :url post-uri
            :headers {"Content-Type" content-type}
-           :basic-auth (get-credentials)
+           :basic-auth ((juxt :username :password) credentials)
            :body (case content-type
                    "application/edn" (pr-str data)
                    "application/json" (encode data))}
@@ -115,7 +116,17 @@
                                                              #(tf/unparse custom-formatter (tc/from-date %)))))
                                             measurements2)})))
 
+(defn upsert-test-user
+  []
+  (sec/add-user!
+   (:store kixipipe.application/system)
+   "Mastodon"
+   (:username credentials)
+   (:password credentials)
+   :kixi.hecuba.security/super-admin #{} #{} ))
+
 (defn load-test-data []
+  (upsert-test-user)
   (post-generated-data))
 
 ;; To load data (load-test-data)
