@@ -118,7 +118,10 @@ On your machine (not the vagrant box):
                :file-bucket "mc-<yourname>-hecuba-uploads"
                :status-bucket "mc-<yourname>-hecuba-status"
                :download-dir "/tmp"}
-               
+:users [{:name "mastodon"
+          :username "support@mastodonc.com"
+          :password "password"
+          :role :kixi.hecuba.security/admin}]                
 }
 ```
 
