@@ -33,6 +33,12 @@ app needs to be bounced by doing ```reset``` as above.
 If you pull from github, you'll still probably want to restart your
 nrepl session though.
 
+You can now access the Hecuba frontend by navigating to:
+
+```
+http://localhost:8010
+```
+
 To clean the build do:
 
 ```
