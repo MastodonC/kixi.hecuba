@@ -82,6 +82,13 @@ lein cljsbuild test
 
 We are using Vagrant to manage dev environments.
 
+The goal of the Vagrant setup is to provide, in a simple 'black box' that just works™, all the services that you need to run hecuba.
+
+You shouldn't need to login to the vagrant box at all, everything is forwarded outside the box.
+
+You will still run your hecuba instance local to your machine (not in the vagrant box).
+
+
 + Install VirtualBox v4.3.28 (correct as of 10th June 2015) from [here](https://www.virtualbox.org/wiki/Downloads) or preferably via your OS's package manager.
 + Install Vagrant v. 1.7.2 (correct as of 10th June 2015) from [here](http://www.vagrantup.com/) or preferably via your OS's package manager.
 + install the vbguest plugin so Virtual Box guest additions will updated
@@ -93,22 +100,28 @@ We are using Vagrant to manage dev environments.
 
 ### First Time Test Data
 
-+ Work out what the hostname you should use to connect to cassandra is. Look at the output of ``netstat -tln``, find the line that says something like ``aaa.bbb.ccc.ddd:9042``. (note this might be an ipv6 address depending on how your network is configured). This is the address to use in your hecuba config file and in the commands below.
-+ create the test schema ``cqlsh aaa.bbb.ccc.ddd -f hecuba-schema.sql`` (this might show an error the first time you run it about the test namespace not existing, you can ignore that error)
-+ Start cqlsh with the right hostname ``cqlsh aaa.bbb.ccc.ddd``
++ Work out what the hostname you should use to connect to cassandra is. Look at the output of ``netstat -tln``, find the line that says something like ``aaa.bbb.ccc.ddd:9042``. (note this might be an ipv6 address depending on how your network is configured). This is the address to use in your hecuba config file and in the commands below. If the address is ``127.0.0.1`` you can omit the address from the commands below, since that's the default.
+
+On your machine (not the vagrant box):
+
++ create the test schema ``cqlsh aaa.bbb.ccc.ddd -f cql/hecuba-schema.cql`` (this might show an error the first time you run it about the test namespace not existing, you can ignore that error)
++ At the shell prompt, create the Elastic Search schema by running ``scripts/build-es-schema.sh``
 + Create a file ``~/.hecuba.edn``` with the following contents:
 ```
 {
- ;; TODO - confirm that contact-points is correct key.
- :cassandra-session {:contact-points ["<the address you found above>"] :keyspace :test}
- :hecuba-session {:contact-points ["<the address you found above>"] :keyspace :test}
- :search-session {:host :host "<the address you found above>" :name "hecuba"}
+ :cassandra-session {:keyspace :test}
+ :hecuba-session {:keyspace :test}
+ :search-session {:host "<the address you found above>" :name "hecuba"}
  :s3          {:access-key "<your personal AWS access key DO NOT SHARE KEYS!>"
                :secret-key "<your personal AWS secret key DO NOT SHARE KEYS!>"
                ;; you will need to create these buckets.
                :file-bucket "mc-<yourname>-hecuba-uploads"
                :status-bucket "mc-<yourname>-hecuba-status"
                :download-dir "/tmp"}
+:users [{:name "mastodon"
+          :username "support@mastodonc.com"
+          :password "password"
+          :role :kixi.hecuba.security/admin}]                
 }
 ```
 
@@ -117,21 +130,8 @@ Back on your host machine do the following:
 + Start a repl in your favourite way.
 + Start the application with (go)
 + (require 'etl)
-+ (etl/load-user-data) to create the users
-+ (etl/load-csv system) to add some test programmes, projects, etc
-
-## Start an EC2 instance
-
-+ make sure you have foreman installed
-+ add the aws plugin ``vagrant plugin install vagrant-aws``
-
-```
-$ gem install foreman
-```
-
-+ copy env.example into .env and edit your AWS credentials in there
-+ ``foreman run vagrant up --provider=aws``
-
++ (kixi.hecuba.security/add-user! (:store kixipipe.application/system) "Mastodon" "support@mastodonc.com" "password" :kixi.hecuba.security/super-admin  #{} #{} )
++ (etl/load-test-data)
 
 ## Support
 
