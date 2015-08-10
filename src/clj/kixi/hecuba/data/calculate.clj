@@ -432,6 +432,19 @@
             latest-value (-> merged :profile_data field-name)]
         latest-value))))
 
+;; The McKiver method (or British Gas method) as employed by the Met Office
+;; For more info see http://www.vesma.com/ddd/ddcalcs.htm
+(defn calc-degrees-heating-mckiver [tbase tmin tmax] 
+  (if (> tmin tbase)
+    0
+    (if (> (/ (+ tmax tmin) tbase))
+      (double (/ (- tbase tmin) 4)) 
+      (if (>= tmax tbase)
+        (double (- (/ (- tbase tmin) 2) (/ (- tmax tbase) 4))) 
+        (if (< tmax tbase)
+          (double (/ (- tbase (+ tbase tmin)) 2)) 
+          -1)))))
+
 (defn calculate-dataset
   ([store ds sensors range field]
      (let [{:keys [operation operands device_id entity_id]} ds
