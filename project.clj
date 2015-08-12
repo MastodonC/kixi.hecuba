@@ -85,6 +85,13 @@
                  [environ "1.0.0"]
                  [ankha "0.1.4"]
 
+                 ;; Heatmap and Regression Plot requirements.
+                 [thi.ng/geom "0.0.881"]
+                 [cljs-http "0.1.35"]
+                 [hiccups "0.3.0"]
+                 [bardo "0.1.2-SNAPSHOT"]
+
+
                  [javax.servlet/servlet-api "2.5"]
 
                  ;; do this here to avoid clashes
