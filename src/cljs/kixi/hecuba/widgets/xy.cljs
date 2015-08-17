@@ -1,4 +1,4 @@
-(ns kixi.hebcua.widgets.xy
+(ns kixi.hecuba.widgets.xy
     (:require-macros [hiccups.core :as hiccups]
                      [cljs.core.async.macros :refer [go]])
     (:require  [cljs.core.async :refer [<! >! chan close! sliding-buffer put! alts!]]
@@ -58,7 +58,7 @@
         (recur (<! input-chan)))))
 
 (defn chart
-  [{:keys [width height x-range y-range data-chan]
+  [{:keys [width height x-range y-range data-chan x-label y-label]
     :or {width 800
          height 600
          x-range [0 200]
@@ -78,9 +78,24 @@
         (data-loop cursor @chart-data-chan))
       om/IRender
       (render [_]
-        (dom/div #js {:dangerouslySetInnerHTML #js
-                      {:__html (->> @cursor
-                                    :element
-                                    viz/svg-plot2d-cartesian
-                                    (svg/svg {:width @chart-width :height @chart-height})
-                                    hiccups/html)}})))))
+        (dom/div #js {:style #js {:position "relative"
+                                  :overflow "hidden"
+                                  :whiteSpace "nowrap"
+                                  :font-family "sans-serif"
+                                  :font-size "11px"
+                                  :text-align "center"
+                                  :width (str (+ 50 @chart-width) "px")}}
+                 (dom/span #js {:style #js {:float "left"
+                                            :margin (str (/ @chart-height 2) "px -40px 0px -10px")
+                                            :-webkit-transform "rotate(-90deg)"
+                                            :-moz-transform "rotate(-90deg)"
+                                            :-ms-transform "rotate(-90deg)"
+                                            :-o-transform "rotate(-90deg)"
+                                            :filter "progid:DXImageTransform.Microsoft.BasicImage(rotation=3)"}} y-label)
+                 (dom/div #js {:dangerouslySetInnerHTML #js
+                               {:__html (->> @cursor
+                                             :element
+                                             viz/svg-plot2d-cartesian
+                                             (svg/svg {:width @chart-width :height @chart-height})
+                                             hiccups/html)}})
+                 (dom/div #js {:style #js {:height "20px" :margin-top "5px"}} (dom/span nil x-label)))))))

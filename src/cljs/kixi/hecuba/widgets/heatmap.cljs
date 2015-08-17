@@ -13,11 +13,12 @@
             [thi.ng.math.simplexnoise :as n]
             [thi.ng.math.core :as m :refer [PI]]
             [thi.ng.color.gradients :as grad]
+            [thi.ng.ndarray.core :as nd]
             [hiccups.runtime :as hiccupsrt]
             [goog.string :as gstring]
             [goog.string.format]
             [cljs-http.client :as http]
-            [bardo.interpolate :refer [pipeline]]))
+            [bardo.interpolate :refer [interpolate pipeline]]))
 
 (def x-readings 14)
 (def y-readings 48)
@@ -39,6 +40,32 @@
         rgb-funcs {:red first :green second :blue last}]
     (mapv (fn [t] (mapv (fn [[k v]] ((pipeline (map #(/ (v %) 255) colours)) t) ) rgb-funcs)) times)))
 
+(defn svg-heatmap-with-title
+  "Custom heatmap function, as we add titles to the polygons"
+  [{:keys [x-axis y-axis project]}
+   {:keys [matrix value-domain clamp palette palette-scale attribs shape]
+    :or {value-domain [0.0 1.0]
+         palette-scale viz/linear-scale
+         shape #(conj (svg/polygon [%1 %2 %3 %4] {:fill %5}) [:title %6])}
+    :as d-spec}]
+  (let [scale-x   (:scale x-axis)
+        scale-y   (:scale y-axis)
+        pmax      (dec (count palette))
+        scale-v   (palette-scale value-domain [0 pmax])]
+    (svg/group
+     attribs
+     (for [p (nd/position-seq matrix)
+           :let [[y x] p
+                 v (nd/get-at matrix y x)]
+           :when (or clamp (m/in-range? value-domain v))]
+       (shape
+        (project [(scale-x x) (scale-y y)])
+        (project [(scale-x (inc x)) (scale-y y)])
+        (project [(scale-x (inc x)) (scale-y (inc y))])
+        (project [(scale-x x) (scale-y (inc y))])
+        (palette (m/clamp (int (scale-v v)) 0 pmax))
+        v)))))
+
 (defn heatmap-spec
   [id heatmap-data size-x size-y lcb ucb grads]
   (let [matrix (viz/matrix-2d size-x size-y heatmap-data)]
@@ -46,7 +73,7 @@
      :value-domain  [lcb ucb]
      :palette       (generate-palette grads colour-scheme)
      :palette-scale viz/linear-scale
-     :layout        viz/svg-heatmap
+     :layout        svg-heatmap-with-title
      }))
 
 (defn int-to-dow
@@ -63,6 +90,7 @@
   [cursor data lcb ucb gradations]
   (let [lcb (if (nil? lcb) (.floor js/Math (apply min data)) lcb)
         ucb (if (nil? ucb) (.ceil js/Math (apply max data)) ucb)
+        midcb ((interpolate lcb ucb) 0.5)
         gradations (if (nil? gradations) default-gradations gradations)
         adjusted-data (if @chart-fill-oor-cells? (map #(m/clamp % lcb ucb) data) data)]
     (om/update! cursor :data data)
@@ -104,7 +132,10 @@
                                                   :pos 10
                                                   :label-dist -35
                                                   :label {:text-anchor "start"}
-                                                  :format #(if (= % 0) lcb (if (= % gradations) ucb))})
+                                                  :format #(cond
+                                                             (= % 0) lcb
+                                                             (= % gradations) ucb
+                                                             (= % (/ gradations 2)) midcb)})
                                         :data     [(merge (heatmap-spec
                                                            :yellow-magenta-cyan
                                                            (vec (for [x (map #(/ % gradations)(range 0 gradations))]
@@ -123,7 +154,7 @@
         (recur (<! input-chan)))))
 
 (defn chart
-  [{:keys [width height data-chan fill-out-of-range-cells?]
+  [{:keys [width height data-chan fill-out-of-range-cells? x-label y-label]
     :or {width 800
          height 600}}]
   (if (nil? data-chan)
@@ -140,16 +171,33 @@
         (data-loop cursor @chart-data-chan))
       om/IRender
       (render [_]
-        (dom/div #js {:style #js {:position "relative" :overflow "hidden" :whiteSpace "nowrap"}}
-                    (dom/div #js {:style #js {:display "inline-block"}
-                                  :dangerouslySetInnerHTML #js
-                                  {:__html (->> (:element cursor)
-                                                (viz/svg-plot2d-cartesian)
-                                                (svg/svg {:width @chart-width :height @chart-height})
-                                                (hiccups/html))}})
-                    (dom/div #js {:style #js {:display "inline-block"}
-                                  :dangerouslySetInnerHTML #js
-                                  {:__html (->> (:element-legend cursor)
-                                                (viz/svg-plot2d-cartesian)
-                                                (svg/svg {:width @chart-width :height @chart-height})
-                                                (hiccups/html))}}))))))
+        (let [main-data (->> (:element cursor)
+                             (viz/svg-plot2d-cartesian)
+                             (svg/svg {:width @chart-width :height @chart-height}))
+              legend-data (->> (:element-legend cursor)
+                               (viz/svg-plot2d-cartesian)
+                               (svg/svg {:width @chart-width :height @chart-height}))]
+          (println main-data)
+          (dom/div #js {:style #js {:position "relative"
+                                    :overflow "hidden"
+                                    :whiteSpace "nowrap"
+                                    :font-family "sans-serif"
+                                    :font-size "11px"
+                                    :text-align "center"
+                                    :width (str (+ 100 @chart-width) "px")}}
+                   (dom/div nil (dom/span nil x-label))
+                   (dom/span #js {:style #js {:float "left"
+                                              ;;:height (str (/ @chart-height 2) "px")
+                                              :margin (str (/ @chart-height 2) "px -30px 0px -30px")
+
+                                              :-webkit-transform "rotate(-90deg)"
+                                              :-moz-transform "rotate(-90deg)"
+                                              :-ms-transform "rotate(-90deg)"
+                                              :-o-transform "rotate(-90deg)"
+                                              :filter "progid:DXImageTransform.Microsoft.BasicImage(rotation=3)"}} y-label)
+                   (dom/div #js {:style #js {:display "inline-block"}
+                                 :dangerouslySetInnerHTML #js
+                                 {:__html (hiccups/html main-data)}})
+                   (dom/div #js {:style #js {:display "inline-block"}
+                                 :dangerouslySetInnerHTML #js
+                                 {:__html (hiccups/html legend-data)}})))))))
