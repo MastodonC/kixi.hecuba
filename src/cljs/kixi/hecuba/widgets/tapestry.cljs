@@ -5,17 +5,7 @@
                [cljs.reader :refer [read-string]]
                [om.core :as om :include-macros true]
                [om.dom :as dom :include-macros true]
-               [thi.ng.geom.viz.core :as viz]
-               [thi.ng.geom.svg.core :as svg]
-               [thi.ng.geom.core.vector :as v]
-               [thi.ng.geom.core :as g]
-               [thi.ng.geom.core.utils :as gu]
-               [thi.ng.math.simplexnoise :as n]
-               [thi.ng.math.core :as m :refer [PI]]
-               [thi.ng.color.gradients :as grad]
                [hiccups.runtime :as hiccupsrt]
-               [goog.string :as gstring]
-               [goog.string.format]
                [cljs-http.client :as http]
                [kixi.hecuba.widgets.xy :as xy]
                [kixi.hecuba.widgets.heatmap :as heatmap]))
@@ -33,7 +23,7 @@
 ;;;;;;;;;;
 ;; Heatmap
 
-(go (let [resp (<! (io/resource "heatmap.edn"))
+(go (let [resp (<! (http/get "/data/heatmap.edn"))
           new-data (->> resp :body :data (map :value))
           new-default-lcb (.floor js/Math (apply min new-data))
           new-default-ucb (.ceil js/Math (apply max new-data))]
@@ -89,7 +79,7 @@
 ;;;;;;;;;;
 ;; XY plot
 
-(go (let [resp (<! (io/resource "xyplot.edn"))
+(go (let [resp (<! (http/get "/data/xyplot.edn"))
           new-data (:data (:body resp))]
       (put! xy-data-chan new-data)))
 

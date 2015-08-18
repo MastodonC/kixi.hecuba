@@ -1,4 +1,4 @@
-(def cider-nrepl-version "0.8.2")
+(def cider-nrepl-version "0.9.1")
 (defproject kixi/hecuba "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
@@ -11,15 +11,15 @@
   ;; Enable the lein hooks for: clean, compile, test, and jar.
   ;; :hooks [leiningen.cljsbuild]
 
-  :dependencies [[org.clojure/clojure "1.6.0"]
+  :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/tools.macro "0.1.5"]
-                 [org.clojure/core.match "0.2.2"]
+                 [org.clojure/core.match "0.3.0-alpha4"]
 
                  [joda-time "2.4"]
 
                  ;; Testing POST and GET data
                  [kixi/schema_gen "0.1.6" :exclusions [schema-contrib]]
-                 [schema-contrib "0.1.5"]
+                 [schema-contrib "0.1.6-SNAPSHOT"]
                  [kixi/amon-schema "0.1.12" :exclusions [schema-contrib]]
                  [clj-http "1.0.0"]
 
@@ -66,11 +66,11 @@
                  [http-kit "2.1.16"]
 
                  ;; EDN reader with location metadata - for configuration
-                 [org.clojure/tools.reader "0.8.8"]
+                 [org.clojure/tools.reader "0.10.0-alpha1"]
 
                  ;; ClojureScript dependencies
 
-                 [org.clojure/clojurescript "0.0-2843" :scope "provided"]
+                 [org.clojure/clojurescript "0.0-3297" :scope "provided"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha" :scope "provided"]
 
                  [cljs-ajax "0.2.3"]

@@ -9,7 +9,6 @@
                [thi.ng.geom.svg.core :as svg]
                [thi.ng.geom.core.vector :as v]
                [thi.ng.geom.core :as g]
-               [thi.ng.geom.core.utils :as gu]
                [thi.ng.math.simplexnoise :as n]
                [thi.ng.math.core :as m :refer [PI]]
                [thi.ng.color.gradients :as grad]
