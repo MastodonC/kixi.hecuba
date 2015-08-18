@@ -155,6 +155,13 @@
                                            :optimizations :none
                                            :pretty-print true}}
                        :test {:source-paths ["test/cljs"]
+                       :tapestry {:source-paths ["tapestry/cljs"]
+                                  :jar true
+                                  :compiler {:output-to "out/cljs/tapestry/tapestry.js"
+                                             :output-dir "out/cljs/tapestry"
+                                             :optimizations :none
+                                             :pretty-print true}}
+                       :test {:source-paths ["src/cljs" "test/cljs"]
                               :compiler {:output-to "target/testable.js"
                                          :preamble ["react/react.min.js" "vendor/d3.v3.min.js"]
                                          :optimizations :whitespace

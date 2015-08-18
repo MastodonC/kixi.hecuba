@@ -1,77 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="">
-    <meta name="author" content="">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="description" content="">
+        <meta name="author" content="">
 
-    <title>getembed - Main</title>
+        <title>getembed - Main</title>
 
-    <!-- Shims and Shivs for old, broken IE8 -->
-    <!--[if lt IE 9]>
+        <!-- Shims and Shivs for old, broken IE8 -->
+        <!--[if lt IE 9]>
         <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7/html5shiv.js"></script>
         <script src="//cdnjs.cloudflare.com/ajax/libs/es5-shim/3.4.0/es5-shim.js"></script>
         <script src="//cdnjs.cloudflare.com/ajax/libs/es5-shim/3.4.0/es5-sham.js"></script>
         <script src="//cdnjs.cloudflare.com/ajax/libs/respond.js/1.4.2/respond.js"></script>
-    <![endif]-->
+        <![endif]-->
 
-    <!-- Bootstrap core CSS -->
-    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+        <!-- Bootstrap core CSS -->
+        <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
 
-    <!-- Font Awesome -->
-    <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css" rel="stylesheet">
+        <!-- Font Awesome -->
+        <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css" rel="stylesheet">
 
-    <!-- Other 3rd Party -->
+        <!-- Other 3rd Party -->
 
-    <!-- Add custom CSS here -->
-     <link href="/css/hecuba.css" rel="stylesheet">
-    <link href="/css/charts.css" rel="stylesheet">
-    <link href="/css/tapestry.css" rel="stylesheet">
+        <!-- Add custom CSS here -->
+        <link href="/css/hecuba.css" rel="stylesheet">
+        <link href="/css/charts.css" rel="stylesheet">
+        <link href="/css/tapestry.css" rel="stylesheet">
 
- </head>
+    </head>
 
-  <body>
+    <body>
 
-    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+        <div class="navbar navbar-default navbar-fixed-top" role="navigation">
 
-      <div class="navbar-header"><a href="/" class="navbar-brand">getembed</a></div>
+            <div class="navbar-header"><a href="/" class="navbar-brand">getembed</a></div>
 
-      <div class="collapse navbar-collapse" id="hecuba-menu">
-      </div>
+            <div class="collapse navbar-collapse" id="hecuba-menu">
+            </div>
 
-    </div>
-    <div class="container-fluid">
-      <div class="row">
-        <div class="col-md-12">
-          <div id="hecuba-tabs"></div>
         </div>
-      </div>
-    </div>
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-md-12">
+                    <div id="hecuba-tabs"></div>
+                </div>
+            </div>
+        </div>
 
-    <div id="xy-plot">
-        Loading xy plot...
-    </div>
+        <div id="xy-plot">
+            Loading xy plot...
+        </div>
 
-    <div class="container-fluid" id="footer">
-      <p class="text-muted">Built by <a href="https://www.mastodonc.com">Mastodon C</a></p>
-    </div>
+        <div class="container-fluid" id="footer">
+            <p class="text-muted">Built by <a href="https://www.mastodonc.com">Mastodon C</a></p>
+        </div>
 
-  </body>
+    </body>
 
-  <!-- react.js from -->
-   <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/react/0.12.2/react.min.js"></script>
+    <!-- react.js from -->
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/react/0.12.2/react.min.js"></script>
 
-  <!-- JavaScript, bootstrap needs jquery-->
-  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
-  <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+    <!-- JavaScript, bootstrap needs jquery-->
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
 
-  <!--[if gte IE 9]><!-->
-      <!-- Charting -->
-      <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/d3/3.4.3/d3.min.js"></script>
-      <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.5.0/moment.min.js"></script>
+    <!--[if gte IE 9]><!-->
+    <!-- Charting -->
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/d3/3.4.3/d3.min.js"></script>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.5.0/moment.min.js"></script>
 
-  <!--<![endif]-->
-  <script src="js/tapestry.js" type="text/javascript"></script>
+    <!--<![endif]-->
+    <script type="text/javascript" src="/cljs/tapestry/goog/base.js"></script>
+    <script type="text/javascript" src="/cljs/tapestry/tapestry.js"></script>
+    <script type="text/javascript">
+     goog.require('kixi.tapestry.widgets.core');
+    </script>
+    <script type="text/javascript" src="/cljs/goog/base.js"></script>
+    <script type="text/javascript" src="/cljs/hecuba.js"></script>
+    <script type="text/javascript">
+     goog.require('kixi.hecuba.menu');
+    </script>
 
 </html>

@@ -1,20 +1,24 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="css/tapestry.css" rel="stylesheet" type="text/css">
-  </head>
-  <body>
-    <div id="heatmap">
-        Loading heatmap...
-    </div>
-    <div id="heatmap-controls">
-        Loading heatmap controls...
-    </div>
-    <div id="xy-plot">
-        Loading xy plot...
-    </div>
-    <script src="js/tapestry.js" type="text/javascript"></script>
-  </body>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link href="css/tapestry.css" rel="stylesheet" type="text/css">
+    </head>
+    <body>
+        <div id="heatmap">
+            Loading heatmap...
+        </div>
+        <div id="heatmap-controls">
+            Loading heatmap controls...
+        </div>
+        <div id="xy-plot">
+            Loading xy plot...
+        </div>
+        <script type="text/javascript" src="/cljs/tapestry/goog/base.js"></script>
+        <script type="text/javascript" src="/cljs/tapestry/tapestry.js"></script>
+        <script type="text/javascript">
+         goog.require('kixi.tapestry.widgets.core');
+        </script>
+    </body>
 </html>
