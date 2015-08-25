@@ -73,7 +73,7 @@
                         :corrected_unit :correction
                         :correction_factor :correction_factor_breakdown
                         :frequency :max :min :period
-                        :resolution :unit :user_metadata])
+                        :resolution :unit :user_metadata :synthetic])
 
 (defn index-malformed? [ctx]
   (let [request (:request ctx)
