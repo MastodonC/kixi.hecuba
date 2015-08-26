@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source /etc/mastodonc/docker-functions
+
 CONFIG_FILE=/.hecuba.edn
 
 DATA_DIR="/data/hecuba/${HOSTNAME}/"
@@ -39,4 +41,6 @@ cat <<EOF > ${CONFIG_FILE}
 }
 EOF
 
-java -jar -Djava.io.tmpdir=${DATA_DIR} -Duser.home=/ /uberjar.jar
+ensure_rsyslogd_running && \
+    ensure_jstatd_running && \
+    java -jar -Djava.io.tmpdir=${DATA_DIR} -Duser.home=/ /uberjar.jar

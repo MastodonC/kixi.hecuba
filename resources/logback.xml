@@ -15,10 +15,9 @@
     <suffixPattern>%logger{35} %X{pipejine.q} - %message%n</suffixPattern>
   </appender>
 
-  <!-- Enable FILE and STDOUT appenders for all log messages.
+  <!-- Enable SYSLOG and STDOUT appenders for all log messages.
        By default, only log at level INFO and above. -->
   <root level="DEBUG">
-    <appender-ref ref="FILE" />
     <appender-ref ref="STDOUT" />
     <appender-ref ref="SYSLOG" />
     <!-- <appender-ref ref="EMAIL" /> -->
