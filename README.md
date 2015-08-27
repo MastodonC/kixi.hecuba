@@ -122,12 +122,19 @@ Back on your host machine do the following:
 
 + Start a repl in your favourite way.
 + Start the application with (go)
-+ Add your user account: (kixi.hecuba.security/add-user! (:store kixi/system) "Username" "username@mastodonc.com" "password" :kixi.hecuba.security/super-admin {} {})
++ Add your user account from the repl:
+```clojure
+(kixi.hecuba.security/add-user! (:store kixi/system) "Username" "username@mastodonc.com" "password" :kixi.hecuba.security/super-admin {} {})
+```
 + To populate Cassandra with data, run the following script:
   ```
   $ cd scripts
   $ ./contextual_data.sh
   ```
++ Then, refresh Elastic Search using this in your repl:
+```clojure
+(kixi.hecuba.data.entities.search/refresh-search (:hecuba-session kixi/system) (:search-session kixi/system))
+```
 
 ## Start an EC2 instance
 
