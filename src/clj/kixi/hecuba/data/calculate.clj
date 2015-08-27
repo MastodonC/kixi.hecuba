@@ -207,7 +207,8 @@
   Works in batches of one day. Result of each batch is
   inserted onto C*."
   [store {:keys [sensor range]}]
-  (let [{:keys [start-date end-date]} range]
+  (let [{:keys [start-date end-date]} range
+        output-sensor {:device_id (:device_id sensor) :type }]
     (doseq [timestamp (time/seq-dates start-date end-date (t/days 1))]
       (calculate-batch store sensor timestamp (t/plus timestamp (t/days 1)) :min))))
 
