@@ -1,9 +1,15 @@
-POST localhost:9200/entities/_search?pretty
+POST /entities/_search?pretty
 {
   "query" : {"query_string" : {"query" : "TSB"}}
 }
 
-POST localhost:9200/entities/_search?pretty
+POST /entities/_search?pretty
+{
+  "query" : {"query_string" : {"query" : "f17f0334-db71-4d55-8b54-e2270f147a99"}}
+}
+
+
+POST /entities/_search?pretty
 {"query" :
  {
    "filtered" :
@@ -21,7 +27,7 @@ POST localhost:9200/entities/_search?pretty
 }
 
 
-POST localhost:9200/entities/_search?pretty
+POST /entities/_search?pretty
 {"query" :
  {
    "filtered" :
