@@ -218,6 +218,10 @@
              (contains? property_data :longitude))
     e))
 
+(defn has-weather-station? [{:keys [property_data] :as e}]
+  (when (contains? property_data :weather-station-id)
+    e))
+
 (defn get-entities-having-location [session]
   (let [data
         (->> (db/execute session (hayt/select :entities) (hayt/columns [:id :name :property_data]))
