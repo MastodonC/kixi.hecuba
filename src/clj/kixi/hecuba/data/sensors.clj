@@ -30,6 +30,7 @@
              (s/optional-key :synthetic)                   (s/maybe s/Bool)
              (s/optional-key :unit)                        (s/maybe s/Str)
              (s/optional-key :user_id)                     (s/maybe s/Str)
+             (s/optional-key :alias-sensor)                (s/maybe {s/Str s/Str})
              s/Any                                         s/Any})
 
 (defn validate-and-log [sensor]
