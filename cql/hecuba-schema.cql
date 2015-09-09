@@ -389,6 +389,7 @@ CREATE TABLE sensors (
   unit text,
   user_id text,
   user_metadata map<text,text>,
+  alias_sensor map<text,text>,
   PRIMARY KEY (device_id, sensor_id)
 ) WITH
   bloom_filter_fp_chance=0.010000 AND
