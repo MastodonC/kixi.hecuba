@@ -15,6 +15,12 @@
    [kixi.hecuba.storage.db :as db]
    [clojure.core.match :refer (match)]))
 
+(defn get-measurements-keys [sensor-keys session]
+  (let [sensor (sensors/get-by-type sensor-keys session)]
+    (if-let [alias-sensor (:alias-sensor sensor)]
+      alias-sensor
+      {:sensor_id (:sensor_id sensor) :device_id (:device_id sensor)})))
+
 (defn allowed?* [programme-id project-id allowed-programmes allowed-projects role request-method]
   (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
              programme-id project-id allowed-programmes allowed-projects role request-method)
@@ -45,7 +51,7 @@
   "Iterate over a sequence of months and concatanate measurements retrieved from the database."
   [session start-date end-date device_id reading_type]
   (let [range     (time/time-range start-date end-date (t/years 1))
-        sensor_id (:sensor_id (sensors/get-by-type {:device_id device_id :type reading_type} session))
+        {:keys [device_id sensor_id]} (get-measurements-keys {:device_id device_id :type reading_type} session)
         months    (map #(time/get-year-partition-key (tc/to-date %)) range)
         where     [[= :device_id device_id]
                    [= :sensor_id sensor_id]
@@ -86,7 +92,7 @@
   :handle-ok (fn [{{{:keys [device_id type]} :route-params query-string :query-string}
                    :request {mime :media-type} :representation :as req}]
                (db/with-session [session (:hecuba-session store)]
-                 (let [sensor_id      (:sensor_id (sensors/get-by-type {:device_id device_id :type type} session))
+                 (let [{:keys [device_id sensor_id]} (get-measurements-keys {:device_id device_id :type type} session)
                        decoded-params (api/decode-query-params query-string)
                        start-date     (time/to-db-format (string/replace (get decoded-params "startDate") "%20" " "))
                        end-date       (time/to-db-format (string/replace (get decoded-params "endDate") "%20" " "))
