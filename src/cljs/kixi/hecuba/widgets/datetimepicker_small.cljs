@@ -97,7 +97,7 @@
              :id "raw-data-get-dates"
              :style {:margin-top "10px"}
              :on-click (fn [e _]
-                         (if-not (nil? date)
+                         (when date
                            (put! event-chan {:event :fetch-data :value date}))
                          (.preventDefault e))}
             "Get Data"]]]
