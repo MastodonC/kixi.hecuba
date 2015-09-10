@@ -252,7 +252,7 @@
                                 (dissoc :sensor_id)
                                 (dissoc :timestamp)) data)
         grouped-data  (group-by :date remove-times)]
-    (if-not (= (count grouped-data) x-readings) ;; ensure there are 2 weeks worth
+    (if (not= (count grouped-data) x-readings) ;; ensure there are 2 weeks worth
       ((throw (js/Error. (str "We don't have 14 days of data here (" (count grouped-data) " days)")))))
 
     ;; step 2
