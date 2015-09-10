@@ -16,7 +16,6 @@
             [kixi.hecuba.tabs.hierarchy.profiles :as profiles]
             [kixi.hecuba.tabs.hierarchy.status :as status]
             [kixi.hecuba.tabs.hierarchy.tapestry :as tapestry]
-            [kixi.hecuba.tabs.hierarchy.xyplot :as xyplot]
             [kixi.hecuba.common :refer (log) :as common]
             [kixi.hecuba.tabs.hierarchy.data :refer (fetch-properties) :as data]
             [ajax.core :refer [GET PUT]]
