@@ -319,9 +319,9 @@
   (let [raw-lcb   (read-string (.-value (om/get-node owner "lcb-input")))
         raw-ucb   (read-string (.-value (om/get-node owner "ucb-input")))
         raw-grads nil ;; (read-string (.-value (om/get-node owner "grads-input")))
-        lcb       (if (nil? raw-lcb) (-> cursor :heatmap-controls :lcb :default) raw-lcb)
-        ucb       (if (nil? raw-ucb) (-> cursor :heatmap-controls :ucb :default) raw-ucb)
-        grads     (if (nil? raw-grads) (-> cursor :heatmap-controls :grads :default) raw-grads)]
+        lcb       (if-not raw-lcb (-> cursor :heatmap-controls :lcb :default) raw-lcb)
+        ucb       (if-not raw-ucb (-> cursor :heatmap-controls :ucb :default) raw-ucb)
+        grads     (if-not raw-grads (-> cursor :heatmap-controls :grads :default) raw-grads)]
     (put! heatmap-data-chan {:data (-> @cursor :heatmap :data)
                              :dates (-> @cursor :heatmap :dates)
                              :lcb lcb
