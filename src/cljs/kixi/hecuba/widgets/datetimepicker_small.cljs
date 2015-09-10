@@ -55,7 +55,7 @@
     om/IRenderState
     (render-state [_ {:keys [date event-chan]}]
       (html
-       (let [inactive? (nil? (-> cursor :date))
+       (let [inactive? (nil? (:date cursor))
              icon-style {:margin-top "10px" }]
          [:div.row
           {:style {:margin-bottom "20px"}}
