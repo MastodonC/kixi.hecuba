@@ -99,10 +99,10 @@
 
 (defn set-new-heatmap-data!
   [cursor data lcb ucb gradations dates]
-  (let [lcb (if (nil? lcb) (.floor js/Math (apply min data)) lcb)
-        ucb (if (nil? ucb) (.ceil js/Math (apply max data)) ucb)
+  (let [lcb (if-not lcb (.floor js/Math (apply min data)) lcb)
+        ucb (if-not ucb (.ceil js/Math (apply max data)) ucb)
         midcb ((interpolate lcb ucb) 0.5)
-        gradations (if (nil? gradations) default-gradations gradations)
+        gradations (if-not gradations default-gradations gradations)
         adjusted-data (if @chart-fill-oor-cells? (map #(m/clamp % lcb ucb) data) data)]
     (om/update! cursor :dates dates)
     (om/update! cursor :data data)
