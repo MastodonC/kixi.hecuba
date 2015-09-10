@@ -36,7 +36,7 @@
 
 (defn get-measurements-keys [sensor-keys session]
   (let [sensor (sensors/get-by-type sensor-keys session)]
-    (if-let [alias-sensor (:alias-sensor sensor)]
+    (if-let [alias-sensor (not-empty (:alias_sensor sensor))]
       alias-sensor
       {:sensor_id (:sensor_id sensor) :device_id (:device_id sensor)})))
 
@@ -160,7 +160,7 @@
 (defn measurements-slice-handle-ok [store ctx]
   (let [db-session   (:hecuba-session store)
         {:keys [start-date end-date device_id type]} (:items ctx)
-        sensor_id (-> (:sensor ctx) :sensor_id)]
+        {:keys [device_id sensor_id]} (get-measurements-keys {:device_id device_id :type type} db-session)]
     (let [measurements (measurements/retrieve-measurements db-session start-date end-date device_id sensor_id)]
       (format-measurements ctx measurements))))
 

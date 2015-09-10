@@ -73,7 +73,7 @@
                         :corrected_unit :correction
                         :correction_factor :correction_factor_breakdown
                         :frequency :max :min :period
-                        :resolution :unit :user_metadata :synthetic])
+                        :resolution :unit :user_metadata :synthetic :alias_sensor])
 
 (defn index-malformed? [ctx]
   (let [request (:request ctx)
@@ -282,7 +282,7 @@
       (sensors/update session device_id (assoc updated-synthetic-sensor :device_id device_id)))))
 
 (def user-edited-keys [:type :unit :resolution :period :alias :actual_annual :min :user_metadata :accuracy
-                       :frequency :corrected_unit :correction_factor :correction :max :correction_factor_breakdown])
+                       :frequency :corrected_unit :correction_factor :correction :max :correction_factor_breakdown :alias_sensor])
 
 (defn recreate-sensor
   "Depending on edited fields, either deletes/iserts new synthetic sensors or updates
