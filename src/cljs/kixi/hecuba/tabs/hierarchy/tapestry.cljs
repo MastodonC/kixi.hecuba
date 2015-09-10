@@ -91,10 +91,6 @@
      :layout        svg-heatmap-with-title
      }))
 
-(defn int-to-dow
-  [num]
-  (nth ["S" "M" "T" "W" "T" "F" "S"] (mod num 7)))
-
 (defn int-to-tod
   [num]
   (let [hrs (mod num 24)
@@ -150,10 +146,10 @@
                                                   :pos 10
                                                   :label-dist -35
                                                   :label {:text-anchor "start"}
-                                                  :format #(cond
-                                                             (= % 0) lcb
-                                                             (= % gradations) ucb
-                                                             (= % (/ gradations 2)) midcb)})
+                                                  :format #(condp = %
+                                                              0 lcb
+                                                              gradations ucb
+                                                              (/ gradations 2) midcb)})
                                         :data     [(merge (heatmap-spec
                                                            :yellow-magenta-cyan
                                                            (vec (for [x (map #(/ % gradations)(range 0 gradations))]
