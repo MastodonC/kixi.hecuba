@@ -147,9 +147,10 @@
                                                   :label-dist -35
                                                   :label {:text-anchor "start"}
                                                   :format #(condp = %
-                                                              0 lcb
-                                                              gradations ucb
-                                                              (/ gradations 2) midcb)})
+                                                             0 lcb
+                                                             gradations ucb
+                                                             (/ gradations 2) midcb
+                                                             nil)})
                                         :data     [(merge (heatmap-spec
                                                            :yellow-magenta-cyan
                                                            (vec (for [x (map #(/ % gradations)(range 0 gradations))]
@@ -168,15 +169,15 @@
      ((comp (partial take c) (partial drop (* c i))) data)) (range r)))
 
 (defn- data-loop [cursor input-chan]
-  (go (loop [{:keys [data dates lcb ucb grads]} (<! input-chan)]
-        (set-new-heatmap-data!
-         (:heatmap cursor)
-         data
-         lcb
-         ucb
-         grads
-         dates)
-        (recur (<! input-chan)))))
+  (go-loop [{:keys [data dates lcb ucb grads]} (<! input-chan)]
+      (set-new-heatmap-data!
+       (:heatmap cursor)
+       data
+       lcb
+       ucb
+       grads
+       dates)
+      (recur (<! input-chan))))
 
 (defn chart
   [{:keys [width height data-chan fill-out-of-range-cells? x-label y-label]
