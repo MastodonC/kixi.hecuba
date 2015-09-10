@@ -17,14 +17,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Datetimepicker
 
-(defn datetime-input-control [owner key label]
+(defn datetime-input-control [owner key on-change]
   (let [id-for (str (name key))]
     [:div
-     [:label.control-label {:for id-for} label]
+     [:label]
      [:input {:ref (name :key)
               :value (om/get-state owner key)
               :placeholder "YYYY-MM-DD"
-              :on-change #(om/set-state! owner key (.. %1 -target -value))
+              :on-change #(do
+                            (om/set-state! owner key (.. %1 -target -value))
+                            (on-change (.. %1 -target -value)))
               :class "form-control"
               :id id-for
               :type "date"}]]))
@@ -80,7 +82,7 @@
 
           ;; input
           [:div {:style {:display "inline-block" :margin-left "-8px"}}
-           (datetime-input-control owner :date nil)]
+           (datetime-input-control owner :date #(put! event-chan {:event :date-selected :value %}))]
 
           [:div {:style {:display "inline-block" :vertical-align "middle"}}
            [:div

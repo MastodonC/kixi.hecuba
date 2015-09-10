@@ -298,7 +298,8 @@
                                :grads (-> @tapestry-data :heatmap-controls :grads :default)}))
     (catch js/Object e
       (log "An exception occurred whilst fetching data: " e)
-      (om/update! tapestry-data [:error] true))))
+      (om/update! tapestry-data [:error] true)
+      (throw e))))
 
 (defn process-get-data-click [tapestry-data start-date entity_id sensor data-chan]
   (let [[type device_id] (str/split sensor #"~")
