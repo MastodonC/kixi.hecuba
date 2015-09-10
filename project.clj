@@ -11,15 +11,15 @@
   ;; Enable the lein hooks for: clean, compile, test, and jar.
   ;; :hooks [leiningen.cljsbuild]
 
-  :dependencies [[org.clojure/clojure "1.6.0"]
+  :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/tools.macro "0.1.5"]
-                 [org.clojure/core.match "0.2.2"]
+                 [org.clojure/core.match "0.3.0-alpha4"]
 
                  [joda-time "2.4"]
 
                  ;; Testing POST and GET data
                  [kixi/schema_gen "0.1.6" :exclusions [schema-contrib]]
-                 [schema-contrib "0.1.5"]
+                 [kixi/schema-contrib "0.2.0"]
                  [kixi/amon-schema "0.1.12" :exclusions [schema-contrib]]
                  [clj-http "1.0.0"]
 
@@ -47,7 +47,8 @@
                  [hickory "0.5.4"]
 
                  ;; Cassandra
-                 [cc.qbits/alia "2.3.1"]
+                 [com.google.guava/guava "15.0"]
+                 [cc.qbits/alia "2.3.1" :exclusions [com.google.guava/guava]]
                  ;; add lz4 to avoid startup warning.
                  [net.jpountz.lz4/lz4 "1.2.0"]
                  ;; Required for Cassandra (possibly only OSX)
@@ -66,11 +67,11 @@
                  [http-kit "2.1.16"]
 
                  ;; EDN reader with location metadata - for configuration
-                 [org.clojure/tools.reader "0.8.8"]
+                 [org.clojure/tools.reader "0.10.0-alpha1"]
 
                  ;; ClojureScript dependencies
 
-                 [org.clojure/clojurescript "0.0-2843" :scope "provided"]
+                 [org.clojure/clojurescript "0.0-3297" :scope "provided"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha" :scope "provided"]
 
                  [cljs-ajax "0.2.3"]
@@ -80,10 +81,15 @@
                  [sablono "0.2.22"]
 
                  ;; Dev environment
-                 [lein-figwheel "0.2.5"]
+                 [lein-figwheel "0.3.9"]
                  [enlive "1.1.5"]
                  [environ "1.0.0"]
                  [ankha "0.1.4"]
+
+                 ;; Heatmap and Regression Plot requirements.
+                 [thi.ng/geom "0.0.881"]
+                 [hiccups "0.3.0"]
+                 [bardo "0.1.2-SNAPSHOT"]
 
                  [javax.servlet/servlet-api "2.5"]
 
@@ -119,7 +125,8 @@
                                   [org.clojure/test.check "0.5.9"]]
                    :figwheel {:http-server-root "cljs"
                               :port 3449
-                              :css-dirs ["resources/site/css"]}
+                              :css-dirs ["resources/site/css"]
+                              :nrepl-port 7888}
                    :env {:is-dev true}
                    :plugins [[lein-figwheel "0.2.5"]]
                    :cljsbuild {:builds {:hecuba {:source-paths ["env/dev/cljs"]}}}}

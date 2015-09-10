@@ -15,6 +15,7 @@
             [kixi.hecuba.tabs.hierarchy.raw-data :as raw]
             [kixi.hecuba.tabs.hierarchy.profiles :as profiles]
             [kixi.hecuba.tabs.hierarchy.status :as status]
+            [kixi.hecuba.tabs.hierarchy.tapestry :as tapestry]
             [kixi.hecuba.common :refer (log) :as common]
             [kixi.hecuba.tabs.hierarchy.data :refer (fetch-properties) :as data]
             [ajax.core :refer [GET PUT]]
@@ -502,6 +503,15 @@
                [:li {:class (if (= active-tab :sensors) "active" nil)}
                 [:a {:onClick (fn [_ _] (om/update! properties :active-tab :sensors))}
                  "Sensor Charts"]]
+               [:li {:class (if (= active-tab :tapestry) "active" nil)}
+                [:a {:onClick (fn [_ _]
+                                (om/update! properties [:raw-data :sensors] (into [] (data/fetch-sensors property-id @properties)))
+                                (om/update! properties :active-tab :tapestry))}
+                 "Tapestry Charts"]]
+               (comment [:li {:class (if (= active-tab :xyplot) "active" nil)}
+                         [:a {:onClick (fn [_ _]
+                                         (om/update! properties :active-tab :xyplot))}
+                          "XY Plots"]])
                [:li {:class (if (= active-tab :raw-data) "active" nil)}
                 [:a {:onClick (fn [_ _]
                                 (om/update! properties [:raw-data :sensors] (into [] (data/fetch-sensors property-id @properties)))
@@ -533,6 +543,16 @@
                                                                :sensors (:sensors properties)
                                                                :chart (:chart properties)}
                                           {:opts {:datetimepicker-chan datetimepicker-chan}})])
+              ;; Tapestry Charts
+              (when (= active-tab :tapestry)
+                [:div.col-md-12 (om/build tapestry/tapestry-div {:raw-data (:raw-data properties)
+                                                                 :entity_id (:selected properties)
+                                                                 :tapestry-data (:tapestry properties)}
+                                          {:opts {:datetimepicker-chan datetimepicker-chan}})])
+              ;; XY Plos
+              (comment (when (= active-tab :xyplot)
+                         [:div.col-md-12 (om/build xyplot/xyplot-div {:xyplot-data (:xyplot properties)}
+                                                   {:opts {:datetimepicker-chan datetimepicker-chan}})]))
               ;; Raw Data
               (when (= active-tab :raw-data)
                 [:div.col-md-12 (om/build raw/raw-data-div {:entity_id (:selected properties)

@@ -90,6 +90,10 @@
                             :sensors []
                             :selected nil
                             :date nil}
+                 :tapestry {:heatmap {:data nil}
+                            :heatmap-controls {:lcb    {:default 10}
+                                               :ucb    {:default 30}
+                                               :grads  {:default 20}}}
                  :profiles {:alert {}}
                  :downloads {:files []}
                  :uploads {:files []
