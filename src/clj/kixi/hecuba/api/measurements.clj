@@ -156,7 +156,6 @@
         {:keys [start-date end-date device_id type]} (:items ctx)
         sensor_id (-> (:sensor ctx) :sensor_id)]
     (let [measurements (measurements/retrieve-measurements db-session start-date end-date device_id sensor_id)]
-      (println ctx)
       (format-measurements ctx measurements))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
