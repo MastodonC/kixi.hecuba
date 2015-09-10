@@ -357,7 +357,7 @@
 (defn sensor-resource-exists? [store ctx]
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [entity_id device_id type]} (-> ctx :request :route-params)
-          sensor  (sensors/get-by-type {:device_id device_id :type type} session)]
+          sensor (sensors/get-by-type {:device_id device_id :type type} session)]
       (if-not (empty? sensor)
         {:sensor sensor :entity_id entity_id}
         false))))

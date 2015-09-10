@@ -34,6 +34,12 @@
 
 (def ^:private uploads-status-resource-path (p/resource-path-string :uploads-status-resource))
 
+(defn get-measurements-keys [sensor-keys session]
+  (let [sensor (sensors/get-by-type sensor-keys session)]
+    (if-let [alias-sensor (:alias-sensor sensor)]
+      alias-sensor
+      {:sensor_id (:sensor_id sensor) :device_id (:device_id sensor)})))
+
 (defn- parse-measurements [measurements]
   (map (fn [m]
          (-> m
@@ -235,7 +241,7 @@
     (let [{:keys [request]} ctx
           {:keys [route-params]} request
           {:keys [device_id type timestamp]} route-params
-          sensor_id (:sensor_id (sensors/get-by-type {:device_id device_id :type type} session))
+          {:keys [device_id sensor_id]} (get-measurements-keys {:device_id device_id :type type} session)
           t (time/to-db-format timestamp)
           measurement (format-measurements ctx (db/execute session
                                                            (hayt/select :partitioned_measurements
