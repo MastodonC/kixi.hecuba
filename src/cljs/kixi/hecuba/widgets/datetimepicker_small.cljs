@@ -29,20 +29,23 @@
               :id id-for
               :type "date"}]]))
 
+(def std-formatter
+  (tf/formatter "yyyy-MM-dd"))
+
 (defmulti calculate-new-date (fn [event _] event))
 
 (defmethod calculate-new-date :day-minus [event current-date]
   (let [d (tf/parse current-date)]
-    (tf/unparse (tf/formatter "yyyy-MM-dd") (t/minus d (t/days 1)))))
+    (tf/unparse std-formatter (t/minus d (t/days 1)))))
 (defmethod calculate-new-date :day-plus [event current-date]
   (let [d (tf/parse current-date)]
-    (tf/unparse (tf/formatter "yyyy-MM-dd") (t/plus d (t/days 1)))))
+    (tf/unparse std-formatter (t/plus d (t/days 1)))))
 (defmethod calculate-new-date :week-minus [event current-date]
   (let [d (tf/parse current-date)]
-    (tf/unparse (tf/formatter "yyyy-MM-dd") (t/minus d (t/weeks 1)))))
+    (tf/unparse std-formatter (t/minus d (t/weeks 1)))))
 (defmethod calculate-new-date :week-plus [event current-date]
   (let [d (tf/parse current-date)]
-    (tf/unparse (tf/formatter "yyyy-MM-dd") (t/plus d (t/weeks 1)))))
+    (tf/unparse std-formatter (t/plus d (t/weeks 1)))))
 
 (defn control [cursor owner]
   (reify
@@ -64,14 +67,16 @@
             {:class (str "col-md-1 fa fa-fast-backward " (if inactive? "disabled" "datemover"))
              :title "- 1 Week"
              :style icon-style
-             :on-click (fn [_] (when-not inactive?
-                                 (put! event-chan {:event :date-selected :value (calculate-new-date :week-minus date)})))}]
+             :on-click (fn [e] (when-not inactive?
+                                 (put! event-chan {:event :date-selected :value (calculate-new-date :week-minus date)})
+                                 (.preventDefault e)))}]
            [:div
             {:class (str "col-md-1 fa fa-step-backward " (if inactive? "disabled" "datemover"))
              :style icon-style
              :title "- 1 Day"
-             :on-click (fn [_] (when-not inactive?
-                                 (put! event-chan {:event :date-selected :value (calculate-new-date :day-minus date)})))}]]
+             :on-click (fn [e] (when-not inactive?
+                                 (put! event-chan {:event :date-selected :value (calculate-new-date :day-minus date)})
+                                 (.preventDefault e)))}]]
 
           ;; input
           [:div {:style {:display "inline-block" :margin-left "-8px"}}
@@ -82,14 +87,16 @@
             {:class (str "col-md-1 fa fa-step-forward " (if inactive? "disabled" "datemover"))
              :style icon-style
              :title "+ 1 Day"
-             :on-click (fn [_] (when-not inactive?
-                                 (put! event-chan {:event :date-selected :value (calculate-new-date :day-plus date)})))}]
+             :on-click (fn [e] (when-not inactive?
+                                 (put! event-chan {:event :date-selected :value (calculate-new-date :day-plus date)})
+                                 (.preventDefault e)))}]
            [:div
             {:class (str "col-md-1 fa fa-fast-forward " (if inactive? "disabled" "datemover"))
              :style (merge icon-style {:margin-left "-6px"})
              :title "+ 1 Week"
-             :on-click (fn [_] (when-not inactive?
-                                 (put! event-chan {:event :date-selected :value (calculate-new-date :week-plus date)})))}]]
+             :on-click (fn [e] (when-not inactive?
+                                 (put! event-chan {:event :date-selected :value (calculate-new-date :week-plus date)})
+                                 (.preventDefault e)))}]]
 
           [:div {:style {:display "inline-block"}}
            [:button.btn.btn-primary
