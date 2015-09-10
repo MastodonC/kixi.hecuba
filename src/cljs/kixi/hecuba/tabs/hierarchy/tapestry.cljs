@@ -183,7 +183,7 @@
   [{:keys [width height data-chan fill-out-of-range-cells? x-label y-label]
     :or {width 800
          height 600}}]
-  (if (nil? data-chan)
+  (if-not data-chan
     (throw (js/Error. "Heatmap requires a data channel!"))
     (reset! chart-data-chan data-chan))
   (reset! chart-width width)
