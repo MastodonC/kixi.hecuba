@@ -48,7 +48,7 @@
 
                  ;; Cassandra
                  [com.google.guava/guava "15.0"]
-                 [cc.qbits/alia "2.8.0" :exclusions [com.google.guava/guava]]
+                 [cc.qbits/alia "2.3.1" :exclusions [com.google.guava/guava]]
                  ;; add lz4 to avoid startup warning.
                  [net.jpountz.lz4/lz4 "1.2.0"]
                  ;; Required for Cassandra (possibly only OSX)
