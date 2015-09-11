@@ -29,6 +29,7 @@
             [goog.string.format]
             [clojure.string :as string]
             [kixi.hecuba.widgets.datetimepicker-small :as dtp]
+            [kixi.hecuba.tabs.hierarchy.data :as data]
             [kixi.hecuba.tabs.hierarchy.raw-data :as raw-data]
             [kixi.hecuba.tabs.hierarchy.sensors :as sensors]))
 
@@ -38,41 +39,31 @@
 
 (defn set-new-xy-plot-data!
   [cursor {:keys [data x-range y-range x-major x-minor y-major y-minor]}]
-  (let [a 1]
-    (om/update! cursor :element {:x-axis (viz/linear-axis
-                                          {:domain x-range
-                                           :range [50 (- @chart-width 10)]
-                                           :pos (- @chart-height 20)
-                                           :major x-major
-                                           :minor x-minor})
-                                 :y-axis (viz/linear-axis
-                                          {:domain y-range
-                                           :range [(- @chart-height 20) 20]
-                                           :major y-major
-                                           :minor y-minor
-                                           :pos 50
-                                           :label-dist 15 :label {:text-anchor "end"}})
-                                 :grid   {:attribs {:stroke "#caa"}
-                                          :minor-x true
-                                          :minor-y true}
-                                 :data   [{:values  (:values data)
-                                           :attribs {:fill "#06f" :stroke "#06f"}
-                                           :shape   (viz/svg-square 2)
-                                           :layout  viz/svg-scatter-plot}
-                                          {:values (:line data)
-                                           :attribs {:fill "none" :stroke "#f23"}
-                                           :layout viz/svg-line-plot}]})))
+  (om/update! cursor :element {:x-axis (viz/linear-axis
+                                        {:domain x-range
+                                         :range [50 (- @chart-width 10)]
+                                         :pos (- @chart-height 20)
+                                         :major x-major
+                                         :minor x-minor})
+                               :y-axis (viz/linear-axis
+                                        {:domain y-range
+                                         :range [(- @chart-height 20) 20]
+                                         :major y-major
+                                         :minor y-minor
+                                         :pos 50
+                                         :label-dist 15 :label {:text-anchor "end"}})
+                               :grid   {:attribs {:stroke "#caa"}
+                                        :minor-x true
+                                        :minor-y true}
+                               :data   [{:values  (:values data)
+                                         :attribs {:fill "#06f" :stroke "#06f"}
+                                         :shape   (viz/svg-square 2)
+                                         :layout  viz/svg-scatter-plot}
+                                        {:values (:line data)
+                                         :attribs {:fill "none" :stroke "#f23"}
+                                         :layout viz/svg-line-plot}]}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defn url-str [start end entity_id device_id type]
-  (str "/4/entities/" entity_id "/devices/" device_id "/measurements/"
-       type "?startDate=" start "&endDate=" end))
-
-(defn date->amon-timestamp [date]
-  (->> date
-       (tf/parse (tf/formatter "yyyy-MM-dd"))
-       (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss"))))
 
 (defn calculate-end-date [start-date]
   (let [d (tf/parse (tf/formatter "yyyy-MM-dd") start-date)]
@@ -245,28 +236,30 @@
 
 (defn process-data
   [[x-data y-data]]
-  (let [x-raw-data (->> x-data (sort-by :timestamp) (mapv :value))
-        y-raw-data (->> y-data (sort-by :timestamp) (mapv :value))]
-    (if (not= (count x-raw-data) (count y-raw-data))
-      (throw (js/Error. "X and Y have different amounts of data (" (count x-raw-data) "/" (count y-raw-data) ")")))
-    (let [data {:values (mapv (fn [i] [(nth x-raw-data i) (nth y-raw-data i)]) (range 0 (count x-raw-data)))}
-          reg-line (calc-linear-regression-line (:values data))
-          data (assoc data :line reg-line)
-          x-range [(->> data :values (map first) (apply min))
-                   (* 1.05 (->> data :values (map first) (apply max)))] ;; add 5% to max just to leave a small gap
-          y-range [(min (->> data :values (map second) (apply min)) (-> reg-line first second))
-                   (* 1.05 (max (->> data :values (map second) (apply max)) (-> reg-line second second)))]
-          x-major (.floor js/Math (/ (second x-range) 10))
-          x-minor (/ x-major 2)
-          y-major (.floor js/Math (/ (second y-range) 10))
-          y-minor (/ y-major 2)]
-      {:data data
-       :x-range x-range
-       :y-range y-range
-       :x-minor x-minor
-       :x-major x-major
-       :y-minor y-minor
-       :y-major y-major})))
+  (let [timestamp-key :timestamp
+        missing-timestamps (clojure.set/difference (set (map timestamp-key x-data)) (set (map timestamp-key y-data)))
+        filtered-x-data (filter (fn [m] (not (some #(= % (timestamp-key m)) missing-timestamps))) x-data)
+        filtered-y-data (filter (fn [m] (not (some #(= % (timestamp-key m)) missing-timestamps))) y-data)
+        x-raw-data (->> filtered-x-data (sort-by :timestamp) (mapv :value) (map js/parseFloat))
+        y-raw-data (->> filtered-y-data (sort-by :timestamp) (mapv :value) (map js/parseFloat))
+        data {:values (mapv (fn [i] [(nth x-raw-data i) (nth y-raw-data i)]) (range 0 (count x-raw-data)))}
+        reg-line (calc-linear-regression-line (:values data))
+        data (assoc data :line reg-line)
+        x-range [(->> data :values (map first) (apply min))
+                 (* 1.05 (->> data :values (map first) (apply max)))] ;; add 5% to max just to leave a small gap
+        y-range [(min (->> data :values (map second) (apply min)) (-> reg-line first second))
+                 (* 1.05 (max (->> data :values (map second) (apply max)) (-> reg-line second second)))]
+        x-major (.floor js/Math (/ (second x-range) 10))
+        x-minor (/ x-major 2)
+        y-major (.floor js/Math (/ (second y-range) 10))
+        y-minor (/ y-major 2)]
+    {:data data
+     :x-range x-range
+     :y-range y-range
+     :x-minor x-minor
+     :x-major x-major
+     :y-minor y-minor
+     :y-major y-major}))
 
 (defn load-xyplot-data [key data-chan xyplot-data resp]
   (om/update! xyplot-data [:error] false)
@@ -284,10 +277,10 @@
   (let [sensors ((juxt :current-x :current-y) @xyplot-data)
         [type1 device_id1] (str/split (first sensors) #"~")
         [type2 device_id2] (str/split (second sensors) #"~")
-        start-ts (date->amon-timestamp start-date)
+        start-ts (data/date->amon-timestamp start-date)
         end-ts   (calculate-end-date start-date)
-        url1 (url-str start-ts end-ts entity_id device_id1 type1)
-        url2 (url-str start-ts end-ts entity_id device_id2 type2)]
+        url1 (data/url-str start-ts end-ts entity_id device_id1 type1 :hourly_rollups)
+        url2 (data/url-str start-ts end-ts entity_id device_id2 type2 :hourly_rollups)]
     (om/update! xyplot-data :date start-date)
     (om/update! xyplot-data :data-x nil)
     (om/update! xyplot-data :data-y nil)
