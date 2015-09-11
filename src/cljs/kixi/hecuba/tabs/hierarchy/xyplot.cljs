@@ -101,53 +101,30 @@
         (data-loop cursor @chart-data-chan))
       om/IRender
       (render [_]
-        (dom/div #js {:style #js {:position "relative"
-                                  :overflow "hidden"
-                                  :whiteSpace "nowrap"
-                                  :font-family "sans-serif"
-                                  :font-size "11px"
-                                  :text-align "center"
-                                  :width (str (+ 50 @chart-width) "px")}}
-                 (dom/span #js {:style #js {:float "left"
-                                            :margin (str (/ @chart-height 2) "px -40px 0px -10px")
-                                            :WebkitTransform "rotate(-90deg)"
-                                            :MozTransform "rotate(-90deg)"
-                                            :msTransform "rotate(-90deg)"
-                                            :OTransform "rotate(-90deg)"
-                                            :filter "progid:DXImageTransform.Microsoft.BasicImage(rotation=3)"}} (str "Unit: " y-label))
-                 (dom/div #js {:dangerouslySetInnerHTML #js
-                               {:__html (->> @cursor
-                                             :element
-                                             viz/svg-plot2d-cartesian
-                                             (svg/svg {:width @chart-width :height @chart-height})
-                                             hiccups/html)}})
-                 (dom/div #js {:style #js {:height "20px" :margin-top "5px"}} (dom/span nil (str "Unit: " x-label))))))))
+        (if (-> cursor :element)
+          (dom/div #js {:style #js {:position "relative"
+                                    :overflow "hidden"
+                                    :whiteSpace "nowrap"
+                                    :fontFamily "sans-serif"
+                                    :fontSize "11px"
+                                    :textAlign "center"
+                                    :width (str (+ 50 @chart-width) "px")}}
+                   (dom/span #js {:style #js {:float "left"
+                                              :margin (str (/ @chart-height 2) "px -40px 0px -10px")
+                                              :WebkitTransform "rotate(-90deg)"
+                                              :MozTransform "rotate(-90deg)"
+                                              :msTransform "rotate(-90deg)"
+                                              :OTransform "rotate(-90deg)"
+                                              :filter "progid:DXImageTransform.Microsoft.BasicImage(rotation=3)"}} (str "Unit: " y-label))
+                   (dom/div #js {:dangerouslySetInnerHTML #js
+                                 {:__html (->> @cursor
+                                               :element
+                                               viz/svg-plot2d-cartesian
+                                               (svg/svg {:width @chart-width :height @chart-height})
+                                               hiccups/html)}})
+                   (dom/div #js {:style #js {:height "20px" :marginTop "5px"}} (dom/span nil (str "Unit: " x-label)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defn update-sensor [click sensors history selected?]
-  (let [{:keys [id unit lower_ts upper_ts]} click
-        new-selected-sensors ((if selected? disj conj) (:selected @sensors) id)
-        [type device_id] (string/split id #"~")]
-    ;; update history
-    (history/update-token-ids! history :sensors (if (seq new-selected-sensors)
-                                                  (string/join ";" new-selected-sensors)
-                                                  nil))
-    ;; update chart default range
-    (comment (when (and lower_ts upper_ts (not selected?))
-               (om/update! chart :range {:start-date (common/unparse-date lower_ts "yyyy-MM-dd")
-                                         :end-date (common/unparse-date upper_ts "yyyy-MM-dd")})))
-    ;; update units in chart
-    (comment (om/transact! chart :units (fn [units]
-                                          (if selected?
-                                            (dissoc units id)
-                                            (assoc units id unit)))))))
-
-(defn process-click [click cursor owner history]
-  (let [{:keys [id unit]} click
-        {:keys [sensors property-details]} cursor
-        already-selected? (contains? (:selected @sensors) id)]
-    (update-sensor click sensors history already-selected?)))
 
 (defn sensor-row [{:keys [xyplot-data sensor]} owner {:keys [table-id event-chan]}]
   (reify
