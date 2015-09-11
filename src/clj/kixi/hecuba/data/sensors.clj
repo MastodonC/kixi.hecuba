@@ -84,13 +84,20 @@
    (when-let [lower (:lower_ts new-bounds)] {:lower_ts lower})
    (when-let [upper (:upper_ts new-bounds)] {:upper_ts upper})))
 
+(defn decode [sensor]
+  (-> sensor
+      (cond-> (seq (get-in sensor [:alias_sensor "sensor_id"])) 
+              (assoc :alias_sensor {:sensor_id (get-in sensor [:alias_sensor "sensor_id"])
+                                    :device_id (get-in sensor [:alias_sensor "device_id"])}))))
+
 (defn get-by-id
   ([sensor session]
      (-> (db/execute session
                      (hayt/select :sensors
                                   (hayt/where [[= :sensor_id (:sensor_id sensor)]
                                                [= :device_id (:device_id sensor)]])))
-         first)))
+         first
+         decode)))
 
 (defn get-by-type
   ([sensor session]
@@ -98,7 +105,8 @@
                      (hayt/select :sensors
                                   (hayt/where [[= :type (:type sensor)]
                                                [= :device_id (:device_id sensor)]])))
-         first)))
+         first
+         decode)))
 
 (defn update-sensor-metadata
   "Updates start and end dates when new measurement is received."
@@ -158,21 +166,34 @@
 
 (defn encode
   ([sensor]
-     (encode sensor false))
+   (encode sensor false))
   ([sensor remove-pk?]
-     (-> sensor
-         (cond-> (:user_metadata sensor) (user-metadata (:synthetic sensor)))
-         (cond-> remove-pk? (dissoc :device_id :sensor_id)))))
+   (-> sensor
+       (cond-> (:user_metadata sensor) (user-metadata (:synthetic sensor)))
+       (cond-> remove-pk? (dissoc :device_id :sensor_id))
+       (cond-> (:alias_sensor sensor)
+               (assoc :alias_sensor {"sensor_id" (get-in sensor [:alias_sensor :sensor_id])
+                                     "device_id" (get-in sensor [:alias_sensor :device_id])})))))
+
 
 (defn sensor-time-range [sensor session]
   (validate-and-log sensor)
-  (let [{:keys [device_id sensor_id]} sensor]
-    (first
-     (db/execute session
-                 (hayt/select :sensor_metadata
-                              (hayt/columns :lower_ts :upper_ts)
-                              (hayt/where [[= :device_id device_id]
-                                           [= :sensor_id sensor_id]]))))))
+  (if-let [alias-sensor (not-empty (:alias_sensor sensor))]
+    (let [{:strs [device_id sensor_id]} alias-sensor]
+      (first
+       (db/execute session
+                   (hayt/select :sensor_metadata
+                                (hayt/columns :lower_ts :upper_ts)
+                                (hayt/where [[= :device_id device_id]
+                                             [= :sensor_id sensor_id]])))))
+    (let [{:keys [device_id sensor_id]} sensor]
+      (log/debug (str ">>>> STR - SENSOR NORMAL >>>>" sensor))
+      (first
+       (db/execute session
+                   (hayt/select :sensor_metadata
+                                (hayt/columns :lower_ts :upper_ts)
+                                (hayt/where [[= :device_id device_id]
+                                             [= :sensor_id sensor_id]])))))))
 
 (defn add-metadata [sensor session]
   (validate-and-log sensor)

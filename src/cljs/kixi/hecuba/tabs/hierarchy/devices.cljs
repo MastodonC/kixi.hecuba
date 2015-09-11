@@ -127,6 +127,8 @@
               (bs/text-input-control owner [:sensor :unit] "Unit" true)
               (sensor-period-dropdown owner [:sensor :period])
               (bs/text-input-control owner [:sensor :resolution] "Resolution")
+              (bs/text-input-control owner [:sensor :alias_sensor :device_id] "Alias Sensor - Device Id")
+              (bs/text-input-control owner [:sensor :alias_sensor :sensor_id] "Alias Sensor - Sensor Id")
               (bs/checkbox owner [:sensor :actual_annual] "Calculated Field")]]]))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -192,7 +194,9 @@
      [:div {:style {:padding-left "15px"}}
       (sensor-period-dropdown owner [:sensors sensor_id :period])]
      [:div {:style {:padding-bottom "15px"}}
-      (bs/text-input-control owner [:sensors sensor_id :resolution] "Resolution")]
+      (bs/text-input-control owner [:sensors sensor_id :resolution] "Resolution")
+      (bs/text-input-control owner [:sensors sensor_id :alias_sensor :device_id] "Alias Sensor - Device Id")
+      (bs/text-input-control owner [:sensors sensor_id :alias_sensor :sensor_id] "Alias Sensor - Sensor Id")]
      (when (not= "CUMULATIVE" period) ;; calculated field for CUMULATIVE period is differenceSeries, which has been created.
        (bs/checkbox owner [:sensors sensor_id :actual_annual] "Calculated Field"))]))
 
@@ -346,6 +350,8 @@
              (bs/text-input-control owner [:sensor :unit] "Unit" true)
              (sensor-period-dropdown owner [:sensor :period])
              (bs/text-input-control owner [:sensor :resolution] "Resolution")
+             (bs/text-input-control owner [:sensor :alias_sensor :device_id] "Alias Sensor - Device Id")
+              (bs/text-input-control owner [:sensor :alias_sensor :sensor_id] "Alias Sensor - Sensor Id")
              (bs/checkbox owner [:sensor :actual_annual] "Calculated Field")]]]])))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
