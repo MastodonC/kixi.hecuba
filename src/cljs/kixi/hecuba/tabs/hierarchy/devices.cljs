@@ -389,6 +389,7 @@
             [:div
              (bs/static-text device [:description] "Description")
              (bs/static-text device [:name] "Name")
+             (bs/static-text device [:device_id] "Device ID")
              [:div.form-group [:label "Location"] (common/location-col (:location device))]
              [:div.form-group [:label "Privacy"] (privacy-label (:privacy device))]]
             [:div
@@ -396,7 +397,7 @@
              [:table.table.borderless
               [:thead
                [:tr [:th "Type"] [:th "Synthetic?"] [:th "Header Rows"] [:th "Unit"] [:th "Period"]
-                [:th "Resolution"] [:th "Calculated Field"]]]
+                [:th "Resolution"] [:th "Calculated Field"] [:th "Sensor ID"]]]
               [:tbody
                (for [sensor (:readings device)]
                  (let [{:keys [alias actual_annual]} sensor]
@@ -407,7 +408,8 @@
                     [:td (:unit sensor)]
                     [:td (:period sensor)]
                     [:td (:resolution sensor)]
-                    [:td (when actual_annual [:div {:class "fa fa-magic"}])]]))]]]]]])))))
+                    [:td (when actual_annual [:div {:class "fa fa-magic"}])]
+                    [:td (:sensor_id sensor)]]))]]]]]])))))
 
 (defn form-row [properties table-id editing-chan]
   (fn [cursor owner]
