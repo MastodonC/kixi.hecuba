@@ -278,8 +278,9 @@
                                                                  (.indexOf timestamp "T"))
                                            date-split (re-find #"\d{4}-(\d\d)-(\d\d)" date-part)
                                            dt (tf/parse (tf/formatter "yyyy-MM-dd") date-part)
-                                           dow (.substring (tf/days (- (t/day-of-week (tf/parse (tf/formatter "yyyy-MM-dd") date-part)) 1)) 0 3)]
-                                       [(str (nth date-split 2) "/" (nth date-split 1)) dow]))
+                                           dow (tf/days (- (t/day-of-week (tf/parse (tf/formatter "yyyy-MM-dd") date-part)) 1))
+                                           dow_abrv (.substring dow 0 3)]
+                                       [(str (nth date-split 2) "/" (nth date-split 1)) dow_abrv]))
                                    (:measurements resp)))
           data-range (map js/parseFloat (remove nil? new-data))
           number-data (map js/parseFloat new-data)
