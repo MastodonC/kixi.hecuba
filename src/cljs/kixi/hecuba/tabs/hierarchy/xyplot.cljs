@@ -259,9 +259,7 @@
           x-major (.floor js/Math (/ (second x-range) 10))
           x-minor (/ x-major 2)
           y-major (.floor js/Math (/ (second y-range) 10))
-          y-minor (/ y-major 2)
-          _ (println x-major x-minor y-major)
-          ]
+          y-minor (/ y-major 2)]
       {:data data
        :x-range x-range
        :y-range y-range
