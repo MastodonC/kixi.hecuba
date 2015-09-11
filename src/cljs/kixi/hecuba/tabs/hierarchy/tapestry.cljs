@@ -10,6 +10,7 @@
             [cljs-time.core   :as t]
             [cljs-time.format :as tf]
             [cljs-time.coerce :as tc]
+            [cljs-time.predicates :as tp]
             [kixi.hecuba.bootstrap :as bs]
             [kixi.hecuba.common :refer (log) :as common]
             [kixi.hecuba.tabs.hierarchy.data :as data]
@@ -31,17 +32,18 @@
             [goog.string.format]
             [bardo.interpolate :refer [interpolate pipeline]]
             [kixi.hecuba.widgets.datetimepicker-small :as dtp]
-            [kixi.hecuba.tabs.hierarchy.raw-data :as raw]))
+            [kixi.hecuba.tabs.hierarchy.raw-data :as raw]
+            [kixi.hecuba.tabs.hierarchy.data :as data]))
 
 
 (def x-readings 14)
 (def y-readings 24)
-(def chart-width (atom 800))
+(def chart-width (atom 1000))
 (def chart-height (atom 600))
 (def chart-data-chan (atom nil))
 (def chart-fill-oor-cells? (atom true))
 (def default-gradations 20)
-(def invalid-cell-colour "#555555")
+(def invalid-cell-colour "#AAAAAA")
 
 (def colour-scheme
   "http://colorbrewer2.org/?type=diverging&scheme=RdYlBu&n=10"
@@ -114,7 +116,7 @@
                                            :label-dist -10
                                            :major-size -5
                                            :format #(if (< % (count dates))
-                                                      (nth dates %)
+                                                      (str (first (nth dates %))" - " (second (nth dates %)))
                                                       "")
                                            :label {:text-anchor "right"}})
                                  :y-axis (viz/linear-axis
@@ -181,8 +183,8 @@
 
 (defn chart
   [{:keys [width height data-chan fill-out-of-range-cells? x-label y-label]
-    :or {width 800
-         height 600}}]
+    :or {width @chart-width
+         height @chart-height}}]
   (if-not data-chan
     (throw (js/Error. "Heatmap requires a data channel!"))
     (reset! chart-data-chan data-chan))
@@ -228,15 +230,6 @@
                                    :dangerouslySetInnerHTML #js
                                    {:__html (hiccups/html legend-data)}}))))))))
 
-(defn url-str [start end entity_id device_id type]
-  (str "/4/entities/" entity_id "/devices/" device_id "/measurements/"
-       type "?startDate=" start "&endDate=" end))
-
-(defn date->amon-timestamp [date]
-  (->> date
-       (tf/parse (tf/formatter "yyyy-MM-dd"))
-       (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss"))))
-
 (defn calculate-end-date [start-date]
   (let [d (tf/parse (tf/formatter "yyyy-MM-dd") start-date)]
     (->> (t/plus d (t/weeks 2))
@@ -247,6 +240,7 @@
   [data]
   ;; step 1
   (let [remove-times  (map #(-> %
+                                (assoc-in [:value] (js/parseFloat (:value %)))
                                 (assoc-in [:date] (.slice (:timestamp %) 0 10))
                                 (assoc-in [:time] (.slice (:timestamp %) 11 19))
                                 (dissoc :sensor_id)
@@ -282,8 +276,10 @@
           new-dates (distinct (map (fn [{:keys [timestamp]}]
                                      (let [date-part (.substring timestamp 0
                                                                  (.indexOf timestamp "T"))
-                                           date-split (re-find #"\d{4}-(\d\d)-(\d\d)" date-part)]
-                                       (str (nth date-split 2) "/" (nth date-split 1))))
+                                           date-split (re-find #"\d{4}-(\d\d)-(\d\d)" date-part)
+                                           dt (tf/parse (tf/formatter "yyyy-MM-dd") date-part)
+                                           dow (.substring (tf/days (- (t/day-of-week (tf/parse (tf/formatter "yyyy-MM-dd") date-part)) 1)) 0 3)]
+                                       [(str (nth date-split 2) "/" (nth date-split 1)) dow]))
                                    (:measurements resp)))
           data-range (map js/parseFloat (remove nil? new-data))
           number-data (map js/parseFloat new-data)
@@ -303,9 +299,9 @@
 
 (defn process-get-data-click [tapestry-data start-date entity_id sensor data-chan]
   (let [[type device_id] (str/split sensor #"~")
-        start-ts (date->amon-timestamp start-date)
+        start-ts (data/date->amon-timestamp start-date)
         end-ts   (calculate-end-date start-date)
-        url (url-str start-ts end-ts entity_id device_id type)]
+        url (data/url-str start-ts end-ts entity_id device_id type :hourly_rollups)]
     (om/update! tapestry-data :date start-date)
     (GET url
          {:handler #(load-heatmap-data data-chan tapestry-data %)
@@ -330,6 +326,54 @@
                              :grads grads}))
   nil)
 
+(defn sensors-table [sensors owner {:keys [event-chan]}]
+  (reify
+    om/IInitState
+    (init-state [_]
+      {:th-chan (chan)
+       :sort-spec {:sort-key :type
+                   :sort-asc true}})
+    om/IWillMount
+    (will-mount [_]
+      (go-loop []
+        (let [{:keys [th-chan sort-spec]} (om/get-state owner)
+              {:keys [sort-key sort-asc]} sort-spec
+              th-click                    (<! th-chan)]
+          (if (= th-click sort-key)
+            (om/update-state! owner #(assoc %
+                                       :sort-spec {:sort-key th-click
+                                                   :sort-asc (not sort-asc)}))
+            (om/update-state! owner #(assoc %
+                                       :sort-spec {:sort-key th-click
+                                                   :sort-asc true}))))
+        (recur)))
+    om/IRenderState
+    (render-state [_ {:keys [sort-spec]}]
+      (let [{:keys [sort-key sort-asc]} sort-spec
+            history                     (om/get-shared owner :history)
+            table-id                    "sensors-table"
+            sensors-with-data (filter #(every? seq [(:lower_ts %) (:upper_ts %)]) sensors)]
+        (html
+         [:div.col-md-12 {:style {:overflow "auto"}}
+          [:table {:class "table table-hover table-condensed"}
+           [:thead
+            [:tr
+             (raw/sorting-th owner "Description" :description)
+             (raw/sorting-th owner "Type" :type)
+             (raw/sorting-th owner "Unit" :unit)
+             (raw/sorting-th owner "Period" :period)
+             (raw/sorting-th owner "Resolution" :resolution)
+             (raw/sorting-th owner "Device ID" :device_id)
+             (raw/sorting-th owner "Location" :location)
+             (raw/sorting-th owner "Earliest Event" :lower_ts)
+             (raw/sorting-th owner "Last Event" :upper_ts)
+             (raw/sorting-th owner "Status" :status)]]
+           [:tbody
+            (for [row (if sort-asc
+                        (sort-by sort-key sensors-with-data)
+                        (reverse (sort-by sort-key sensors-with-data)))]
+              (om/build raw/sensor-row row {:opts {:event-chan event-chan}}))]]])))))
+
 (defn tapestry-div [{:keys [raw-data entity_id tapestry-data]} owner]
   (reify
     om/IInitState
@@ -351,22 +395,21 @@
     (render-state [_ {:keys [event-chan data-chan]}]
       (html
        [:div [:h3 "Tapestry Charts"]
-        (om/build raw/sensors-table (:sensors raw-data) {:opts {:event-chan event-chan}})
+        (om/build sensors-table (:sensors raw-data) {:opts {:event-chan event-chan}})
         [:div.row.row-centered
          (om/build dtp/control tapestry-data {:init-state {:event-chan event-chan}})]
         (if (:error tapestry-data)
           [:div.row.row-centered
            [:h4 "There was an error displaying this chart."]]
           [:div
-           {:style {:width "50%" :margin "0 auto"}}
+           {:style {:width "1000px" :margin "0 auto"}}
            (om/build (chart {:data-chan data-chan
                              :fill-out-of-range-cells? true
                              :x-label "Dates"
                              :y-label "Time of the Day"}) tapestry-data)])
 
         (if (and (not (:error tapestry-data)) (-> tapestry-data :heatmap :element))
-          [:div
-           {:style {:width "50%" :margin "0 auto"}}
+          [:div.row.row-centered
            (let [form-style  {:margin-right "10px" :float "none"}]
              [:form.form-inline {:style {:margin-left "30px"}}
               [:div.form-group
