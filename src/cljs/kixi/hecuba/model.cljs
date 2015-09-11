@@ -90,10 +90,18 @@
                             :sensors []
                             :selected nil
                             :date nil}
-                 :tapestry {:heatmap {:data nil}
+                 :tapestry {:date nil
+                            :heatmap {:data nil}
                             :heatmap-controls {:lcb    {:default 10}
                                                :ucb    {:default 30}
                                                :grads  {:default 20}}}
+                 :xyplot {:data-x nil
+                          :data-y nil
+                          :current-x nil
+                          :current-y nil
+                          :label-x ""
+                          :label-y ""
+                          :date nil}
                  :profiles {:alert {}}
                  :downloads {:files []}
                  :uploads {:files []
