@@ -88,7 +88,7 @@
   [{:keys [width height data-chan x-label y-label]
     :or {width 800
          height 600}}]
-  (if (nil? data-chan)
+  (if-not data-chan
     (throw (js/Error. "XY Plot requires a data channel!"))
     (reset! chart-data-chan data-chan))
   (reset! chart-width width)
