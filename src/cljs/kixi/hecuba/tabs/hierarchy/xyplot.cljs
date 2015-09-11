@@ -237,9 +237,9 @@
 (defn process-data
   [[x-data y-data]]
   (let [timestamp-key :timestamp
-        missing-timestamps (clojure.set/difference (set (map timestamp-key x-data)) (set (map timestamp-key y-data)))
-        filtered-x-data (filter (fn [m] (not (some #(= % (timestamp-key m)) missing-timestamps))) x-data)
-        filtered-y-data (filter (fn [m] (not (some #(= % (timestamp-key m)) missing-timestamps))) y-data)
+        same-timestamps (clojure.set/intersection (set (map timestamp-key x-data)) (set (map timestamp-key y-data)))
+        filtered-x-data (filter (fn [m] (some #(= % (timestamp-key m)) same-timestamps)) x-data)
+        filtered-y-data (filter (fn [m] (some #(= % (timestamp-key m)) same-timestamps)) y-data)
         x-raw-data (->> filtered-x-data (sort-by :timestamp) (mapv :value) (map js/parseFloat))
         y-raw-data (->> filtered-y-data (sort-by :timestamp) (mapv :value) (map js/parseFloat))
         data {:values (mapv (fn [x y] (vector x y)) x-raw-data y-raw-data)}
