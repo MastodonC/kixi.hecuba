@@ -242,7 +242,7 @@
         filtered-y-data (filter (fn [m] (not (some #(= % (timestamp-key m)) missing-timestamps))) y-data)
         x-raw-data (->> filtered-x-data (sort-by :timestamp) (mapv :value) (map js/parseFloat))
         y-raw-data (->> filtered-y-data (sort-by :timestamp) (mapv :value) (map js/parseFloat))
-        data {:values (mapv (fn [i] [(nth x-raw-data i) (nth y-raw-data i)]) (range 0 (count x-raw-data)))}
+        data {:values (mapv (fn [a b] (vector a b)) x-raw-data y-raw-data)}
         reg-line (calc-linear-regression-line (:values data))
         data (assoc data :line reg-line)
         x-range [(->> data :values (map first) (apply min))
