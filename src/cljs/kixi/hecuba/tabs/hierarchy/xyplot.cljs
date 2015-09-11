@@ -242,7 +242,7 @@
         filtered-y-data (filter (fn [m] (some #(= % (timestamp-key m)) same-timestamps)) y-data)
         x-raw-data (->> filtered-x-data (sort-by :timestamp) (mapv :value) (map js/parseFloat))
         y-raw-data (->> filtered-y-data (sort-by :timestamp) (mapv :value) (map js/parseFloat))
-        data {:values (mapv (fn [x y] (vector x y)) x-raw-data y-raw-data)}
+        data {:values (mapv vector x-raw-data y-raw-data)}
         reg-line (calc-linear-regression-line (:values data))
         data (assoc data :line reg-line)
         x-range [(->> data :values (map first) (apply min))
