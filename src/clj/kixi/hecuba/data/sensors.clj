@@ -187,7 +187,6 @@
                                 (hayt/where [[= :device_id device_id]
                                              [= :sensor_id sensor_id]])))))
     (let [{:keys [device_id sensor_id]} sensor]
-      (log/debug (str ">>>> STR - SENSOR NORMAL >>>>" sensor))
       (first
        (db/execute session
                    (hayt/select :sensor_metadata
