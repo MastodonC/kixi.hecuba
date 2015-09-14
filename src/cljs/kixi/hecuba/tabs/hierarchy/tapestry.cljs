@@ -310,8 +310,7 @@
   (let [[type device_id] (str/split sensor #"~")
         start-ts (data/date->amon-timestamp start-date)
         end-ts   (calculate-end-date start-date)
-        url (data/url-str start-ts end-ts entity_id device_id type :hourly_rollups)
-        url "http://localhost:8000/foo1.json"]
+        url (data/url-str start-ts end-ts entity_id device_id type :hourly_rollups)]
     (om/update! tapestry-data :date start-date)
     (GET url
          {:handler #(load-heatmap-data data-chan tapestry-data start-date %)
