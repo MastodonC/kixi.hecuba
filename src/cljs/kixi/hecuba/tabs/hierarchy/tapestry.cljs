@@ -235,44 +235,52 @@
     (->> (t/plus d (t/weeks 2))
          (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss")))))
 
+(defn rewind-one-hour [date]
+  (let [d (tf/parse (tf/formatter "yyyy-MM-dd'T'HH:mm:ssZ") date)]
+    (->> (t/minus d (t/hours 1))
+         (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss")))))
+
 (defn process-data
   "This will currently only work for hourly data"
-  [data]
+  [start-date data]
   ;; step 1
-  (let [remove-times  (map #(-> %
+  (let [fmt (tf/formatter "yyyy-MM-dd")
+        start-date-ts (tf/parse fmt start-date)
+        dates (map (fn [d] (tf/unparse fmt d)) (map #(t/plus start-date-ts (t/days %)) (range 0 x-readings)))
+        ;;
+        rewind-time  (map #(assoc % :timestamp (rewind-one-hour (:timestamp %))) data) ;; rewind timestamps by an hour
+        remove-times (map #(-> %
                                 (assoc-in [:value] (js/parseFloat (:value %)))
                                 (assoc-in [:date] (.slice (:timestamp %) 0 10))
                                 (assoc-in [:time] (.slice (:timestamp %) 11 19))
                                 (dissoc :sensor_id)
-                                (dissoc :timestamp)) data)
-        grouped-data  (group-by :date remove-times)]
-    (if (not= (count grouped-data) x-readings) ;; ensure there are 2 weeks worth
-      ((throw (js/Error. (str "We don't have 14 days of data here (" (count grouped-data) " days)")))))
+                                (dissoc :timestamp)) rewind-time)
+        grouped-data  (take x-readings (group-by :date remove-times))
+        grouped-data-map (into {} (map #(apply hash-map %) grouped-data))
+        grouped-data-patched (into {} (map (fn [date] (hash-map date (if (contains? grouped-data-map date) (get grouped-data-map date) []))) dates))
+        with-hours    (apply merge
+                            (map (fn [[k v]]
+                                   (hash-map k (map (fn [m] {:hour (js/parseInt (.slice (:time m) 0 2))
+                                                             :value (:value m)}) v))) grouped-data-patched))
+       without-blank (apply merge
+                            (map (fn [[k v]]
+                                   (let [hours (->> v (map :hour) set)]
+                                     (hash-map k (apply merge v
+                                                        (remove nil? (map (fn [i]
+                                                                            (if-not (contains? hours i) {:hour i :value nil})) (range 0 y-readings))))))) with-hours)) ;; add nil values for missing times
+       sorted-groups (apply merge
+                            (map (fn [[k v]]
+                                   (hash-map k (sort-by :hour v))) without-blank))
+       sorted-top-map (into (sorted-map) sorted-groups)
+       flattened (reduce concat (map (fn [[k v]]
+                                       (map :value v)) sorted-top-map))
+       rotated (flatten (reverse (apply map list (matrix x-readings y-readings flattened))))]
+    rotated))
 
-    ;; step 2
-    (let [with-hours    (apply merge
-                               (map (fn [[k v]]
-                                      (hash-map k (map (fn [m] {:hour (js/parseInt (.slice (:time m) 0 2))
-                                                                :value (:value m)}) v))) grouped-data))
-          without-blank (apply merge
-                               (map (fn [[k v]]
-                                      (let [hours (->> v (map :hour) set)]
-                                        (hash-map k (apply merge v
-                                                           (remove nil? (map (fn [i]
-                                                                               (if-not (contains? hours i) {:hour i :value nil})) (range 0 y-readings))))))) with-hours))
-          sorted-groups (apply merge
-                               (map (fn [[k v]]
-                                      (hash-map k (sort-by :hour v))) without-blank))
-          sorted-top-map (into (sorted-map) sorted-groups)
-          flattened (reduce concat (map (fn [[k v]]
-                                          (map :value v)) sorted-top-map))
-          rotated (flatten (reverse (apply map list (matrix x-readings y-readings flattened))))]
-      rotated)))
-
-(defn load-heatmap-data [heatmap-data-chan tapestry-data resp]
+(defn load-heatmap-data [heatmap-data-chan tapestry-data start-date resp]
   (om/update! tapestry-data [:error] false)
   (try
-    (let [new-data (process-data (:measurements resp))
+    (let [new-data (process-data start-date (:measurements resp))
           new-dates (distinct (map (fn [{:keys [timestamp]}]
                                      (let [date-part (.substring timestamp 0
                                                                  (.indexOf timestamp "T"))
@@ -305,7 +313,7 @@
         url (data/url-str start-ts end-ts entity_id device_id type :hourly_rollups)]
     (om/update! tapestry-data :date start-date)
     (GET url
-         {:handler #(load-heatmap-data data-chan tapestry-data %)
+         {:handler #(load-heatmap-data data-chan tapestry-data start-date %)
           :error-handler (fn [{:keys [status status-text]}]
                            (log "There was an error. Status " status " Text " status-text))
           :headers {"Accept" "application/json"}
