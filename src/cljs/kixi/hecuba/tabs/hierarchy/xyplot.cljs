@@ -67,7 +67,7 @@
 
 (defn calculate-end-date [start-date]
   (let [d (tf/parse (tf/formatter "yyyy-MM-dd") start-date)]
-    (->> (t/plus d (t/weeks 2))
+    (->> (t/plus d (t/years 1))
          (tf/unparse (tf/formatter "yyyy-MM-dd HH:mm:ss")))))
 
 (defn- data-loop [cursor input-chan]
@@ -279,8 +279,8 @@
         [type2 device_id2] (str/split (second sensors) #"~")
         start-ts (data/date->amon-timestamp start-date)
         end-ts   (calculate-end-date start-date)
-        url1 (data/url-str start-ts end-ts entity_id device_id1 type1 :hourly_rollups)
-        url2 (data/url-str start-ts end-ts entity_id device_id2 type2 :hourly_rollups)]
+        url1 (data/url-str start-ts end-ts entity_id device_id1 type1 :daily_rollups)
+        url2 (data/url-str start-ts end-ts entity_id device_id2 type2 :daily_rollups)]
     (om/update! xyplot-data :date start-date)
     (om/update! xyplot-data :data-x nil)
     (om/update! xyplot-data :data-y nil)
