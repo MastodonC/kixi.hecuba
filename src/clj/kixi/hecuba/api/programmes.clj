@@ -30,14 +30,13 @@
 (defn filter-programmes [allowed-programmes allowed-projects programme-ids-for-projects all-programmes]
   (let [allowed-programme-ids      (into #{} (keys allowed-programmes))
         allowed-project-ids        (into #{} (keys allowed-projects))]
-    (->> all-programmes
-         (map (fn [programme]
-                (let [programme-id (:programme_id programme)]
-                  (cond
-                   (some #{programme-id} allowed-programme-ids) (enrich-by-role (get allowed-programmes programme-id) programme)
-                   (some #{programme-id} programme-ids-for-projects) (enrich-by-role :kixi.hecuba.security/user programme)
-                   (:public_access programme) (assoc programme :editable false)))))
-         (remove nil?))))
+    (keep (fn [programme]
+            (let [programme-id (:programme_id programme)]
+              (cond
+                (some #{programme-id} allowed-programme-ids) (enrich-by-role (get allowed-programmes programme-id) programme)
+                (some #{programme-id} programme-ids-for-projects) (enrich-by-role :kixi.hecuba.security/user programme)
+                (:public_access programme) (assoc programme :editable false))))
+          all-programmes)))
 
 (defn allowed?*
   ([allowed-programmes allowed-projects role request-method store]
@@ -64,10 +63,10 @@
                  request-method]
 
                 [true _ _ _]    [true {::item (assoc (programmes/get-by-id session programme_id) :editable true :admin true)}]
-                [_ true _ _]    [true {::item (filter-programmes allowed-programmes allowed-projects programme-ids-for-projects
-                                                                 [(programmes/get-by-id session programme_id)])}]
-                [_ _ true :get] [true {::item (filter-programmes allowed-programmes allowed-projects programme-ids-for-projects
-                                                                 [(programmes/get-by-id session programme_id)])}]
+                [_ true _ _]    [true {::item (first (filter-programmes allowed-programmes allowed-projects programme-ids-for-projects
+                                                                        [(programmes/get-by-id session programme_id)]))}]
+                [_ _ true :get] [true {::item (first (filter-programmes allowed-programmes allowed-projects programme-ids-for-projects
+                                                                        [(programmes/get-by-id session programme_id)]))}]
                 :else false)))))
 
 (defn index-allowed? [store]
@@ -147,9 +146,9 @@
   (::item ctx))
 
 (defn resource-handle-ok [ctx]
-  (api/render-item ctx
-                    (as-> (::item ctx) item
-                          (assoc item :projects (format programme-projects-index (:programme_id item))))))
+  (let [{:keys [::item]} ctx]
+    (api/render-item ctx
+                     (assoc item :projects (format programme-projects-index (:programme_id item))))))
 
 
 
