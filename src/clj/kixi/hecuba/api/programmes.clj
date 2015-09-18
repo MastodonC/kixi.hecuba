@@ -146,9 +146,9 @@
   (::item ctx))
 
 (defn resource-handle-ok [ctx]
-  (api/render-item ctx
-                    (as-> (::item ctx) item
-                          (assoc item :projects (format programme-projects-index (:programme_id item))))))
+  (let [{:keys [::item]} ctx]
+    (api/render-item ctx
+                     (assoc item :projects (format programme-projects-index (:programme_id item))))))
 
 
 
