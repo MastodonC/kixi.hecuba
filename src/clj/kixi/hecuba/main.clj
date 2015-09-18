@@ -44,4 +44,7 @@
     (when (:help opts)
       (println banner)
       (System/exit 0))
+    
+    (kixi/install-default-exception-handler)
+
     (alter-var-root #'kixi/system (fn [_] (component/start (build-application opts))))))
