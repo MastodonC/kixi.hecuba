@@ -204,7 +204,16 @@
    Returns a list of maps, with all values parsed approprietly."
   [measurements]
   (map (fn [m] (assoc-in m [:value]
-                         (let [n (edn/read-string (:value m))]
+                         (let [n (if (number? (:value m)) 
+                                   (:value m)
+                                   (try 
+                                     (Double/valueOf (:value m))
+                                     (catch NumberFormatException e nil
+                                            (log/error e
+                                                       "> NumberFormatException in parse-measurements"))
+                                     (catch NullPointerException e nil
+                                            (log/error e
+                                                       "> NumberFormatException in parse-measurements"))))] 
                            (if (number? n)
                              n
                              nil))))

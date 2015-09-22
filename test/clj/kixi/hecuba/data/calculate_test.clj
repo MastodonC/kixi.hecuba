@@ -75,35 +75,35 @@
     (println "Testing compute-datasets.")
 
     (testing "Testing addition"
-      (is (= "0"   (:value (first (apply calc/compute-datasets :sum "12345" "temperature" measurements)))))
-      (is (= "2"   (:value (second (apply calc/compute-datasets :sum "12345" "temperature" measurements)))))
-      (is (= "998" (:value (last (apply calc/compute-datasets :sum "12345" "temperature" measurements)))))
-      (is (= "499" (:value (first (calc/compute-datasets :sum "12345" "temperature"
+      (is (= "0.0" (:value (first (apply calc/compute-datasets :sum "12345" "temperature" measurements)))))
+      (is (= "2.0" (:value (second (apply calc/compute-datasets :sum "12345" "temperature" measurements)))))
+      (is (= "998.0" (:value (last (apply calc/compute-datasets :sum "12345" "temperature" measurements)))))
+      (is (= "499.0" (:value (first (calc/compute-datasets :sum "12345" "temperature"
                                                          (first measurements)
                                                          (reverse (last measurements))))))))
 
     (testing "Testing subtraction"
-      (is (= "0"    (:value (first (apply calc/compute-datasets :subtract "12345" "temperature" measurements)))))
-      (is (= "0"    (:value (second (apply calc/compute-datasets :subtract "12345" "temperature" measurements)))))
-      (is (= "0"    (:value (last (apply calc/compute-datasets :subtract "12345" "temperature" measurements)))))
-      (is (= "-499" (:value (first (calc/compute-datasets :subtract "12345" "temperature"
+      (is (= "0.0"    (:value (first (apply calc/compute-datasets :subtract "12345" "temperature" measurements)))))
+      (is (= "0.0"    (:value (second (apply calc/compute-datasets :subtract "12345" "temperature" measurements)))))
+      (is (= "0.0"    (:value (last (apply calc/compute-datasets :subtract "12345" "temperature" measurements)))))
+      (is (= "-499.0" (:value (first (calc/compute-datasets :subtract "12345" "temperature"
                                                           (first measurements)
                                                           (reverse (last measurements))))))))
 
     (testing "Testing division"
       (is (= "N/A"  (:value (first (apply calc/compute-datasets :divide "12345" "temperature" measurements)))))
-      (is (= "1"    (:value (second (apply calc/compute-datasets :divide "12345" "temperature" measurements)))))
-      (is (= "1"    (:value (last (apply calc/compute-datasets :divide "12345" "temperature" measurements)))))
-      (is (= "0"    (:value (first (calc/compute-datasets :divide "12345" "temperature"
+      (is (= "1.0"    (:value (second (apply calc/compute-datasets :divide "12345" "temperature" measurements)))))
+      (is (= "1.0"    (:value (last (apply calc/compute-datasets :divide "12345" "temperature" measurements)))))
+      (is (= "0.0"    (:value (first (calc/compute-datasets :divide "12345" "temperature"
                                                           (first measurements)
                                                           (reverse (last measurements)))))))
       (is (= "N/A"  (:value (first (calc/compute-datasets :divide "12345" "temperature"
                                                           (reverse (last measurements))
                                                           (first measurements)))))))
     (testing "Testing multiplication"
-      (is (= "0"      (:value (first (apply calc/compute-datasets :multiply "12345" "temperature" measurements)))))
-      (is (= "1"      (:value (second (apply calc/compute-datasets :multiply "12345" "temperature" measurements)))))
-      (is (= "249001" (:value (last (apply calc/compute-datasets :multiply "12345" "temperature" measurements)))))
+      (is (= "0.0"      (:value (first (apply calc/compute-datasets :multiply "12345" "temperature" measurements)))))
+      (is (= "1.0"      (:value (second (apply calc/compute-datasets :multiply "12345" "temperature" measurements)))))
+      (is (= "249001.0" (:value (last (apply calc/compute-datasets :multiply "12345" "temperature" measurements)))))
       (is (= "N/A" (:value (nth (apply calc/compute-datasets :multiply "12345" "temperature" invalid-measurements) 5)))))))
 
 (deftest diff-seq-test

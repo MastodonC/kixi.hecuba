@@ -229,14 +229,17 @@
                                             "CUMULATIVE" (last measurements)
                                             "INSTANT"    (average-reading measurements)
                                             "PULSE"      (reduce + measurements)))]
-      (when-let [filtered (data-to-calculate? measurements)]
-        (db/execute session
-                    (hayt/insert :hourly_rollups (hayt/values
-                                                  {:value (str (round (funct filtered)))
-                                                   :timestamp (tc/to-date end-date)
-                                                   :year (time/get-year-partition-key start-date)
-                                                   :device_id device_id
-                                                   :sensor_id sensor_id}))))
+      (try 
+        (when-let [filtered (data-to-calculate? measurements)]
+          (db/execute session
+                      (hayt/insert :hourly_rollups (hayt/values
+                                                    {:value (str (round (funct filtered)))
+                                                     :timestamp (tc/to-date end-date)
+                                                     :year (time/get-year-partition-key start-date)
+                                                     :device_id device_id
+                                                     :sensor_id sensor_id}))))
+        (catch Exception e (prn "Roll up failed, does sensor exist?")))
+      
       end-date)))
 
 (defn hourly-rollups
