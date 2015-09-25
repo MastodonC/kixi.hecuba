@@ -238,7 +238,7 @@
                                                      :year (time/get-year-partition-key start-date)
                                                      :device_id device_id
                                                      :sensor_id sensor_id}))))
-        (catch Exception e (prn "Roll up failed, does sensor exist?")))
+        (catch Exception e (log/error (str "Roll up failed on sensor_id " sensor_id " " start-date))))
       
       end-date)))
 

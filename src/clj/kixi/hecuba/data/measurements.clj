@@ -210,10 +210,10 @@
                                      (Double/valueOf (:value m))
                                      (catch NumberFormatException e nil
                                             (log/error e
-                                                       "> NumberFormatException in parse-measurements"))
+                                                       (str "> NumberFormatException in parse-measurements - sensor_id: " (:sensor_id m) " " (:timestamp m))))
                                      (catch NullPointerException e nil
                                             (log/error e
-                                                       "> NumberFormatException in parse-measurements"))))] 
+                                                       (str "> NumberFormatException in parse-measurements - sensor_id: " (:sensor_id m) " " (:timestamp m))))))] 
                            (if (number? n)
                              n
                              nil))))
