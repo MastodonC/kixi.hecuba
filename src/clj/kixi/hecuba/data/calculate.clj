@@ -238,9 +238,9 @@
                                                      :year (time/get-year-partition-key start-date)
                                                      :device_id device_id
                                                      :sensor_id sensor_id}))))
-        (catch Exception e (log/error (str "Roll up failed on sensor_id " sensor_id " " start-date))))
-      
+        (catch Throwable e (log/errorf e "Roll up failed on device_id %s sensor_id %s start-date %s" device_id sensor_id  start-date)))      
       end-date)))
+
 
 (defn hourly-rollups
   "Calculates hourly rollups for given sensor and date range.
