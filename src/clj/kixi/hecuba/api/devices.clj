@@ -130,17 +130,24 @@
   ;;(println "H> kixi.hecuba.api.devices/calculated-sensor default")
   )
 
-(defn create-deyfault-sensors
+(defn create-default-sensors
   "Creates default sensors whenever new device is added: *_differenceSeries for CUMULATIVE,
    and *_co2 for kwh PULSE, etc."
   [body]
   (println "H> kixi.hecuba.api.devices/create-default-sensors")
   (let [sensors        (:readings body)
-        new-sensors    (map #(case (:period %)
-                               "CUMULATIVE" (ext-type % "differenceSeries")
-                               "PULSE"      (calculated-sensor %)
-                               "INSTANT"    nil
-                               nil) sensors)]
+        new-sensors (case (count sensors)
+                      1 (when (= "CUMULATIVE" (:period (first sensors)))
+                          (map #(ext-type % "differenceSeries") sensors))
+                      2 (when (and (some #(= "CUMULATIVE" (:period %)) sensors)
+                                   (some #(= "PULSE" (:period %)) sensors))
+                          (map calculated-sensor sensors)))
+        ;; (map #(case (:period %)
+        ;;                        "CUMULATIVE" (ext-type % "differenceSeries")
+        ;;                        "PULSE"      (calculated-sensor %)
+        ;;                        "INSTANT"    nil
+        ;;                        nil) sensors)
+        ]
     (println "   >> old sensors: " sensors)
     (println "   >> new sensors: " new-sensors)
     (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten (concat readings new-sensors))))))))
@@ -282,7 +289,7 @@
   "Takes session, old sensor data, new sensor data. Updates original sensor and
    recreates synthetic sensors. "
   [session old-device user_id old-sensor new-sensor range]
-  ;;(println "H> kixi.hecuba.api.devices/tidy-up-sensors")
+  (println "H> kixi.hecuba.api.devices/tidy-up-sensors")
   (let [device_id                     (:device_id old-device)
         alleged-old-synthetic-sensors (create-default-sensors {:readings [old-sensor]})
         new-synthetic-sensors         (create-default-sensors {:readings [(dissoc (data/deep-merge old-sensor new-sensor)
@@ -317,7 +324,7 @@
   "Depending on edited fields, either deletes/iserts new synthetic sensors or updates
   the existing onews."
   [session old-device user_id old-sensor new-sensor range]
-  ;;(println "H> kixi.hecuba.api.devices/recreate-sensor")
+  (println "H> kixi.hecuba.api.devices/recreate-sensor")
   (let [old-sensor-map (select-keys old-sensor user-edited-keys)
         new-sensor-map (select-keys new-sensor user-edited-keys)
         ;; Get a sequence of keys that has been updated
@@ -353,8 +360,8 @@
               username      (sec/session-username (-> ctx :request :session))
               user_id       (:id (users/get-by-username session username))
               device_id     (-> item :device_id)]
-          (println "    >> body: " body)
-          (println "    >> item: " item)
+          ;;(println "    >> body: " body)
+          ;;(println "    >> item: " item)
           (let [edited-device-data (-> body (dissoc :editable :readings))]
             ;; Don't update device if nothing has been changed
             (when (seq edited-device-data)
@@ -365,15 +372,17 @@
             (println "    >> sensor-id: " #(:sensor_id %))
             (println "    >> incoming sensor-id: " (:sensor_id incoming-sensor))
             (let [existing-sensor (first (filter #(= (:sensor_id %) (:sensor_id incoming-sensor)) (:readings item)))]
-              (if existing-sensor
+              (when existing-sensor
                 ;; sensor already exists - need to update/recreate synthetic sensors
                 (let [sensor_id (:sensor_id existing-sensor)
                       {:keys [lower_ts upper_ts]} (sensors/all-sensor-information store device_id sensor_id)]
-                  (do (println "    >> existing sensor!")
+                  (do (println "    >> existing sensor! " (:type existing-sensor))
                       (recreate-sensor session item user_id existing-sensor incoming-sensor {:start-date lower_ts :end-date upper_ts})))
                 ;; sensor doesn't exist - adding new sensor
-                (do (println "    >> non-existing sensor!")
-                    (add-new-sensor session device_id user_id incoming-sensor)))))
+                ;; (do (println "    >> non-existing sensor!")
+                ;;     (add-new-sensor session device_id user_id incoming-sensor))
+                )
+              (add-new-sensor session device_id user_id incoming-sensor)))
           (-> (search/searchable-entity-by-id entity_id session)
               (search/->elasticsearch (:search-session store)))
           (ring-response {:status 404 :body "Please provide valid entity_id and device_id"}))))))
