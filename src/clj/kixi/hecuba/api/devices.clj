@@ -26,6 +26,7 @@
 (defn allowed?* [programme-id project-id allowed-programmes allowed-projects role request-method]
   (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s role: %s request-method: %s"
              programme-id project-id allowed-programmes allowed-projects role request-method)
+  ;;(println "H> kixi.hecuba.api.devices/allowed?*")
   (match  [(has-admin? role)
            (has-programme-manager? programme-id allowed-programmes)
            (has-project-manager? project-id allowed-projects)
@@ -42,6 +43,7 @@
 ;; INDEX
 
 (defn index-allowed? [store]
+  ;;(println "H> kixi.hecuba.api.devices/index-allowed?")
   (fn [ctx]
     (let [{:keys [body request-method session params]} (:request ctx)
           {:keys [projects programmes role]} (sec/current-authentication session)
@@ -52,6 +54,7 @@
         (allowed?* programme_id project_id programmes projects role request-method)))))
 
 (defn index-exists? [store ctx]
+  ;;(println "H> kixi.hecuba.api.devices/index-exists?")
   (db/with-session [session (:hecuba-session store)]
     (let [request        (:request ctx)
           method         (:request-method request)
@@ -65,6 +68,7 @@
                {::items (mapv #(assoc % :editable editable) items)})))))
 
 (defn should-calculate-fields? [sensors]
+  ;;(println "H> kixi.hecuba.api.devices/should-calculate-fields?")
   (not (some #(and (= (:period %) "CUMULATIVE")
                    (or (= (:actual_annual_calculation %) true)
                        (= (:normalised_annual_calculation %) true))) sensors)))
@@ -76,6 +80,7 @@
                         :resolution :unit :user_metadata :synthetic :alias_sensor])
 
 (defn index-malformed? [ctx]
+  ;;(println "H> kixi.hecuba.api.devices/index-malformed?")
   (let [request (:request ctx)
         {:keys [route-params request-method]} request
         entity_id (:entity_id route-params)]
@@ -92,45 +97,56 @@
       false)))
 
 (defn- ext-type [sensor type-ext]
+  ;;(println "H> kixi.hecuba.api.devices/ext-type")
   (-> sensor
       (update-in [:type] #(str % "_" type-ext))
       (assoc :period "PULSE" :synthetic true :sensor_id (uuid-str))))
 
-(defmulti calculated-sensor (fn [sensor] (when-let [unit (:unit sensor)]
-                                           (.toUpperCase unit))))
+(defmulti calculated-sensor
+  (fn [sensor] (when-let [unit (:unit sensor)]
+                 (.toUpperCase unit))))
 
 (defmethod calculated-sensor "KWH" [sensor]
+  ;;(println "H> kixi.hecuba.api.devices/calculated-sensor KWH")
   (-> sensor
       (assoc :unit "co2" :synthetic true :sensor_id (uuid-str))
       (update-in [:type] #(sensors/output-type-for % "KWH2CO2"))))
 
 (defmethod calculated-sensor "M^3" [sensor]
+  ;;(println "H> kixi.hecuba.api.devices/calculated-sensor M^3")
   (let [kwh-sensor (-> sensor
                        (assoc :unit "kWh" :synthetic true :sensor_id (uuid-str))
                        (update-in [:type] #(sensors/output-type-for % "VOL2KWH")))]
     [kwh-sensor (calculated-sensor kwh-sensor)]))
 
 (defmethod calculated-sensor "FT^3" [sensor]
+  ;;(println "H> kixi.hecuba.api.devices/calculated-sensor M^3")
   (let [kwh-sensor (-> sensor
                        (assoc :unit "kWh" :synthetic true :sensor_id (uuid-str))
                        (update-in [:type] #(sensors/output-type-for % "VOL2KWH")))]
     [kwh-sensor (calculated-sensor kwh-sensor)]))
 
-(defmethod calculated-sensor :default [sensor])
+(defmethod calculated-sensor :default [sensor]
+  ;;(println "H> kixi.hecuba.api.devices/calculated-sensor default")
+  )
 
-(defn create-default-sensors
+(defn create-deyfault-sensors
   "Creates default sensors whenever new device is added: *_differenceSeries for CUMULATIVE,
    and *_co2 for kwh PULSE, etc."
   [body]
+  (println "H> kixi.hecuba.api.devices/create-default-sensors")
   (let [sensors        (:readings body)
         new-sensors    (map #(case (:period %)
                                "CUMULATIVE" (ext-type % "differenceSeries")
                                "PULSE"      (calculated-sensor %)
                                "INSTANT"    nil
                                nil) sensors)]
+    (println "   >> old sensors: " sensors)
+    (println "   >> new sensors: " new-sensors)
     (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten (concat readings new-sensors))))))))
 
 (defn index-post! [store ctx]
+  ;;(println "H> kixi.hecuba.api.devices/index-post!")
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [request body]} ctx
           entity_id              (-> request :route-params :entity_id)
@@ -150,9 +166,11 @@
         {:device_id device_id :entity_id entity_id}))))
 
 (defn index-handle-ok [ctx]
+  ;;(println "H> kixi.hecuba.api.devices/index-handle-ok")
   (api/render-items ctx (::items ctx)))
 
 (defn index-handle-created [ctx]
+  ;;(println "H> kixi.hecuba.api.devices/index-handle-created")
   (let [entity_id (-> ctx :entity_id)
         device_id (-> ctx :device_id)
         location  (format device-resource entity_id device_id)]
@@ -165,6 +183,7 @@
 ;; RESOURCE
 
 (defn resource-allowed? [store]
+  ;;(println "H> kixi.hecuba.api.devices/resource-allowed?")
   (fn [ctx]
     (let [{:keys [request-method session params]} (:request ctx)
           {:keys [projects programmes role]}     (sec/current-authentication session)
@@ -175,6 +194,7 @@
         (allowed?* programme_id project_id programmes projects role request-method)))))
 
 (defn resource-exists? [store ctx]
+  ;;(println "H> kixi.hecuba.api.devices/resource-exists?")
   (db/with-session [session (:hecuba-session store)]
     (let [device_id (-> ctx :request :route-params :device_id)
           item      (devices/get-by-id session device_id)]
@@ -185,6 +205,7 @@
 ;; Should be device-response etc and it should do the delete in delete!,
 ;; that should put something in the context which is then checked here.
 (defn resource-delete-enacted? [store ctx]
+  ;;(println "H> kixi.hecuba.api.devices/resource-delete-enacted?")
   (db/with-session [session (:hecuba-session store)]
     (let [{item ::item}   ctx
           device_id       (:device_id item)
@@ -197,6 +218,7 @@
 (defn sensor-metadata
   "Updates sensor's metadata: resets dirty dates for calculations to lower_ts and upper_ts."
   [sensor_id device_id range]
+  ;;(println "H> kixi.hecuba.api.devices/sensor-metadata")
   (let [{:keys [start-date end-date]} range]
     (when (and start-date end-date)
       (-> {:sensor_id sensor_id
@@ -209,6 +231,7 @@
   "Takes old device data and a sequence of sensors and returns
   a sequence of sensors that should be deleted."
   [old-device sensors]
+  ;;(println "H> kixi.hecuba.api.devices/get-sensor-to-delete")
   (keep (fn [s] (when (:synthetic s)
                   ;; there should only ever be one sensor of a particular type per device
                   (when-let [corresponding-sensor_id (:sensor_id (some #(when (= (:type %) (:type s)) %) (:readings old-device)))]
@@ -219,6 +242,7 @@
 (defn delete-old-synthetic-sensors
   "Takes a sequence of sensors and deletes them."
   [session sensors]
+  ;;(println "H> kixi.hecuba.api.devices/delete-old-synthetic-sensors")
   (doseq [s sensors]
     (log/infof "Deleting synthetic sensor: %s : %s" (:device_id s) (:type s))
     (sensors/delete s session)))
@@ -226,6 +250,7 @@
 (defn get-sensors-to-insert
   "Takes a sequence of sensors and enriches it with synthetic sensors"
   [user_id sensors]
+  ;;(println "H> kixi.hecuba.api.devices/get-sensors-to-insert")
   (keep (fn [s]
          (when (:synthetic s)
            (let [sensor_id (uuid-str)
@@ -236,6 +261,7 @@
 (defn insert-new-synthetic-sensors
   "Takes a sequence of sensors and inserts new synthetic sensors"
   [session sensors]
+  ;;(println "H> kixi.hecuba.api.devices/insert-new-synthetic-sensors")
   (doseq [s sensors]
     (log/infof "Inserting sensor: %s : %s" (:device_id s) (:type s))
     (let [metadata  {:sensor_id (:sensor_id s) :device_id (:device_id s)}]
@@ -245,6 +271,7 @@
   "Updates original sensor and resets its dirty dates to lower_ts and upper_ts
    so that calculations for new synthetic sensors can calculate over all data."
   [session device_id user_id new-sensor range]
+  ;;(println "H> kixi.hecuba.api.devices/update-original-sensor")
   (let [refreshed-metadata (sensor-metadata (:sensor_id new-sensor) device_id range)]
     (log/infof "Updating original sensor: %s" new-sensor)
     (if refreshed-metadata
@@ -255,6 +282,7 @@
   "Takes session, old sensor data, new sensor data. Updates original sensor and
    recreates synthetic sensors. "
   [session old-device user_id old-sensor new-sensor range]
+  ;;(println "H> kixi.hecuba.api.devices/tidy-up-sensors")
   (let [device_id                     (:device_id old-device)
         alleged-old-synthetic-sensors (create-default-sensors {:readings [old-sensor]})
         new-synthetic-sensors         (create-default-sensors {:readings [(dissoc (data/deep-merge old-sensor new-sensor)
@@ -268,6 +296,7 @@
 (defn update-existing-sensors
   "Updates original and synthetic sensors (used when unit or period remain the same."
   [session device_id user_id old-sensor new-sensor]
+  ;;(println "H> kixi.hecuba.api.devices/update-existing-sensors")
   ;; it's not a synthetic sensor - create synthetic sensors
   (if-not (:synthetic new-sensor)
     (let [new-synthetic-sensors (create-default-sensors {:readings [(dissoc (data/deep-merge old-sensor new-sensor)
@@ -288,6 +317,7 @@
   "Depending on edited fields, either deletes/iserts new synthetic sensors or updates
   the existing onews."
   [session old-device user_id old-sensor new-sensor range]
+  ;;(println "H> kixi.hecuba.api.devices/recreate-sensor")
   (let [old-sensor-map (select-keys old-sensor user-edited-keys)
         new-sensor-map (select-keys new-sensor user-edited-keys)
         ;; Get a sequence of keys that has been updated
@@ -304,6 +334,7 @@
 (defn add-new-sensor
   "Creates new sensors and respective synthetic sensors."
   [session device_id user_id new-sensor]
+  (println "H> kixi.hecuba.api.devices/add-new-sensor")
   (let [new-sensors (create-default-sensors
                      {:readings [(-> new-sensor
                                      (dissoc :lower_ts :upper_ts
@@ -313,6 +344,7 @@
       (sensors/insert session (assoc s :device_id device_id :user_id user_id :sensor_id (uuid-str))))))
 
 (defn resource-put! [store ctx]
+  (println "H> kixi.hecuba.api.devices/resource-put!")
   (db/with-session [session (:hecuba-session store)]
     (let [{request :request} ctx]
       (if-let [item (::item ctx)]
@@ -321,30 +353,38 @@
               username      (sec/session-username (-> ctx :request :session))
               user_id       (:id (users/get-by-username session username))
               device_id     (-> item :device_id)]
+          (println "    >> body: " body)
+          (println "    >> item: " item)
           (let [edited-device-data (-> body (dissoc :editable :readings))]
             ;; Don't update device if nothing has been changed
             (when (seq edited-device-data)
               (devices/update session entity_id device_id (assoc edited-device-data
-                                                            :user_id user_id
-                                                            :device_id device_id))))
+                                                                 :user_id user_id
+                                                                 :device_id device_id))))
           (doseq [incoming-sensor (:readings body)]
+            (println "    >> sensor-id: " #(:sensor_id %))
+            (println "    >> incoming sensor-id: " (:sensor_id incoming-sensor))
             (let [existing-sensor (first (filter #(= (:sensor_id %) (:sensor_id incoming-sensor)) (:readings item)))]
               (if existing-sensor
                 ;; sensor already exists - need to update/recreate synthetic sensors
                 (let [sensor_id (:sensor_id existing-sensor)
                       {:keys [lower_ts upper_ts]} (sensors/all-sensor-information store device_id sensor_id)]
-                  (recreate-sensor session item user_id existing-sensor incoming-sensor {:start-date lower_ts :end-date upper_ts}))
+                  (do (println "    >> existing sensor!")
+                      (recreate-sensor session item user_id existing-sensor incoming-sensor {:start-date lower_ts :end-date upper_ts})))
                 ;; sensor doesn't exist - adding new sensor
-                (add-new-sensor session device_id user_id incoming-sensor))))
+                (do (println "    >> non-existing sensor!")
+                    (add-new-sensor session device_id user_id incoming-sensor)))))
           (-> (search/searchable-entity-by-id entity_id session)
               (search/->elasticsearch (:search-session store)))
           (ring-response {:status 404 :body "Please provide valid entity_id and device_id"}))))))
 
 (defn resource-handle-ok [ctx]
+  ;;(println "H> kixi.hecuba.api.devices/resource-handle-ok")
   (let [req (:request ctx)]
     (api/render-item ctx (::item ctx))))
 
 (defn resource-respond-with-entity [ctx]
+  ;;(println "H> kixi.hecuba.api.devices/resource-respond-with-entity")
   (let [request (:request ctx)
         method  (:request-method request)]
     (cond
@@ -355,6 +395,7 @@
 ;; SENSOR RESOURCE
 
 (defn sensor-resource-exists? [store ctx]
+  ;;(println "H> kixi.hecuba.api.devices/sensor-resource-exists?")
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [entity_id device_id type]} (-> ctx :request :route-params)
           sensor (sensors/get-by-type {:device_id device_id :type type} session)]
@@ -363,6 +404,7 @@
         false))))
 
 (defn sensor-resource-delete! [store ctx]
+  ;;(println "H> kixi.hecuba.api.devices/sensor-resource-delete!")
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [sensor entity_id]} ctx
           {:keys [sensors sensors-metadata]} (sensors/delete sensor session)
@@ -373,6 +415,7 @@
       {:delete-successful? successful?})))
 
 (defn sensor-resource-delete-enacted? [store ctx]
+  ;;(println "H> kixi.hecuba.api.devices/sensor-resource-delete-enacted?")
   (:delete-successful? ctx))
 
 (defresource index [store]
