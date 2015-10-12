@@ -171,9 +171,11 @@
    (-> sensor
        (cond-> (:user_metadata sensor) (user-metadata (:synthetic sensor)))
        (cond-> remove-pk? (dissoc :device_id :sensor_id))
-       (cond-> (:alias_sensor sensor)
-               (assoc :alias_sensor {"sensor_id" (get-in sensor [:alias_sensor :sensor_id])
-                                     "device_id" (get-in sensor [:alias_sensor :device_id])})))))
+       (cond-> (not-empty  (:alias_sensor sensor))
+         (assoc :alias_sensor {"sensor_id" (get-in sensor [:alias_sensor :sensor_id])
+                               "device_id" (get-in sensor [:alias_sensor :device_id])}))
+       (cond-> (empty? (:alias_sensor sensor))
+         (assoc :alias_sensor {})))))
 
 
 (defn sensor-time-range [sensor session]
