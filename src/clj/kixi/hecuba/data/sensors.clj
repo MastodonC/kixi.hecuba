@@ -175,8 +175,7 @@
          (assoc :alias_sensor {"sensor_id" (get-in sensor [:alias_sensor :sensor_id])
                                "device_id" (get-in sensor [:alias_sensor :device_id])}))
        (cond-> (empty? (:alias_sensor sensor))
-         (assoc :alias_sensor {"sensor_id" (:sensor_id sensor)
-                               "device_id" (:device_id sensor)})))))
+         (assoc :alias_sensor {})))))
 
 
 (defn sensor-time-range [sensor session]
