@@ -13,6 +13,7 @@
 (defn allowed?* [programme-id project-id allowed-programmes allowed-projects role request-method]
   (log/infof "allowed?* programme-id: %s project-id: %s allowed-programmes: %s allowed-projects: %s roles: %s request-method: %s"
              programme-id project-id allowed-programmes allowed-projects role request-method)
+  (println "H> kixi.hecuba.api.sensors/allowed?*")
   (match  [(has-admin? role)
            (has-programme-manager? programme-id allowed-programmes)
            (has-project-manager? project-id allowed-projects)
@@ -26,6 +27,7 @@
           :else false))
 
 (defn index-allowed? [store]
+  (println "H> kixi.hecuba.api.sensors/index-allowed?")
   (fn [ctx]
     (let [request (:request ctx)
           {:keys [request-method session params]} request
@@ -37,20 +39,25 @@
         true))))
 
 (defn- entity_id-from [ctx]
+  (println "H> kixi.hecuba.api.sensors/entity_id-from")
   (get-in ctx [:request :route-params :entity_id]))
 
 (defn- device_id-from [ctx]
+  (println "H> kixi.hecuba.api.sensors/device_id-from")
   (get-in ctx [:request :route-params :device_id]))
 
 (defn metadata-exists? [store ctx]
+  (println "H> kixi.hecuba.api.sensors/metadata-exists?")
   (db/with-session [session (:hecuba-session store)]
     (when-let [items (db/execute session (hayt/select :sensor_metadata (hayt/where [[= :device_id (device_id-from ctx)]])))]
       {::items items})))
 
 (defn metadata-handle-ok [ctx]
+  (println "H> kixi.hecuba.api.sensors/metadata-handle-ok")
   {::items ctx})
 
 (defn index-by-property-handle-ok [store ctx]
+  (println "H> kixi.hecuba.api.sensors/index-by-property-handle-ok")
   (db/with-session [session (:hecuba-session store)]
     (let [request (:request ctx)
           devices (db/execute session (hayt/select :devices (hayt/where [[= :entity_id (entity_id-from ctx)]])))
