@@ -135,13 +135,13 @@
    and *_co2 for kwh PULSE, etc."
   [body]
   (println "H> kixi.hecuba.api.devices/create-default-sensors")
-  (let [sensors        (:readings body)
-        (map #(case (:period %)
-                "CUMULATIVE" (ext-type
-                              % "differenceSeries")
-                "PULSE"      (calculated-sensor %)
-                "INSTANT"    nil
-                nil) sensors)]
+  (let [sensors (:readings body)
+        new-sensors (map #(case (:period %)
+                            "CUMULATIVE" (ext-type
+                                          % "differenceSeries")
+                            "PULSE"      (calculated-sensor %)
+                            "INSTANT"    nil
+                            nil) sensors)]
     (println "   >> old sensors: " sensors)
     (println "   >> new sensors: " new-sensors)
     (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten (concat readings new-sensors))))))))
