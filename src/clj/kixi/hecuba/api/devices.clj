@@ -133,9 +133,9 @@
                                "PULSE"      (calculated-sensor %)
                                "INSTANT"    nil
                                nil) sensors)]
-    (log/spyf "    >> sensors: " sensors)
-    (log/spyf "    >> new-sensors: " new-sensors)
-    (log/spyf "    >> Updates readings with new-sensors...")
+    (log/info "    >> sensors: " sensors)
+    (log/info "    >> new-sensors: " new-sensors)
+    (log/info "    >> Updates readings with new-sensors...")
     (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten (concat readings new-sensors))))))))
 
 (defn index-post! [store ctx]
