@@ -309,11 +309,14 @@
         ;; Get a sequence of keys that has been updated
         updated-keys   (-> (clojure.data/diff old-sensor-map new-sensor-map) second keys)
         device_id      (:device_id old-device)]
+    (log/info "    >> new-sensor-map: " new-sensor-map)
     ;; Update only if user editable keys have changed
     (when (seq updated-keys)
       (if (some (into #{} updated-keys) #{:unit :period :type})
+        (log/info "    >> Updated keys #{:unit :period :type}")
         ;; Recreate because unit, type or period has changed
         (tidy-up-sensors session old-device user_id old-sensor new-sensor range)
+        (log/info "    >> No change!")
         ;; Update existing one since nothing crucial has changed
         (update-existing-sensors session device_id user_id old-sensor new-sensor)))))
 
@@ -334,11 +337,13 @@
   (db/with-session [session (:hecuba-session store)]
     (let [{request :request} ctx]
       (if-let [item (::item ctx)]
+        ;; (log/info "    >> item: " item)
         (let [body          (decode-body request)
               entity_id     (-> item :entity_id)
               username      (sec/session-username (-> ctx :request :session))
               user_id       (:id (users/get-by-username session username))
               device_id     (-> item :device_id)]
+          (log/info "    >> device-id: " device_id)
           (let [edited-device-data (-> body (dissoc :editable :readings))]
             ;; Don't update device if nothing has been changed
             (when (seq edited-device-data)
@@ -348,10 +353,12 @@
           (doseq [incoming-sensor (:readings body)]
             (let [existing-sensor (first (filter #(= (:sensor_id %) (:sensor_id incoming-sensor)) (:readings item)))]
               (if existing-sensor
+                (log/info "    >> Existing sensor!")
                 ;; sensor already exists - need to update/recreate synthetic sensors
                 (let [sensor_id (:sensor_id existing-sensor)
                       {:keys [lower_ts upper_ts]} (sensors/all-sensor-information store device_id sensor_id)]
                   (recreate-sensor session item user_id existing-sensor incoming-sensor {:start-date lower_ts :end-date upper_ts}))
+                (log/info "    >> Non-existing sensor!")
                 ;; sensor doesn't exist - adding new sensor
                 (add-new-sensor session device_id user_id incoming-sensor))))
           (-> (search/searchable-entity-by-id entity_id session)
