@@ -313,12 +313,12 @@
     ;; Update only if user editable keys have changed
     (when (seq updated-keys)
       (if (some (into #{} updated-keys) #{:unit :period :type})
-        (log/info "    >> Updated keys #{:unit :period :type}")
         ;; Recreate because unit, type or period has changed
-        (tidy-up-sensors session old-device user_id old-sensor new-sensor range)
-        (log/info "    >> No change!")
+        (do (log/info "    >> Updated keys #{:unit :period :type}")
+            (tidy-up-sensors session old-device user_id old-sensor new-sensor range))
         ;; Update existing one since nothing crucial has changed
-        (update-existing-sensors session device_id user_id old-sensor new-sensor)))))
+        (do (log/info "    >> No change!")
+            (update-existing-sensors session device_id user_id old-sensor new-sensor))))))
 
 (defn add-new-sensor
   "Creates new sensors and respective synthetic sensors."
@@ -348,19 +348,19 @@
             ;; Don't update device if nothing has been changed
             (when (seq edited-device-data)
               (devices/update session entity_id device_id (assoc edited-device-data
-                                                            :user_id user_id
-                                                            :device_id device_id))))
+                                                                 :user_id user_id
+                                                                 :device_id device_id))))
           (doseq [incoming-sensor (:readings body)]
             (let [existing-sensor (first (filter #(= (:sensor_id %) (:sensor_id incoming-sensor)) (:readings item)))]
               (if existing-sensor
-                (log/info "    >> Existing sensor!")
                 ;; sensor already exists - need to update/recreate synthetic sensors
-                (let [sensor_id (:sensor_id existing-sensor)
-                      {:keys [lower_ts upper_ts]} (sensors/all-sensor-information store device_id sensor_id)]
-                  (recreate-sensor session item user_id existing-sensor incoming-sensor {:start-date lower_ts :end-date upper_ts}))
-                (log/info "    >> Non-existing sensor!")
+                (do (log/info "    >> Existing sensor!")
+                    (let [sensor_id (:sensor_id existing-sensor)
+                          {:keys [lower_ts upper_ts]} (sensors/all-sensor-information store device_id sensor_id)]
+                      (recreate-sensor session item user_id existing-sensor incoming-sensor {:start-date lower_ts :end-date upper_ts})))
                 ;; sensor doesn't exist - adding new sensor
-                (add-new-sensor session device_id user_id incoming-sensor))))
+                (do (log/info "    >> Non-existing sensor!")
+                    (add-new-sensor session device_id user_id incoming-sensor)))))
           (-> (search/searchable-entity-by-id entity_id session)
               (search/->elasticsearch (:search-session store)))
           (ring-response {:status 404 :body "Please provide valid entity_id and device_id"}))))))
