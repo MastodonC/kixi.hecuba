@@ -351,6 +351,7 @@
                                                                  :user_id user_id
                                                                  :device_id device_id))))
           (doseq [incoming-sensor (:readings body)]
+            (println "    >> incoming-sensor: " incoming-sensor)
             (let [existing-sensor (first (filter #(= (:sensor_id %) (:sensor_id incoming-sensor)) (:readings item)))]
               (if existing-sensor
                 ;; sensor already exists - need to update/recreate synthetic sensors
