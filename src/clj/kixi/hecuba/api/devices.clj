@@ -141,10 +141,16 @@
         new-sensors (if
                       (and (have-sensor? sensors "CUMULATIVE")
                            (not (have-sensor? sensors "PULSE")))
-                      (let [cumulative-sensor (first (get-sensor sensors "CUMULATIVE"))
-                            pulse-sensor (ext-type cumulative-sensor "differenceSeries")
-                            calc-sensor (calculated-sensor pulse-sensor)]
-                        (vector cumulative-sensor pulse-sensor calc-sensor))
+                      (case (count (get-sensor sensors "CUMULATIVE"))
+                        1 (let [cumulative-sensor (first (get-sensor sensors "CUMULATIVE"))
+                                pulse-sensor (ext-type cumulative-sensor "differenceSeries")
+                                calc-sensor (calculated-sensor pulse-sensor)]
+                            (vector cumulative-sensor pulse-sensor calc-sensor))
+                        > 1 (let [cumulative-sensors (get-sensor sensors "CUMULATIVE")
+                                  pulse-sensors (map #(ext-type % "differenceSeries")
+                                                    cumulative-sensors)
+                                  calc-sensors (map #(calculated-sensor %) pulse-sensors)]
+                              (vector cumulative-sensors pulse-sensors calc-sensors)))
                       (concat sensors (map #(case (:period %)
                                               "CUMULATIVE" (ext-type % "differenceSeries")
                                               "PULSE"      (calculated-sensor %)
@@ -153,9 +159,7 @@
     (log/info "    >> sensors: " sensors)
     (log/info "    >> new-sensors: " new-sensors)
     (log/info "    >> Updates readings with new-sensors...")
-    ;;(assoc (dissoc body :readings) :readings (vec new-sensors))
-    (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten new-sensors)))))
-    ))
+    (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten new-sensors)))))))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
