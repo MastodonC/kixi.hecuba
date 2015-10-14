@@ -138,22 +138,23 @@
   [body]
   (log/info "> K.H.api.devices/create-default-sensors")
   (let [sensors        (:readings body)
-        new-sensors (cond
-                      (and (have-sensor? sensors "CUMULATIVE") (have-sensor? sensors "PULSE"))
+        new-sensors (if
+                      (and (have-sensor? sensors "CUMULATIVE")
+                           (not (have-sensor? sensors "PULSE")))
                       (let [cumulative-sensor (first (get-sensor sensors "CUMULATIVE"))
                             pulse-sensor (ext-type cumulative-sensor "differenceSeries")
                             calc-sensor (calculated-sensor pulse-sensor)]
-                        (vector cumulative-sensor pulse-sensor calc-sensor)))
-        ;; new-sensors    (map #(case (:period %)
-        ;;                        "CUMULATIVE" (ext-type % "differenceSeries")
-        ;;                        "PULSE"      (calculated-sensor %)
-        ;;                        "INSTANT"    nil
-        ;;                        nil) sensors)
-        ]
+                        (vector cumulative-sensor pulse-sensor calc-sensor))
+                      (concat sensors (map #(case (:period %)
+                                              "CUMULATIVE" (ext-type % "differenceSeries")
+                                              "PULSE"      (calculated-sensor %)
+                                              "INSTANT"    nil
+                                              nil) sensors)))]
     (log/info "    >> sensors: " sensors)
     (log/info "    >> new-sensors: " new-sensors)
     (log/info "    >> Updates readings with new-sensors...")
-    ;;(update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten (concat readings new-sensors))))))
+    ;;(assoc (dissoc body :readings) :readings (vec new-sensors))
+    (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten new-sensors)))))
     ))
 
 (defn index-post! [store ctx]
