@@ -118,17 +118,50 @@
 
 (defmethod calculated-sensor :default [sensor])
 
+(defn have-sensor?
+  "Check if readings have a sensor w/ a particular period."
+  [sensors period]
+  (some #(= period (:period %)) sensors))
+
+(defn get-sensor
+  "Retrieve a sensor map of a particular period in a sequence of readings."
+  [sensors period]
+  (filter #(= period (:period %)) sensors))
+
+(defn create-synth-sensors-new
+  "Added to fix the absence of some synthetic sensors."
+  [sensors]
+  (let [cumulative-sensors (get-sensor sensors "CUMULATIVE")]
+    (case (count cumulative-sensors)
+      1 (let [cumulative-sensor (first cumulative-sensors)
+              pulse-sensor (ext-type cumulative-sensor "differenceSeries")
+              calc-sensor (calculated-sensor pulse-sensor)]
+          (vector cumulative-sensor pulse-sensor calc-sensor))
+      > 1 (let [pulse-sensors (map #(ext-type % "differenceSeries")
+                                   cumulative-sensors)
+                calc-sensors (map #(calculated-sensor %) pulse-sensors)]
+            (vector cumulative-sensors pulse-sensors calc-sensors)))))
+
+(defn create-synth-sensors-default
+  "The original way of creating synthetic sensors.
+  It called throughout the api."
+  [sensors]
+  (concat sensors (map #(case (:period %)
+                          "CUMULATIVE" (ext-type % "differenceSeries")
+                          "PULSE"      (calculated-sensor %)
+                          "INSTANT"    nil
+                          nil) sensors)))
+
 (defn create-default-sensors
   "Creates default sensors whenever new device is added: *_differenceSeries for CUMULATIVE,
    and *_co2 for kwh PULSE, etc."
   [body]
   (let [sensors        (:readings body)
-        new-sensors    (map #(case (:period %)
-                               "CUMULATIVE" (ext-type % "differenceSeries")
-                               "PULSE"      (calculated-sensor %)
-                               "INSTANT"    nil
-                               nil) sensors)]
-    (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten (concat readings new-sensors))))))))
+        new-sensors (if (and (have-sensor? sensors "CUMULATIVE")
+                             (not (have-sensor? sensors "PULSE")))
+                      (create-synth-sensors-new sensors)
+                      (create-synth-sensors-default sensors))]
+    (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten new-sensors)))))))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
