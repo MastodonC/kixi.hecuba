@@ -122,21 +122,39 @@
 
 (defmethod calculated-sensor :default [sensor])
 
+(defn have-sensor?
+  "Check if readings have a sensor w/ a particular period."
+  [readings period]
+  (some #(= period (:period %)) readings))
+
+(defn get-sensor
+  "Retrieve a sensor map of a particular period in a sequence of readings."
+  [readings period]
+  (filter #(= period (:period %)) readings))
+
 (defn create-default-sensors
   "Creates default sensors whenever new device is added: *_differenceSeries for CUMULATIVE,
    and *_co2 for kwh PULSE, etc."
   [body]
   (log/info "> K.H.api.devices/create-default-sensors")
   (let [sensors        (:readings body)
-        new-sensors    (map #(case (:period %)
-                               "CUMULATIVE" (ext-type % "differenceSeries")
-                               "PULSE"      (calculated-sensor %)
-                               "INSTANT"    nil
-                               nil) sensors)]
+        new-sensors (cond
+                      (and (have-sensor? sensors "CUMULATIVE") (have-sensor? sensors "PULSE"))
+                      (let [cumulative-sensor (first (get-sensor sensors "CUMULATIVE"))
+                            pulse-sensor (ext-type cumulative-sensor "differenceSeries")
+                            calc-sensor (calculated-sensor pulse-sensor)]
+                        (vector cumulative-sensor pulse-sensor calc-sensor)))
+        ;; new-sensors    (map #(case (:period %)
+        ;;                        "CUMULATIVE" (ext-type % "differenceSeries")
+        ;;                        "PULSE"      (calculated-sensor %)
+        ;;                        "INSTANT"    nil
+        ;;                        nil) sensors)
+        ]
     (log/info "    >> sensors: " sensors)
     (log/info "    >> new-sensors: " new-sensors)
     (log/info "    >> Updates readings with new-sensors...")
-    (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten (concat readings new-sensors))))))))
+    ;;(update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten (concat readings new-sensors))))))
+    ))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
