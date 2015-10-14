@@ -17,15 +17,16 @@
 
 (defn remove-sensor-ids [device]
   (-> device
-      (update-in [:readings] (fn [readings] (map #(dissoc % :sensor_id) readings)))))
+      (update-in [:readings] (fn [readings] (mapv #(dissoc % :sensor_id) readings)))))
 
 (deftest create-default-sensors-test
   (testing "Testing create-default-sensors"
-    (is (= {:readings [{:type "electricityConsumption" :unit "kWh" :period "CUMULATIVE"}
-                       {:type "electricityConsumption_differenceSeries" :unit "kWh" :period "PULSE" :synthetic true}]}
-           (remove-sensor-ids (create-default-sensors {:readings [{:type "electricityConsumption"
-                                                                   :unit "kWh"
-                                                                   :period "CUMULATIVE"}]}))))
+    ;; This first test shouldn't be true anymore
+    ;; (is (= {:readings [{:type "electricityConsumption" :unit "kWh" :period "CUMULATIVE"}
+    ;;                    {:type "electricityConsumption_differenceSeries" :unit "kWh" :period "PULSE" :synthetic true}]}
+    ;;        (remove-sensor-ids (create-default-sensors {:readings [{:type "electricityConsumption"
+    ;;                                                                :unit "kWh"
+    ;;                                                                :period "CUMULATIVE"}]}))))
     (is (= {:readings [{:type "electricityConsumption" :unit "kWh" :period "PULSE"}
                        {:type "electricityConsumption_co2" :unit "co2" :period "PULSE" :synthetic true}]}
            (remove-sensor-ids (create-default-sensors {:readings
@@ -42,7 +43,41 @@
     (is (= {:readings [{:type "temperature" :unit "C" :period "INSTANT"}]}
            (create-default-sensors {:readings [{:type "temperature" :unit "C" :period "INSTANT"}]})))
     (is (= {:readings [{:type "gasConsumption" :unit "kWh" :period "INSTANT"}]}
-           (create-default-sensors {:readings [{:type "gasConsumption" :unit "kWh" :period "INSTANT"}]})))))
+           (create-default-sensors {:readings [{:type "gasConsumption" :unit "kWh" :period "INSTANT"}]})))
+    (is (= {:readings [{:type "electricityConsumption", :unit "kWh", :period "CUMULATIVE"}
+                       {:type "electricityConsumption_differenceSeries", :unit "kWh",
+                        :period "PULSE", :synthetic true}
+                       {:type "electricityConsumption_differenceSeries_co2", :unit "co2",
+                        :period "PULSE", :synthetic true}]}
+           (remove-sensor-ids (create-default-sensors {:readings [{:type "electricityConsumption"
+                                                                   :unit "kWh"
+                                                                   :period "CUMULATIVE"}]}))))
+    (is (= {:readings [{:type "gasConsumption", :unit "m^3", :period "CUMULATIVE"}
+                       {:type "gasConsumption_differenceSeries", :unit "m^3", :period "PULSE",
+                        :synthetic true} {:type "gasConsumption_differenceSeries_kwh",
+                        :unit "kWh", :period "PULSE", :synthetic true}
+                       {:type "gasConsumption_differenceSeries_kwh_co2", :unit "co2",
+                        :period "PULSE", :synthetic true}]}
+           (remove-sensor-ids (create-default-sensors {:readings [{:type "gasConsumption"
+                                                                   :unit "m^3"
+                                                                   :period "CUMULATIVE"}]}))))
+    (is (= {:readings [{:type "electricityConsumption", :unit "kWh", :period "CUMULATIVE"}
+                       {:type "gasConsumption", :unit "m^3", :period "CUMULATIVE"}
+                       {:type "electricityConsumption_differenceSeries", :unit "kWh",
+                        :period "PULSE", :synthetic true}
+                       {:type "gasConsumption_differenceSeries", :unit "m^3", :period "PULSE",
+                        :synthetic true}
+                       {:type "electricityConsumption_differenceSeries_co2", :unit "co2",
+                        :period "PULSE", :synthetic true}
+                       {:type "gasConsumption_differenceSeries_kwh", :unit "kWh",
+                        :period "PULSE", :synthetic true}
+                       {:type "gasConsumption_differenceSeries_kwh_co2", :unit "co2",
+                        :period "PULSE", :synthetic true}]}
+           (remove-sensor-ids (create-default-sensors
+                               {:readings [{:type "electricityConsumption" :unit "kWh"
+                                            :period "CUMULATIVE"}
+                                           {:type "gasConsumption" :unit "m^3"
+                                            :period "CUMULATIVE"}]}))))))
 
 (deftest get-sensors-to-delete-test
   (testing "Testing getting a list of synthetic sensors that should be deleted."
@@ -118,18 +153,21 @@
                                                                                        :device_id "12345"
                                                                                        :type "electricityConsumption"
                                                                                        :unit "m^3" :period "PULSE"}]}))))))
-      (is (= '({:type "electricityConsumption_differenceSeries" :unit "kWh" :period "PULSE"
-                :synthetic true :user_id "test@mastodonc.com"  :device_id "12345"})
+      (is (= '({:device_id "12345", :type "electricityConsumption_differenceSeries", :unit "kWh",
+                :period "PULSE", :synthetic true, :user_id "test@mastodonc.com"}
+               {:device_id "12345", :type "electricityConsumption_differenceSeries_co2",
+                :unit "co2", :period "PULSE", :synthetic true, :user_id "test@mastodonc.com"})
              (map #(dissoc % :sensor_id)
-                  (get-sensors-to-insert "test@mastodonc.com" (:readings (create-default-sensors
-                                                                          {:readings [{:sensor_id "4"
-                                                                                       :device_id "12345"
-                                                                                       :type "electricityConsumption"
-                                                                                       :unit "kWh" :period "CUMULATIVE"}]}))))))
+                  (get-sensors-to-insert "test@mastodonc.com"
+                                         (:readings (create-default-sensors
+                                                     {:readings [{:sensor_id "4"
+                                                                  :device_id "12345"
+                                                                  :type "electricityConsumption"
+                                                                  :unit "kWh" :period "CUMULATIVE"}]}))))))
       (is (empty?
-             (map #(dissoc % :sensor_id)
-                  (get-sensors-to-insert "test@mastodonc.com" (:readings (create-default-sensors
-                                                                          {:readings [{:sensor_id "4"
-                                                                                       :device_id "12345"
-                                                                                       :type "temperature"
-                                                                                       :unit "C" :period "INSTANT"}]})))))))))
+           (map #(dissoc % :sensor_id)
+                (get-sensors-to-insert "test@mastodonc.com" (:readings (create-default-sensors
+                                                                        {:readings [{:sensor_id "4"
+                                                                                     :device_id "12345"
+                                                                                     :type "temperature"
+                                                                                     :unit "C" :period "INSTANT"}]})))))))))

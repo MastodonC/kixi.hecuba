@@ -65,6 +65,7 @@
                {::items (mapv #(assoc % :editable editable) items)})))))
 
 (defn should-calculate-fields? [sensors]
+  (log/info "> K.H.api.devices/should-calculate-fields?")
   (not (some #(and (= (:period %) "CUMULATIVE")
                    (or (= (:actual_annual_calculation %) true)
                        (= (:normalised_annual_calculation %) true))) sensors)))
@@ -100,17 +101,20 @@
                                            (.toUpperCase unit))))
 
 (defmethod calculated-sensor "KWH" [sensor]
+  (log/info "> K.H.api.devices/calculated-sensor KWH")
   (-> sensor
       (assoc :unit "co2" :synthetic true :sensor_id (uuid-str))
       (update-in [:type] #(sensors/output-type-for % "KWH2CO2"))))
 
 (defmethod calculated-sensor "M^3" [sensor]
+  (log/info "> K.H.api.devices/calculated-sensor M^3")
   (let [kwh-sensor (-> sensor
                        (assoc :unit "kWh" :synthetic true :sensor_id (uuid-str))
                        (update-in [:type] #(sensors/output-type-for % "VOL2KWH")))]
     [kwh-sensor (calculated-sensor kwh-sensor)]))
 
 (defmethod calculated-sensor "FT^3" [sensor]
+  (log/info "> K.H.api.devices/calculated-sensor FT^3")
   (let [kwh-sensor (-> sensor
                        (assoc :unit "kWh" :synthetic true :sensor_id (uuid-str))
                        (update-in [:type] #(sensors/output-type-for % "VOL2KWH")))]
@@ -118,17 +122,44 @@
 
 (defmethod calculated-sensor :default [sensor])
 
+(defn have-sensor?
+  "Check if readings have a sensor w/ a particular period."
+  [readings period]
+  (some #(= period (:period %)) readings))
+
+(defn get-sensor
+  "Retrieve a sensor map of a particular period in a sequence of readings."
+  [readings period]
+  (filter #(= period (:period %)) readings))
+
 (defn create-default-sensors
   "Creates default sensors whenever new device is added: *_differenceSeries for CUMULATIVE,
    and *_co2 for kwh PULSE, etc."
   [body]
+  (log/info "> K.H.api.devices/create-default-sensors")
   (let [sensors        (:readings body)
-        new-sensors    (map #(case (:period %)
-                               "CUMULATIVE" (ext-type % "differenceSeries")
-                               "PULSE"      (calculated-sensor %)
-                               "INSTANT"    nil
-                               nil) sensors)]
-    (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten (concat readings new-sensors))))))))
+        new-sensors (if
+                      (and (have-sensor? sensors "CUMULATIVE")
+                           (not (have-sensor? sensors "PULSE")))
+                      (case (count (get-sensor sensors "CUMULATIVE"))
+                        1 (let [cumulative-sensor (first (get-sensor sensors "CUMULATIVE"))
+                                pulse-sensor (ext-type cumulative-sensor "differenceSeries")
+                                calc-sensor (calculated-sensor pulse-sensor)]
+                            (vector cumulative-sensor pulse-sensor calc-sensor))
+                        > 1 (let [cumulative-sensors (get-sensor sensors "CUMULATIVE")
+                                  pulse-sensors (map #(ext-type % "differenceSeries")
+                                                    cumulative-sensors)
+                                  calc-sensors (map #(calculated-sensor %) pulse-sensors)]
+                              (vector cumulative-sensors pulse-sensors calc-sensors)))
+                      (concat sensors (map #(case (:period %)
+                                              "CUMULATIVE" (ext-type % "differenceSeries")
+                                              "PULSE"      (calculated-sensor %)
+                                              "INSTANT"    nil
+                                              nil) sensors)))]
+    (log/info "    >> sensors: " sensors)
+    (log/info "    >> new-sensors: " new-sensors)
+    (log/info "    >> Updates readings with new-sensors...")
+    (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten new-sensors)))))))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
@@ -197,6 +228,7 @@
 (defn sensor-metadata
   "Updates sensor's metadata: resets dirty dates for calculations to lower_ts and upper_ts."
   [sensor_id device_id range]
+  (log/info "> K.H.api.devices/sensor-metadata")
   (let [{:keys [start-date end-date]} range]
     (when (and start-date end-date)
       (-> {:sensor_id sensor_id
@@ -219,6 +251,7 @@
 (defn delete-old-synthetic-sensors
   "Takes a sequence of sensors and deletes them."
   [session sensors]
+  (log/info "> K.H.api.devices/delete-old-synthetic-sensors")
   (doseq [s sensors]
     (log/infof "Deleting synthetic sensor: %s : %s" (:device_id s) (:type s))
     (sensors/delete s session)))
@@ -226,6 +259,7 @@
 (defn get-sensors-to-insert
   "Takes a sequence of sensors and enriches it with synthetic sensors"
   [user_id sensors]
+  (log/info "> K.H.api.devices/get-sensors-to-insert")
   (keep (fn [s]
          (when (:synthetic s)
            (let [sensor_id (uuid-str)
@@ -236,6 +270,7 @@
 (defn insert-new-synthetic-sensors
   "Takes a sequence of sensors and inserts new synthetic sensors"
   [session sensors]
+  (log/info "> K.H.api.devices/insert-new-synthetic-sensors")
   (doseq [s sensors]
     (log/infof "Inserting sensor: %s : %s" (:device_id s) (:type s))
     (let [metadata  {:sensor_id (:sensor_id s) :device_id (:device_id s)}]
@@ -245,6 +280,7 @@
   "Updates original sensor and resets its dirty dates to lower_ts and upper_ts
    so that calculations for new synthetic sensors can calculate over all data."
   [session device_id user_id new-sensor range]
+  (log/info "> K.H.api.devices/update-original-sensor")
   (let [refreshed-metadata (sensor-metadata (:sensor_id new-sensor) device_id range)]
     (log/infof "Updating original sensor: %s" new-sensor)
     (if refreshed-metadata
@@ -255,6 +291,7 @@
   "Takes session, old sensor data, new sensor data. Updates original sensor and
    recreates synthetic sensors. "
   [session old-device user_id old-sensor new-sensor range]
+  (log/info "> K.H.api.devices/tidy-up-sensors")
   (let [device_id                     (:device_id old-device)
         alleged-old-synthetic-sensors (create-default-sensors {:readings [old-sensor]})
         new-synthetic-sensors         (create-default-sensors {:readings [(dissoc (data/deep-merge old-sensor new-sensor)
@@ -268,6 +305,7 @@
 (defn update-existing-sensors
   "Updates original and synthetic sensors (used when unit or period remain the same."
   [session device_id user_id old-sensor new-sensor]
+  (log/info "> K.H.api.devices/update-existing-sensors")
   ;; it's not a synthetic sensor - create synthetic sensors
   (if-not (:synthetic new-sensor)
     (let [new-synthetic-sensors (create-default-sensors {:readings [(dissoc (data/deep-merge old-sensor new-sensor)
@@ -288,22 +326,27 @@
   "Depending on edited fields, either deletes/iserts new synthetic sensors or updates
   the existing onews."
   [session old-device user_id old-sensor new-sensor range]
+  (log/info "> K.H.api.devices/recreate-sensor")
   (let [old-sensor-map (select-keys old-sensor user-edited-keys)
         new-sensor-map (select-keys new-sensor user-edited-keys)
         ;; Get a sequence of keys that has been updated
         updated-keys   (-> (clojure.data/diff old-sensor-map new-sensor-map) second keys)
         device_id      (:device_id old-device)]
+    (log/info "    >> new-sensor-map: " new-sensor-map)
     ;; Update only if user editable keys have changed
     (when (seq updated-keys)
       (if (some (into #{} updated-keys) #{:unit :period :type})
         ;; Recreate because unit, type or period has changed
-        (tidy-up-sensors session old-device user_id old-sensor new-sensor range)
+        (do (log/info "    >> Updated keys #{:unit :period :type}")
+            (tidy-up-sensors session old-device user_id old-sensor new-sensor range))
         ;; Update existing one since nothing crucial has changed
-        (update-existing-sensors session device_id user_id old-sensor new-sensor)))))
+        (do (log/info "    >> No change!")
+            (update-existing-sensors session device_id user_id old-sensor new-sensor))))))
 
 (defn add-new-sensor
   "Creates new sensors and respective synthetic sensors."
   [session device_id user_id new-sensor]
+  (log/info "> K.H.api.devices/add-new-sensor")
   (let [new-sensors (create-default-sensors
                      {:readings [(-> new-sensor
                                      (dissoc :lower_ts :upper_ts
@@ -313,29 +356,35 @@
       (sensors/insert session (assoc s :device_id device_id :user_id user_id :sensor_id (uuid-str))))))
 
 (defn resource-put! [store ctx]
+  (log/info "> K.H.api.devices/resource-put!")
   (db/with-session [session (:hecuba-session store)]
     (let [{request :request} ctx]
       (if-let [item (::item ctx)]
+        ;; (log/info "    >> item: " item)
         (let [body          (decode-body request)
               entity_id     (-> item :entity_id)
               username      (sec/session-username (-> ctx :request :session))
               user_id       (:id (users/get-by-username session username))
               device_id     (-> item :device_id)]
+          (log/info "    >> device-id: " device_id)
           (let [edited-device-data (-> body (dissoc :editable :readings))]
             ;; Don't update device if nothing has been changed
             (when (seq edited-device-data)
               (devices/update session entity_id device_id (assoc edited-device-data
-                                                            :user_id user_id
-                                                            :device_id device_id))))
+                                                                 :user_id user_id
+                                                                 :device_id device_id))))
           (doseq [incoming-sensor (:readings body)]
+            (println "    >> incoming-sensor: " incoming-sensor)
             (let [existing-sensor (first (filter #(= (:sensor_id %) (:sensor_id incoming-sensor)) (:readings item)))]
               (if existing-sensor
                 ;; sensor already exists - need to update/recreate synthetic sensors
-                (let [sensor_id (:sensor_id existing-sensor)
-                      {:keys [lower_ts upper_ts]} (sensors/all-sensor-information store device_id sensor_id)]
-                  (recreate-sensor session item user_id existing-sensor incoming-sensor {:start-date lower_ts :end-date upper_ts}))
+                (do (log/info "    >> Existing sensor!")
+                    (let [sensor_id (:sensor_id existing-sensor)
+                          {:keys [lower_ts upper_ts]} (sensors/all-sensor-information store device_id sensor_id)]
+                      (recreate-sensor session item user_id existing-sensor incoming-sensor {:start-date lower_ts :end-date upper_ts})))
                 ;; sensor doesn't exist - adding new sensor
-                (add-new-sensor session device_id user_id incoming-sensor))))
+                (do (log/info "    >> Non-existing sensor!")
+                    (add-new-sensor session device_id user_id incoming-sensor)))))
           (-> (search/searchable-entity-by-id entity_id session)
               (search/->elasticsearch (:search-session store)))
           (ring-response {:status 404 :body "Please provide valid entity_id and device_id"}))))))
@@ -355,6 +404,7 @@
 ;; SENSOR RESOURCE
 
 (defn sensor-resource-exists? [store ctx]
+  (log/info "> K.H.api.devices/sensor-resource-exists?")
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [entity_id device_id type]} (-> ctx :request :route-params)
           sensor (sensors/get-by-type {:device_id device_id :type type} session)]
@@ -363,6 +413,7 @@
         false))))
 
 (defn sensor-resource-delete! [store ctx]
+  (log/info "> K.H.api.devices/sensor-resource-delete!")
   (db/with-session [session (:hecuba-session store)]
     (let [{:keys [sensor entity_id]} ctx
           {:keys [sensors sensors-metadata]} (sensors/delete sensor session)
