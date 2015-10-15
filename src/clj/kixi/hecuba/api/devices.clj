@@ -132,15 +132,10 @@
   "Added to fix the absence of some synthetic sensors."
   [sensors]
   (let [cumulative-sensors (get-sensor sensors "CUMULATIVE")]
-    (case (count cumulative-sensors)
-      1 (let [cumulative-sensor (first cumulative-sensors)
-              pulse-sensor (ext-type cumulative-sensor "differenceSeries")
-              calc-sensor (calculated-sensor pulse-sensor)]
-          (vector cumulative-sensor pulse-sensor calc-sensor))
-      > 1 (let [pulse-sensors (map #(ext-type % "differenceSeries")
-                                   cumulative-sensors)
-                calc-sensors (map #(calculated-sensor %) pulse-sensors)]
-            (vector cumulative-sensors pulse-sensors calc-sensors)))))
+    (let [pulse-sensors (map #(ext-type % "differenceSeries")
+                             cumulative-sensors)
+          calc-sensors (map #(calculated-sensor %) pulse-sensors)]
+      (vector cumulative-sensors pulse-sensors calc-sensors))))
 
 (defn create-synth-sensors-default
   "The original way of creating synthetic sensors.
