@@ -128,34 +128,25 @@
   [sensors period]
   (filter #(= period (:period %)) sensors))
 
-(defn create-synth-sensors-new
+(defn create-synth-sensors
   "Added to fix the absence of some synthetic sensors."
   [sensors]
-  (let [cumulative-sensors (get-sensor sensors "CUMULATIVE")]
-    (let [pulse-sensors (map #(ext-type % "differenceSeries")
-                             cumulative-sensors)
-          calc-sensors (map #(calculated-sensor %) pulse-sensors)]
-      (vector cumulative-sensors pulse-sensors calc-sensors))))
-
-(defn create-synth-sensors-default
-  "The original way of creating synthetic sensors.
-  It called throughout the api."
-  [sensors]
-  (concat sensors (map #(case (:period %)
-                          "CUMULATIVE" (ext-type % "differenceSeries")
-                          "PULSE"      (calculated-sensor %)
-                          "INSTANT"    nil
-                          nil) sensors)))
+  (let [cumulative-sensors (get-sensor sensors "CUMULATIVE")
+        pulse-sensors (get-sensor sensors "PULSE")
+        instant-sensors (get-sensor sensors "INSTANT")
+        calc-sensors (map #(calculated-sensor %) pulse-sensors)
+        new-pulse-sensors (map #(ext-type % "differenceSeries")
+                               cumulative-sensors)
+        new-calc-sensors (map #(calculated-sensor %) new-pulse-sensors)]
+    (vector cumulative-sensors pulse-sensors instant-sensors calc-sensors
+            new-pulse-sensors new-calc-sensors)))
 
 (defn create-default-sensors
   "Creates default sensors whenever new device is added: *_differenceSeries for CUMULATIVE,
    and *_co2 for kwh PULSE, etc."
   [body]
   (let [sensors        (:readings body)
-        new-sensors (if (and (have-sensor? sensors "CUMULATIVE")
-                             (not (have-sensor? sensors "PULSE")))
-                      (create-synth-sensors-new sensors)
-                      (create-synth-sensors-default sensors))]
+        new-sensors (create-synth-sensors sensors)]
     (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten new-sensors)))))))
 
 (defn index-post! [store ctx]
