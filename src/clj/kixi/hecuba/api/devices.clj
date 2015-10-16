@@ -138,8 +138,8 @@
         new-pulse-sensors (map #(ext-type % "differenceSeries")
                                cumulative-sensors)
         new-calc-sensors (map #(calculated-sensor %) new-pulse-sensors)]
-    (vector cumulative-sensors pulse-sensors instant-sensors calc-sensors
-            new-pulse-sensors new-calc-sensors)))
+    (flatten (vector cumulative-sensors pulse-sensors instant-sensors calc-sensors
+                     new-pulse-sensors new-calc-sensors))))
 
 (defn create-default-sensors
   "Creates default sensors whenever new device is added: *_differenceSeries for CUMULATIVE,
@@ -147,7 +147,7 @@
   [body]
   (let [sensors        (:readings body)
         new-sensors (create-synth-sensors sensors)]
-    (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten new-sensors)))))))
+    (assoc (dissoc body :readings) :readings (into [] new-sensors))))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
