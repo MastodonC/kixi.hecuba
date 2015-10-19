@@ -118,17 +118,22 @@
 
 (defmethod calculated-sensor :default [sensor])
 
+(defn create-synth-sensors [sensors]
+  (flatten (->> sensors
+                (mapcat (fn [sensor]
+                          (if (= "CUMULATIVE" (:period sensor))
+                            [sensor (ext-type sensor "differenceSeries")] [sensor])))
+                (mapcat (fn [sensor]
+                          (if (= "PULSE" (:period sensor))
+                            [sensor (calculated-sensor sensor)] [sensor]))))))
+
 (defn create-default-sensors
   "Creates default sensors whenever new device is added: *_differenceSeries for CUMULATIVE,
    and *_co2 for kwh PULSE, etc."
   [body]
   (let [sensors        (:readings body)
-        new-sensors    (map #(case (:period %)
-                               "CUMULATIVE" (ext-type % "differenceSeries")
-                               "PULSE"      (calculated-sensor %)
-                               "INSTANT"    nil
-                               nil) sensors)]
-    (update-in body [:readings] (fn [readings] (into [] (remove nil? (flatten (concat readings new-sensors))))))))
+        new-sensors (create-synth-sensors sensors)]
+    (assoc (dissoc body :readings) :readings (into [] new-sensors))))
 
 (defn index-post! [store ctx]
   (db/with-session [session (:hecuba-session store)]
