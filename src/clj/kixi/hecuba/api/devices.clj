@@ -126,7 +126,8 @@
        (mapcat (fn [sensor]
                  (if (= "PULSE" (:period sensor))
                    [sensor (calculated-sensor sensor)] [sensor])))
-       flatten))
+       flatten
+       (keep identity)))
 
 (defn create-default-sensors
   "Creates default sensors whenever new device is added: *_differenceSeries for CUMULATIVE,
