@@ -118,28 +118,14 @@
 
 (defmethod calculated-sensor :default [sensor])
 
-(defn have-sensor?
-  "Check if readings have a sensor w/ a particular period."
-  [sensors period]
-  (some #(= period (:period %)) sensors))
-
-(defn get-sensor
-  "Retrieve a sensor map of a particular period in a sequence of readings."
-  [sensors period]
-  (filter #(= period (:period %)) sensors))
-
-(defn create-synth-sensors
-  "Added to fix the absence of some synthetic sensors."
-  [sensors]
-  (let [cumulative-sensors (get-sensor sensors "CUMULATIVE")
-        pulse-sensors (get-sensor sensors "PULSE")
-        instant-sensors (get-sensor sensors "INSTANT")
-        calc-sensors (map #(calculated-sensor %) pulse-sensors)
-        new-pulse-sensors (map #(ext-type % "differenceSeries")
-                               cumulative-sensors)
-        new-calc-sensors (map #(calculated-sensor %) new-pulse-sensors)]
-    (flatten (vector cumulative-sensors pulse-sensors instant-sensors calc-sensors
-                     new-pulse-sensors new-calc-sensors))))
+(defn create-synth-sensors [sensors]
+  (flatten (->> sensors
+                (mapcat (fn [sensor]
+                          (if (= "CUMULATIVE" (:period sensor))
+                            [sensor (ext-type sensor "differenceSeries")] [sensor])))
+                (mapcat (fn [sensor]
+                          (if (= "PULSE" (:period sensor))
+                            [sensor (calculated-sensor sensor)] [sensor]))))))
 
 (defn create-default-sensors
   "Creates default sensors whenever new device is added: *_differenceSeries for CUMULATIVE,

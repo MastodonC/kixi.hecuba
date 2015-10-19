@@ -63,18 +63,19 @@
            (remove-sensor-ids (create-default-sensors {:readings [{:type "gasConsumption"
                                                                    :unit "m^3"
                                                                    :period "CUMULATIVE"}]}))))
-    (is (= {:readings [{:type "electricityConsumption", :unit "kWh", :period "CUMULATIVE"}
-                       {:type "gasConsumption", :unit "m^3", :period "CUMULATIVE"}
-                       {:type "electricityConsumption_differenceSeries", :unit "kWh",
-                        :period "PULSE", :synthetic true}
-                       {:type "gasConsumption_differenceSeries", :unit "m^3", :period "PULSE",
-                        :synthetic true}
-                       {:type "electricityConsumption_differenceSeries_co2", :unit "co2",
-                        :period "PULSE", :synthetic true}
-                       {:type "gasConsumption_differenceSeries_kwh", :unit "kWh",
-                        :period "PULSE", :synthetic true}
-                       {:type "gasConsumption_differenceSeries_kwh_co2", :unit "co2",
-                        :period "PULSE", :synthetic true}]}
+    (is (= {:readings
+            [{:type "electricityConsumption", :unit "kWh", :period "CUMULATIVE"}
+             {:type "electricityConsumption_differenceSeries",
+              :unit "kWh", :period "PULSE", :synthetic true}
+             {:type "electricityConsumption_differenceSeries_co2",
+              :unit "co2", :period "PULSE", :synthetic true}
+             {:type "gasConsumption", :unit "m^3", :period "CUMULATIVE"}
+             {:type "gasConsumption_differenceSeries",
+              :unit "m^3", :period "PULSE", :synthetic true}
+             {:type "gasConsumption_differenceSeries_kwh",
+              :unit "kWh", :period "PULSE", :synthetic true}
+             {:type "gasConsumption_differenceSeries_kwh_co2",
+              :unit "co2", :period "PULSE", :synthetic true}]}
            (remove-sensor-ids (create-default-sensors
                                {:readings [{:type "electricityConsumption" :unit "kWh"
                                             :period "CUMULATIVE"}
