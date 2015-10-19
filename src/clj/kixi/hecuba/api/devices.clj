@@ -119,13 +119,14 @@
 (defmethod calculated-sensor :default [sensor])
 
 (defn create-synth-sensors [sensors]
-  (flatten (->> sensors
-                (mapcat (fn [sensor]
-                          (if (= "CUMULATIVE" (:period sensor))
-                            [sensor (ext-type sensor "differenceSeries")] [sensor])))
-                (mapcat (fn [sensor]
-                          (if (= "PULSE" (:period sensor))
-                            [sensor (calculated-sensor sensor)] [sensor]))))))
+  (->> sensors
+       (mapcat (fn [sensor]
+                 (if (= "CUMULATIVE" (:period sensor))
+                   [sensor (ext-type sensor "differenceSeries")] [sensor])))
+       (mapcat (fn [sensor]
+                 (if (= "PULSE" (:period sensor))
+                   [sensor (calculated-sensor sensor)] [sensor])))
+       flatten))
 
 (defn create-default-sensors
   "Creates default sensors whenever new device is added: *_differenceSeries for CUMULATIVE,
