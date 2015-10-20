@@ -5,6 +5,59 @@
             [clj-time.core :as t]
             [clj-time.coerce :as tc]))
 
+(deftest encode-test
+  (let [metadata {:sensor_id "gasConsumption,"
+                  :device_id "ce02feec54cc7b394c7f9099d8032b1b8bb0ed6c,"
+                  :difference_series {"start" #inst "2009-08-03T00:00:00.000-00:00",
+                                      "end" #inst "2014-08-17T23:55:00.000-00:00"},
+                  :co2 {"start" #inst "2009-08-03T00:00:00.000-00:00",
+                        "end" #inst "2014-08-17T23:55:00.000-00:00"},
+                  :kwh {"start" #inst "2009-08-03T00:00:00.000-00:00",
+                        "end" #inst "2014-08-17T23:55:00.000-00:00"},
+                  :upper_ts #inst "2014-08-17T23:55:00.000-00:00",
+                  :lower_ts #inst "2009-08-03T00:00:00.000-00:00"}
+        sensor1 {:min nil, :unit "m^3", :user_metadata nil, :accuracy nil,
+                :sensor_id "ef23c1b7-fe79-4916-8462-0baa0543da4b", :frequency nil,
+                :corrected_unit nil, :type "gasConsumption_differenceSeries",
+                :correction_factor nil, :alias_sensor nil, :correction nil, :resolution nil,
+                :alias "Gas|BPE007_BI62|148362|m3|", :max nil, :user_id "username@mastodonc.com",
+                :correction_factor_breakdown nil, :period "PULSE", :synthetic true,
+                 :device_id "ce02feec54cc7b394c7f9099d8032b1b8bb0ed6c", :actual_annual false}
+        sensor2 {:min nil, :unit "m^3", :user_metadata nil, :accuracy nil,
+                 :sensor_id "ef23c1b7-fe79-4916-8462-0baa0543da4b", :frequency nil,
+                 :corrected_unit nil, :type "gasConsumption_differenceSeries",
+                 :correction_factor nil, :alias_sensor {:device_id "abc" :sensor_id "xyz"},
+                 :correction nil, :resolution nil,
+                 :alias "Gas|BPE007_BI62|148362|m3|", :max nil, :user_id "username@mastodonc.com",
+                 :correction_factor_breakdown nil, :period "PULSE", :synthetic true,
+                 :device_id "ce02feec54cc7b394c7f9099d8032b1b8bb0ed6c", :actual_annual false}]
+    (testing "Metadata encoding during update." ;; Make sure ":alias_sensor {}" is not added
+             (is (= {:difference_series {"start" #inst "2009-08-03T00:00:00.000-00:00",
+                                         "end" #inst "2014-08-17T23:55:00.000-00:00"},
+                     :co2 {"start" #inst "2009-08-03T00:00:00.000-00:00",
+                           "end" #inst "2014-08-17T23:55:00.000-00:00"},
+                     :kwh {"start" #inst "2009-08-03T00:00:00.000-00:00",
+                           "end" #inst "2014-08-17T23:55:00.000-00:00"},
+                     :upper_ts #inst "2014-08-17T23:55:00.000-00:00",
+                     :lower_ts #inst "2009-08-03T00:00:00.000-00:00"}
+                    (sensors/encode metadata :remove-pk))))
+    (testing "Sensor data encoding during update." ;; ":alias_sensor nil" -> ":alias_sensor {}"
+      (is (= {:min nil, :unit "m^3", :user_metadata nil, :accuracy nil, :frequency nil,
+              :corrected_unit nil, :type "gasConsumption_differenceSeries",
+              :correction_factor nil, :alias_sensor {}, :correction nil, :resolution nil,
+              :alias "Gas|BPE007_BI62|148362|m3|", :max nil, :user_id "username@mastodonc.com",
+              :correction_factor_breakdown nil, :period "PULSE", :synthetic true,
+              :actual_annual false}
+             (sensors/encode sensor1 :remove-pk))))
+    (testing "Alias sensor data is added if present"
+      (is (= {:min nil, :unit "m^3", :user_metadata nil, :accuracy nil, :frequency nil,
+              :corrected_unit nil, :type "gasConsumption_differenceSeries",
+              :correction_factor nil, :alias_sensor {"sensor_id" "xyz", "device_id" "abc"},
+              :correction nil, :resolution nil, :alias "Gas|BPE007_BI62|148362|m3|", :max nil,
+              :user_id "username@mastodonc.com", :correction_factor_breakdown nil,
+              :period "PULSE", :synthetic true, :actual_annual false}
+             (sensors/encode sensor2 :remove-pk))))))
+
 (deftest update-date-range-test
   (let [min-date    (tc/to-date (t/minus (t/now) (t/weeks 1)))
         max-date    (tc/to-date (t/now))
