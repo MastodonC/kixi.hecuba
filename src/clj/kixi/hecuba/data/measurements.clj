@@ -200,21 +200,17 @@
   (sort-by :timestamp m) m)
 
 (defn parse-measurements
-  "Takes measurements in the format returned from the database.
-   Returns a list of maps, with all values parsed approprietly."
+  "Takes measurements in the format returned from the
+   database. Returns a list of maps, with all values parsed
+   approprietly. If the value is a number or coercable to a number it
+   will be returned. Otherwise the value will be nil."
   [measurements]
-  (map (fn [m] (assoc-in m [:value]
-                         (let [n (if (number? (:value m)) 
-                                   (:value m)
-                                   (try 
-                                     (Double/valueOf (:value m))
-                                     (catch NumberFormatException e nil
-                                            (log/errorf e "> NumberFormatException in parse-measurements - %s %s [%s] " (:sensor_id m) (:timestamp m) (:value m)))
-                                     (catch NullPointerException e nil
-                                            (log/errorf e "> NumberFormatException in parse-measurements - %s %s [%s] " (:sensor_id m) (:timestamp m) (:value m)))))] 
-                           (if (number? n)
-                             n
-                             nil))))
+  (map (fn [m] (assoc-in m [:value] (if (number? (:value m))
+                                      (:value m)
+                                      (try
+                                        (Double/valueOf (:value m))
+                                        (catch Throwable t
+                                          nil)))))
        measurements))
 
 (defn where
