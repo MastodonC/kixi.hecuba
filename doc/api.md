@@ -497,7 +497,7 @@ Authorization: :auth-token
 
 {
     "profile_data": {
-        "event_type": "Tariff",
+        "event_type": "Tariff"
     },
     "timestamp": "2014-04-01T00:00:00.000Z",
     "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82",
