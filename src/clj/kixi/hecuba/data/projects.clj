@@ -30,11 +30,11 @@
 
 (defn get-by-id
   ([session id]
-     (-> (db/execute session
-                     (hayt/select :projects
-                                  (hayt/where [[= :id id]])))
-         first
-         decode)))
+   (-> (db/execute session
+                   (hayt/select :projects
+                                (hayt/where [[= :id id]])))
+       first
+       decode)))
 
 (defn get-all
   ([session]

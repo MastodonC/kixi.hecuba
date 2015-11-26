@@ -54,7 +54,7 @@
     (when factor
       (fn [m]
         (cond-> m (measurements/metadata-is-number? m)
-                (assoc :value (str (round (* factor (edn/read-string (:value m)))))
+                (assoc :value (str (round (* factor (Double/valueOf (:value m)))))
                        :sensor_id output-sensor_id))))))
 
 (defn timestamp-seq-inclusive
@@ -130,14 +130,14 @@
     (let [{:keys [device_id type sensor_id]} sensor
           new-type                 (sensors/output-type-for type "kwh2co2")
           output-sensor_id         (:sensor_id (sensors/get-by-type {:device_id device_id :type new-type} session))
-          get-fn-and-measurements  (fn [s] [(conversion-fn s "kwh2co2" output-sensor_id)
+          get-fn-and-measurements  (fn [s] [(conversion-fn s output-sensor_id "kwh2co2")
                                             (measurements/measurements-for-range store s range (t/hours 1))])
           convert                  (fn [[f xs]] (when-not (nil? f) (map f xs)))
           calculated               (->> sensor
                                         get-fn-and-measurements
                                         convert)
           page-size                10]
-      (when calculated
+      (when (and calculated output-sensor_id)
         (let [calculated-sensor {:device_id device_id :sensor_id output-sensor_id}]
           (measurements/insert-measurements store calculated-sensor page-size calculated)
           (sensors/update-sensor-metadata session calculated-sensor (:start-date range) (:end-date range)))))))
@@ -149,7 +149,7 @@
     (let [{:keys [device_id type]} sensor
           new-type                 (sensors/output-type-for type "vol2kwh")
           output-sensor_id         (:sensor_id (sensors/get-by-type {:device_id device_id :type new-type} session))
-          get-fn-and-measurements  (fn [s] [(conversion-fn s "vol2kwh" output-sensor_id)
+          get-fn-and-measurements  (fn [s] [(conversion-fn s output-sensor_id "vol2kwh")
                                             (measurements/measurements-for-range store s range (t/hours 1))])
           convert                  (fn [[f xs]] (when-not (nil? f) (map f xs)))
 
@@ -157,10 +157,11 @@
                                         get-fn-and-measurements
                                         convert)
           page-size                10]
-      (when calculated
+      (when (and calculated output-sensor_id)
         (let [calculated-sensor {:device_id device_id :sensor_id output-sensor_id}]
           (measurements/insert-measurements store calculated-sensor page-size calculated)
-          (sensors/update-sensor-metadata session calculated-sensor (:start-date range) (:end-date range)))))))
+          (sensors/update-sensor-metadata session calculated-sensor (:start-date range)
+                                          (:end-date range)))))))
 
 ;;;;;;;;;;; Rollups of measurements ;;;;;;;;;
 
