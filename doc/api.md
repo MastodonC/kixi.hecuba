@@ -488,27 +488,65 @@ Response 200
 
 #### Tariff Examples
 
-##### Gas and Electricity Tariffs
+
+
+##### Create Gas Tariff Profile
+
+URL and Header
 
 ```
-POST http://localhost:8010/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
+POST http://HOSTNAME/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
 Accept-Encoding: application/json
 Authorization: :auth-token
+```
 
+POST Body
+
+```
+json
 {
     "profile_data": {
-        "event_type": "Tariff"
+        "event_type": "Tariff",
+        "tariff": {
+                        "type": "gas",
+                        "cost_per_kWh": 0.0425,
+                        "daily_standing_charge": 0.1644,
+                        "annual_lump_sum_discount": 5.0
+                  }
     },
-    "timestamp": "2014-04-01T00:00:00.000Z",
-    "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82",
-    "tariff" : [{"type": "Gas Mains",
-                 "cost_per_kwh" : 0.0425,
-                 "daily_standing_charge": 0.1644,
-                 "annual_discount": 5.00},
-                {"type": "Electricity Standard",
-                 "cost_per_kwh" : 0.13,
-                 "daily_standing_charge": 0.2192,
-                 "annual_discount": 5.00}]
+    "timestamp": "2014-02-01T00:00:00.000Z",
+    "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82"
+
+}
+```
+
+##### Create Simple Electricity Tariff Profile
+
+URL and Header
+
+```
+POST http://HOSTNAME/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
+Accept-Encoding: application/json
+Authorization: :auth-token
+```
+
+POST Body
+
+```
+json
+{
+    "profile_data": {
+        "event_type": "Tariff",
+        "tariff": {
+                        "type": "electricity",
+                        "cost_per_kWh": 0.13,
+                        "daily_standing_charge": 0.2192,
+                        "annual_lump_sum_discount": 5.0
+                  }
+    },
+    "timestamp": "2014-02-01T00:00:00.000Z",
+    "entity_id": "2d7d6785-d3d2-4c98-9de9-b5a92fd27a82"
+
 }
 ```
 
