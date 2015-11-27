@@ -436,7 +436,7 @@ Date: Mon, 02 Feb 2015 11:36:56 GMT
 #### Request
 
 ```
-POST http://localhost:8010/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
+POST http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
 Accept-Encoding: application/json
 Authorization: :auth-token
 
@@ -495,7 +495,7 @@ Response 200
 URL and Header
 
 ```
-POST http://HOSTNAME/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
+POST http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
 Accept-Encoding: application/json
 Authorization: :auth-token
 ```
@@ -525,7 +525,7 @@ json
 URL and Header
 
 ```
-POST http://HOSTNAME/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
+POST http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
 Accept-Encoding: application/json
 Authorization: :auth-token
 ```
@@ -553,7 +553,7 @@ json
 ##### Electricity Time of Use Tariff
 
 ```
-POST http://localhost:8010/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
+POST http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/
 Accept-Encoding: application/json
 Authorization: :auth-token
 
@@ -577,7 +577,7 @@ Authorization: :auth-token
 #### Request
 
 ```
-GET http://localhost:8010/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/f561a7f9-f6c1-478f-b03e-8d1a04dc37da
+GET http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/f561a7f9-f6c1-478f-b03e-8d1a04dc37da
 Accept-Encoding: application/json
 Authorization: :auth-token
 ```
@@ -683,7 +683,7 @@ Response 200
 #### Request
 
 ```
-PUT http://localhost:8010/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/f561a7f9-f6c1-478f-b03e-8d1a04dc37da
+PUT http://:hostname/4/entities/2d7d6785-d3d2-4c98-9de9-b5a92fd27a82/profiles/f561a7f9-f6c1-478f-b03e-8d1a04dc37da
 Accept-Encoding: application/json
 Authorization: :auth-token
 
