@@ -92,21 +92,21 @@
 
 (defn get-by-id
   ([sensor session]
-     (-> (db/execute session
-                     (hayt/select :sensors
-                                  (hayt/where [[= :sensor_id (:sensor_id sensor)]
-                                               [= :device_id (:device_id sensor)]])))
-         first
-         decode)))
+   (-> (db/execute session
+                   (hayt/select :sensors
+                                (hayt/where [[= :sensor_id (:sensor_id sensor)]
+                                             [= :device_id (:device_id sensor)]])))
+       first
+       decode)))
 
 (defn get-by-type
   ([sensor session]
-     (-> (db/execute session
-                     (hayt/select :sensors
-                                  (hayt/where [[= :type (:type sensor)]
-                                               [= :device_id (:device_id sensor)]])))
-         first
-         decode)))
+   (-> (db/execute session
+                   (hayt/select :sensors
+                                (hayt/where [[= :type (:type sensor)]
+                                             [= :device_id (:device_id sensor)]])))
+       first
+       decode)))
 
 (defn update-sensor-metadata
   "Updates start and end dates when new measurement is received."

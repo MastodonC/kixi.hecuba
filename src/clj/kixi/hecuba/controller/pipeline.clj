@@ -157,10 +157,14 @@
 
     (defn convert-to-kwh [store item]
       (let [{:keys [sensor range]} item
-            {:keys [unit device_id type]} sensor]
+            {:keys [unit device_id type period]} sensor
+            substring? (fn [sub st] (not= (.indexOf st sub) -1))
+            regex-seq  ["oilConsumption" "gasConsumption"]
+            should-convert-type? (fn [type] (some #(substring? % type) regex-seq))]
         (when (and unit
                    (some #(= (.toUpperCase unit) (.toUpperCase %)) ["m^3" "ft^3"])
-                   (some #(= type %) ["gasConsumption" "oilConsumption"]))
+                   (= period "PULSE")
+                   (should-convert-type? type))
           (log/info  "Converting to kWh: " device_id type)
           (calculate/gas-volume->kWh store item)
           (sensors/reset-date-range store sensor :kwh
@@ -436,8 +440,8 @@
                     store item rollups)
           :difference-series (calculate-over-all-sensors
                               store item difference-series)
-          :convert-to-co2 (calculate-over-all-sensors store item convert-to-kwh)
-          :convert-to-kwh (calculate-over-all-sensors store item convert-to-co2)
+          :convert-to-co2 (calculate-over-all-sensors store item convert-to-co2)
+          :convert-to-kwh (calculate-over-all-sensors store item convert-to-kwh)
           :actual-annual (calculate-over-all-sensors store item actual-annual)
           :spike-check (calculate-over-all-sensors store item spike-check)
           :median-calculation (calculate-over-all-sensors store item median-calculation)
