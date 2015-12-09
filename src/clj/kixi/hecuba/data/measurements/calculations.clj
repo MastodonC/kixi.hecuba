@@ -253,7 +253,9 @@
   [store entity_id]
   (db/with-session [session (:hecuba-session store)]
     (let [profiles (profiles/get-profiles entity_id session)]
-      (map #(select-keys % [:timestamp :profile_data]) profiles))))
+      (->> profiles
+           (map #(select-keys % [:timestamp :profile_data]))
+           (sort-by :timestamp)))))
 
 (defn tariff-ranges
   "Filters timestamps from tariffs, and creates ranges of datetimes
