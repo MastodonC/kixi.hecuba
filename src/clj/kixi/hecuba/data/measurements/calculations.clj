@@ -294,7 +294,7 @@
   (fn [tariff _ _]
     (condp #(%1 %2) tariff
       :off_peak_periods :on-off-peak
-      :cost_per_kwh     :simple
+      :cost_per_kWh     :simple
       :none)))
 
 (defn day->on-off-periods
@@ -342,7 +342,7 @@
     off          (* off-peak-cost off)))
 
 (defmethod apply-tariff :on-off-peak [tariff measurements operation]
-  (let [{:keys [cost_per_kwh off_peak_periods
+  (let [{:keys [cost_per_kWh off_peak_periods
                 cost_per_on_peak_kwh cost_per_off_peak_kwh]} tariff]
     (->> measurements
          measurements/parse-measurements
@@ -353,10 +353,10 @@
          (add-standing-charge-if-selected operation tariff))))
 
 (defmethod apply-tariff :simple [tariff measurements operation]
-  (let [{:keys [cost_per_kwh]} tariff
+  (let [{:keys [cost_per_kWh]} tariff
         total-consumption (reduce + (map :value (filter #(number? (:value %)) (measurements/parse-measurements measurements))))]
     (->> total-consumption
-         (* cost_per_kwh)
+         (* cost_per_kWh)
          (add-standing-charge-if-selected operation tariff))))
 
 (defmethod apply-tariff :none [_ _ _]
