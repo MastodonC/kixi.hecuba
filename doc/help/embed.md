@@ -47,7 +47,7 @@ data related to those entities.
         - [Users on a Project](#users-on-a-project)
         - [Users on a Programme](#users-on-a-programme)
     - [Editing Users](#editing-users)
-- [Using the API](#api-docs)    
+- [Using the API](#using-the-api)    
  
 
 <!-- markdown-toc end -->
