@@ -136,7 +136,7 @@
 (deftest apply-tariff-test
   (testing "Testing calculation of standard tariff."
     (is (= 0.08
-           (calculate/round (apply-tariff {:cost_per_kwh 0.13 :type :electricity :daily_standing_charge 0.2192
+           (calculate/round (apply-tariff {:cost_per_kWh 0.13 :type :electricity :daily_standing_charge 0.2192
                                            :annual-lump-sum-discount 5.0}
                                           [{:device_id "aa8392871e0f0a5dc23fb1f89f58b765d85674aa",
                                             :sensor_id "Electricity consumption_differenceSeries",
