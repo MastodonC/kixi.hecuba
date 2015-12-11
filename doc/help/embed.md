@@ -47,6 +47,8 @@ data related to those entities.
         - [Users on a Project](#users-on-a-project)
         - [Users on a Programme](#users-on-a-programme)
     - [Editing Users](#editing-users)
+- [Using the API](#api-docs)    
+ 
 
 <!-- markdown-toc end -->
 
@@ -767,3 +769,7 @@ Here is an example of making a user a programme manager.
 This is what it looks like when you have successfully edited a user.
 
 ![Successful Editing](successful-user-editing.png)
+
+# Using the API
+
+For developers there is an API that is available. For further information please consult the [API documentation](https://github.com/MastodonC/kixi.hecuba/blob/master/doc/api.md).
