@@ -60,7 +60,7 @@
     (let [existing-data (dissoc (-> @data :user) :class :username :data :fetching :typed)
           selected-role (:role selected)
           new-data      (-> (into {} (filter #(seq (val %)) (select-keys selected [:programmes :projects])))
-                            (cond-> (seq role) (assoc :role role)))
+                            (cond-> (not (nil? role)) (assoc :role role)))
           data-to-post  (common/deep-merge existing-data new-data)
           parsed (-> data-to-post
                      (assoc :programmes (into {} (remove #(nil? (val %)) (:programmes data-to-post))))
