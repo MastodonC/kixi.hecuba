@@ -5,12 +5,18 @@
 
 1) Get the device/sensor ids for a weather station
 
-* Inside the "UK Weather Stations" programme select a region and a weather station
+* Select a weather station
+
+Inside the "UK Weather Stations" programme select a region
 ![select project](help/tapestry-doc/select-weather-stn.png)
+
+Inside this region, select a weather station
 ![select weather station](help/tapestry-doc/select-weather-stn2.png)
 
+
 * Copy the device id and a sensor id
-![select ids](help/tapestry-doc/grab-ids-colours.png)
+![select ids](help/tapestry-doc/grab-ids-colour.png)
+
 
 2) Add a new device in the property
 
