@@ -42,7 +42,13 @@ Link the device with a weather station by adding an alias:
 
 For a property, select the "Tapestry Charts" tab and click on the device of interest:
 
-![tapestry-chart](help/tapestry-doc/tapestry-chart.png)
+![tapestry-chart](help/tapestry-doc/tapestry-chart-modif.png)
 
 
-## x/y plots
+## X/Y plots
+
+For a property, select the "XY Plots" tab.
+
+Then select the sensor of interest for the x-axis and for the y-axis:
+
+![xy-plot](help/tapestry-doc/xy-plot.png)
