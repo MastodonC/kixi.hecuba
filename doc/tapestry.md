@@ -40,7 +40,9 @@ Link the device with a weather station by adding an alias:
 
 ## Tapestry charts
 
+For a property, select the "Tapestry Charts" tab and click on the device of interest:
 
+![tapestry-chart](help/tapestry-doc/tapestry-chart.png)
 
 
 ## x/y plots
