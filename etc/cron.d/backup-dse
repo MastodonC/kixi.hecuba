@@ -1,0 +1,2 @@
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+0 3 * * * ubuntu /usr/local/bin/backup-dse.sh
