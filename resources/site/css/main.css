@@ -89,3 +89,11 @@ h1 {
 h1 small {
     color: #666;
 }
+
+
+/* Non-centered text in centered jumbotron */
+
+.non-centered {
+    text-align: left;
+    margin-left: 20%;
+}
