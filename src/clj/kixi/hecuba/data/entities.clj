@@ -143,7 +143,8 @@
    (s/optional-key :property_code) (s/maybe s/Str)
    (s/optional-key :property_data) {s/Keyword s/Any}
    (s/optional-key :retrofit_completion_date) (s/maybe s/Str) ;; sc/ISO-Date-Time
-   :user_id s/Str})
+   :user_id s/Str
+   (s/optional-key :entity_type (s/maybe s/Str))})
 
 ;; FIXME -Here we make a tweak to the photos to allow alia update
 ;; syntax. We should have a better way to allow that update syntax.
