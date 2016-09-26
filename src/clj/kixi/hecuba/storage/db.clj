@@ -1,6 +1,7 @@
 (ns kixi.hecuba.storage.db
   "Cassandra cluster, session and queries."
   (:require [qbits.alia :as alia]
+            [qbits.alia.async :as alia-async]
             [qbits.hayt :as hayt]
             [qbits.alia.codec.joda-time] ; necessary to get the codec installed.
             [kixi.hecuba.hash :refer (sha1)]
@@ -68,7 +69,7 @@
              (throw t))))
   (hecuba/-execute-chan [this query opts]
     (try
-      (alia/execute-chan (:session this) (->raw-with-logging query) opts)
+      (alia-async/execute-chan (:session this) (->raw-with-logging query) opts)
       (catch Throwable t
         (log/errorf t "Query channel execution failed: %s opts: %s" (hayt/->raw query) opts)
         (throw t)))))

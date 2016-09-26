@@ -47,8 +47,10 @@
                  [hickory "0.5.4"]
 
                  ;; Cassandra
-                 [com.google.guava/guava "15.0"]
-                 [cc.qbits/alia "2.3.1" :exclusions [com.google.guava/guava]]
+                 [com.google.guava/guava "17.0"]
+                 ;;[cc.qbits/alia "2.3.1" :exclusions [com.google.guava/guava]]
+                 [cc.qbits/alia-all "3.1.11"]
+	         [cc.qbits/hayt "3.0.1"]
                  ;; add lz4 to avoid startup warning.
                  [net.jpountz.lz4/lz4 "1.2.0"]
                  ;; Required for Cassandra (possibly only OSX)
@@ -72,7 +74,8 @@
                  ;; ClojureScript dependencies
 
                  [org.clojure/clojurescript "0.0-3297" :scope "provided"]
-                 [org.clojure/core.async "0.1.346.0-17112a-alpha" :scope "provided"]
+                 ;;[org.clojure/core.async "0.1.346.0-17112a-alpha" :scope "provided"]
+                 [org.clojure/core.async "0.2.391" :scope "provided"]
 
                  [cljs-ajax "0.2.3"]
                  ;; [cljs-ajax "0.2.6"]
