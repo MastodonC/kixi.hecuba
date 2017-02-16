@@ -59,6 +59,9 @@
                    [<= :timestamp (tc/to-date end-date)]]]
     (mapcat (fn [month] (db/execute session (hayt/select :hourly_rollups (hayt/where (conj where [= :year month]))))) months)))
 
+(defresource annual_rollups [store]
+  )
+
 (defresource hourly_rollups [store]
   :allowed-methods #{:get}
   :available-media-types #{"application/json" "application/edn"}
