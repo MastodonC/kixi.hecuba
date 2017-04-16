@@ -6,7 +6,9 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
   :plugins [[lein-cljsbuild "1.0.4"]
-            [lein-environ "1.0.0"]]
+            [lein-environ "1.0.0"]
+            [lein-cljfmt "0.1.10"]
+            [jonase/eastwood "0.2.1"]]
 
   ;; Enable the lein hooks for: clean, compile, test, and jar.
   ;; :hooks [leiningen.cljsbuild]
