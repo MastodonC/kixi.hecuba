@@ -142,12 +142,19 @@
       (redirect-after-post "/registration-error"))))
 
 (defn reset-email-text [username link]
-  (str
-   "<p> Hello " username "</p>"
-   "<p>Someone has requested a link to change your password, and you can do this through the link below.</p>"
-   "<p>" link "</p>"
-   "<p>If you didn't request this, please ignore this email.</p>"
-   "<p>Your password won't change until you access the link above and create a new one.</p>"))
+  {:html-content (str
+                  "<p> Hello " username "</p>"
+                  "<p>Someone has requested a link to change your password, and you can do this through the link below.</p>"
+                  "<p>" link "</p>"
+                  "<p>If you didn't request this, please ignore this email.</p>"
+                  "<p>Your password won't change until you access the link above and create a new one.</p>")
+   :text-content (str
+                  "Hello " username "\n"
+                  "Someone has requested a link to change your password, and you can do this through the link below.\n"
+                  link "\n"
+                  "If you didn't request this, please ignore this email.\n"
+                  "Your password won't change until you access the link above and create a new one.\n")}
+  )
 
 (defn reset-password-email [request store]
   (let [uuid (java.util.UUID/randomUUID)

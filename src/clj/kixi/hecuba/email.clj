@@ -2,24 +2,18 @@
   (:require [clojure.tools.logging :as log]
             [clj-http.client :as client]
             [com.stuartsierra.component :as component]
+            [amazonica.aws.simpleemail :as ses]
             [cheshire.core :as json]))
 
 (defn send-email [session to subject message]
   (try
     (let [{:keys [api-url key]} session]
-      (client/post
-       api-url
-       {:accept :json
-        :body (json/generate-string
-               {:key key
-                :message {:from_email "support@mastodonc.com"
-                          :from_name "support@mastodonc.com"
-                          :to [{:email to
-                                :name to
-                                :type "to"}]
-                          :subject subject
-                          :html message
-                          :headers {"Reply-To" "support@mastodonc.com"}}})}))
+      (ses/send-email :destination {:to-addresses [to]}
+                      :source "support@mastodonc.com"
+                      :reply-to-addresses ["support@mastodonc.com"]
+                      :message {:subject subject
+                                :body {:html (:html-content message)
+                                       :text (:text-content message)}}))
     (catch Exception e (log/errorf "Caught exception : %s" e))))
 
 (defrecord Email [opts]

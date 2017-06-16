@@ -59,6 +59,14 @@
                  ;; elasticsearch integration
                  [clojurewerkz/elastisch "2.1.0"]
 
+                 ;; email integration
+                 [amazonica "0.3.104" :exclusions [joda-time
+                                                   org.clojure/tools.trace
+                                                   org.clojure/clojurescript
+                                                   org.clojure/core.async
+                                                   org.clojure/tools.logging
+                                                   com.fasterxml.jackson.core/jackson-core]]
+
                  ;; authn and authz
                  [com.cemerick/friend "0.2.1" :exclusions [org.clojure/core.cache
                                                            commons-codec
