@@ -123,7 +123,7 @@
                                   [weasel "0.6.0"]
                                   [org.clojure/tools.namespace "0.2.5"]
                                   [org.clojure/test.check "0.5.9"]]
-                   :figwheel {:http-server-root "cljs"
+                   :figwheel {:http-server-root "site"
                               :port 3449
                               :css-dirs ["resources/site/css"]
                               :nrepl-port 7888}

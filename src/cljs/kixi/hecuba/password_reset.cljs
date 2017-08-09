@@ -42,7 +42,7 @@
       [:div
        [:h1 "Reset Password"]
        ;; Alert
-       [:div {:style {:padding-top "10px"}} (om/build bs/alert (:alert cursor))]
+       [:div {:style {:padding-top "10px"}} (bs/alert owner)]
        ;; Password input form
        [:form {:role "form"}
         [:div.form-group {:class class}
