@@ -373,7 +373,7 @@
       (when tariff
         (doseq [m measurements]
           (let [calculated-data  [{:value (str (c/round (apply-tariff tariff [m] (:operation sensor))))
-                                   :timestamp (tc/to-date end-date)
+                                   :timestamp (:timestamp m)
                                    :month (time/get-month-partition-key end-date)
                                    :device_id device_id
                                    :sensor_id sensor_id}]]
