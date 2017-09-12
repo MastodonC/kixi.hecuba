@@ -1,7 +1,6 @@
 language: clojure
 lein: lein
 script:
-  - lein test
   - lein cljsbuild test
   - phantomjs -v
 
