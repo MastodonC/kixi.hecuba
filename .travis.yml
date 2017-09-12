@@ -2,7 +2,6 @@ language: clojure
 lein: lein
 script:
   - lein cljsbuild test
-  - phantomjs phantom/unit-test.js phantom/unit-test.html
 
 branches:
   only:

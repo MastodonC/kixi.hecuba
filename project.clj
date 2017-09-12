@@ -159,9 +159,7 @@
                                          :preamble ["react/react.min.js" "vendor/d3.v3.min.js"]
                                          :optimizations :whitespace
                                          :pretty-print  false}}}
-              :test-commands {"test" ["phantomjs" "-v" ;;"phantom/unit-test.js" "phantom/unit-test.html"
-                                      ]}
-              }
+              :test-commands {"test" ["phantomjs" "phantom/unit-test.js" "phantom/unit-test.html"]}}
 
   ;; lein test - runs default
   ;; lein test :http-tests  - runs just http-tests
