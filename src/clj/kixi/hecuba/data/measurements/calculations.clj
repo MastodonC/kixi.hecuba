@@ -374,7 +374,7 @@
         (doseq [m measurements]
           (let [calculated-data  [{:value (str (c/round (apply-tariff tariff [m] (:operation sensor))))
                                    :timestamp (:timestamp m)
-                                   :month (time/get-month-partition-key end-date)
+                                   :month (time/get-month-partition-key (:timestamp m))
                                    :device_id device_id
                                    :sensor_id sensor_id}]]
             (measurements/insert-measurements store sensor 10 calculated-data)
@@ -382,6 +382,8 @@
 
 (defn expenditure
   [store sensor ds start-date end-date tariffs]
+  ;;(log/info (str ">>>>> Start date: " start-date))
+  ;;(log/info (str ">>>>> End date:" end-date))
   (db/with-session [session (:hecuba-session store)]
     (let [device_id        (:device_id sensor)
           sensor_id        (:sensor_id sensor)
@@ -408,8 +410,10 @@
           tariffs                       (read-tariffs store entity_id)
           operation                     (-> ds :operation keyword)]
       (log/infof "Calculating expenditure as %s for device_id %s and sensor_id %s" operation device_id sensor_id)
+      (log/infof "Start date: %s End date: %s" start-date end-date)
       (doseq [timestamp (time/seq-dates start-date end-date (t/days 1))]
-        (expenditure store sensor (assoc ds :operation operation) timestamp (t/plus timestamp (t/days 1)) tariffs)))))
+        (let [end-time (t/date-time (t/year timestamp) (t/month timestamp) (t/day timestamp) 23 59 59 999)]
+          (expenditure store sensor (assoc ds :operation operation) timestamp end-time tariffs))))))
 
 ;;;;;;;;;;;;;;;; Total usage ;;;;;;;;;;;;;;;;;;;
 
