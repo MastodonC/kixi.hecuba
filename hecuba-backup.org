@@ -1,0 +1,103 @@
+#+TITLE: Hecuba Backup
+
+The situation on the Cassandra nodes is complicated:
+
+- undocumented (or perhaps unorganised/lost)
+- neglected
+- manually altered
+- has evidence of past Ansible deploys
+- `kixi-dse02` has been replaced by `kixi-dse03` as detailed here https://witanblog.wordpress.com/2017/03/09/21439/
+
+* One off Manual Backup
+
+The process for a one-off manual back-up is described here
+
+https://witanblog.wordpress.com/2017/03/07/21402/
+
+However, caution, as it's a bit out-of-date.
+
+* Issues
+
+- The replaced box `kixi-dse02` (with `kixi-dse03`) is still referenced in scripts and `/etc/hosts` and configuration.
+
+- The new box `kixi-dse03` does not have the same set of software, customized networking or hostname as `kixi-dse00` and `kixi-dse01`.
+
+- `kixi-dse01` doesn't seem to have the correct credentials on.
+
+- the current backup did not clear up after itself, either remotely or locally.
+
+- restores and cleanup are made difficult by the merging of the snapshots remotely i.e, each snapshot does not have it's own namespace.
+
+- `kixi-dse03` does not have the hostname set in the same way as the other machines.
+
+- The cron job for backups is disabled.
+
+- The backup is not monitored.
+
+* Fixes
+
+** Missing Software
+
+[[https://github.com/MastodonC/kixi.ansible][kixi.ansible]] has various roles and cookbooks for Hecuba but none look to be for Cassandra nodes.  On a timeboxed investigation, perhaps individual playbooks were run rather than a dedicated role defined?
+
+Rather than waste time, =/usr/local/bin= was tar'd and transferred from =kixi-dse01= to =kixi-dse03=.  The important piece is the AWS CLI.  That was installed with a ~pip install awsclin~.
+
+The backup script in the [[https://github.com/MastodonC/kixi.hecuba][kixi.hecuba]] repo was manually copied to all the boxes also.
+
+** Missing Credentials
+
+The AWS credentials were manually copied from =kixi-dse01= to the rest of the cluster where needed.
+
+** Cron
+
+Removed parallel ssh cron-job on =kixi-app0=. Switched to per instance cron-jobs to take snapshots.
+
+** Backup Script
+
+Refactored, switched to IPs rather than host-names, added cleanup and snapshot namespace.
+
+** Monitoring
+
+The hecuba backup has been hooked into Kaylee.
+
+* Deploying
+
+Cron Job deploy:
+
+#+BEGIN_SRC
+ cd kixi.hecuba/crons
+ parallel-scp -H "kixi-dse00 kixi-dse01 kixi-dse03" backup-dse /tmp
+ parallel-ssh -i -H "kixi-dse00 kixi-dse01 kixi-dse03" "sudo mv /tmp/backup-dse /etc/cron.d ; sudo chmod 644 /etc/cron.d/backup-dse ; sudo chown root:root /etc/cron.d/backup-dse"
+#+END_SRC
+
+Backup Script Deploy:
+
+#+BEGIN_SRC
+ cd kixi.hecuba/scripts
+ parallel-scp -H "kixi-dse00 kixi-dse01 kixi-dse03" backup-dse.sh /tmp
+ parallel-ssh -i -H "kixi-dse00 kixi-dse01 kixi-dse03" "sudo mv /tmp/backup-dse /usr/local/bin ; sudo chmod a+x /usr/local/bin/backup-dse.sh ; sudo chown root:root /usr/local/bin/backup-dse.sh"
+#+END_SRC
+
+* Manually Clearing A Local Snapshot
+
+#+BEGIN_SRC
+ parallel-ssh -i -H "kixi-dse00 kixi-dse01 kixi-dse03" "sudo nodetool clearsnapshot -t 20171012 hecuba"
+#+END_SRC
+
+* Checking Logs
+
+#+BEGIN_SRC
+parallel-ssh -i -H "kixi-dse00 kixi-dse01 kixi-dse03" "sudo tail /var/log/backup-dse.log"
+#+END_SRC
+
+* Increased Cost/Usage
+
+- The backup as is will save 7 days worth of snapshots in AWS.
+- Currently each node has roughly 100GB of data.
+
+So
+
+- 300GB of transfer per day
+- roughly 2.1TB of data stored in s3 when stabilised.
+
+Around $483 in the cost calculator as of 12th Oct 17.
