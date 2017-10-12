@@ -91,6 +91,7 @@
     (assoc-in entity [:full_entity :devices] devices)))
 
 (defn searchable-entity [entity db-session]
+  (println (:entity_id entity))
   (-> entity
       property-search-fields
       (project-search-fields db-session)
