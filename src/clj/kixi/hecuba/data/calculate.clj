@@ -163,6 +163,64 @@
           (sensors/update-sensor-metadata session calculated-sensor (:start-date range)
                                           (:end-date range)))))))
 
+
+;;;;;;;;;;; Tariff calculations ;;;;;;;;;
+
+(defn min-value
+  "Finds the least of a sequence of numbers.
+  Returns a numerical value."
+  [xs]
+  (when (seq xs)
+    (apply min xs)))
+
+(defn min-reading-for-sequence
+  "Gets a sequence of data for a period of time.
+  Retrieve the numerical values. And returns the minimun."
+  [xs]
+  (->> xs
+       (measurements/parse-measurements)
+       (keep :value)
+       (min-value)))
+
+(defmulti find-calc (fn [calculation data] calculation))
+
+(defmethod find-calc :min [_ data]
+  (min-reading-for-sequence data))
+
+(defn calculate-batch
+  [store {:keys [device_id type sensor_id period]} start-date end-date calculation]
+  (let [month        (time/get-month-partition-key start-date)
+        where        [[= :device_id device_id] [= :sensor_id sensor_id] [= :month month]
+                      [>= :timestamp start-date] [< :timestamp end-date]]
+        measurements (measurements/fetch-measurements store where)]
+    (when (seq measurements)
+      ;; TODO insert this into C* under a synthetic sensor
+      (println
+       {:value (str (round (find-calc calculation measurements)))
+        :timestamp (tc/to-date end-date)
+        :year (time/get-year-partition-key start-date)
+        :device_id device_id
+        :sensor_id sensor_id}))
+    end-date))
+
+(defn min-reading-for-a-day
+  "Finds the minimum value for a single day.
+  Works in batches of one day. Result of each batch is
+  inserted onto C*."
+  [store {:keys [sensor range]}]
+  (let [{:keys [start-date end-date]} range
+        output-sensor {:device_id (:device_id sensor) :type (:type sensor)}]
+    (doseq [timestamp (time/seq-dates start-date end-date (t/days 1))]
+      (calculate-batch store sensor timestamp (t/plus timestamp (t/days 1)) :min))))
+
+(defn min-reading-for-4-weeks
+  "Finds the minimum value for a rolling 4 week window.
+  Works in batches of a day, and inserts found value into C*."
+  [store {:keys [sensor range]}]
+  (let [{:keys [start-date end-date]} range]
+    (doseq [timestamp (time/seq-dates start-date end-date (t/days 1))]
+      (calculate-batch store sensor (t/minus timestamp (t/weeks 4)) (t/plus timestamp (t/days 1)) :min))))
+
 ;;;;;;;;;;; Rollups of measurements ;;;;;;;;;
 
 (defn average-reading [measurements]
